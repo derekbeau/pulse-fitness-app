@@ -16,12 +16,12 @@ The milestones are ordered dependencies. Each milestone is a separate Codex goal
 
 ## Milestone 1: Canonical weight foundation
 
-- [ ] Implement the migration preflight and explicit per-user legacy-unit map.
-- [ ] Add canonical `weightKg` and `unitAtEntry` storage.
-- [ ] Keep the legacy compatibility column fixed in pounds.
-- [ ] Migrate every reader to canonical kg plus response-boundary display conversion.
-- [ ] Cover weight history, dashboard, habits/resolvers, agent context, exports, and preference changes.
-- [ ] Add old-database, fresh-database, lb-user, kg-user, mixed-user, ambiguous-map, and cross-unit-write tests.
+- [x] Implement the migration preflight and explicit per-user legacy-unit map.
+- [x] Add canonical `weightKg` and `unitAtEntry` storage.
+- [x] Keep the legacy compatibility column fixed in pounds.
+- [x] Migrate every reader to canonical kg plus response-boundary display conversion.
+- [x] Cover weight history, dashboard, habits/resolvers, agent context, exports, and preference changes.
+- [x] Add old-database, fresh-database, lb-user, kg-user, mixed-user, ambiguous-map, and cross-unit-write tests.
 
 **Codex gate:** no active application reader consumes ambiguous legacy weight values; migration/data-safety self-review, targeted tests, built-in-browser smoke of every affected weight surface, pushed commit, then stop at `AWAITING VECTOR GATE 1 REVIEW`.
 

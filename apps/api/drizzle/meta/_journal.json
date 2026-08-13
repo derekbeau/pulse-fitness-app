@@ -288,6 +288,13 @@
       "when": 1779305432000,
       "tag": "0040_mcgill_curl_up_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1786587649432,
+      "tag": "0041_canonical_body_weight",
+      "breakpoints": true
     }
   ]
 }

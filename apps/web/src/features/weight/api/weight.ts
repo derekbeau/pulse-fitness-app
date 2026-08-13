@@ -231,7 +231,7 @@ const applyWeightEntryToDashboardSnapshot = (
     ...snapshot,
     weight: {
       date: nextEntry.date,
-      unit: 'lb' as const,
+      unit: nextEntry.unit,
       value: nextEntry.weight,
       trendValue: snapshot.weight?.trendValue ?? null,
     },
@@ -259,6 +259,7 @@ const applyWeightEntryToDashboardTrend = (
   const nextPoint = {
     date: nextEntry.date,
     value: nextEntry.weight,
+    unit: nextEntry.unit,
   };
 
   if (existingIndex === -1) {
@@ -374,6 +375,7 @@ export const useLogWeight = () => {
         id: `optimistic-weight-${variables.date}`,
         date: variables.date,
         weight: variables.weight,
+        unit: variables.unit ?? 'lbs',
         notes: variables.notes ?? null,
         createdAt: Date.now(),
         updatedAt: Date.now(),

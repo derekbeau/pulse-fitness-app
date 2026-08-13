@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { dateSchema } from './common.js';
+import { weightUnitSchema } from './users.js';
 
 const macroValueSchema = z.number().nonnegative().finite();
 const percentageSchema = z.number().min(0).max(100).finite();
@@ -44,7 +45,7 @@ export const dashboardWeightSnapshotSchema = z.object({
   value: z.number().positive().finite(),
   trendValue: z.number().positive().finite().nullable(),
   date: dateSchema,
-  unit: z.literal('lb'),
+  unit: weightUnitSchema,
 });
 
 export const dashboardMacroTotalsSchema = z.object({
@@ -84,6 +85,7 @@ export const dashboardSnapshotSchema = z.object({
 export const dashboardWeightTrendPointSchema = z.object({
   date: dateSchema,
   value: z.number().positive().finite(),
+  unit: weightUnitSchema,
 });
 
 export const dashboardMacrosTrendPointSchema = z.object({

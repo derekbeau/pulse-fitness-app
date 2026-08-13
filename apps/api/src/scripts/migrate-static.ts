@@ -4,6 +4,8 @@ import { basename, join, relative, resolve } from 'node:path';
 
 import { and, eq, isNull, lt, max, or } from 'drizzle-orm';
 
+import { convertWeightToKg } from '@pulse/shared';
+
 import {
   bodyWeight,
   exercises,
@@ -2504,17 +2506,22 @@ export const migrateDailyLogsAndBodyWeight = async ({
         }
 
         if (weightForDay !== null) {
+          const weightKg = convertWeightToKg(weightForDay, 'lbs');
           tx.insert(bodyWeight)
             .values({
               userId,
               date,
               weight: weightForDay,
+              weightKg,
+              unitAtEntry: 'lbs',
               notes: null,
             })
             .onConflictDoUpdate({
               target: [bodyWeight.userId, bodyWeight.date],
               set: {
                 weight: weightForDay,
+                weightKg,
+                unitAtEntry: 'lbs',
                 notes: null,
                 updatedAt: Date.now(),
               },

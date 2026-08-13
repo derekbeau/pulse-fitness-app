@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Verification Report
 
-**Status:** VECTOR GATE 0 APPROVED<br>
+**Status:** AWAITING VECTOR GATE 1 REVIEW<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
-**Reviewer:** Codex self-review complete; Vector independent repair and acceptance complete<br>
-**Last verified state:** Gate 0 repair based on `76dcbdd`; final commit is the PR #100 head
+**Reviewer:** Codex Milestone 1 self-review complete; awaiting Vector independent review<br>
+**Last verified state:** Milestone 1 commit at the PR #100 head
 
 This report must contain observed results, not intended commands or agent self-reports.
 
@@ -77,9 +77,64 @@ Developer-console inspection returned zero warnings/errors on the clean rerun. V
 - Confirmed production Docker services, volume, database, deployment, and user records were not changed.
 - No unresolved Codex-found blocking issues remain.
 
-### Canonical weight foundation
+### Milestone 1: canonical weight foundation
 
-Pending.
+Verdict: `AWAITING VECTOR GATE 1 REVIEW`
+
+#### Migration preflight and storage invariants
+
+- Migration 0041 adds required `weight_kg` and `unit_at_entry` columns and rebuilds the compatibility `weight` column as pounds. A database constraint enforces `abs(weight - weight_kg / 0.45359237) < 0.000001`; canonical weight is constrained to 25-350 kg and provenance to `lbs | kg`.
+- Startup inventories legacy rows before Drizzle runs. Non-empty legacy databases require a reviewed JSON map with an exact assignment for every affected user. Missing, partial, extra-user, invalid-unit, out-of-range, and partially canonicalized states fail before the migration mutates the table.
+- The SQL migration has an independent temporary-table guard, so running it without a populated preflight map aborts rather than dropping or ambiguously copying rows.
+- The tracked `pnpm dev:gate0 --review-weight-migration=lbs` workflow created the ignored mode-0600 map only after inventory validation. Observed aggregate: 2 affected users, 20 legacy rows, all explicitly mapped to pounds; both current preferences happened to be pounds but were not used as migration evidence. Map SHA-256: `0e6bc85344e6843815f4f0a190eeb6f986ed0d9b20ff7ebbce899282dfbd9d12`.
+- Post-migration isolated database: `PRAGMA quick_check = ok`; 22 rows across 2 users after browser QA; 0 null canonical weights; 0 invalid provenance values; maximum compatibility delta `0.0`; 21 pounds-origin and 1 kilogram-origin row; migration journal count 43.
+- The read-only copied seed remained unchanged at SHA-256 `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`. Production containers, volume, database, and users were not touched.
+
+#### Reader and response-boundary audit
+
+- Active application readers use `weightKg`: weight store/routes, dashboard snapshot and trend/EWMA, agent context, referential habit resolver, and static import. A source audit found no active application read of the compatibility column; remaining direct `body_weight.weight` references are migration inventory and compatibility assertions.
+- Weight requests accept explicit `lbs` or `kg`; omitted units resolve to the current user preference. Every write stores canonical kilograms, pounds compatibility, and the write unit. Responses carry an explicit current display unit and convert only at the boundary.
+- Preference changes do not rewrite history. Display-sensitive weight/dashboard caches are removed, and the unit-dependent weight-trend response revalidates instead of serving an hour-old representation.
+- The repository has no weight export endpoint or export surface; no new API was invented. Shared API schemas, OpenAPI generation inputs, agent context, and the documented weight contract now expose the unit explicitly.
+
+#### Automated coverage
+
+- Targeted Milestone 1 suite passed: API 129/129, shared 39/39, web 70/70, and Gate 0 launcher 3/3 (241 total). Coverage includes old pounds, old kilograms, mixed users, current-preference mismatch, missing/partial/extra ambiguous maps, SQL-without-preflight abort, empty legacy, already-canonical, and fresh complete migration-chain cases.
+- Store/route coverage exercises pounds writes, kilograms writes, omitted-unit preference behavior, cross-unit patches, exact compatibility pounds, canonical range rejection, response conversion, and user scoping.
+- Reader regression coverage includes dashboard storage/routes, server-side kg EWMA, agent context, referential habits, static import, schemas, middleware enrichment, web weight history, dashboard snapshot, compact/detailed trends, and preference cache invalidation.
+
+Final uncached gates, all exit 0:
+
+| Command                           | Observed result                                                                                                      |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `TURBO_FORCE=true pnpm lint`      | 3/3 tasks, 0 cached, 0 errors; 4 pre-existing Fast Refresh warnings                                                  |
+| `TURBO_FORCE=true pnpm typecheck` | 3/3 tasks, 0 cached                                                                                                  |
+| `TURBO_FORCE=true pnpm test`      | Gate 0 isolation 3/3; 6/6 Turbo tasks, 0 cached; shared 334, API 598, web 947 package tests (1,879 across 245 files) |
+| `TURBO_FORCE=true pnpm build`     | 3/3 tasks, 0 cached; API/shared TypeScript and Vite production build passed                                          |
+| `git diff --check`                | Pass                                                                                                                 |
+
+#### Built-in-browser acceptance
+
+Only the tracked `pnpm dev:gate0` isolated environment was used (web 5274, API 3102, writable ignored database). Observed scenarios:
+
+| Surface/flow                     | Observed result                                                                                                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard in pounds              | Migrated history and a new 179.8 lb write rendered correctly                                                                                                              |
+| Settings lbs -> kg               | Current preference persisted; returning dashboard data refreshed rather than relabeling cached pounds                                                                     |
+| Dashboard in kilograms           | Snapshot 81.6 kg, logged card 81.8 kg, compact trend 81.6 kg, and detailed trend 81.6 kg agreed                                                                           |
+| Weight history                   | Existing pound-origin rows converted to kg; a new 81.7 kg entry persisted and rendered                                                                                    |
+| Cross-unit database verification | Pound write: 81.55590813 kg canonical / 179.8 lb compatibility / `lbs`; kg write: 81.7 kg canonical / 180.11766821 lb compatibility / `kg`; both had conversion delta 0.0 |
+| Habits                           | Primary and history views loaded normally after canonical resolver migration                                                                                              |
+
+Browser QA found three presentation/cache defects and fixed them before the final rerun: a hard-coded pound label on the dashboard log card, a compact trend fallback that could relabel stale values, and HTTP/browser caching that preserved the old unit after a preference change. In-app developer logs contained zero error entries. The API request log for the clean affected-surface run contained only successful 200/201 responses and no failed requests.
+
+#### Codex self-review
+
+- Reviewed the entire tracked diff against the specification and every Milestone 1 implementation-plan checkbox.
+- Removed a temporary test type-suppression and converted route fixtures to the canonical store contract.
+- Confirmed migration map, isolated databases, credentials, generated build output, and production data are ignored and absent from the diff.
+- Confirmed no Milestone 2 nutrition-completeness/provenance schema, API, or UI work was introduced.
+- `git diff --check` passed; no unresolved Codex-found blocking issue remains.
 
 ### Nutrition completeness and target provenance
 
@@ -105,13 +160,13 @@ Pending.
 
 Record exact commands, exit codes, test counts, duration, and commit SHA.
 
-- [ ] Formatting
-- [ ] Lint
-- [ ] Typecheck
-- [ ] Full tests
-- [ ] Production build
-- [ ] Fresh migration chain
-- [ ] Legacy migration fixture
+- [x] Formatting
+- [x] Lint
+- [x] Typecheck
+- [x] Full tests
+- [x] Production build
+- [x] Fresh migration chain
+- [x] Legacy migration fixture
 - [ ] Real SQLite concurrency tests
 - [ ] Playwright/E2E suite
 
@@ -171,7 +226,7 @@ After Codex completes and stops, Hermes/Vector must independently compare the im
 
 ## Final verdict
 
-`VECTOR GATE 0 APPROVED`
+`AWAITING VECTOR GATE 1 REVIEW`
 
 Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 

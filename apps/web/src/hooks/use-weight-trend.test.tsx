@@ -29,8 +29,8 @@ describe('useWeightTrend', () => {
   it('loads weight trend for an explicit date range', async () => {
     mockFetch.mockResolvedValueOnce(
       createJsonResponse([
-        { date: '2026-03-04', value: 181.6 },
-        { date: '2026-03-05', value: 181.2 },
+        { date: '2026-03-04', value: 181.6, unit: 'lbs' },
+        { date: '2026-03-05', value: 181.2, unit: 'lbs' },
       ]),
     );
 
@@ -51,8 +51,8 @@ describe('useWeightTrend', () => {
       expect.objectContaining({ method: 'GET' }),
     );
     expect(result.current.data).toEqual([
-      { date: '2026-03-04', value: 181.6 },
-      { date: '2026-03-05', value: 181.2 },
+      { date: '2026-03-04', value: 181.6, unit: 'lbs' },
+      { date: '2026-03-05', value: 181.2, unit: 'lbs' },
     ]);
   });
 
@@ -62,8 +62,8 @@ describe('useWeightTrend', () => {
 
     mockFetch.mockResolvedValueOnce(
       createJsonResponse([
-        { date: '2026-02-09', value: 182.1 },
-        { date: '2026-03-10', value: 181.0 },
+        { date: '2026-02-09', value: 182.1, unit: 'lbs' },
+        { date: '2026-03-10', value: 181.0, unit: 'lbs' },
       ]),
     );
 
@@ -91,9 +91,12 @@ describe('useWeightTrend', () => {
       mutations: { retry: false },
     });
 
-    const { result } = renderHook(() => useWeightTrend('2026-03-04', '2026-03-05', { enabled: false }), {
-      wrapper,
-    });
+    const { result } = renderHook(
+      () => useWeightTrend('2026-03-04', '2026-03-05', { enabled: false }),
+      {
+        wrapper,
+      },
+    );
 
     await waitFor(() => {
       expect(result.current.fetchStatus).toBe('idle');

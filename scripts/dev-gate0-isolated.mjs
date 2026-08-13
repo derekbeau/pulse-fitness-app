@@ -12,15 +12,18 @@ import { spawn } from 'node:child_process';
 export const GATE0_API_PORT = 3102;
 export const GATE0_WEB_PORT = 5274;
 export const GATE0_DATABASE_RELATIVE_PATH = 'apps/api/data/pulse-tdee-dev.db';
+export const GATE0_WEIGHT_MAP_RELATIVE_PATH = 'apps/api/data/body-weight-legacy-unit-map.json';
 
 export const resolveGate0Config = (repoRoot) => {
   const databasePath = resolve(repoRoot, GATE0_DATABASE_RELATIVE_PATH);
+  const weightMapPath = resolve(repoRoot, GATE0_WEIGHT_MAP_RELATIVE_PATH);
 
   return {
     apiPort: GATE0_API_PORT,
     databasePath,
     proxyPort: GATE0_API_PORT,
     webPort: GATE0_WEB_PORT,
+    weightMapPath,
   };
 };
 
@@ -58,6 +61,7 @@ export const validateGate0Database = (repoRoot, databaseUrl) => {
 export const createGate0Environment = (baseEnvironment, config) => ({
   ...baseEnvironment,
   DATABASE_URL: config.databasePath,
+  BODY_WEIGHT_LEGACY_UNIT_MAP_PATH: config.weightMapPath,
   PORT: String(config.apiPort),
   VITE_API_PORT: String(config.proxyPort),
   VITE_API_PROXY_TARGET: `http://127.0.0.1:${config.proxyPort}`,
@@ -76,6 +80,39 @@ const assertPortAvailable = (port) =>
     });
   });
 
+const runWeightMigrationReview = (repoRoot, environment, unit) =>
+  new Promise((resolvePromise, reject) => {
+    const child = spawn(
+      'pnpm',
+      [
+        '--filter',
+        '@pulse/api',
+        'exec',
+        'tsx',
+        'src/scripts/review-body-weight-migration.ts',
+        '--assign-all',
+        unit,
+      ],
+      {
+        cwd: repoRoot,
+        env: environment,
+        stdio: 'inherit',
+      },
+    );
+
+    child.once('error', reject);
+    child.once('exit', (code, signal) => {
+      if (code === 0) {
+        resolvePromise();
+        return;
+      }
+
+      reject(
+        new Error(`Gate 0 weight migration review failed (${signal ?? `code ${code ?? 1}`}).`),
+      );
+    });
+  });
+
 const start = async () => {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
   const repoRoot = resolve(scriptDir, '..');
@@ -83,18 +120,32 @@ const start = async () => {
 
   validateGate0Database(repoRoot, config.databasePath);
   await access(config.databasePath, constants.R_OK | constants.W_OK);
+  const environment = createGate0Environment(process.env, config);
+
+  const reviewArgument = process.argv.find((argument) =>
+    argument.startsWith('--review-weight-migration='),
+  );
+  if (reviewArgument) {
+    const unit = reviewArgument.split('=', 2)[1];
+    if (unit !== 'lbs' && unit !== 'kg') {
+      throw new Error('Gate 0 weight migration review unit must be lbs or kg.');
+    }
+
+    await runWeightMigrationReview(repoRoot, environment, unit);
+    return;
+  }
 
   if (process.argv.includes('--check')) {
     console.log(`Gate 0 database: ${GATE0_DATABASE_RELATIVE_PATH}`);
     console.log(
       `Gate 0 ports: API ${config.apiPort}, web ${config.webPort}, proxy ${config.proxyPort}`,
     );
+    console.log(`Gate 0 weight map: ${GATE0_WEIGHT_MAP_RELATIVE_PATH}`);
     return;
   }
 
   await Promise.all([assertPortAvailable(config.apiPort), assertPortAvailable(config.webPort)]);
 
-  const environment = createGate0Environment(process.env, config);
   const children = [
     spawn('pnpm', ['--filter', '@pulse/api', 'dev'], {
       cwd: repoRoot,

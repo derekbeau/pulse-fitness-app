@@ -14,6 +14,7 @@ import { afterEach, describe, it } from 'node:test';
 
 import {
   GATE0_DATABASE_RELATIVE_PATH,
+  GATE0_WEIGHT_MAP_RELATIVE_PATH,
   createGate0Environment,
   resolveGate0Config,
   validateGate0Database,
@@ -50,6 +51,10 @@ describe('Gate 0 isolated development startup', () => {
 
     assert.equal(validateGate0Database(repoRoot, config.databasePath), realpathSync(databasePath));
     assert.equal(environment.DATABASE_URL, databasePath);
+    assert.equal(
+      environment.BODY_WEIGHT_LEGACY_UNIT_MAP_PATH,
+      resolve(repoRoot, GATE0_WEIGHT_MAP_RELATIVE_PATH),
+    );
     assert.equal(environment.PORT, '3102');
     assert.equal(environment.VITE_API_PORT, '3102');
     assert.equal(environment.VITE_API_PROXY_TARGET, 'http://127.0.0.1:3102');

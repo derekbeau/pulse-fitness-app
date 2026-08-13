@@ -55,7 +55,7 @@ const formatWeightValue = (snapshot: DashboardSnapshot | undefined) => {
   }
 
   const displayValue = snapshot.weight.trendValue ?? snapshot.weight.value;
-  return formatWeight(displayValue, 'lbs');
+  return formatWeight(displayValue, snapshot.weight.unit);
 };
 
 const formatWorkoutStatus = (status: DashboardWorkoutSnapshot['status']) => {

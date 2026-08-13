@@ -211,6 +211,11 @@ vi.mock('../middleware/store.js', () => ({
 }));
 
 vi.mock('../routes/weight/store.js', () => ({
+  getBodyWeightDisplayUnit: vi.fn(async () => 'lbs'),
+  toBodyWeightEntry: vi.fn((entry: Omit<StoredWeightEntry, 'userId'>, unit: 'lbs' | 'kg') => ({
+    ...entry,
+    unit,
+  })),
   findBodyWeightEntryByDate: vi.fn(async (userId: string, date: string) => {
     const entry = testState.weightEntries.get(getWeightEntryKey(userId, date)) ?? null;
 

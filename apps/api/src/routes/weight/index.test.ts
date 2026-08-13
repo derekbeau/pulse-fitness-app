@@ -9,22 +9,26 @@ import {
   deleteBodyWeightEntryById,
   findBodyWeightEntryById,
   findBodyWeightEntryByDate,
+  getBodyWeightDisplayUnit,
   getLatestBodyWeightEntry,
   listBodyWeightEntries,
   listBodyWeightEntriesPaginated,
   patchBodyWeightEntryById,
   upsertBodyWeightEntry,
+  toBodyWeightEntry,
 } from './store.js';
 
 vi.mock('./store.js', () => ({
   deleteBodyWeightEntryById: vi.fn(),
   findBodyWeightEntryById: vi.fn(),
   findBodyWeightEntryByDate: vi.fn(),
+  getBodyWeightDisplayUnit: vi.fn(),
   getLatestBodyWeightEntry: vi.fn(),
   listBodyWeightEntries: vi.fn(),
   listBodyWeightEntriesPaginated: vi.fn(),
   patchBodyWeightEntryById: vi.fn(),
   upsertBodyWeightEntry: vi.fn(),
+  toBodyWeightEntry: vi.fn(),
 }));
 
 vi.mock('../../middleware/store.js', () => ({
@@ -58,11 +62,23 @@ describe('weight routes', () => {
     vi.mocked(deleteBodyWeightEntryById).mockReset();
     vi.mocked(findBodyWeightEntryById).mockReset();
     vi.mocked(findBodyWeightEntryByDate).mockReset();
+    vi.mocked(getBodyWeightDisplayUnit).mockReset();
     vi.mocked(getLatestBodyWeightEntry).mockReset();
     vi.mocked(listBodyWeightEntries).mockReset();
     vi.mocked(listBodyWeightEntriesPaginated).mockReset();
     vi.mocked(patchBodyWeightEntryById).mockReset();
     vi.mocked(upsertBodyWeightEntry).mockReset();
+    vi.mocked(toBodyWeightEntry).mockReset();
+    vi.mocked(getBodyWeightDisplayUnit).mockResolvedValue('lbs');
+    vi.mocked(toBodyWeightEntry).mockImplementation((entry, unit) => ({
+      id: entry.id,
+      date: entry.date,
+      weight: entry.weightKg,
+      unit,
+      notes: entry.notes,
+      createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
+    }));
     vi.mocked(findAgentTokenByHash).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
@@ -78,7 +94,8 @@ describe('weight routes', () => {
     vi.mocked(upsertBodyWeightEntry).mockResolvedValue({
       id: 'entry-1',
       date: '2026-03-07',
-      weight: 181.5,
+      weightKg: 181.5,
+      unitAtEntry: 'lbs',
       notes: 'Fasted',
       createdAt: 1_700_000_000_000,
       updatedAt: 1_700_000_000_000,
@@ -88,7 +105,10 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/weight',
@@ -106,17 +126,22 @@ describe('weight routes', () => {
           id: 'entry-1',
           date: '2026-03-07',
           weight: 181.5,
+          unit: 'lbs',
           notes: 'Fasted',
           createdAt: 1_700_000_000_000,
           updatedAt: 1_700_000_000_000,
         },
       });
       expect(vi.mocked(findBodyWeightEntryByDate)).toHaveBeenCalledWith('user-1', '2026-03-07');
-      expect(vi.mocked(upsertBodyWeightEntry)).toHaveBeenCalledWith('user-1', {
-        date: '2026-03-07',
-        weight: 181.5,
-        notes: 'Fasted',
-      });
+      expect(vi.mocked(upsertBodyWeightEntry)).toHaveBeenCalledWith(
+        'user-1',
+        {
+          date: '2026-03-07',
+          weight: 181.5,
+          notes: 'Fasted',
+        },
+        'lbs',
+      );
     } finally {
       await app.close();
     }
@@ -126,7 +151,8 @@ describe('weight routes', () => {
     vi.mocked(findBodyWeightEntryByDate).mockResolvedValue({
       id: 'entry-1',
       date: '2026-03-07',
-      weight: 182,
+      weightKg: 182,
+      unitAtEntry: 'lbs',
       notes: null,
       createdAt: 1_700_000_000_000,
       updatedAt: 1_700_000_000_000,
@@ -134,7 +160,8 @@ describe('weight routes', () => {
     vi.mocked(upsertBodyWeightEntry).mockResolvedValue({
       id: 'entry-1',
       date: '2026-03-07',
-      weight: 181.5,
+      weightKg: 181.5,
+      unitAtEntry: 'lbs',
       notes: 'Fasted',
       createdAt: 1_700_000_000_000,
       updatedAt: 1_700_000_100_000,
@@ -144,7 +171,10 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/weight',
@@ -152,6 +182,7 @@ describe('weight routes', () => {
         payload: {
           date: '2026-03-07',
           weight: 181.5,
+          unit: 'lbs',
           notes: 'Fasted',
         },
       });
@@ -171,7 +202,8 @@ describe('weight routes', () => {
     vi.mocked(upsertBodyWeightEntry).mockResolvedValue({
       id: 'entry-1',
       date: '2026-03-07',
-      weight: 181.5,
+      weightKg: 181.5,
+      unitAtEntry: 'lbs',
       notes: 'Fasted',
       createdAt: 1_700_000_000_000,
       updatedAt: 1_700_000_000_000,
@@ -200,6 +232,7 @@ describe('weight routes', () => {
           id: 'entry-1',
           date: '2026-03-07',
           weight: 181.5,
+          unit: 'lbs',
           notes: 'Fasted',
           createdAt: 1_700_000_000_000,
           updatedAt: 1_700_000_000_000,
@@ -229,7 +262,10 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/weight',
@@ -257,7 +293,8 @@ describe('weight routes', () => {
       {
         id: 'entry-1',
         date: '2026-03-01',
-        weight: 183.2,
+        weightKg: 183.2,
+        unitAtEntry: 'lbs',
         notes: null,
         createdAt: 1_700_000_000_000,
         updatedAt: 1_700_000_000_000,
@@ -265,7 +302,8 @@ describe('weight routes', () => {
       {
         id: 'entry-2',
         date: '2026-03-03',
-        weight: 182.7,
+        weightKg: 182.7,
+        unitAtEntry: 'lbs',
         notes: 'After cardio',
         createdAt: 1_700_000_100_000,
         updatedAt: 1_700_000_100_000,
@@ -292,6 +330,7 @@ describe('weight routes', () => {
             id: 'entry-1',
             date: '2026-03-01',
             weight: 183.2,
+            unit: 'lbs',
             notes: null,
             createdAt: 1_700_000_000_000,
             updatedAt: 1_700_000_000_000,
@@ -300,6 +339,7 @@ describe('weight routes', () => {
             id: 'entry-2',
             date: '2026-03-03',
             weight: 182.7,
+            unit: 'lbs',
             notes: 'After cardio',
             createdAt: 1_700_000_100_000,
             updatedAt: 1_700_000_100_000,
@@ -324,7 +364,8 @@ describe('weight routes', () => {
       {
         id: 'entry-2',
         date: '2026-03-03',
-        weight: 182.7,
+        weightKg: 182.7,
+        unitAtEntry: 'lbs',
         notes: 'After cardio',
         createdAt: 1_700_000_100_000,
         updatedAt: 1_700_000_100_000,
@@ -335,7 +376,10 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/weight?days=7',
@@ -355,7 +399,8 @@ describe('weight routes', () => {
         {
           id: 'entry-2',
           date: '2026-03-02',
-          weight: 182.9,
+          weightKg: 182.9,
+          unitAtEntry: 'lbs',
           notes: null,
           createdAt: 1_700_000_000_100,
           updatedAt: 1_700_000_000_100,
@@ -368,7 +413,10 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/weight?page=2&limit=1',
@@ -395,6 +443,7 @@ describe('weight routes', () => {
             id: 'entry-2',
             date: '2026-03-02',
             weight: 182.9,
+            unit: 'lbs',
             notes: null,
             createdAt: 1_700_000_000_100,
             updatedAt: 1_700_000_000_100,
@@ -416,7 +465,10 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/weight?from=2026-03-08&to=2026-03-07',
@@ -436,7 +488,10 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/weight?from=2026-03-01&days=30',
@@ -460,7 +515,8 @@ describe('weight routes', () => {
       vi.mocked(findBodyWeightEntryById).mockResolvedValue({
         id: 'entry-1',
         date: '2026-03-07',
-        weight: 182,
+        weightKg: 182,
+        unitAtEntry: 'lbs',
         notes: null,
         createdAt: 1_700_000_000_000,
         updatedAt: 1_700_000_000_000,
@@ -469,7 +525,8 @@ describe('weight routes', () => {
         .mockResolvedValueOnce({
           id: 'entry-1',
           date: '2026-03-07',
-          weight: 181.5,
+          weightKg: 181.5,
+          unitAtEntry: 'lbs',
           notes: null,
           createdAt: 1_700_000_000_000,
           updatedAt: 1_700_000_001_000,
@@ -477,7 +534,8 @@ describe('weight routes', () => {
         .mockResolvedValueOnce({
           id: 'entry-1',
           date: '2026-03-07',
-          weight: 181.5,
+          weightKg: 181.5,
+          unitAtEntry: 'lbs',
           notes: 'Evening weigh-in',
           createdAt: 1_700_000_000_000,
           updatedAt: 1_700_000_002_000,
@@ -485,13 +543,17 @@ describe('weight routes', () => {
         .mockResolvedValueOnce({
           id: 'entry-1',
           date: '2026-03-07',
-          weight: 181.2,
+          weightKg: 181.2,
+          unitAtEntry: 'lbs',
           notes: 'Fasted',
           createdAt: 1_700_000_000_000,
           updatedAt: 1_700_000_003_000,
         });
 
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const weightOnlyResponse = await app.inject({
         method: 'PATCH',
         url: '/api/v1/weight/entry-1',
@@ -522,16 +584,27 @@ describe('weight routes', () => {
       expect(notesOnlyResponse.statusCode).toBe(200);
       expect(bothResponse.statusCode).toBe(200);
       expect(vi.mocked(findBodyWeightEntryById)).toHaveBeenCalledTimes(3);
-      expect(vi.mocked(patchBodyWeightEntryById)).toHaveBeenNthCalledWith(1, 'entry-1', 'user-1', {
-        weight: 181.5,
-      });
-      expect(vi.mocked(patchBodyWeightEntryById)).toHaveBeenNthCalledWith(2, 'entry-1', 'user-1', {
-        notes: 'Evening weigh-in',
-      });
-      expect(vi.mocked(patchBodyWeightEntryById)).toHaveBeenNthCalledWith(3, 'entry-1', 'user-1', {
-        weight: 181.2,
-        notes: 'Fasted',
-      });
+      expect(vi.mocked(patchBodyWeightEntryById)).toHaveBeenNthCalledWith(
+        1,
+        'entry-1',
+        'user-1',
+        { weight: 181.5 },
+        'lbs',
+      );
+      expect(vi.mocked(patchBodyWeightEntryById)).toHaveBeenNthCalledWith(
+        2,
+        'entry-1',
+        'user-1',
+        { notes: 'Evening weigh-in' },
+        'lbs',
+      );
+      expect(vi.mocked(patchBodyWeightEntryById)).toHaveBeenNthCalledWith(
+        3,
+        'entry-1',
+        'user-1',
+        { weight: 181.2, notes: 'Fasted' },
+        'lbs',
+      );
     } finally {
       await app.close();
     }
@@ -543,7 +616,10 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/v1/weight/missing-entry',
@@ -571,7 +647,10 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/v1/weight/entry-1',
@@ -593,7 +672,8 @@ describe('weight routes', () => {
       .mockResolvedValueOnce({
         id: 'entry-2',
         date: '2026-03-07',
-        weight: 181.5,
+        weightKg: 181.5,
+        unitAtEntry: 'lbs',
         notes: null,
         createdAt: 1_700_000_000_000,
         updatedAt: 1_700_000_000_000,
@@ -604,7 +684,10 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const [latestResponse, emptyResponse] = await Promise.all([
         app.inject({
           method: 'GET',
@@ -624,6 +707,7 @@ describe('weight routes', () => {
           id: 'entry-2',
           date: '2026-03-07',
           weight: 181.5,
+          unit: 'lbs',
           notes: null,
           createdAt: 1_700_000_000_000,
           updatedAt: 1_700_000_000_000,
@@ -696,7 +780,10 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const deleteResponse = await app.inject({
         method: 'DELETE',
         url: '/api/v1/weight/entry-1',
@@ -729,7 +816,10 @@ describe('weight routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'DELETE',
         url: '/api/v1/weight/entry-404',

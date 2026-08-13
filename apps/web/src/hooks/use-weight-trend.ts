@@ -32,6 +32,7 @@ const fetchWeightTrend = async (
   const trend = await apiRequest<DashboardWeightTrendPoint[]>(
     `/api/v1/dashboard/trends/weight?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`,
     {
+      cache: 'no-cache',
       method: 'GET',
       signal,
     },

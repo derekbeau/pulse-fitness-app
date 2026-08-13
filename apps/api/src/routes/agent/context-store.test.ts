@@ -257,12 +257,13 @@ describe('agent context store', () => {
     const { getAgentContextWeight } = await import('./context-store.js');
 
     testState.getQueue.push(
+      { weightUnit: 'lbs' },
       {
         date: '2026-03-09',
-        weight: 182.4,
+        weightKg: 82.73524828800001,
       },
       {
-        weight: 183.1,
+        weightKg: 83.052762947,
       },
     );
 
@@ -271,17 +272,19 @@ describe('agent context store', () => {
     expect(weight).toEqual({
       current: 182.4,
       trend7d: -0.7,
+      unit: 'lbs',
     });
   });
 
   it('returns zeroed weight values when no weight data exists', async () => {
     const { getAgentContextWeight } = await import('./context-store.js');
 
-    testState.getQueue.push(undefined);
+    testState.getQueue.push({ weightUnit: 'lbs' }, undefined);
 
     await expect(getAgentContextWeight('user-1')).resolves.toEqual({
       current: 0,
       trend7d: 0,
+      unit: 'lbs',
     });
   });
 

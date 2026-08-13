@@ -242,6 +242,7 @@ describe('weight api hooks', () => {
       {
         date: '2026-03-06',
         value: 181.4,
+        unit: 'lbs',
       },
     ]);
     mockFetch.mockImplementationOnce(() => deferred.promise);
@@ -278,7 +279,7 @@ describe('weight api hooks', () => {
         expect.objectContaining({
           weight: {
             date: '2026-03-07',
-            unit: 'lb',
+            unit: 'lbs',
             value: 180.8,
             trendValue: null,
           },
@@ -290,10 +291,12 @@ describe('weight api hooks', () => {
         {
           date: '2026-03-06',
           value: 181.4,
+          unit: 'lbs',
         },
         {
           date: '2026-03-07',
           value: 180.8,
+          unit: 'lbs',
         },
       ]);
     });

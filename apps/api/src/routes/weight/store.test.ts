@@ -112,23 +112,29 @@ describe('weight store', () => {
     testState.insertReturningGet.mockReturnValue({
       id: 'entry-1',
       date: '2026-03-05',
-      weight: 182.8,
+      weightKg: 82.916685236,
+      unitAtEntry: 'lbs',
       notes: null,
       createdAt: 1_700_000_000_000,
       updatedAt,
     });
 
     const { upsertBodyWeightEntry } = await import('./store.js');
-    const entry = await upsertBodyWeightEntry('user-1', {
-      date: '2026-03-05',
-      weight: 182.8,
-      notes: undefined,
-    });
+    const entry = await upsertBodyWeightEntry(
+      'user-1',
+      {
+        date: '2026-03-05',
+        weight: 182.8,
+        notes: undefined,
+      },
+      'lbs',
+    );
 
     expect(entry).toEqual({
       id: 'entry-1',
       date: '2026-03-05',
-      weight: 182.8,
+      weightKg: 82.916685236,
+      unitAtEntry: 'lbs',
       notes: null,
       createdAt: 1_700_000_000_000,
       updatedAt,
@@ -138,17 +144,66 @@ describe('weight store', () => {
       userId: 'user-1',
       date: '2026-03-05',
       weight: 182.8,
+      weightKg: 82.916685236,
+      unitAtEntry: 'lbs',
       notes: null,
     });
     expect(testState.insertOnConflictDoUpdate).toHaveBeenCalledWith({
       target: [bodyWeight.userId, bodyWeight.date],
       set: {
         weight: 182.8,
+        weightKg: 82.916685236,
+        unitAtEntry: 'lbs',
         notes: null,
         updatedAt,
       },
     });
     expect(testState.insertReturning).toHaveBeenCalledOnce();
+  });
+
+  it('canonicalizes an explicit kg write while keeping compatibility pounds', async () => {
+    const compatibilityPounds = 80 / 0.45359237;
+    testState.insertReturningGet.mockReturnValue({
+      id: 'entry-kg',
+      date: '2026-03-06',
+      weightKg: 80,
+      unitAtEntry: 'kg',
+      notes: null,
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    const { upsertBodyWeightEntry } = await import('./store.js');
+    await upsertBodyWeightEntry('user-1', { date: '2026-03-06', weight: 80 }, 'kg');
+
+    expect(testState.insertValues).toHaveBeenCalledWith({
+      userId: 'user-1',
+      date: '2026-03-06',
+      weight: compatibilityPounds,
+      weightKg: 80,
+      unitAtEntry: 'kg',
+      notes: null,
+    });
+  });
+
+  it('changes response display units without rewriting canonical storage', async () => {
+    const { toBodyWeightEntry } = await import('./store.js');
+    const canonical = {
+      id: 'entry-1',
+      date: '2026-03-06',
+      weightKg: 80,
+      unitAtEntry: 'kg' as const,
+      notes: null,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+
+    expect(toBodyWeightEntry(canonical, 'kg')).toMatchObject({ weight: 80, unit: 'kg' });
+    expect(toBodyWeightEntry(canonical, 'lbs')).toMatchObject({
+      weight: 176.36980975,
+      unit: 'lbs',
+    });
+    expect(canonical).toMatchObject({ weightKg: 80, unitAtEntry: 'kg' });
   });
 
   it('finds a body weight entry by user and date or returns null', async () => {
@@ -182,11 +237,15 @@ describe('weight store', () => {
     const { upsertBodyWeightEntry } = await import('./store.js');
 
     await expect(
-      upsertBodyWeightEntry('user-1', {
-        date: '2026-03-05',
-        weight: 182.8,
-        notes: 'Fasted',
-      }),
+      upsertBodyWeightEntry(
+        'user-1',
+        {
+          date: '2026-03-05',
+          weight: 182.8,
+          notes: 'Fasted',
+        },
+        'lbs',
+      ),
     ).rejects.toThrow('Failed to persist body weight entry');
   });
 

@@ -13,7 +13,7 @@ The work crosses weight-unit migration, nutrition completeness, target provenanc
 ## Implementation milestones
 
 - [x] Baseline and isolated development database
-- [ ] Canonical weight foundation and all-reader migration
+- [x] Canonical weight foundation and all-reader migration
 - [ ] Nutrition completeness and adaptive target provenance
 - [ ] Pure deterministic adaptive TDEE algorithm
 - [ ] Program/check-in persistence, API lifecycle, and real SQLite concurrency tests
@@ -34,7 +34,7 @@ Verification gate: [`agent-workspace/verification-report.md`](agent-workspace/ve
 
 ## Current verification
 
-Milestone 0 complete; stopped at `AWAITING VECTOR GATE 0 REVIEW`:
+Milestone 1 complete; stopped at `AWAITING VECTOR GATE 1 REVIEW`:
 
 - [x] Independent technical review completed and findings incorporated
 - [x] Formula vectors independently recalculated
@@ -46,7 +46,12 @@ Milestone 0 complete; stopped at `AWAITING VECTOR GATE 0 REVIEW`:
 - [x] Built-in-browser smoke test passed across 11 primary routes with clean console/request diagnostics
 - [x] Local-date rollover and Recharts initialization warnings found during QA were fixed and regression-tested
 - [x] Local development preview and production-database isolation verified
-- [ ] Feature-specific automated tests
+- [x] Explicit per-user legacy-unit preflight and fail-closed migration guard implemented
+- [x] Canonical kilograms, entry-unit provenance, and pounds-only compatibility storage verified
+- [x] All weight readers migrated to canonical kilograms with response-boundary conversion
+- [x] Old/fresh, lb/kg/mixed/ambiguous, preference-change, and cross-unit-write coverage passed
+- [x] 241 targeted Milestone 1 tests passed; uncached full lint, typecheck, 1,879 package tests, and build passed
+- [x] Built-in-browser weight/dashboard/settings/habits QA passed with clean console and request diagnostics
 - [ ] Full Adaptive TDEE browser acceptance (Milestones 5-6)
 
 ## Review focus

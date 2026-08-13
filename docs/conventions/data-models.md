@@ -64,6 +64,8 @@ Inherited ownership comes from foreign-key chains:
 - `username`: `text`, required, unique
 - `name`: nullable `text`
 - `passwordHash`: `text`, required
+- `weightUnit`: `text`, required, one of `lbs | kg`; controls response-boundary display
+  conversion and never determines stored body-weight history
 - `preferences`: nullable JSON text blob for user-level UI, theme, and agent settings
 - `createdAt`: `integer` Unix ms, required, default now
 - `updatedAt`: `integer` Unix ms, required, default now, auto-updates
@@ -395,7 +397,11 @@ Constraints:
 - `id`: `text` primary key UUID
 - `userId`: `text`, required, FK -> `users.id`, `ON DELETE CASCADE`
 - `date`: `text`, required, `YYYY-MM-DD`
-- `weight`: `real`, required
+- `weightKg`: `real`, required; canonical kilograms used by every application reader
+- `unitAtEntry`: `text`, required, one of `lbs | kg`; provenance for the unit used by
+  the write that established the stored measurement
+- `weight`: `real`, required; compatibility-only pounds derived exactly as
+  `weightKg / 0.45359237`, never read by application code
 - `notes`: nullable `text`
 - `createdAt`: `integer` Unix ms, required, default now
 - `updatedAt`: `integer` Unix ms, required, default now, auto-updates
@@ -405,6 +411,14 @@ Constraints:
 - unique on `(userId, date)`
 - `body_weight_date_format_check`
 - `body_weight_weight_check`
+- `body_weight_weight_kg_check`
+- `body_weight_unit_at_entry_check`
+- `body_weight_legacy_pounds_check`
+
+Legacy databases require a reviewed, exact per-user historical-unit map before the canonical
+columns are backfilled. Current user preferences are not migration evidence. Startup fails closed
+for missing, partial, extra-user, or ambiguous maps; fresh and already-canonical databases do not
+require a map.
 
 #### `nutrition_targets`
 

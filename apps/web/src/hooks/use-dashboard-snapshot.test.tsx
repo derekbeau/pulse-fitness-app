@@ -20,7 +20,7 @@ const snapshotFixture: DashboardSnapshot = {
   date: '2026-03-06',
   weight: {
     date: '2026-03-06',
-    unit: 'lb',
+    unit: 'lbs',
     value: 181.4,
     trendValue: null,
   },

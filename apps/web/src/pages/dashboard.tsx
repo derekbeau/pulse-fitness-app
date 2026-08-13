@@ -36,12 +36,14 @@ import { useLogWeight } from '@/features/weight/api/weight';
 import { prefetchDashboardSnapshot, useDashboardSnapshot } from '@/hooks/use-dashboard-snapshot';
 import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboard-config';
 import { useHabitChains } from '@/hooks/use-habit-chains';
+import { useWeightUnit } from '@/hooks/use-weight-unit';
 import {
   DASHBOARD_SNAPSHOT_POLL_INTERVAL_MS,
   HABIT_ENTRIES_POLL_INTERVAL_MS,
   getForegroundPollingInterval,
 } from '@/lib/query-polling';
 import { addDays, getToday, isSameDay, toDateKey } from '@/lib/date';
+import { formatWeight as formatDisplayWeight } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 const dashboardDateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -100,6 +102,7 @@ function DashboardWidgetFrame({
 export function DashboardPage() {
   const isMountedRef = useRef(true);
   const queryClient = useQueryClient();
+  const { weightUnit } = useWeightUnit();
   const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());
   const [weightInput, setWeightInput] = useState('');
   const [weightStatus, setWeightStatus] = useState<DashboardWeightStatus | null>(null);
@@ -250,6 +253,7 @@ export function DashboardPage() {
       await logWeightMutation.mutateAsync({
         date: selectedDateKey,
         weight: parsedWeight,
+        unit: weightUnit,
       });
       setWeightInput('');
       setWeightStatus({
@@ -307,7 +311,7 @@ export function DashboardPage() {
                       Logged
                     </p>
                     <p className="text-xl font-semibold text-foreground">
-                      {selectedWeight.value.toFixed(1)} lbs
+                      {formatDisplayWeight(selectedWeight.value, selectedWeight.unit)}
                     </p>
                   </div>
                   <Button
@@ -335,7 +339,10 @@ export function DashboardPage() {
                   variant="outline"
                 >
                   <span>Log weight</span>
-                  <span aria-hidden="true" className="size-2 rounded-full bg-accent animate-pulse" />
+                  <span
+                    aria-hidden="true"
+                    className="size-2 rounded-full bg-accent animate-pulse"
+                  />
                 </Button>
               )}
 
@@ -347,7 +354,7 @@ export function DashboardPage() {
                   onSubmit={handleWeightSubmit}
                 >
                   <div className="space-y-2">
-                    <Label htmlFor="dashboard-weight-input">Weight (lbs)</Label>
+                    <Label htmlFor="dashboard-weight-input">Weight ({weightUnit})</Label>
                     <Input
                       aria-describedby="dashboard-weight-status"
                       data-qa="dashboard-weight-input"
@@ -446,7 +453,10 @@ export function DashboardPage() {
     if (widgetId === 'trend-sparklines') {
       return (
         <DashboardWidgetFrame widgetLabel={DASHBOARD_WIDGET_IDS['trend-sparklines']}>
-          <TrendSparklines endDate={selectedDateKey} metrics={dashboardConfigQuery.data?.trendMetrics} />
+          <TrendSparklines
+            endDate={selectedDateKey}
+            metrics={dashboardConfigQuery.data?.trendMetrics}
+          />
         </DashboardWidgetFrame>
       );
     }
@@ -507,16 +517,15 @@ export function DashboardPage() {
             <>
               <HelpIcon title="Dashboard help">
                 <p>
-                  Dashboard gives you a daily snapshot of nutrition, body weight trend, habits,
-                  and recent workout activity.
+                  Dashboard gives you a daily snapshot of nutrition, body weight trend, habits, and
+                  recent workout activity.
                 </p>
                 <ul className="list-disc space-y-1 pl-5">
                   <li>
                     Nutrition totals come from meals logged by your AI agent, not manual entry.
                   </li>
                   <li>
-                    Use Weight Trend range buttons to zoom and compare short vs long-term
-                    direction.
+                    Use Weight Trend range buttons to zoom and compare short vs long-term direction.
                   </li>
                   <li>
                     The trend line smooths daily swings so it is easier to spot overall momentum.
@@ -584,10 +593,19 @@ export function DashboardPage() {
                 {widgetEditMessage}
               </span>
             ) : null}
-            <Button disabled={isSavingDashboardConfig} onClick={handleEditCancel} type="button" variant="ghost">
+            <Button
+              disabled={isSavingDashboardConfig}
+              onClick={handleEditCancel}
+              type="button"
+              variant="ghost"
+            >
               Cancel
             </Button>
-            <Button disabled={isSavingDashboardConfig} onClick={() => void handleEditSave()} type="button">
+            <Button
+              disabled={isSavingDashboardConfig}
+              onClick={() => void handleEditSave()}
+              type="button"
+            >
               {isSavingDashboardConfig ? 'Saving...' : 'Save'}
             </Button>
           </div>
@@ -717,7 +735,6 @@ export function DashboardPage() {
           ) : null}
         </div>
       )}
-
     </main>
   );
 }

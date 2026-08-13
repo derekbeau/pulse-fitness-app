@@ -66,7 +66,7 @@ describe('dashboard routes', () => {
         value: 178.4,
         trendValue: 178.4,
         date: '2026-03-08',
-        unit: 'lb',
+        unit: 'lbs',
       },
       macros: {
         actual: {
@@ -118,7 +118,7 @@ describe('dashboard routes', () => {
             value: 178.4,
             trendValue: 178.4,
             date: '2026-03-08',
-            unit: 'lb',
+            unit: 'lbs',
           },
           macros: {
             actual: {
@@ -383,9 +383,9 @@ describe('dashboard routes', () => {
 
   it('returns weight trend points for an explicit date range', async () => {
     vi.mocked(getDashboardWeightTrend).mockResolvedValue([
-      { date: '2026-03-07', value: 181.4 },
-      { date: '2026-03-08', value: 181.1 },
-      { date: '2026-03-09', value: 180.9 },
+      { date: '2026-03-07', value: 181.4, unit: 'lbs' },
+      { date: '2026-03-08', value: 181.1, unit: 'lbs' },
+      { date: '2026-03-09', value: 180.9, unit: 'lbs' },
     ]);
 
     const app = buildServer();
@@ -403,12 +403,12 @@ describe('dashboard routes', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(response.headers['cache-control']).toBe('private, max-age=3600');
+      expect(response.headers['cache-control']).toBe('private, no-cache');
       expect(response.json()).toEqual({
         data: [
-          { date: '2026-03-07', value: 181.4 },
-          { date: '2026-03-08', value: 181.1 },
-          { date: '2026-03-09', value: 180.9 },
+          { date: '2026-03-07', value: 181.4, unit: 'lbs' },
+          { date: '2026-03-08', value: 181.1, unit: 'lbs' },
+          { date: '2026-03-09', value: 180.9, unit: 'lbs' },
         ],
       });
       expect(vi.mocked(getDashboardWeightTrend)).toHaveBeenCalledWith(

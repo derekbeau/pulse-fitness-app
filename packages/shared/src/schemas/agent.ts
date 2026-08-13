@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { dateSchema } from './common.js';
 import { habitTrackingTypeSchema } from './habits.js';
+import { weightUnitSchema } from './users.js';
 
 const requiredText = (maxLength = 255) => z.string().trim().min(1).max(maxLength);
 
@@ -25,6 +26,7 @@ export const agentExerciseSearchParamsSchema = z.object({
 export const agentCreateWeightInputSchema = z.object({
   date: dateSchema,
   weight: z.number().positive().finite().max(1_500),
+  unit: weightUnitSchema.optional(),
   notes: z.string().trim().max(2_000).optional(),
 });
 
@@ -106,6 +108,7 @@ export const agentContextResponseSchema = z.object({
   weight: z.object({
     current: z.number(),
     trend7d: z.number(),
+    unit: weightUnitSchema,
   }),
   habits: z.array(agentContextHabitSchema),
   scheduledWorkouts: z.array(agentContextScheduledWorkoutSchema),

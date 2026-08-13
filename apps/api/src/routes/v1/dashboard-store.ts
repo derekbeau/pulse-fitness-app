@@ -12,7 +12,7 @@ import type {
   DashboardWeightTrendPoint,
   DashboardWorkoutSnapshot,
 } from '@pulse/shared';
-import { computeEWMA, dashboardConfigSchema } from '@pulse/shared';
+import { computeEWMA, convertWeightFromKg, dashboardConfigSchema } from '@pulse/shared';
 
 import { db } from '../../db/index.js';
 import {
@@ -25,14 +25,16 @@ import {
   nutritionLogs,
   nutritionTargets,
   scheduledWorkouts,
+  users,
   workoutSessions,
   workoutTemplates,
 } from '../../db/schema/index.js';
 import { getDatesInRange } from './dashboard-utils.js';
 
 const weightSelection = {
-  value: bodyWeight.weight,
+  valueKg: bodyWeight.weightKg,
   date: bodyWeight.date,
+  unit: users.weightUnit,
 };
 
 const macroActualSelection = {
@@ -80,7 +82,8 @@ const habitSummarySelection = {
 
 const weightTrendSelection = {
   date: bodyWeight.date,
-  value: bodyWeight.weight,
+  valueKg: bodyWeight.weightKg,
+  unit: users.weightUnit,
 };
 
 const macrosTrendSelection = {
@@ -106,9 +109,9 @@ const activeHabitIdsSelection = {
   id: habits.id,
 };
 
-// TODO: Source this from user preferences once kg/lb switching is introduced.
-const DEFAULT_WEIGHT_UNIT: DashboardWeightSnapshot['unit'] = 'lb';
 const DEFAULT_DASHBOARD_TREND_METRICS: DashboardTrendMetric[] = ['weight', 'calories', 'protein'];
+
+const roundDisplayWeight = (value: number) => Number(value.toFixed(8));
 
 const toMacroTotals = (
   value:
@@ -128,20 +131,24 @@ const toMacroTotals = (
 
 const toWeightSnapshot = (
   value: {
-    value: number;
+    valueKg: number;
     date: string;
+    unit: DashboardWeightSnapshot['unit'];
   } | null,
-  trendValue: number | null,
+  trendValueKg: number | null,
 ): DashboardWeightSnapshot | null => {
   if (!value) {
     return null;
   }
 
   return {
-    value: Number(value.value),
-    trendValue,
+    value: roundDisplayWeight(convertWeightFromKg(Number(value.valueKg), value.unit)),
+    trendValue:
+      trendValueKg === null
+        ? null
+        : roundDisplayWeight(convertWeightFromKg(trendValueKg, value.unit)),
     date: value.date,
-    unit: DEFAULT_WEIGHT_UNIT,
+    unit: value.unit,
   };
 };
 
@@ -386,6 +393,7 @@ export const getDashboardSnapshot = async (
     db
       .select(weightSelection)
       .from(bodyWeight)
+      .innerJoin(users, eq(users.id, bodyWeight.userId))
       .where(and(eq(bodyWeight.userId, userId), lte(bodyWeight.date, date)))
       .orderBy(desc(bodyWeight.date))
       .limit(1)
@@ -395,7 +403,7 @@ export const getDashboardSnapshot = async (
   let trendWeight: number | null = null;
   if (weight) {
     const recentWeights = db
-      .select({ date: bodyWeight.date, weight: bodyWeight.weight })
+      .select({ date: bodyWeight.date, weightKg: bodyWeight.weightKg })
       .from(bodyWeight)
       .where(and(eq(bodyWeight.userId, userId), lte(bodyWeight.date, date)))
       .orderBy(asc(bodyWeight.date))
@@ -404,11 +412,11 @@ export const getDashboardSnapshot = async (
 
     if (recentWeights.length > 0) {
       const ewmaResults = computeEWMA(
-        recentWeights.map((w) => ({ date: w.date, weight: Number(w.weight) })),
+        recentWeights.map((w) => ({ date: w.date, weight: Number(w.weightKg) })),
       );
       const lastResult = ewmaResults[ewmaResults.length - 1];
       if (lastResult) {
-        trendWeight = Math.round(lastResult.trend * 10) / 10;
+        trendWeight = lastResult.trend;
       }
     }
   }
@@ -503,13 +511,15 @@ export const getDashboardWeightTrend = async (
   const entries = db
     .select(weightTrendSelection)
     .from(bodyWeight)
+    .innerJoin(users, eq(users.id, bodyWeight.userId))
     .where(and(eq(bodyWeight.userId, userId), between(bodyWeight.date, from, to)))
     .orderBy(asc(bodyWeight.date))
     .all();
 
   return entries.map((entry) => ({
     date: entry.date,
-    value: Number(entry.value),
+    value: roundDisplayWeight(convertWeightFromKg(Number(entry.valueKg), entry.unit)),
+    unit: entry.unit,
   }));
 };
 

@@ -13,6 +13,7 @@ const testState = vi.hoisted(() => {
   const select = vi.fn(() => {
     const chain = {
       from: vi.fn(() => chain),
+      innerJoin: vi.fn(() => chain),
       leftJoin: vi.fn(() => chain),
       where: vi.fn((condition: unknown) => {
         whereCalls.push(condition);
@@ -72,7 +73,7 @@ describe('dashboard store', () => {
 
   it('aggregates all dashboard snapshot sections from scoped query results', async () => {
     testState.selectGetResults.push(
-      { value: 178.4, date: '2026-03-08' },
+      { valueKg: 80.92087880800001, date: '2026-03-08', unit: 'lbs' },
       {
         calories: 1850,
         protein: 150,
@@ -91,7 +92,7 @@ describe('dashboard store', () => {
       },
     );
     testState.selectAllResults.push(
-      [{ date: '2026-03-08', weight: 178.4 }],
+      [{ date: '2026-03-08', weightKg: 80.92087880800001 }],
       [
         {
           scheduledWorkoutId: 'scheduled-upper-push-a',
@@ -119,7 +120,7 @@ describe('dashboard store', () => {
         value: 178.4,
         trendValue: 178.4,
         date: '2026-03-08',
-        unit: 'lb',
+        unit: 'lbs',
       },
       macros: {
         actual: {
@@ -311,16 +312,16 @@ describe('dashboard store', () => {
 
   it('returns weight trend points in ascending date order', async () => {
     testState.selectAllResults.push([
-      { date: '2026-03-07', value: 181.6 },
-      { date: '2026-03-09', value: 181.1 },
+      { date: '2026-03-07', valueKg: 82.372374392, unit: 'lbs' },
+      { date: '2026-03-09', valueKg: 82.145578207, unit: 'lbs' },
     ]);
 
     const { getDashboardWeightTrend } = await import('./dashboard-store.js');
     const trend = await getDashboardWeightTrend('user-1', '2026-03-07', '2026-03-09');
 
     expect(trend).toEqual([
-      { date: '2026-03-07', value: 181.6 },
-      { date: '2026-03-09', value: 181.1 },
+      { date: '2026-03-07', value: 181.6, unit: 'lbs' },
+      { date: '2026-03-09', value: 181.1, unit: 'lbs' },
     ]);
     expect(testState.select).toHaveBeenCalledTimes(1);
   });

@@ -15,6 +15,10 @@ import { createQueryClientWrapper } from '@/test/query-client';
 
 import { DashboardPage } from './dashboard';
 
+vi.mock('@/hooks/use-weight-unit', () => ({
+  useWeightUnit: () => ({ weightUnit: 'lbs' }),
+}));
+
 const formatWeight = (value: number): string => `${value.toFixed(1)} lbs`;
 const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS);
 
@@ -58,10 +62,7 @@ vi.mock('@dnd-kit/core', () => ({
     onDragStart,
   }: {
     children: ReactNode;
-    onDragOver?: (event: {
-      active: { id: string };
-      over: { id: string } | null;
-    }) => void;
+    onDragOver?: (event: { active: { id: string }; over: { id: string } | null }) => void;
     onDragEnd?: (event: { active: { id: string }; over: { id: string } | null }) => void;
     onDragStart?: (event: { active: { id: string } }) => void;
   }) => (
@@ -232,7 +233,7 @@ const snapshotForToday: DashboardSnapshot = {
   date: '2026-03-06',
   weight: {
     date: '2026-03-06',
-    unit: 'lb',
+    unit: 'lbs',
     value: 181.4,
     trendValue: null,
   },
@@ -499,7 +500,7 @@ describe('DashboardPage', () => {
           date: nextDate,
           weight: {
             date: nextDate,
-            unit: 'lb',
+            unit: 'lbs',
             value: nextWeight,
             trendValue: null,
           },
@@ -1117,7 +1118,9 @@ describe('DashboardPage', () => {
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard widgets' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Mock show habit daily group before snapshot' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Mock show habit daily group before snapshot' }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await vi.runAllTimersAsync();

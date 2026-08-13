@@ -429,6 +429,12 @@ Unified-schema convenience example:
 
 Creates or updates a weight entry for the provided date. AgentToken responses may include follow-up hints about deltas from the previous entry.
 
+The optional `unit` field declares the request value as `lbs` or `kg`; when omitted, the user's
+current weight-unit preference is used. The API converts writes to canonical kilograms, preserves
+the declared unit as entry provenance, and returns the value converted to the current display unit
+with an explicit `unit` field. Changing the preference changes later responses but never reinterprets
+or rewrites historical measurements.
+
 #### `GET /api/v1/habits`
 
 Lists user habits available for agent workflows.

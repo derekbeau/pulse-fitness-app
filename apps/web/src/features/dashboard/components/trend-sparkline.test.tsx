@@ -16,6 +16,10 @@ vi.mock('@/hooks/use-macro-trend', () => ({
   useMacroTrend: vi.fn(),
 }));
 
+vi.mock('@/hooks/use-weight-unit', () => ({
+  useWeightUnit: () => ({ weightUnit: 'lbs' }),
+}));
+
 vi.mock('recharts', async () => {
   const actual = await vi.importActual<typeof import('recharts')>('recharts');
   const React = await vi.importActual<typeof import('react')>('react');
@@ -49,8 +53,8 @@ vi.mock('recharts', async () => {
 });
 
 const sampleWeightTrend = [
-  { date: '2026-03-06', value: 175.6 },
-  { date: '2026-03-07', value: 175.2 },
+  { date: '2026-03-06', value: 175.6, unit: 'lbs' },
+  { date: '2026-03-07', value: 175.2, unit: 'lbs' },
 ];
 
 const sampleMacroTrend = [

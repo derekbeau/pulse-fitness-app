@@ -179,6 +179,8 @@ describe('bodyWeight schema', () => {
       'userId',
       'date',
       'weight',
+      'weightKg',
+      'unitAtEntry',
       'notes',
       'createdAt',
       'updatedAt',
@@ -202,7 +204,10 @@ describe('bodyWeight schema', () => {
     ]);
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
       'body_weight_date_format_check',
+      'body_weight_legacy_pounds_check',
+      'body_weight_unit_at_entry_check',
       'body_weight_weight_check',
+      'body_weight_weight_kg_check',
     ]);
   });
 });

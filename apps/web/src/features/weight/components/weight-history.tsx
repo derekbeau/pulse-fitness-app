@@ -132,7 +132,7 @@ export function WeightHistory() {
   const [editingWeight, setEditingWeight] = useState('');
   const [editingNotes, setEditingNotes] = useState('');
   const [editingWeightError, setEditingWeightError] = useState('');
-  const { formatWeight } = useWeightUnit();
+  const { formatWeight, weightUnit } = useWeightUnit();
 
   const {
     formState: { errors: addEntryErrors },
@@ -175,7 +175,7 @@ export function WeightHistory() {
     setAddErrorMessage('');
 
     try {
-      await logWeightMutation.mutateAsync(values);
+      await logWeightMutation.mutateAsync({ ...values, unit: weightUnit });
       reset({
         date: getDefaultDate(),
         notes: undefined,
@@ -233,6 +233,7 @@ export function WeightHistory() {
         input: {
           notes: editingNotes.trim().length > 0 ? editingNotes.trim() : null,
           weight: parsedWeight,
+          unit: weightUnit,
         },
       });
       stopEditing();

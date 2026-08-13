@@ -18,12 +18,14 @@ describe('createWeightInputSchema', () => {
     const payload = createWeightInputSchema.parse({
       date: '2026-03-07',
       weight: 182.4,
+      unit: 'lbs',
       notes: '   ',
     });
 
     expect(payload).toEqual({
       date: '2026-03-07',
       weight: 182.4,
+      unit: 'lbs',
       notes: undefined,
     });
   });
@@ -63,6 +65,7 @@ describe('bodyWeightEntrySchema', () => {
       id: 'entry-1',
       date: '2026-03-07',
       weight: 182.4,
+      unit: 'lbs',
       notes: null,
       createdAt: 1,
       updatedAt: 2,
@@ -72,10 +75,26 @@ describe('bodyWeightEntrySchema', () => {
       id: 'entry-1',
       date: '2026-03-07',
       weight: 182.4,
+      unit: 'lbs',
       notes: null,
       createdAt: 1,
       updatedAt: 2,
     });
+  });
+
+  it('validates explicit lb and kg writes after canonical conversion', () => {
+    expect(
+      createWeightInputSchema.parse({ date: '2026-03-07', weight: 55.2, unit: 'lbs' }),
+    ).toMatchObject({ unit: 'lbs' });
+    expect(
+      createWeightInputSchema.parse({ date: '2026-03-07', weight: 350, unit: 'kg' }),
+    ).toMatchObject({ unit: 'kg' });
+    expect(() =>
+      createWeightInputSchema.parse({ date: '2026-03-07', weight: 55, unit: 'lbs' }),
+    ).toThrow();
+    expect(() =>
+      createWeightInputSchema.parse({ date: '2026-03-07', weight: 351, unit: 'kg' }),
+    ).toThrow();
   });
 
   it('infers the BodyWeightEntry type from the schema', () => {
@@ -83,6 +102,7 @@ describe('bodyWeightEntrySchema', () => {
       id: 'entry-1',
       date: '2026-03-07',
       weight: 182.4,
+      unit: 'lbs',
       notes: null,
       createdAt: 1,
       updatedAt: 2,

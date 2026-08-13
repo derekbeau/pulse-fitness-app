@@ -256,6 +256,18 @@ const start = async () => {
       import('drizzle-orm/better-sqlite3/migrator'),
     ]);
     const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
+    const { prepareCanonicalWeightMigrationFromEnvironment } =
+      await import('./db/canonical-weight-migration.js');
+    const weightMigrationPreflight = prepareCanonicalWeightMigrationFromEnvironment(sqlite);
+    app.log.info(
+      {
+        affectedUsers: weightMigrationPreflight.affectedUsers,
+        legacyRows: weightMigrationPreflight.legacyRows,
+        mapSha256: weightMigrationPreflight.mapSha256,
+        state: weightMigrationPreflight.state,
+      },
+      'Canonical body-weight migration preflight passed',
+    );
 
     // Disable FK checks for migrations — PRAGMA foreign_keys doesn't work
     // inside transactions, and Drizzle wraps each migration in one.

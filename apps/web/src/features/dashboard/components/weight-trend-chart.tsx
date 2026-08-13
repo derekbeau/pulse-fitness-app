@@ -6,6 +6,7 @@ import { Link } from 'react-router';
 
 import { DashboardCardHeaderLink } from '@/features/dashboard/components/dashboard-drilldown-link';
 import { weightQueryKeys } from '@/features/weight/api/weight';
+import { useWeightUnit } from '@/hooks/use-weight-unit';
 import {
   CartesianGrid,
   Line,
@@ -105,12 +106,10 @@ const fetchWeightEntries = async ({ from, to }: ResolvedRange) => {
   return apiRequest<BodyWeightEntry[]>(path, { method: 'GET' });
 };
 
-const formatWeightLabel = (value: number) => formatWeight(value, 'lbs');
-
-const formatInsightChange = (change: number) => {
+const formatInsightChange = (change: number, unit: 'lbs' | 'kg') => {
   const formatted = formatTrendChange(change);
   const signPrefix = change > 0 ? '+' : '';
-  return `${signPrefix}${formatted} lbs`;
+  return `${signPrefix}${formatted} ${unit}`;
 };
 
 const getDirectionGlyph = (direction: 'up' | 'down' | 'stable') => {
@@ -144,6 +143,8 @@ const computeYAxisDomain = (data: ChartPoint[]): [number, number] => {
 };
 
 export function WeightTrendChart() {
+  const { weightUnit } = useWeightUnit();
+  const formatWeightLabel = (value: number) => formatWeight(value, weightUnit);
   const [selectedRange, setSelectedRange] = useState<RangeOption>(DEFAULT_RANGE);
   const [visibleSeries, setVisibleSeries] = useState({
     scale: true,
@@ -406,13 +407,13 @@ export function WeightTrendChart() {
               data-slot="weight-trend-insights"
             >
               <p className="text-sm text-foreground">
-                3-day change: {formatInsightChange(threeDayInsights.periodChange)}{' '}
+                3-day change: {formatInsightChange(threeDayInsights.periodChange, weightUnit)}{' '}
                 <span aria-label={`3-day direction ${threeDayInsights.direction}`}>
                   {getDirectionGlyph(threeDayInsights.direction)}
                 </span>
               </p>
               <p className="text-sm text-foreground">
-                7-day change: {formatInsightChange(sevenDayInsights.periodChange)}{' '}
+                7-day change: {formatInsightChange(sevenDayInsights.periodChange, weightUnit)}{' '}
                 <span aria-label={`7-day direction ${sevenDayInsights.direction}`}>
                   {getDirectionGlyph(sevenDayInsights.direction)}
                 </span>

@@ -1,6 +1,6 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** VECTOR GATE 0 APPROVED<br>
+**Overall:** AWAITING VECTOR GATE 1 REVIEW<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
 **ChatGPT project:** `pulse-fitness-app`<br>
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee` on `feat/adaptive-tdee-v1`<br>
@@ -23,19 +23,25 @@
 - Built-in-browser smoke testing passed on 11 primary routes, and Vector's repaired Dashboard -> Nutrition -> Dashboard rerun produced no console warnings/errors or failed requests.
 - Browser-discovered local-date rollover and Recharts initialization warnings were fixed and regression-tested.
 - A tracked `pnpm dev:gate0` command now enforces the isolated writable database and ports 3102/5274, rejects default/production/snapshot paths, and shuts down both child servers together.
-- Vector independently resolved and verified both Gate 0 blockers. No Milestone 1 work started.
+- Vector independently resolved and verified both Gate 0 blockers before Milestone 1 began.
+- Canonical body-weight migration preflight now requires an exact reviewed per-user legacy-unit map and fails closed for absent, partial, extra-user, out-of-range, and partially canonicalized inputs.
+- Migration 0041 adds non-null canonical `weightKg` and `unitAtEntry`; the compatibility `weight` column is fixed in pounds with an exact-conversion constraint.
+- Weight routes, dashboard snapshots/trends, referential habit reads, agent context, static import, shared schemas, and all web weight surfaces now read canonical kilograms and convert only at response/display boundaries.
+- The tracked `pnpm dev:gate0` path owns the ignored reviewed-map location and is the only runtime/browser environment used for Milestone 1.
+- Browser QA covered pounds and kilograms writes, preference changes, dashboard weight surfaces, weight history, settings, and habits. It found and resolved stale display-unit caches plus two hard-coded dashboard unit labels; the final rerun had no console errors or failed API requests.
+- Targeted Milestone 1 regression coverage passed 241 tests. Uncached lint, typecheck, full tests, and build passed; full package tests now total 1,879 across 245 files, plus 3 Gate 0 isolation tests.
 
 ## Current milestone
 
-**Milestone 0: Baseline and development isolation — approved**
+**Milestone 1: Canonical weight foundation — awaiting independent review**
 
-Milestone 1 has not started. Gate 0 is approved; Derek may authorize the Milestone 1 Codex goal.
+Milestone 1 implementation, self-review, automated checks, and built-in-browser QA are complete. No Milestone 2 work has started.
 
 ## Next actions
 
-1. Derek authorizes the Milestone 1 Codex goal.
-2. Codex implements only the canonical weight foundation defined in `implementation-plan.md` and the specification.
-3. Codex completes self-review, automated checks, and built-in-browser QA, then commits, pushes, and stops at `AWAITING VECTOR GATE 1 REVIEW`.
+1. Hermes/Vector independently reviews the complete Milestone 1 diff, migration safety, reader audit, tests, and browser evidence.
+2. Vector records either `VECTOR GATE 1 APPROVED` or blocking findings.
+3. Milestone 2 remains prohibited until Derek explicitly authorizes a new Codex goal after Gate 1 approval.
 
 ## Blocking issues
 
