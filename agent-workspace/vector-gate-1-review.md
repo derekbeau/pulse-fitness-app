@@ -1,16 +1,30 @@
-# Vector Gate 1 Re-review Handoff
+# Vector Gate 1 Re-review
 
 **Previously reviewed commit:** `f80d2094b10531cc80f840f74f4b7e9b48b924fa`
 **Previous verdict:** `VECTOR GATE 1 CHANGES REQUIRED`
 **Current state:** `AWAITING VECTOR GATE 1 RE-REVIEW`
-**Repair verified:** 2026-08-13
+**Re-review date:** 2026-08-13
+
+## Re-review blocker
+
+### Canonical preflight validates check-constraint names but not behavior
+
+`apps/api/src/db/canonical-weight-migration.ts:264-270` accepts a canonical-looking table whenever its `sqlite_master` SQL contains the five expected constraint names. Vector independently reproduced a table with the correct columns, NOT NULL flags, primary key, unique index, cascading foreign key, and five correctly named `CHECK (1)` no-ops; `prepareCanonicalWeightMigration()` returned `already-canonical`.
+
+This leaves finding 4 only partially repaired: malformed schema can claim the expected names while failing to enforce date format, positive pounds, 25–350 canonical kilograms, provenance, or pounds compatibility. Validate the required check expressions/behavior, not only their names, and add a regression test using correctly named no-op constraints. The actual migration-0041 schema and an already-canonical database must continue to pass.
+
+## One-bug repair response
+
+The canonical preflight now recreates the exact live `body_weight` table definition in an isolated in-memory SQLite database and behaviorally probes the contract. It requires valid 25 kg and 350 kg boundary rows to pass and requires SQLite check-constraint failures for malformed dates, non-positive compatibility pounds, weights immediately below/above the canonical range, invalid unit provenance, and pounds values outside the migration-0041 compatibility tolerance. The production database is never probed or rewritten.
+
+A regression fixture matching Vector's reproducer—correct columns, NOT NULL/PK, unique user/date, cascading user FK, and all five expected names with `CHECK (1)` bodies—is now rejected. The real migration-0041 table passes after legacy migration, as an already-canonical populated database, and after the complete fresh migration chain.
 
 ## Repair disposition for all eight blocking findings
 
 1. **Production migration-map provisioning — repaired.** The API image now starts through `scripts/api-container-entrypoint.sh`; Compose supplies `BODY_WEIGHT_LEGACY_UNIT_MAP_PATH` and mounts a host-only secret directory read-only. Container checks prove fresh/empty/canonical databases start without a map, non-empty legacy data fails closed without one, and a regular mode-0600 map is accepted.
 2. **AgentToken enrichment units — repaired.** Weight mutation hints and `relatedState` carry the response unit; pounds and kilograms regressions pass.
 3. **Map overwrite permissions — repaired.** Map output uses a mode-0600 temporary file, atomic rename, and final chmod. New and pre-existing permissive destinations are covered.
-4. **Canonical preflight integrity — repaired.** Preflight detects null compatibility/provenance data and validates required columns/NOT NULL/PK, named checks, user-date unique index, and cascading user foreign key before accepting an already-canonical table.
+4. **Canonical preflight integrity — repaired.** Preflight detects invalid existing rows and validates required columns/NOT NULL/PK, user/date unique index, cascading user foreign key, expected check names, and the actual check behavior before accepting an already-canonical table.
 5. **Agent schema divergence — repaired.** The exported agent weight-write schema reuses `createWeightInputSchema`, enforcing the canonical 25–350 kg range after conversion for both units. Agent integration documentation includes explicit response units.
 6. **Ambiguous history forms — repaired.** Add/edit labels show `Weight (lbs|kg)`, placeholders use `181.4`/`82.3`, edit aria labels carry the unit, and edit submissions retain the entry response unit.
 7. **Stale unit relabeling — repaired.** History entries and detailed trend values derive their display unit from response entries; mixed-unit collections fail instead of being silently relabeled. Stale-preference transition tests cover both surfaces.
@@ -57,4 +71,4 @@ The complete repair diff was reviewed against all eight findings. No nutrition-c
 
 `AWAITING VECTOR GATE 1 RE-REVIEW`
 
-PR #100 remains draft. Milestone 2 is unauthorized until Vector independently approves Gate 1.
+The remaining finding-4 gap is repaired. Targeted migration/database tests passed 16/16 and startup tests passed 6/6. The exact uncached pipeline passed lint, typecheck, 1,900 package tests plus 6 startup-isolation tests, and production build; all Turbo tasks were uncached. PR #100 remains draft. Milestone 2 is unauthorized until Vector independently approves Gate 1.

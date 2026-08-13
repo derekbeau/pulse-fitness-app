@@ -1,6 +1,6 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** AWAITING VECTOR GATE 1 RE-REVIEW
+**Overall:** AWAITING VECTOR GATE 1 RE-REVIEW<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
 **Last updated:** 2026-08-13
@@ -13,7 +13,7 @@
   1. Production API startup now receives the reviewed map through a read-only secret bind mount and fails closed for insecure/missing legacy maps.
   2. AgentToken weight enrichment includes `lbs`/`kg` in hints and related state.
   3. Reviewed-map writes atomically replace the destination and force mode `0600` for new and existing files.
-  4. Canonical preflight validates nulls, columns, constraints, unique index, and cascading foreign key.
+  4. Canonical preflight validates nulls, columns, behavioral check contracts, unique index, and cascading foreign key.
   5. Agent writes reuse the canonical weight schema and documented examples include output units.
   6. Weight-history add/edit controls expose the active unit and unit-specific placeholders.
   7. History and detailed trends render response units and reject mixed-unit collections instead of relabeling stale values.
@@ -24,6 +24,8 @@
 - Live API open files were only `pulse-tdee-dev.db` plus WAL/SHM. SQLite `quick_check` was `ok`; all 25 rows had canonical kg, pounds compatibility, and valid `unitAtEntry`; invalid rows and maximum compatibility delta were both zero.
 - Production snapshot SHA-256 remained `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`.
 - Exact uncached pipeline passed: lint, typecheck, tests (6 startup isolation + 1,899 package tests), and production build. Lint retained only four pre-existing Fast Refresh warnings.
+- The remaining finding-4 gap is repaired: preflight now behaviorally probes a clone of the live SQLite table definition, accepting migration-0041 boundaries while rejecting malformed dates, non-positive compatibility pounds, out-of-range kilograms, invalid provenance, and incompatible pounds. Correctly named `CHECK (1)` no-ops are regression-covered.
+- Repair verification passed: migration/startup 22/22 targeted tests; exact uncached lint, typecheck, 1,900 package tests plus 6 startup-isolation tests, and production build all passed with zero cached tasks.
 
 ## Current milestone
 

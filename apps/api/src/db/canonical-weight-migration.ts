@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { chmodSync, lstatSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
-import type Database from 'better-sqlite3';
+import Database from 'better-sqlite3';
 import { convertWeightToKg, isCanonicalBodyWeight, type WeightUnit } from '@pulse/shared';
 
 export const LEGACY_WEIGHT_UNIT_MAP_ENV = 'BODY_WEIGHT_LEGACY_UNIT_MAP_PATH';
@@ -69,6 +69,138 @@ const REQUIRED_CANONICAL_CHECKS = [
   'body_weight_unit_at_entry_check',
   'body_weight_legacy_pounds_check',
 ] as const;
+
+type CanonicalCheckProbe = {
+  date: string;
+  unitAtEntry: string;
+  weight: number;
+  weightKg: number;
+};
+
+const insertCanonicalCheckProbe = (
+  sqlite: Database.Database,
+  id: string,
+  probe: CanonicalCheckProbe,
+) =>
+  sqlite
+    .prepare(
+      `INSERT INTO body_weight
+        (id, user_id, date, weight, weight_kg, unit_at_entry, notes, created_at, updated_at)
+       VALUES (?, 'canonical-check-probe-user', ?, ?, ?, ?, NULL, 1, 1)`,
+    )
+    .run(id, probe.date, probe.weight, probe.weightKg, probe.unitAtEntry);
+
+const isExpectedCheckConstraintError = (error: unknown, checkName: string) =>
+  typeof error === 'object' &&
+  error !== null &&
+  'code' in error &&
+  error.code === 'SQLITE_CONSTRAINT_CHECK' &&
+  'message' in error &&
+  typeof error.message === 'string' &&
+  error.message.endsWith(`: ${checkName}`);
+
+const assertCanonicalCheckBehavior = (tableSql: string) => {
+  const probeDb = new Database(':memory:');
+  const poundsFor = (weightKg: number) => weightKg / 0.45359237;
+
+  try {
+    probeDb.exec(`
+      PRAGMA foreign_keys = ON;
+      CREATE TABLE users (id TEXT PRIMARY KEY NOT NULL);
+      INSERT INTO users (id) VALUES ('canonical-check-probe-user');
+      ${tableSql};
+    `);
+
+    const validProbes: CanonicalCheckProbe[] = [
+      {
+        date: '2026-08-13',
+        unitAtEntry: 'kg',
+        weight: poundsFor(25),
+        weightKg: 25,
+      },
+      {
+        date: '2026-08-14',
+        unitAtEntry: 'lbs',
+        weight: poundsFor(350) + 0.0000005,
+        weightKg: 350,
+      },
+    ];
+    for (const [index, probe] of validProbes.entries()) {
+      insertCanonicalCheckProbe(probeDb, `valid-${index}`, probe);
+    }
+
+    const invalidProbes: Array<CanonicalCheckProbe & { expectedCheck: string }> = [
+      {
+        date: '2026/08/15',
+        expectedCheck: 'body_weight_date_format_check',
+        unitAtEntry: 'kg',
+        weight: poundsFor(80),
+        weightKg: 80,
+      },
+      {
+        date: '2026-08-16',
+        expectedCheck: 'body_weight_weight_kg_check',
+        unitAtEntry: 'kg',
+        weight: poundsFor(24.999999),
+        weightKg: 24.999999,
+      },
+      {
+        date: '2026-08-17',
+        expectedCheck: 'body_weight_weight_kg_check',
+        unitAtEntry: 'kg',
+        weight: poundsFor(350.000001),
+        weightKg: 350.000001,
+      },
+      {
+        date: '2026-08-18',
+        expectedCheck: 'body_weight_unit_at_entry_check',
+        unitAtEntry: 'stone',
+        weight: poundsFor(80),
+        weightKg: 80,
+      },
+      {
+        date: '2026-08-19',
+        expectedCheck: 'body_weight_legacy_pounds_check',
+        unitAtEntry: 'lbs',
+        weight: poundsFor(80) + 0.0000015,
+        weightKg: 80,
+      },
+      {
+        date: 'not-a-date',
+        expectedCheck: 'body_weight_date_format_check',
+        unitAtEntry: 'kg',
+        weight: poundsFor(80),
+        weightKg: 80,
+      },
+      {
+        date: '2026-08-20',
+        expectedCheck: 'body_weight_weight_check',
+        unitAtEntry: 'kg',
+        weight: -1,
+        weightKg: 80,
+      },
+    ];
+
+    for (const [index, { expectedCheck, ...probe }] of invalidProbes.entries()) {
+      try {
+        insertCanonicalCheckProbe(probeDb, `invalid-${index}`, probe);
+      } catch (error) {
+        if (isExpectedCheckConstraintError(error, expectedCheck)) continue;
+        throw error;
+      }
+      throw new Error('Canonical body-weight schema has ineffective check constraints.');
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('ineffective check constraints')) {
+      throw error;
+    }
+    throw new Error('Canonical body-weight check constraints could not be verified.', {
+      cause: error,
+    });
+  } finally {
+    probeDb.close();
+  }
+};
 
 const resetTemporaryMigrationMap = (sqlite: Database.Database) => {
   sqlite.exec(`
@@ -268,6 +400,10 @@ const assertCanonicalTableIntegrity = (sqlite: Database.Database) => {
   if (REQUIRED_CANONICAL_CHECKS.some((checkName) => !normalizedDefinition.includes(checkName))) {
     throw new Error('Canonical body-weight schema is missing required check constraints.');
   }
+  if (!tableDefinition?.sql) {
+    throw new Error('Canonical body-weight schema is missing its table definition.');
+  }
+  assertCanonicalCheckBehavior(tableDefinition.sql);
 
   const invalidRow = sqlite
     .prepare(
@@ -278,6 +414,8 @@ const assertCanonicalTableIntegrity = (sqlite: Database.Database) => {
           weight IS NULL
           OR weight_kg IS NULL
           OR unit_at_entry IS NULL
+          OR date NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+          OR weight <= 0
           OR unit_at_entry NOT IN ('lbs', 'kg')
           OR weight_kg < 25
           OR weight_kg > 350

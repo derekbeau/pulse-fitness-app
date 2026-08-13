@@ -119,6 +119,7 @@ describe('canonical body-weight migration', () => {
     expect(row.weightKg).toBe(80);
     expect(row.weight).toBeCloseTo(176.3698097, 6);
     expect(row.unitAtEntry).toBe('kg');
+    expect(prepareCanonicalWeightMigration(db).state).toBe('already-canonical');
     db.close();
   });
 
@@ -267,6 +268,34 @@ describe('canonical body-weight migration', () => {
     `);
 
     expect(() => prepareCanonicalWeightMigration(db)).toThrow(/schema|required|invariant/u);
+    db.close();
+  });
+
+  it('fails closed when correctly named canonical checks are no-ops', () => {
+    const db = new Database(':memory:');
+    db.exec(`
+      PRAGMA foreign_keys = ON;
+      CREATE TABLE users (id TEXT PRIMARY KEY NOT NULL);
+      CREATE TABLE body_weight (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        date TEXT NOT NULL,
+        weight REAL NOT NULL,
+        weight_kg REAL NOT NULL,
+        unit_at_entry TEXT NOT NULL,
+        notes TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        CONSTRAINT body_weight_date_format_check CHECK (1),
+        CONSTRAINT body_weight_weight_check CHECK (1),
+        CONSTRAINT body_weight_weight_kg_check CHECK (1),
+        CONSTRAINT body_weight_unit_at_entry_check CHECK (1),
+        CONSTRAINT body_weight_legacy_pounds_check CHECK (1),
+        UNIQUE(user_id, date)
+      );
+    `);
+
+    expect(() => prepareCanonicalWeightMigration(db)).toThrow(/check constraints/u);
     db.close();
   });
 });

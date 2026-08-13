@@ -2,8 +2,8 @@
 
 **Status:** AWAITING VECTOR GATE 1 RE-REVIEW<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
-**Reviewer:** Codex repair verification complete; awaiting independent Vector re-review<br>
-**Last verified state:** complete eight-finding Gate 1 repair, isolated browser/SQLite QA, and green uncached pipeline
+**Reviewer:** Codex one-bug repair verification complete; awaiting independent Vector re-review<br>
+**Last verified state:** remaining canonical check-contract gap repaired; targeted and exact uncached full checks green
 
 This report must contain observed results, not intended commands or agent self-reports.
 
@@ -172,6 +172,30 @@ Final exact uncached pipeline, all exit 0:
 
 Complete diff self-review found no Milestone 2, deploy, merge, or PR-ready scope. Current state is `AWAITING VECTOR GATE 1 RE-REVIEW`; approval is intentionally withheld.
 
+#### Remaining finding-4 one-bug repair
+
+Vector's independent re-review reproduced an already-canonical false positive by replacing all five correctly named checks with `CHECK (1)`. The preflight now clones the exact live `sqlite_master` table definition into an isolated in-memory SQLite database and verifies behavior without writing production data. Valid migration-0041 boundary rows at 25 kg and 350 kg must insert, while malformed dates, non-positive compatibility pounds, values immediately outside 25–350 kg, invalid provenance, and pounds compatibility outside the `< 0.000001` tolerance must fail with `SQLITE_CONSTRAINT_CHECK`.
+
+Regression coverage rejects the correctly named no-op schema. It also verifies the real migration-0041 result remains `already-canonical` after populated legacy migration; the existing empty-legacy and complete fresh-chain tests continue to pass.
+
+Targeted repair checks, all exit 0:
+
+| Command                                                                                                   | Observed result |
+| --------------------------------------------------------------------------------------------------------- | --------------- |
+| `pnpm --filter @pulse/api exec vitest run src/db/canonical-weight-migration.test.ts src/db/index.test.ts` | 16/16 passed    |
+| `pnpm test:gate0-isolation`                                                                               | 6/6 passed      |
+
+Exact uncached repair pipeline, all exit 0:
+
+| Command                           | Observed result                                                                                                 |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `TURBO_FORCE=true pnpm lint`      | 3/3, 0 cached, zero errors; four pre-existing Fast Refresh warnings                                             |
+| `TURBO_FORCE=true pnpm typecheck` | 3/3, 0 cached                                                                                                   |
+| `TURBO_FORCE=true pnpm test`      | Startup isolation 6/6; Turbo 6/6, 0 cached; shared 342, API 603, web 955 (1,900 package tests across 245 files) |
+| `TURBO_FORCE=true pnpm build`     | 3/3, 0 cached; Vite transformed 3,830 modules                                                                   |
+
+No UI code changed, so browser QA was not repeated. No Milestone 2, deployment, merge, or PR-ready work was performed. Current state is `AWAITING VECTOR GATE 1 RE-REVIEW`; approval remains intentionally withheld.
+
 ### Nutrition completeness and target provenance
 
 Pending.
@@ -262,7 +286,7 @@ After Codex completes and stops, Hermes/Vector must independently compare the im
 
 ## Final verdict
 
-`AWAITING VECTOR GATE 1 REVIEW`
+`AWAITING VECTOR GATE 1 RE-REVIEW`
 
 Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 
