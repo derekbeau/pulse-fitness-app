@@ -24,7 +24,7 @@ This directory is the durable handoff surface for the Adaptive TDEE implementati
 - Use separate worktrees for concurrent editors and merge only reviewed commits.
 - Write tests during each milestone, not after the feature is assembled.
 - Commit coherent milestones using the repository's Conventional Commit rules.
-- Before handing the feature to Derek, complete the independent acceptance gate described in `verification-report.md`.
+- After each milestone's Codex self-review and built-in-browser QA, stop for the Vector gate described in `verification-report.md`. Before handing the feature to Derek, Vector must complete the final independent acceptance gate.
 
 ## Durable artifacts
 

@@ -2,7 +2,7 @@
 
 Authoritative contract: [`../docs/specs/adaptive-tdee-v1.md`](../docs/specs/adaptive-tdee-v1.md)
 
-The milestones are ordered dependencies. Do not start with UI.
+The milestones are ordered dependencies. Each milestone is a separate Codex goal and requires both Codex self-verification and Vector approval before the next milestone is authorized. Do not start with UI.
 
 ## Milestone 0: Baseline and development isolation
 
@@ -12,7 +12,7 @@ The milestones are ordered dependencies. Do not start with UI.
 - [ ] Verify the development server can run without touching the production volume/database.
 - [ ] Record baseline commands and results in `verification-report.md`.
 
-**Gate:** clean baseline, isolated database, and working local app.
+**Codex gate:** clean baseline, isolated database, working local app, built-in-browser smoke test, self-reviewed evidence, pushed commit, then stop at `AWAITING VECTOR GATE 0 REVIEW`.
 
 ## Milestone 1: Canonical weight foundation
 
@@ -23,7 +23,7 @@ The milestones are ordered dependencies. Do not start with UI.
 - [ ] Cover weight history, dashboard, habits/resolvers, agent context, exports, and preference changes.
 - [ ] Add old-database, fresh-database, lb-user, kg-user, mixed-user, ambiguous-map, and cross-unit-write tests.
 
-**Gate:** no active application reader consumes ambiguous legacy weight values.
+**Codex gate:** no active application reader consumes ambiguous legacy weight values; migration/data-safety self-review, targeted tests, built-in-browser smoke of every affected weight surface, pushed commit, then stop at `AWAITING VECTOR GATE 1 REVIEW`.
 
 ## Milestone 2: Nutrition completeness and target provenance
 
@@ -35,7 +35,7 @@ The milestones are ordered dependencies. Do not start with UI.
 - [ ] Preserve same-date replacement history in check-in snapshots.
 - [ ] Add schema, migration, store, route, and invalidation tests.
 
-**Gate:** only explicitly complete, unchanged days can enter adaptive calculations.
+**Codex gate:** only explicitly complete, unchanged days can enter adaptive calculations; schema/API self-review, targeted tests, built-in-browser verification of affected nutrition and target surfaces, pushed commit, then stop at `AWAITING VECTOR GATE 2 REVIEW`.
 
 ## Milestone 3: Pure adaptive algorithm
 
@@ -48,7 +48,7 @@ The milestones are ordered dependencies. Do not start with UI.
 - [ ] Implement deterministic fingerprint canonicalization.
 - [ ] Pass every required vector and invariant from specification section 22.
 
-**Gate:** pure module is deterministic, clock-independent, and fully tested.
+**Codex gate:** pure module is deterministic, clock-independent, and fully tested; independently recalculate required vectors, self-review numerical boundaries, browser-smoke the still-working app, push the commit, then stop at `AWAITING VECTOR GATE 3 REVIEW`.
 
 ## Milestone 4: Program, check-in, and API lifecycle
 
@@ -62,7 +62,7 @@ The milestones are ordered dependencies. Do not start with UI.
 - [ ] Add repeated accept/decline, reverted fingerprint, midnight, held schedule, and cross-user tests.
 - [ ] Add all required query/cache invalidation paths.
 
-**Gate:** check-ins are replayable, idempotent where specified, stale-safe, and concurrency-safe.
+**Codex gate:** check-ins are replayable, idempotent where specified, stale-safe, and concurrency-safe; API/concurrency self-review, targeted and real two-connection tests, built-in-browser exercise of every runnable API-backed state, pushed commit, then stop at `AWAITING VECTOR GATE 4 REVIEW`.
 
 ## Milestone 5: Coach and completion UI
 
@@ -75,7 +75,7 @@ The milestones are ordered dependencies. Do not start with UI.
 - [ ] Meet accessibility requirements and responsive widths.
 - [ ] Add RTL and Playwright coverage for all major paths.
 
-**Gate:** every primary state is usable with keyboard and at 375 px without console/network errors.
+**Codex gate:** every primary state is usable with keyboard and at all specified responsive widths without console/network errors; complete built-in-browser walkthrough, accessibility self-review, screenshots/evidence, pushed commit, then stop at `AWAITING VECTOR GATE 5 REVIEW`.
 
 ## Milestone 6: Backtest, staging preview, and independent review
 
@@ -92,7 +92,7 @@ The milestones are ordered dependencies. Do not start with UI.
 - [ ] Resolve all Codex-found blocking issues and rerun affected gates.
 - [ ] Hand off to Hermes/Vector for the independent acceptance review; Codex must not perform or waive this gate.
 
-**Gate:** Codex's `verification-report.md` contains reproducible green evidence, no unresolved Codex-found blocking issues, and the verdict `AWAITING VECTOR REVIEW`.
+**Codex gate:** `verification-report.md` contains reproducible green evidence, no unresolved Codex-found blocking issues, and the verdict `AWAITING VECTOR FINAL REVIEW`. Push the final milestone commit and stop for Vector's independent acceptance.
 
 ## Final handoff criteria
 
@@ -101,4 +101,4 @@ The milestones are ordered dependencies. Do not start with UI.
 - [ ] CI is green or every external/non-code blocker is explicitly documented.
 - [ ] Preview URL and test workflow are verified before Derek receives them.
 - [ ] Production remains unchanged.
-- [ ] Codex stops at `AWAITING VECTOR REVIEW`; only Vector may promote the verdict to `READY FOR DEREK PREVIEW`.
+- [ ] Codex stops after every milestone at its named Vector gate; only Vector may authorize the next milestone or promote the final verdict to `READY FOR DEREK PREVIEW`.

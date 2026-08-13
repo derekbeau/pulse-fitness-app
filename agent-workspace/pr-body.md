@@ -30,7 +30,7 @@ Verification gate: [`agent-workspace/verification-report.md`](agent-workspace/ve
 - Development must use an isolated SQLite database and test user.
 - Legacy weight migration must abort on ambiguous units.
 - Recommendations never silently overwrite targets in v1.
-- This PR remains draft while Codex implements and after it reaches `AWAITING VECTOR REVIEW`. Only Hermes/Vector may promote the verification report to `READY FOR DEREK PREVIEW` after independent acceptance.
+- This PR remains draft while Codex implements and at every `AWAITING VECTOR GATE N REVIEW` state. Only Vector may authorize the next milestone or promote `AWAITING VECTOR FINAL REVIEW` to `READY FOR DEREK PREVIEW` after independent acceptance.
 
 ## Current verification
 

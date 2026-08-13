@@ -3,7 +3,7 @@
 **Overall:** Ready for implementation<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
 **ChatGPT project:** `pulse-fitness-app`<br>
-**Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app` on `feat/adaptive-tdee-v1`<br>
+**Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee` on `feat/adaptive-tdee-v1`<br>
 **Base commit:** `019e185` (`origin/main` when worktree was created)<br>
 **Specification commit:** `59eefa3`<br>
 **Last updated:** 2026-08-12
@@ -29,7 +29,7 @@ No application implementation has started.
 2. Run and record a fresh baseline (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`).
 3. Inspect `.env.example`, database path selection, migration startup, and seed/test-user tooling.
 4. Establish an isolated development SQLite database and confirm production data cannot be touched.
-5. Begin Milestone 1 only after the baseline gate passes.
+5. Stop at `AWAITING VECTOR GATE 0 REVIEW`; do not begin Milestone 1 until Vector approves it.
 
 ## Blocking issues
 
@@ -53,12 +53,12 @@ After each work session or milestone commit, update:
 - `Blocking issues`
 - Latest commit and verification results when available
 
-## Vector review handoff gate
+## Vector review handoff protocol
 
-Codex is the implementation owner, not the final acceptance authority. After Codex completes its own implementation, automated checks, browser QA, and preview verification:
+Every milestone is a separate Codex goal. Codex completes implementation, automated checks, self-review, built-in-browser QA, evidence, commit, and push for only the currently authorized milestone, then:
 
-1. Set `Overall` to `AWAITING VECTOR REVIEW`.
-2. Set the final verdict in `verification-report.md` to `AWAITING VECTOR REVIEW`.
+1. Set `Overall` to `AWAITING VECTOR GATE N REVIEW` (or `AWAITING VECTOR FINAL REVIEW` after Milestone 6).
+2. Record the same milestone verdict in `verification-report.md`.
 3. Push the feature branch and update draft PR #100.
-4. Stop. Do not mark the feature `READY FOR DEREK PREVIEW`, make the PR ready for review, merge, or deploy.
-5. Derek will return to Hermes/Vector. Vector independently reruns acceptance and either records blocking findings or changes the verdict to `READY FOR DEREK PREVIEW`.
+4. Stop the goal. Do not begin the next milestone, self-approve the gate, mark the feature `READY FOR DEREK PREVIEW`, make the PR ready for review, merge, or deploy.
+5. Derek returns to Hermes/Vector. Vector independently reviews that gate and either records blocking findings or authorizes the next milestone. Only the final Vector review may change the verdict to `READY FOR DEREK PREVIEW`.

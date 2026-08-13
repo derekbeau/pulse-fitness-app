@@ -19,6 +19,8 @@ This report must contain observed results, not intended commands or agent self-r
 
 ## Milestone verification
 
+For each milestone, record targeted test results, Codex self-review findings and resolutions, built-in-browser scenarios, console/network inspection, commit SHA, and one verdict: `AWAITING VECTOR GATE N REVIEW`, `VECTOR GATE N APPROVED`, or `VECTOR GATE N CHANGES REQUIRED`.
+
 ### Canonical weight foundation
 
 Pending.
@@ -115,6 +117,6 @@ After Codex completes and stops, Hermes/Vector must independently compare the im
 
 `NOT READY`
 
-Codex may change this only to `AWAITING VECTOR REVIEW` after its implementation and verification pass. Codex must then stop, push, and hand off.
+Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 
-Only Hermes/Vector may change `AWAITING VECTOR REVIEW` to `READY FOR DEREK PREVIEW`, after independently rerunning acceptance and verifying the preview. Codex must not mark the feature ready for Derek, make the PR ready for review, merge, or deploy.
+After Milestone 6, Codex may set the final verdict only to `AWAITING VECTOR FINAL REVIEW`. Only Hermes/Vector may change that to `READY FOR DEREK PREVIEW`, after independently rerunning acceptance and verifying the preview. Codex must not self-approve a gate, mark the feature ready for Derek, make the PR ready for review, merge, or deploy.
