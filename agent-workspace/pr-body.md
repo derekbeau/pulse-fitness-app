@@ -12,7 +12,7 @@ The work crosses weight-unit migration, nutrition completeness, target provenanc
 
 ## Implementation milestones
 
-- [ ] Baseline and isolated development database
+- [x] Baseline and isolated development database
 - [ ] Canonical weight foundation and all-reader migration
 - [ ] Nutrition completeness and adaptive target provenance
 - [ ] Pure deterministic adaptive TDEE algorithm
@@ -34,17 +34,20 @@ Verification gate: [`agent-workspace/verification-report.md`](agent-workspace/ve
 
 ## Current verification
 
-Specification and execution-workspace stage only:
+Milestone 0 complete; stopped at `AWAITING VECTOR GATE 0 REVIEW`:
 
 - [x] Independent technical review completed and findings incorporated
 - [x] Formula vectors independently recalculated
 - [x] Citation validation passed
 - [x] Markdown formatting and `git diff --check` passed
 - [x] Existing repository typecheck/build/test hooks passed at specification commit
-- [ ] Fresh worktree baseline recorded
+- [x] Fresh uncached worktree baseline recorded (1,862 tests across 242 files)
+- [x] Isolated read-only seed, writable development database, and test-user workflow verified
+- [x] Built-in-browser smoke test passed across 11 primary routes with clean console/request diagnostics
+- [x] Local-date rollover and Recharts initialization warnings found during QA were fixed and regression-tested
+- [x] Local development preview and production-database isolation verified
 - [ ] Feature-specific automated tests
-- [ ] Browser acceptance
-- [ ] Verified development preview
+- [ ] Full Adaptive TDEE browser acceptance (Milestones 5-6)
 
 ## Review focus
 

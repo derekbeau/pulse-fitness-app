@@ -6,11 +6,11 @@ The milestones are ordered dependencies. Each milestone is a separate Codex goal
 
 ## Milestone 0: Baseline and development isolation
 
-- [ ] Install/reuse dependencies without copying production data.
-- [ ] Confirm the full existing quality suite passes from this worktree.
-- [ ] Define an isolated development SQLite path and seeded test-user workflow.
-- [ ] Verify the development server can run without touching the production volume/database.
-- [ ] Record baseline commands and results in `verification-report.md`.
+- [x] Install/reuse dependencies without copying production data.
+- [x] Confirm the full existing quality suite passes from this worktree.
+- [x] Define an isolated development SQLite path and seeded test-user workflow.
+- [x] Verify the development server can run without touching the production volume/database.
+- [x] Record baseline commands and results in `verification-report.md`.
 
 **Codex gate:** clean baseline, isolated database, working local app, built-in-browser smoke test, self-reviewed evidence, pushed commit, then stop at `AWAITING VECTOR GATE 0 REVIEW`.
 

@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
 import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
 import { apiRequest, apiRequestWithMeta } from '@/lib/api-client';
-import { addDays, formatUtcDateKey, parseDateInput } from '@/lib/date';
+import { addDays, formatDateKey, parseDateInput } from '@/lib/date';
 import { createOptimisticMutation } from '@/lib/optimistic';
 import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 
@@ -182,11 +182,11 @@ const applyWeightEntryToListCache = (
       return entries;
     }
 
-    const resolvedTo = filters.to ?? formatUtcDateKey(new Date());
+    const resolvedTo = filters.to ?? formatDateKey(new Date());
     const resolvedFrom =
       filters.from ??
       (filters.days !== null
-        ? formatUtcDateKey(addDays(parseDateInput(`${resolvedTo}T00:00:00`), -(filters.days - 1)))
+        ? formatDateKey(addDays(parseDateInput(`${resolvedTo}T00:00:00`), -(filters.days - 1)))
         : null);
 
     if (

@@ -49,13 +49,22 @@ function renderPage() {
 }
 
 describe('WeightHistoryPage', () => {
+  let originalTimezone: string | undefined;
+
   beforeEach(() => {
+    originalTimezone = process.env.TZ;
+    process.env.TZ = 'America/Detroit';
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date('2026-03-08T12:00:00'));
     window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
   });
 
   afterEach(() => {
+    if (originalTimezone === undefined) {
+      delete process.env.TZ;
+    } else {
+      process.env.TZ = originalTimezone;
+    }
     window.localStorage.clear();
     vi.useRealTimers();
     vi.restoreAllMocks();
@@ -237,6 +246,44 @@ describe('WeightHistoryPage', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole('form', { name: 'Add weight entry' })).not.toBeInTheDocument();
+  });
+
+  it('defaults a new entry to the local calendar date near a UTC day boundary', async () => {
+    vi.setSystemTime(new Date('2026-03-09T01:30:00.000Z'));
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/users/me' && method === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'user-1',
+              username: 'test-user',
+              name: 'Test User',
+              weightUnit: 'lbs',
+              createdAt: 1,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/weight' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Weight History' });
+    fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+
+    expect(screen.getByLabelText('Date')).toHaveValue('2026-03-08');
   });
 
   it('supports editing a weight value and note inline', async () => {

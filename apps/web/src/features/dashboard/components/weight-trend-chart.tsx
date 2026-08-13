@@ -303,7 +303,11 @@ export function WeightTrendChart() {
                 className="h-[220px] w-full sm:h-[280px]"
                 role="img"
               >
-                <ResponsiveContainer height="100%" width="100%">
+                <ResponsiveContainer
+                  height="100%"
+                  initialDimension={{ height: 220, width: 320 }}
+                  width="100%"
+                >
                   <LineChart data={chartData} margin={{ top: 8, right: 4, bottom: 2, left: 0 }}>
                     <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
                     <XAxis

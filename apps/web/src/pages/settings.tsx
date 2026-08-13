@@ -22,7 +22,7 @@ import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboar
 import { useUpdateUser, useUser } from '@/hooks/use-user';
 import type { Theme } from '@/hooks/useTheme';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { formatUtcDateKey } from '@/lib/date';
+import { formatDateKey } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 type ThemePreview = {
@@ -447,7 +447,7 @@ export function SettingsPage() {
   async function handleSave() {
     const nextTargets: CreateNutritionTargetInput = {
       ...settings.nutritionTargets,
-      effectiveDate: formatUtcDateKey(new Date()),
+      effectiveDate: formatDateKey(new Date()),
     };
 
     const [nutritionResult, dashboardConfigResult] = await Promise.allSettled([

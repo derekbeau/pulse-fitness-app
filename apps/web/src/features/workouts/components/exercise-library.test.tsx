@@ -215,7 +215,7 @@ afterEach(() => {
 
 describe('ExerciseLibrary', () => {
   it('filters exercises by case-insensitive name search and syncs q to the URL', async () => {
-    mockExerciseRequests();
+    const fetchMock = mockExerciseRequests();
 
     renderExerciseLibrary();
 
@@ -223,17 +223,31 @@ describe('ExerciseLibrary', () => {
       target: { value: 'ROW' },
     });
 
-    await waitFor(() => {
-      expect(window.location.search).toContain('q=ROW');
-    });
+    await waitFor(
+      () => {
+        expect(window.location.search).toContain('q=ROW');
+        expect(
+          fetchMock.mock.calls.some(([input]) => {
+            const url = new URL(String(input), 'https://pulse.test');
+            return url.pathname === '/api/v1/exercises' && url.searchParams.get('q') === 'ROW';
+          }),
+        ).toBe(true);
+      },
+      { timeout: 4_000 },
+    );
 
     expect(await screen.findByRole('heading', { level: 3, name: 'Row Erg' })).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 3, name: 'Chest Supported Row' }),
     ).toBeInTheDocument();
-    await waitFor(() => {
-      expect(screen.queryByRole('heading', { level: 3, name: 'Air Bike' })).not.toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(
+          screen.queryByRole('heading', { level: 3, name: 'Air Bike' }),
+        ).not.toBeInTheDocument();
+      },
+      { timeout: 4_000 },
+    );
   });
 
   it('filters exercises by muscle group, equipment, and category together', async () => {
