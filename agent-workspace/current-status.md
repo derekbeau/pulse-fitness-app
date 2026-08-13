@@ -1,6 +1,6 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** AWAITING VECTOR GATE 0 REVIEW<br>
+**Overall:** VECTOR GATE 0 CHANGES REQUIRED<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
 **ChatGPT project:** `pulse-fitness-app`<br>
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee` on `feat/adaptive-tdee-v1`<br>
@@ -26,18 +26,22 @@
 
 ## Current milestone
 
-**Milestone 0: Baseline and development isolation — complete**
+**Milestone 0: Baseline and development isolation — changes required**
 
-Milestone 1 has not started. The branch is stopped at the required independent Vector gate.
+Milestone 1 has not started and remains unauthorized. Vector's blocking findings are recorded in `agent-workspace/vector-gate-0-review.md`.
 
 ## Next actions
 
-1. Vector independently reviews Milestone 0 evidence and the pushed diff.
-2. Do not begin Milestone 1 unless Vector records Gate 0 approval and Derek authorizes the next Codex goal.
+1. Resume the Milestone 0 Codex goal only.
+2. Resolve every blocker in `agent-workspace/vector-gate-0-review.md`.
+3. Repeat Codex self-review, uncached checks, and built-in-browser QA.
+4. Commit and push the correction, update evidence, and stop again at `AWAITING VECTOR GATE 0 REVIEW`.
+5. Do not begin Milestone 1 unless Vector records Gate 0 approval and Derek authorizes the next Codex goal.
 
 ## Blocking issues
 
-None.
+- Dashboard browser navigation still emits Recharts width/height initialization warnings despite the clean-console claim.
+- Isolated startup is not yet enforced by a tracked fail-closed command; ignored env state can fall back to the default database path.
 
 ## Non-blocking warnings
 

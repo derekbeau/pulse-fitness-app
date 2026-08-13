@@ -1,8 +1,8 @@
 # Adaptive TDEE v1 Verification Report
 
-**Status:** AWAITING VECTOR GATE 0 REVIEW<br>
+**Status:** VECTOR GATE 0 CHANGES REQUIRED<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
-**Reviewer:** Codex self-review complete; Vector independent review pending<br>
+**Reviewer:** Codex self-review complete; Vector independent review found blockers<br>
 **Last verified state:** Milestone 0 working tree based on `350cd5d`; pushed commit is the PR #100 head
 
 This report must contain observed results, not intended commands or agent self-reports.
@@ -164,13 +164,13 @@ Use an isolated development database. Capture screenshots when they clarify a re
 
 After Codex completes and stops, Hermes/Vector must independently compare the implementation against every item in specification section 27 and inspect migrations, concurrency, data isolation, browser behavior, and the complete branch diff.
 
-**Blocking findings:** Pending  
-**Non-blocking findings:** Pending  
+**Blocking findings:** Two; see `agent-workspace/vector-gate-0-review.md`<br>
+**Non-blocking findings:** The ignored `.env` is accepted by app env-file parsing but is not shell-sourceable because a display-name value contains spaces.<br>
 **Resolution commits:** Pending
 
 ## Final verdict
 
-`AWAITING VECTOR GATE 0 REVIEW`
+`VECTOR GATE 0 CHANGES REQUIRED`
 
 Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 
