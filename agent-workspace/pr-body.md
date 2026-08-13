@@ -15,7 +15,7 @@ The work crosses weight-unit migration, nutrition completeness, target provenanc
 - [x] Baseline and isolated development database
 - [x] Canonical weight foundation and all-reader migration
 - [x] Nutrition completeness and adaptive target provenance
-- [ ] Pure deterministic adaptive TDEE algorithm
+- [x] Pure deterministic adaptive TDEE algorithm
 - [ ] Program/check-in persistence, API lifecycle, and real SQLite concurrency tests
 - [ ] Coach UI, completion controls, history, accessibility, and responsive behavior
 - [ ] Backtest, seeded staging preview, browser acceptance, and independent review
@@ -77,9 +77,16 @@ Milestone 1 Gate 1 is independently approved at `2e539387c690f09710648d591e57c5d
 - [x] Repair exact uncached pipeline passed (1,944 package tests plus 7 startup/security tests; zero cached Turbo tasks)
 - [x] Vector independently re-reviewed the repair, repeated fresh-database adversarial checks and isolated browser/API acceptance, and reran the exact uncached pipeline
 - [x] Vector Gate 2 approved
+- [x] Pure clock-independent Adaptive TDEE calculation module and strict shared calculation/response schemas
+- [x] Canonical conversions, local-date age, Mifflin/manual baselines, eligibility, suspect holds, interpolation, seven-day-half-life EWMA, and OLS slope
+- [x] Observed expenditure, plausibility, confidence, smoothing, no-op/150-kcal limits, goal guardrails, constrained rounding, completion, and reconciled macros
+- [x] Canonical source snapshots and deterministic lowercase SHA-256 fingerprints independent of input order
+- [x] Required vectors A-K and boundary/invariant regressions; 13 schema and 34 algorithm tests
+- [x] Milestone 3 exact uncached pipeline passed (1,991 package tests plus 7 startup/security tests; zero cached Turbo tasks)
+- [x] Isolated Gate 0 browser smoke passed on Dashboard, Nutrition, Weight History, and Settings with clean console and all observed API requests HTTP 200
 - [ ] Full Adaptive TDEE browser acceptance (Milestones 5-6)
 
-Current milestone state: `VECTOR GATE 2 APPROVED`. Milestone 3 has not started and still requires separate authorization; PR #100 remains draft.
+Current milestone state: `AWAITING VECTOR GATE 3 REVIEW`. Milestone 4 has not started; PR #100 remains draft.
 
 ## Review focus
 

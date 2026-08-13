@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+export * from './schemas/adaptive-nutrition.js';
 export * from './schemas/agent.js';
 export * from './schemas/auth.js';
 export * from './schemas/activities.js';
@@ -25,6 +26,7 @@ export * from './schemas/weight.js';
 export * from './schemas/workout-sessions.js';
 export * from './schemas/users.js';
 export * from './schemas/workout-templates.js';
+export * from './utils/adaptive-tdee.js';
 export * from './utils/ewma.js';
 export * from './utils/habit-scheduling.js';
 export * from './utils/weight-unit.js';

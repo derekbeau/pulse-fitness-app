@@ -283,7 +283,47 @@ Complete repair scope review found no adaptive algorithm, acceptance lifecycle, 
 
 ### Pure adaptive algorithm
 
-Pending.
+Implemented and self-reviewed on 2026-08-13:
+
+- Added a pure shared Adaptive TDEE v1 module with no database, ambient-clock, locale, or network dependencies. All algorithm inputs, constants, and calendar boundaries are explicit.
+- Implemented canonical lb/kg conversions, calendar-date age, both Mifflin-St Jeor equations, activity multipliers, manual baseline override, and replayable unrounded baseline intermediates.
+- Implemented 21-day eligibility with 21-day weight warmup, incomplete-day exclusion, suspect-entry identification, interpolation without extrapolation, seven-day-half-life EWMA, OLS regression, observed TDEE, persisted-RMR plausibility, confidence components, smoothing, no-op behavior, and the +/-150 kcal limiter.
+- Implemented signed goal-rate calories, 25% deficit and calorie-floor guardrails, upward constrained-loss rounding, achievable-rate recalculation, goal completion, maintenance behavior, and whole-number macro allocation within two calories.
+- Added recursively key-sorted canonical JSON, date/ID-sorted source arrays, eight-decimal canonical kilograms, source-range filtering, and a web-safe pure SHA-256 implementation. Incomplete-day calories cannot affect either the calculation or fingerprint, while source corrections and current-target changes do.
+- Added strict calculation/setup/response schemas covering every enum, numeric boundary, conditional field, persisted baseline intermediate, target provenance rule, and baseline/learning/holding/updating union.
+
+Required deterministic vectors and invariants are executable in the 34 algorithm tests. Independent arithmetic, performed separately from the implementation, reproduced:
+
+| Vector | Independent result                                                                                                                |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| A      | observed TDEE 2,500; adaptive TDEE 2,500; maintenance goal 2,500                                                                  |
+| B      | slope -0.032399455 kg/day; observed TDEE 2,599.4758035; requested delta 34.816531225; adaptive TDEE 2,530; raw loss goal 2,080.43 |
+| C      | stored energy 275 kcal/day; observed TDEE 2,725                                                                                   |
+| D      | requested delta 350; limited delta 150; adaptive TDEE 2,350                                                                       |
+| K      | binding minimum 1,801; persisted goal 1,810; achievable rate recomputed as -0.5363636%/week                                       |
+
+Vectors E-H are covered by direct eligibility/recommendation assertions. Vector I's algorithm-level requirement proves identical fingerprint and output for reordered identical inputs; persistence-level check-in-ID reuse remains Milestone 4. Vector J proves the fingerprint changes after a complete-day source correction; the HTTP 409 acceptance transaction remains Milestone 4. All listed section 22.1 conversion, age, baseline, interpolation, EWMA, regression, sign, confidence, boundary, limiter, guardrail, completion, macro, and canonicalization cases pass. The 13 schema tests cover the complete section 22.3 matrix.
+
+Targeted checks, all exit 0:
+
+| Command/check                               | Observed result                                                                  |
+| ------------------------------------------- | -------------------------------------------------------------------------------- |
+| `pnpm --filter @pulse/shared lint`          | Passed                                                                           |
+| `pnpm --filter @pulse/shared typecheck`     | Passed                                                                           |
+| `pnpm --filter @pulse/shared test -- --run` | 32 files, 397 tests; includes 13 adaptive schema and 34 adaptive algorithm tests |
+
+Exact uncached pipeline, all exit 0 on the final code tree:
+
+| Command                           | Observed result                                                                                                |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `TURBO_FORCE=true pnpm lint`      | 3/3, 0 cached, zero errors; four pre-existing Fast Refresh warnings                                            |
+| `TURBO_FORCE=true pnpm typecheck` | 3/3, 0 cached                                                                                                  |
+| `TURBO_FORCE=true pnpm test`      | Startup/security 7/7; Turbo 6/6, 0 cached; shared 397, API 635, web 959 (1,991 package tests across 251 files) |
+| `TURBO_FORCE=true pnpm build`     | 3/3, 0 cached; Vite transformed 3,832 modules                                                                  |
+
+Built-in-browser smoke used only `pnpm dev:gate0` on isolated ports 3102/5274 and `apps/api/data/pulse-tdee-dev.db`. Dashboard, Nutrition, Weight History, and Settings rendered with the isolated `Gate 2 QA` user. Browser console warnings/errors were empty, and every observed API request completed with HTTP 200. The process was stopped after verification.
+
+Complete diff self-review found no database/API lifecycle, UI, Milestone 4+, deployment, merge, or PR-ready behavior. Formatting and whitespace checks passed. The copied production snapshot SHA-256 remains `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`; production was not accessed or changed. Verdict: `AWAITING VECTOR GATE 3 REVIEW`.
 
 ### Check-in/API lifecycle and concurrency
 
@@ -367,7 +407,7 @@ After Codex completes and stops, Hermes/Vector must independently compare the im
 
 ## Final verdict
 
-`VECTOR GATE 2 APPROVED`
+`AWAITING VECTOR GATE 3 REVIEW`
 
 Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 

@@ -39,14 +39,14 @@ The milestones are ordered dependencies. Each milestone is a separate Codex goal
 
 ## Milestone 3: Pure adaptive algorithm
 
-- [ ] Implement canonical conversions and age calculation.
-- [ ] Implement Mifflin-St Jeor baseline and manual override.
-- [ ] Implement eligibility and suspect-data holds.
-- [ ] Implement interpolation, seven-day-half-life EWMA, and regression slope.
-- [ ] Implement observed TDEE, confidence, smoothing, and change limiting.
-- [ ] Implement goal calories, floors, deficit limits, upward constrained rounding, goal completion, and macros.
-- [ ] Implement deterministic fingerprint canonicalization.
-- [ ] Pass every required vector and invariant from specification section 22.
+- [x] Implement canonical conversions and age calculation.
+- [x] Implement Mifflin-St Jeor baseline and manual override.
+- [x] Implement eligibility and suspect-data holds.
+- [x] Implement interpolation, seven-day-half-life EWMA, and regression slope.
+- [x] Implement observed TDEE, confidence, smoothing, and change limiting.
+- [x] Implement goal calories, floors, deficit limits, upward constrained rounding, goal completion, and macros.
+- [x] Implement deterministic fingerprint canonicalization.
+- [x] Pass every required vector and invariant from specification section 22.
 
 **Codex gate:** pure module is deterministic, clock-independent, and fully tested; independently recalculate required vectors, self-review numerical boundaries, browser-smoke the still-working app, push the commit, then stop at `AWAITING VECTOR GATE 3 REVIEW`.
 

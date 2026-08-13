@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** VECTOR GATE 2 APPROVED<br>
+**Overall:** AWAITING VECTOR GATE 3 REVIEW<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
-**Last updated:** 2026-08-13 (Vector Gate 2 approved)
+**Last updated:** 2026-08-13 (Milestone 3 implementation complete)
 
 ## Completed
 
@@ -41,22 +41,28 @@
 - Vector independently inspected the full staged repair, corrected two documentation whitespace defects, reran API 635/635, shared 350/350, web 959/959, and the 7 startup/security tests, and repeated the exact uncached lint/typecheck/test/build pipeline with zero cached tasks.
 - Vector independently migrated a fresh database and proved direct check-in deletion and cross-user program linkage fail while the audit row remains; `quick_check` returned `ok` with zero foreign-key violations.
 - Vector repeated isolated API/browser acceptance on ports 3102/5274. Nutrition and Settings rendered, health returned HTTP 200, no failed API resources appeared, and the API opened only `pulse-tdee-dev.db` plus WAL/SHM. The process was stopped and both ports were free.
+- Milestone 3 adds the pure shared Adaptive TDEE v1 module: explicit calendar-date boundaries, canonical conversions, Mifflin-St Jeor/manual baselines, eligibility and suspect holds, interpolation, seven-day-half-life EWMA, OLS trend slope, observed expenditure, confidence, smoothing, limits, goal guardrails, macro allocation, and deterministic SHA-256 fingerprints.
+- Shared schemas now validate calculation inputs, constants, every enum and numeric boundary, persisted baseline conditionals, target provenance, and all baseline/learning/holding/updating response shapes.
+- Required vectors A-K and invariants are covered, including incomplete-day exclusion, stale/spike holds, input-order independence, source-correction staleness, constrained-loss upward rounding, goal completion, out-of-range-history exclusion, and clock-independent output. Independent arithmetic reproduced vectors A-D and K.
+- Milestone 3 verification passed 13 schema tests and 34 algorithm tests; the exact uncached pipeline passed startup/security 7/7 plus 1,991 package tests across 251 files, lint, typecheck, and all three builds with zero cached Turbo tasks.
+- Built-in-browser smoke used only `pnpm dev:gate0` and the isolated `pulse-tdee-dev.db`. Dashboard, Nutrition, Weight History, and Settings rendered; browser console diagnostics were empty and every observed API request returned HTTP 200. The isolated process was stopped afterward.
+- Production was not accessed or changed; the copied production snapshot SHA-256 remains `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`.
 
 ## Current milestone
 
-**Milestone 2: nutrition completeness and target provenance — VECTOR GATE 2 APPROVED**
+**Milestone 3: pure adaptive algorithm — AWAITING VECTOR GATE 3 REVIEW**
 
-The confirmed Gate 2 integrity failures are repaired, regression-covered, and independently approved. Milestone 3 has not started.
+The deterministic calculation module, shared contracts, required vectors, invariants, full gates, and isolated browser smoke are complete. Milestone 4 has not started.
 
 ## Next actions
 
 1. Keep PR #100 draft.
-2. Wait for Derek to authorize the Milestone 3 Goal prompt.
-3. Do not deploy, merge, make PR #100 ready, or begin Milestone 3 without separate authorization.
+2. Wait for Vector to independently review Gate 3.
+3. Do not deploy, merge, make PR #100 ready, or begin Milestone 4 without separate authorization after Vector approval.
 
 ## Blocking issues
 
-No Milestone 2 blockers remain.
+No Codex-found Milestone 3 blockers remain.
 
 ## Non-blocking warnings
 
@@ -66,4 +72,4 @@ No Milestone 2 blockers remain.
 
 ## Vector review handoff protocol
 
-PR #100 remains draft. Milestone 2 is `VECTOR GATE 2 APPROVED`; Milestone 3 still requires Derek's separate authorization and a Goal-format prompt.
+PR #100 remains draft. Milestone 3 is `AWAITING VECTOR GATE 3 REVIEW`; Codex has stopped before Milestone 4.
