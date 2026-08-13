@@ -69,10 +69,13 @@ database. This deterministic fixture demonstrates an eligible March–April esti
 August hold that cannot reuse stale weights:
 
 ```bash
-pnpm backtest:adaptive-tdee -- \
+pnpm --silent backtest:adaptive-tdee -- \
   --input scripts/fixtures/adaptive-tdee-backtest.json \
-  --format json
+  --format json > adaptive-tdee-backtest.json
 ```
+
+Use `pnpm --silent` when redirecting JSON or CSV so pnpm's command banner does not precede the
+machine-readable output.
 
 The isolated Coach preview uses only `apps/api/data/pulse-tdee-dev.db`. Start Gate 0 once to migrate a
 fresh database, stop it, then seed every Coach state and restart the preview:

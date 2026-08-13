@@ -178,6 +178,7 @@ test.describe.serial('Adaptive TDEE deterministic preview fixtures', () => {
       await expect(
         page.getByRole('heading', { level: 2, name: 'Set up Adaptive TDEE' }),
       ).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
         `horizontal overflow at ${width}px`,

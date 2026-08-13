@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Verification Report
 
-**Status:** VECTOR GATE 2 APPROVED<br>
+**Status:** VECTOR GATE 6 APPROVED<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
-**Reviewer:** Vector independent Gate 2 re-review complete<br>
-**Last verified state:** Gate 2 approved repair tree; final commit recorded after publication
+**Reviewer:** Vector independent Gate 6 re-review complete<br>
+**Last verified state:** Gate 6 approved repair tree; final commit recorded after publication
 
 This report must contain observed results, not intended commands or agent self-reports.
 
@@ -713,8 +713,73 @@ After Codex completes and stops, Hermes/Vector must independently compare the im
 
 ## Final verdict
 
-`AWAITING VECTOR FINAL REVIEW`
+`VECTOR GATE 6 APPROVED`
 
 Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
 
 After Milestone 6, Codex may set the final verdict only to `AWAITING VECTOR FINAL REVIEW`. Only Hermes/Vector may change that to `READY FOR DEREK PREVIEW`, after independently rerunning acceptance and verifying the preview. Codex must not self-approve a gate, mark the feature ready for Derek, make the PR ready for review, merge, or deploy.
+
+### Gate 6 backtest repair
+
+Verdict: `AWAITING VECTOR GATE 6 RE-REVIEW`
+
+Vector's two uncommitted regressions were first reproduced at handoff commit
+`930d590f031a4131d2ebb178dc0bd5786eb2204a`: 2 failed and 3 passed. Reversing valid source arrays
+replayed August before April and reversed emitted input dates; a June persisted manual target did not
+supersede the simulated April adaptive target.
+
+The bounded non-production repair:
+
+1. snapshots source `.db`, `-wal`, and `-shm` presence and bytes, copies present files to a private
+   temporary directory, and opens only the copy read-only/query-only; source sidecars are never deleted or
+   normalized;
+2. sorts directly constructed check-ins and emitted input dates, deterministically orders persisted and
+   simulated targets by effective date/updated timestamp/ID, and rejects duplicate date/kind check-ins;
+3. keeps latest simulated accepted Adaptive TDEE as `priorTdee` while independently selecting the target
+   effective at each check-in for current goal inputs; manual targets remain truthful current-target inputs
+   rather than false Adaptive TDEE history;
+4. rejects unknown and duplicate CLI flags; and
+5. documents `pnpm --silent ... > file` and verifies redirected JSON and CSV are machine-parseable.
+
+Observed verification, all exit 0 on the uncommitted repair tree:
+
+| Command/check                     | Observed result                                                                                                                      |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Focused Vitest                    | 1 file, 9/9 tests; includes WAL family preservation, ordering, target precedence/ties, duplicate check-ins/flags, and JSON/CSV shape |
+| Redirected CLI                    | JSON parsed as two rows (`2026-04-02`, `2026-08-13`); CSV began with `checkInDate,kind,state`                                        |
+| API full test                     | 60 files, 668/668 tests                                                                                                              |
+| API lint/typecheck                | Pass                                                                                                                                 |
+| Prettier + `git diff --check`     | Pass                                                                                                                                 |
+| `TURBO_FORCE=true pnpm lint`      | 3/3 tasks, 0 cached, 0 errors; four pre-existing Fast Refresh warnings                                                               |
+| `TURBO_FORCE=true pnpm typecheck` | 3/3 tasks, 0 cached                                                                                                                  |
+| `TURBO_FORCE=true pnpm test`      | Startup/security 8/8; shared 402, API 668, web 989 (2,059 package tests across 260 files); 6/6 Turbo tasks, 0 cached                 |
+| `TURBO_FORCE=true pnpm build`     | 3/3 tasks, 0 cached; Vite transformed 3,843 modules                                                                                  |
+
+No production access, deployment, commit, push, merge, PR-ready promotion, or post-Milestone-6 work was
+performed. PR #100 remains draft. Vector owns independent re-review and any later verdict promotion.
+
+#### Vector independent Gate 6 re-review
+
+Vector inspected every changed line and independently reran the confirmed failures. Focused backtest
+coverage passed 9/9. A failure-path replay against an invalid WAL family exited 1 while preserving `.db`,
+`-wal`, and `-shm` presence and bytes exactly. Redirected JSON and CSV parsed cleanly.
+
+The ignored migrated-history copy was replayed using the original snapshot's sole user without exposing
+identity. April 8 produced an eligible estimate from 20 complete days and 19 weights; August 13 held with
+zero weight inputs and no observed or proposed TDEE. The source family was byte-identical before/after.
+
+Vector rebuilt the Gate 0 database from an empty regular file, migrated it, and seeded exactly seven
+fixture users and zero others. Installed-Chrome acceptance passed 4/4 deterministic fixture scenarios at
+320, 375, 390, 430, 768, and 1280 px, then 8/8 adaptive lifecycle scenarios. The width test now waits for
+`document.fonts.ready` before navigation to avoid treating expected prior-page font cancellation as a
+product transport failure.
+
+| Independent check                | Observed result                                                                   |
+| -------------------------------- | --------------------------------------------------------------------------------- |
+| Focused backtest                 | 9/9 passed                                                                        |
+| Seeded Chrome fixture acceptance | 4/4 passed across six widths                                                      |
+| Chrome lifecycle acceptance      | 8/8 passed                                                                        |
+| Exact uncached lint/typecheck    | 3/3 each, 0 cached; zero lint errors                                              |
+| Exact uncached tests             | startup/security 8; shared 402; API 668; web 989; 0 cached                        |
+| Exact uncached build             | 3/3, 0 cached                                                                     |
+| Isolation                        | Sensitive SQLite-family hashes unchanged; ports free; no deploy/production action |

@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** AWAITING VECTOR FINAL REVIEW<br>
+**Overall:** VECTOR GATE 6 APPROVED — READY FOR DEREK PREVIEW<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
-**Last updated:** 2026-08-13 (Milestone 6 implementation and Codex acceptance complete)
+**Last updated:** 2026-08-13 (Vector Gate 6 independent re-review approved)
 
 ## Completed
 
@@ -93,18 +93,45 @@
 - The exact uncached pipeline passed from detached clean verification commit `88fa83e`: lint and typecheck 3/3, startup/security 8/8, shared 402, API 662, web 989, and production build 3/3, with zero cached Turbo tasks. Lint retained only four pre-existing Fast Refresh warnings.
 - Fresh Codex self-review against all 16 definition-of-done items found no unresolved blocker. Item 16 remains intentionally unperformed: production deployment requires separate explicit approval after Vector acceptance and a verified backup.
 - Tailscale preview `http://100.87.91.127:5274` and proxied health both returned HTTP 200; direct isolated API health at `http://127.0.0.1:3102/health` returned HTTP 200. PR #100 remains draft.
+- Gate 6 repair prevents SQLite from opening the source database family: `.db`, `-wal`, and `-shm`
+  bytes are copied to a private temporary directory, queried read-only/query-only there, and source-family
+  presence plus bytes are verified unchanged. A live WAL-mode regression covers all three files without
+  deleting or normalizing sidecars.
+- Directly constructed replay sources are now deterministic: check-ins are sorted before sequential
+  simulation, emitted nutrition/weight dates are sorted, target selection is ordered by effective date
+  with deterministic tie-breaking, and duplicate date/kind check-ins fail closed.
+- A later persisted target now supersedes an earlier simulated target for current goal inputs. The prior
+  Adaptive TDEE remains the latest simulated accepted Adaptive TDEE, matching production semantics;
+  manual targets never become Adaptive TDEE history. Rows expose current-target calories/source/date so
+  this distinction is auditable in JSON/CSV.
+- Unknown and duplicate CLI flags fail closed. README and the Milestone 6 runbook use
+  `pnpm --silent backtest:adaptive-tdee ... > file` for clean machine-readable redirects.
+- Repair verification passed: 9/9 focused backtest tests, API 668/668, API lint/typecheck,
+  `git diff --check`, and Prettier. The exact uncached repository pipeline passed lint/typecheck/test/build
+  with zero cached tasks: startup/security 8, shared 402, API 668, web 989; lint retained only four
+  pre-existing Fast Refresh warnings.
+- Vector independently inspected the complete repair tree and reran ordering, target-history, CLI, clean
+  JSON/CSV, and success/failure-path WAL-family regressions. The private migrated-history replay produced
+  an eligible April estimate and an August hold with zero weight inputs and no observed/proposed TDEE;
+  source-family bytes remained unchanged.
+- Vector rebuilt the isolated database from an empty regular file and seeded exactly seven synthetic users
+  with zero others. Installed-Chrome acceptance passed 4/4 seeded fixture scenarios across all six widths
+  and 8/8 lifecycle scenarios. The width harness now waits for `document.fonts.ready` between navigations.
+- Vector reran the exact uncached pipeline: lint 3/3, typecheck 3/3, startup/security 8/8, shared 402/402,
+  API 668/668, web 989/989, and build 3/3, all with zero cached Turbo tasks. Sensitive SQLite-family hashes
+  remained unchanged, all isolated ports were stopped, and PR #100 remained draft.
 
 ## Current milestone
 
-**Milestone 6: backtest, synthetic preview, and Codex acceptance — AWAITING VECTOR FINAL REVIEW**
+**Milestone 6: backtest, synthetic preview, and Codex acceptance — VECTOR GATE 6 APPROVED**
 
-All Codex-owned implementation, replay, clean-checkout, browser, responsive, diagnostics, preview, and self-review work is complete. Independent final acceptance remains exclusively owned by Hermes/Vector.
+The confirmed Gate 6 defects are repaired, regression-covered, independently re-reviewed, and approved.
 
 ## Next actions
 
-1. Keep PR #100 draft.
-2. Hermes/Vector independently reruns final acceptance and verifies the preview.
-3. Do not deploy, merge, make PR #100 ready, or mark the feature ready for Derek unless Vector promotes the verdict.
+1. Keep PR #100 draft until Derek explicitly authorizes review-state promotion.
+2. Derek may use the isolated synthetic preview; no production deployment has been performed.
+3. Do not deploy, merge, or make PR #100 ready without separate explicit authorization and a verified backup.
 
 ## Blocking issues
 
@@ -118,4 +145,4 @@ None.
 
 ## Vector review handoff protocol
 
-PR #100 remains draft. Codex verdict is `AWAITING VECTOR FINAL REVIEW`; only Hermes/Vector may change it to `READY FOR DEREK PREVIEW`.
+PR #100 remains draft. Vector verdict is `VECTOR GATE 6 APPROVED`; the feature is `READY FOR DEREK PREVIEW`, not deployed or merged.

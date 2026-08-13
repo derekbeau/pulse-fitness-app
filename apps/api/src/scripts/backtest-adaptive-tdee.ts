@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { extname, isAbsolute, resolve } from 'node:path';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, extname, isAbsolute, join, resolve } from 'node:path';
 
 import Database from 'better-sqlite3';
 
@@ -65,6 +65,9 @@ export type AdaptiveBacktestRow = {
   carbohydrateGrams: number | null;
   fatGrams: number | null;
   reasonCodes: AdaptiveReasonCode[];
+  currentTargetCalories: number | null;
+  currentTargetSource: AdaptiveCurrentTarget['source'] | null;
+  currentTargetEffectiveDate: string | null;
 };
 
 type DatabaseProgramRow = {
@@ -104,8 +107,8 @@ const requireArray = (value: unknown, label: string): unknown[] => {
 };
 
 const parseCheckIns = (value: unknown): AdaptiveBacktestCheckIn[] =>
-  requireArray(value, 'checkIns')
-    .map((raw, index) => {
+  rejectDuplicateCheckIns(
+    requireArray(value, 'checkIns').map((raw, index) => {
       const item = requireObject(raw, `checkIns[${index}]`);
       if (typeof item.date !== 'string' || !DATE_PATTERN.test(item.date)) {
         throw new Error(`checkIns[${index}].date must be YYYY-MM-DD`);
@@ -124,8 +127,23 @@ const parseCheckIns = (value: unknown): AdaptiveBacktestCheckIn[] =>
         includeToday: item.includeToday,
         kind: item.kind as AdaptiveBacktestCheckIn['kind'],
       };
-    })
-    .sort((left, right) => left.date.localeCompare(right.date));
+    }),
+  ).sort(compareCheckIns);
+
+const compareCheckIns = (left: AdaptiveBacktestCheckIn, right: AdaptiveBacktestCheckIn) =>
+  left.date.localeCompare(right.date) || left.kind.localeCompare(right.kind);
+
+const rejectDuplicateCheckIns = (checkIns: AdaptiveBacktestCheckIn[]) => {
+  const seen = new Set<string>();
+  for (const checkIn of checkIns) {
+    const key = `${checkIn.date}\0${checkIn.kind}`;
+    if (seen.has(key)) {
+      throw new Error(`Duplicate ${checkIn.kind} check-in for ${checkIn.date}`);
+    }
+    seen.add(key);
+  }
+  return checkIns;
+};
 
 export function parseAdaptiveBacktestJson(value: unknown): AdaptiveBacktestSource {
   const document = requireObject(value, 'Backtest export');
@@ -148,18 +166,32 @@ export function parseAdaptiveBacktestJson(value: unknown): AdaptiveBacktestSourc
 const targetAtDate = (targets: AdaptiveCurrentTarget[], date: string) =>
   [...targets]
     .filter((target) => target.effectiveDate <= date)
-    .sort((left, right) => right.effectiveDate.localeCompare(left.effectiveDate))[0] ?? null;
+    .sort(
+      (left, right) =>
+        right.effectiveDate.localeCompare(left.effectiveDate) ||
+        right.updatedAt - left.updatedAt ||
+        right.id.localeCompare(left.id),
+    )[0] ?? null;
 
 const datesInRange = <T extends { date: string }>(values: T[], start: string, end: string) =>
-  values.filter((value) => value.date >= start && value.date <= end).map((value) => value.date);
+  values
+    .filter((value) => value.date >= start && value.date <= end)
+    .map((value) => value.date)
+    .sort((left, right) => left.localeCompare(right));
 
 export function runAdaptiveTdeeBacktest(source: AdaptiveBacktestSource): AdaptiveBacktestRow[] {
   let priorTdee: AdaptivePriorTdee | null = null;
   let simulatedTarget: AdaptiveCurrentTarget | null = null;
+  const checkIns = rejectDuplicateCheckIns([...source.checkIns]).sort(compareCheckIns);
 
-  return source.checkIns.map((checkIn) => {
+  return checkIns.map((checkIn) => {
     const persistedTarget = targetAtDate(source.currentTargets, checkIn.date);
-    const currentTarget = simulatedTarget ?? persistedTarget;
+    const currentTarget = targetAtDate(
+      [persistedTarget, simulatedTarget].filter(
+        (target): target is AdaptiveCurrentTarget => target !== null,
+      ),
+      checkIn.date,
+    );
     const result = buildAdaptiveRecommendation({
       constants: ADAPTIVE_TDEE_CONSTANTS,
       currentTarget,
@@ -214,6 +246,9 @@ export function runAdaptiveTdeeBacktest(source: AdaptiveBacktestSource): Adaptiv
       carbohydrateGrams: result.macros?.carbs ?? null,
       fatGrams: result.macros?.fat ?? null,
       reasonCodes: result.reasonCodes,
+      currentTargetCalories: currentTarget?.calories ?? null,
+      currentTargetSource: currentTarget?.source ?? null,
+      currentTargetEffectiveDate: currentTarget?.effectiveDate ?? null,
     };
 
     if (result.state === 'updating' && proposedTdeeKcal !== null && result.macros) {
@@ -236,7 +271,40 @@ export function runAdaptiveTdeeBacktest(source: AdaptiveBacktestSource): Adaptiv
   });
 }
 
-const readHash = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
+type SourceFamilySnapshot = Map<string, Buffer | null>;
+
+const databaseFamilyPaths = (databasePath: string) => [
+  databasePath,
+  `${databasePath}-wal`,
+  `${databasePath}-shm`,
+];
+
+const snapshotDatabaseFamily = (databasePath: string): SourceFamilySnapshot =>
+  new Map(
+    databaseFamilyPaths(databasePath).map((path) => {
+      try {
+        return [path, readFileSync(path)];
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [path, null];
+        throw error;
+      }
+    }),
+  );
+
+const assertDatabaseFamilyUnchanged = (
+  before: SourceFamilySnapshot,
+  after: SourceFamilySnapshot,
+) => {
+  for (const [path, beforeBytes] of before) {
+    const afterBytes = after.get(path) ?? null;
+    if (
+      (beforeBytes === null) !== (afterBytes === null) ||
+      (beforeBytes !== null && afterBytes !== null && !beforeBytes.equals(afterBytes))
+    ) {
+      throw new Error(`Read-only backtest changed the source database family: ${basename(path)}`);
+    }
+  }
+};
 
 const assertCanonicalDatabase = (sqlite: Database.Database) => {
   const requiredTables = ['users', 'nutrition_logs', 'meals', 'meal_items', 'body_weight'];
@@ -306,10 +374,17 @@ export function loadAdaptiveBacktestDatabase(options: {
   userId: string;
 }): AdaptiveBacktestSource {
   const databasePath = resolve(options.databasePath);
-  const beforeHash = readHash(databasePath);
-  const sqlite = new Database(databasePath, { fileMustExist: true, readonly: true });
+  const beforeFamily = snapshotDatabaseFamily(databasePath);
+  if (beforeFamily.get(databasePath) === null) throw new Error('Backtest database was not found');
+  const scratchDirectory = mkdtempSync(join(tmpdir(), 'pulse-backtest-source-copy-'));
+  const scratchDatabasePath = join(scratchDirectory, basename(databasePath));
+  for (const [sourcePath, bytes] of beforeFamily) {
+    if (bytes !== null) writeFileSync(join(scratchDirectory, basename(sourcePath)), bytes);
+  }
+  let sqlite: Database.Database | undefined;
   let source: AdaptiveBacktestSource | undefined;
   try {
+    sqlite = new Database(scratchDatabasePath, { fileMustExist: true, readonly: true });
     sqlite.pragma('query_only = ON');
     assertCanonicalDatabase(sqlite);
     const selectedUser = sqlite
@@ -388,11 +463,10 @@ export function loadAdaptiveBacktestDatabase(options: {
       weightEntries,
     };
   } finally {
-    sqlite.close();
+    sqlite?.close();
+    rmSync(scratchDirectory, { force: true, recursive: true });
   }
-  if (readHash(databasePath) !== beforeHash) {
-    throw new Error('Read-only backtest changed the source database hash');
-  }
+  assertDatabaseFamilyUnchanged(beforeFamily, snapshotDatabaseFamily(databasePath));
   if (!source) throw new Error('Backtest source could not be loaded');
   return source;
 }
@@ -422,13 +496,23 @@ type CliOptions = {
   userId?: string;
 };
 
-const parseCli = (args: string[]): CliOptions => {
+export const parseCli = (args: string[]): CliOptions => {
+  const allowed = new Set([
+    '--check-ins',
+    '--complete-dates',
+    '--format',
+    '--input',
+    '--program',
+    '--user',
+  ]);
   const values = new Map<string, string>();
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === '--') continue;
     if (!argument.startsWith('--')) throw new Error(`Unexpected argument: ${argument}`);
     const [inlineKey, inlineValue] = argument.split('=', 2);
+    if (!allowed.has(inlineKey)) throw new Error(`Unknown option: ${inlineKey}`);
+    if (values.has(inlineKey)) throw new Error(`Duplicate option: ${inlineKey}`);
     const value = inlineValue ?? args[++index];
     if (!value || value.startsWith('--')) throw new Error(`${inlineKey} requires a value`);
     values.set(inlineKey, value);

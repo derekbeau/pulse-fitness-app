@@ -10,10 +10,13 @@ The self-contained JSON vector proves explicit completion labels are required an
 cannot generate an August estimate:
 
 ```bash
-pnpm backtest:adaptive-tdee -- \
+pnpm --silent backtest:adaptive-tdee -- \
   --input scripts/fixtures/adaptive-tdee-backtest.json \
-  --format json
+  --format json > adaptive-tdee-backtest.json
 ```
+
+The `--silent` pnpm option is required for redirected machine output; without it, pnpm prints a command
+banner before the JSON or CSV payload.
 
 For the private production-copy replay, select the intended user without recording identity in tracked
 evidence and provide:
@@ -22,9 +25,11 @@ evidence and provide:
 - `scripts/fixtures/adaptive-tdee-production-copy-complete-dates.json`
 - `scripts/fixtures/adaptive-tdee-production-copy-program.json`
 
-The SQLite source is opened read-only with `query_only=ON`. The command fails if the canonical
-`weight_kg` column is absent, if the connection reports a write, or if the source database SHA-256
-changes. Completion overrides exist only in memory; stored `unknown` values remain unchanged.
+The source `.db`, `-wal`, and `-shm` files are snapshotted byte-for-byte into a private temporary
+directory before SQLite is opened read-only with `query_only=ON`. SQLite never opens the source family,
+and the command fails if any source-family file's presence or bytes change during a successful replay.
+The command also fails if the canonical `weight_kg` column is absent or the scratch connection reports a
+write. Completion overrides exist only in memory; stored `unknown` values remain unchanged.
 
 ## Synthetic Coach preview
 
