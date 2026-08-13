@@ -18,7 +18,8 @@ The work crosses weight-unit migration, nutrition completeness, target provenanc
 - [x] Pure deterministic adaptive TDEE algorithm
 - [x] Program/check-in persistence, API lifecycle, and real SQLite concurrency tests
 - [x] Coach UI, completion controls, history, accessibility, and responsive behavior
-- [ ] Backtest, seeded staging preview, browser acceptance, and independent review
+- [x] Backtest, seeded synthetic preview, browser acceptance, and Codex final handoff
+- [ ] Vector final independent acceptance review
 
 Live state: [`agent-workspace/current-status.md`](agent-workspace/current-status.md)  
 Execution plan: [`agent-workspace/implementation-plan.md`](agent-workspace/implementation-plan.md)  
