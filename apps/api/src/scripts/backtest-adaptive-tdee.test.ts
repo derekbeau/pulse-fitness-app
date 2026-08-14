@@ -80,9 +80,29 @@ describe('Adaptive TDEE read-only backtest', () => {
     const parsed = parseAdaptiveBacktestJson({
       version: 1,
       ...source,
-      checkIns: [{ ...source.checkIns[0], kind: 'goal_change' }],
+      checkIns: [
+        source.checkIns[0],
+        {
+          date: '2026-04-03',
+          includeToday: false,
+          kind: 'goal_change',
+          goalStrategy: {
+            goalType: 'lose',
+            targetWeightKg: 75,
+            goalRatePctPerWeek: -0.5,
+          },
+        },
+      ],
     });
-    expect(runAdaptiveTdeeBacktest(parsed)[0]?.kind).toBe('goal_change');
+    const rows = runAdaptiveTdeeBacktest(parsed);
+    expect(rows[1]).toMatchObject({
+      kind: 'goal_change',
+      goalType: 'lose',
+      targetWeightKg: 75,
+      goalRatePctPerWeek: -0.5,
+      priorTdeeKcal: rows[0]?.proposedTdeeKcal,
+      proposedTdeeKcal: rows[0]?.proposedTdeeKcal,
+    });
   });
 
   it('lets a later persisted manual target supersede an earlier simulated adaptive target', () => {

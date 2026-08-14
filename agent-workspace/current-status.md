@@ -3,7 +3,7 @@
 **Overall:** MILESTONES 7–11 AUTHORIZED AS ONE CODEX GOAL<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
-**Last updated:** 2026-08-13 (goal-strategy specification and Milestones 7–11 authorized)
+**Last updated:** 2026-08-13 (Milestone 8 implemented; Milestone 9 in progress)
 
 ## Completed
 
@@ -151,11 +151,36 @@ goal, with exactly one commit and extensive automated/built-in-browser QA per mi
   with a temporary isolated AgentToken, and current/history/detail requests all returned 200. The token was
   deleted, SQLite `quick_check` returned `ok`, and ports 3102/5274 were stopped.
 
+### Milestone 8 checkpoint
+
+- Added strict server-owned loss/gain progress, desired and actual projection ranges with honest unavailable
+  reasons, freshness/provenance, and maintenance range status without fake percentage or ETA fields.
+- Added JWT-only same-direction edit, start-new-direction, cancel, and explicit completion transactions.
+  Edit/new goal changes create immutable `goal_change` recommendations; nutrition targets change only after
+  explicit acceptance. Completion consumes an already accepted goal-reached target and creates maintenance
+  exactly once without creating a duplicate target or redundant recommendation.
+- Goal revision identity is part of the calculation fingerprint. Pending conflicts, optimistic revision
+  conflicts, stale source data, cross-user identifiers, AgentToken writes, cancellation, and real
+  two-connection edit/new/complete races fail closed.
+- Backtest goal-strategy inputs and output audit fields are optional and backward compatible. The tracked
+  preview seeder now builds 13 deterministic goal states. Reserved fixture IDs no longer collide with the
+  isolated production copy, and every login name satisfies the application username contract.
+- Focused verification passed 412 shared tests and 684 API tests, including 22 real SQLite store integration
+  cases. The exact uncached repository gate passed lint, typecheck, all tests, and build with zero cached
+  Turbo tasks; lint retained only four pre-existing Fast Refresh warnings.
+- Built-in-browser QA used only `pnpm dev:gate0`. Dashboard, Nutrition Log, and Coach rendered signed in with
+  no console warnings/errors. Isolated JWT API smoke covered reads, edit, explicit acceptance, start, cancel,
+  completion, and completion retry; all product requests succeeded except intentional conflict/block probes.
+  The preview database was restored to 13 fixtures, `quick_check` returned `ok`, the unrelated copied user
+  remained present, and ports 3102/5274 were stopped.
+
 ## Next actions
 
-1. Hand off the clean specification commit to the primary Codex chat.
-2. Codex implements Milestones 7–11 in order using fresh databases and isolated production clones only.
-3. After each milestone Codex runs focused and exact uncached full gates plus extensive built-in-browser QA, fixes its findings, and creates/pushes exactly one milestone commit.
+1. Implement Milestone 9's persistent goal card and edit/new-goal flows without Milestone 10 history or
+   completion polish.
+2. Run focused RTL, installed-Chrome journeys, exact uncached full gates, and extensive built-in-browser QA
+   across every required path and width.
+3. Create and push exactly one Milestone 9 commit, then continue directly into Milestone 10.
 4. After Milestone 11 Codex stops once for Vector's independent final QA. Confirmed defects return to the same Codex goal as one bounded repair pass.
 5. Do not deploy, merge, modify production, or make PR #100 ready without separate authorization.
 
@@ -171,6 +196,6 @@ None.
 
 ## Vector review handoff protocol
 
-PR #100 remains draft. Vector Gate 6 remains approved. Milestone 7 is implemented and verified; Milestones
-8–11 remain in progress. Codex owns the five milestone commits and per-milestone evidence, while Vector owns one independent final QA,
+PR #100 remains draft. Vector Gate 6 remains approved. Milestones 7–8 are implemented and verified;
+Milestones 9–11 remain in progress. Codex owns the five milestone commits and per-milestone evidence, while Vector owns one independent final QA,
 the bounded defect list, and final re-review after Codex repairs.

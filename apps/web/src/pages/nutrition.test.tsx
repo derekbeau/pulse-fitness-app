@@ -131,6 +131,10 @@ function createNutritionApiMock(initialState: Record<string, DateState>) {
         checkInDue: false,
         nextCheckInDate: null,
         eligibility: null,
+        activeGoal: null,
+        goalProgress: null,
+        pendingGoalChange: null,
+        goalActionRequired: null,
       });
     }
 

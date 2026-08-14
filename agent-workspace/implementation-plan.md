@@ -110,10 +110,10 @@ The authoritative scope, acceptance criteria, and gate evidence are in specifica
 
 ### Milestone 8: Progress engine and goal mutations
 
-- [ ] Add pure progress/projection and maintenance-range calculations.
-- [ ] Add edit/new/cancel/complete transactions and goal-change recommendations.
-- [ ] Preserve expenditure/history and require explicit target acceptance.
-- [ ] Add deterministic fixtures, backtest support, and adversarial concurrency/staleness tests.
+- [x] Add pure progress/projection and maintenance-range calculations.
+- [x] Add edit/new/cancel/complete transactions and goal-change recommendations.
+- [x] Preserve expenditure/history and require explicit target acceptance.
+- [x] Add deterministic fixtures, backtest support, and adversarial concurrency/staleness tests.
 
 **Codex checkpoint:** run focused plus exact uncached full gates and extensive isolated browser/API mutation/acceptance smoke; create/push exactly one Milestone 8 commit, then continue to Milestone 9. Do not include UI in that commit.
 

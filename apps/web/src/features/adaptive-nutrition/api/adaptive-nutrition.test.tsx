@@ -203,6 +203,10 @@ const state: AdaptiveNutritionState = {
     latestWeightAgeDays: 1,
     reasonCodes: [],
   },
+  activeGoal: null,
+  goalProgress: null,
+  pendingGoalChange: null,
+  goalActionRequired: null,
 };
 
 function createJsonResponse(data: unknown, meta?: unknown) {

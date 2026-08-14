@@ -42,8 +42,22 @@ describe('Adaptive TDEE preview fixtures', () => {
       passwordHash: 'fixture-password-hash',
       sqlite,
     };
+    db.insert(users)
+      .values({
+        id: 'a6d0c0de-0000-4000-8000-000000000006',
+        username: 'unrelated-existing-user',
+        passwordHash: 'hash',
+      })
+      .run();
 
     const first = seedAdaptiveTdeePreviewFixtures(options);
+    expect(
+      db
+        .select({ username: users.username })
+        .from(users)
+        .where(eq(users.id, 'a6d0c0de-0000-4000-8000-000000000006'))
+        .get(),
+    ).toEqual({ username: 'unrelated-existing-user' });
     const store = createAdaptiveNutritionStore({
       db,
       sqlite,
@@ -59,6 +73,12 @@ describe('Adaptive TDEE preview fixtures', () => {
       holding: 'holding',
       pending: 'pending_recommendation',
       'goal-reached': 'pending_recommendation',
+      'goal-loss': 'updating',
+      'goal-maintenance': 'updating',
+      'goal-edited': 'updating',
+      'goal-history': 'updating',
+      'goal-change-pending': 'pending_recommendation',
+      'completion-required': 'updating',
     });
     for (const fixture of first) {
       expect(store.getState(fixture.userId).state).toBe(fixture.expectedState);
@@ -83,8 +103,40 @@ describe('Adaptive TDEE preview fixtures', () => {
         .get(),
     ).toEqual({ type: 'lose', status: 'active' });
 
+    const loss = first.find((fixture) => fixture.fixture === 'goal-loss');
+    const maintenance = first.find((fixture) => fixture.fixture === 'goal-maintenance');
+    const edited = first.find((fixture) => fixture.fixture === 'goal-edited');
+    const history = first.find((fixture) => fixture.fixture === 'goal-history');
+    const goalChange = first.find((fixture) => fixture.fixture === 'goal-change-pending');
+    const completion = first.find((fixture) => fixture.fixture === 'completion-required');
+    if (!loss || !maintenance || !edited || !history || !goalChange || !completion) {
+      throw new Error('Goal-strategy fixtures missing');
+    }
+    expect(store.getCurrentGoal(loss.userId).progress.kind).toBe('weight_change');
+    expect(store.getCurrentGoal(maintenance.userId).progress.kind).toBe('maintenance');
+    expect(store.getCurrentGoal(edited.userId).latestRevision.sequence).toBe(2);
+    expect(
+      db
+        .select({ total: count() })
+        .from(adaptiveNutritionGoals)
+        .where(eq(adaptiveNutritionGoals.userId, history.userId))
+        .get(),
+    ).toEqual({ total: 2 });
+    expect(store.getCurrentGoal(goalChange.userId).pendingGoalChange?.kind).toBe('goal_change');
+    expect(store.getState(completion.userId).goalActionRequired).toBe('complete_goal');
+
     const second = seedAdaptiveTdeePreviewFixtures(options);
     expect(second).toEqual(first);
+    expect(second.every((fixture) => fixture.username.length <= 30)).toBe(true);
+    expect(second.find((fixture) => fixture.fixture === 'goal-maintenance')?.username).toBe(
+      'adaptive-preview-maintain',
+    );
+    expect(second.find((fixture) => fixture.fixture === 'goal-change-pending')?.username).toBe(
+      'adaptive-preview-goal-pending',
+    );
+    expect(second.find((fixture) => fixture.fixture === 'completion-required')?.username).toBe(
+      'adaptive-preview-completion',
+    );
     expect(
       db
         .select({ total: count() })

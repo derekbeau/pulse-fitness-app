@@ -9,6 +9,7 @@ import {
   adaptiveGoalRevisionSchema,
   adaptiveGoalSchema,
   adaptiveCheckInSummarySchema,
+  calculateAdaptiveGoalProgress,
   calendarDaysBetween,
   type AdaptiveCheckInSummary,
   type AdaptiveCurrentGoal,
@@ -131,9 +132,18 @@ export const createAdaptiveGoalReadStore = ({ db }: { db: AdaptiveDatabase }) =>
     return adaptiveCurrentGoalSchema.parse({
       goal,
       latestRevision,
-      progress: null,
+      progress: calculateAdaptiveGoalProgress({
+        goal,
+        revision: latestRevision,
+        currentLocalDate: goal.startedLocalDate,
+        currentTrendWeightKg: null,
+        latestScaleWeightKg: goal.startScaleWeightKg,
+        latestWeightAgeDays: null,
+        confidence: null,
+        trendPoints: [],
+      }),
       pendingGoalChange: null,
-      allowedActions: { edit: false, startNew: false, cancel: false, complete: false },
+      allowedActions: { edit: true, startNew: true, cancel: true, complete: false },
     });
   };
 

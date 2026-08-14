@@ -3,7 +3,7 @@ import { isAbsolute, resolve } from 'node:path';
 
 import bcrypt from 'bcryptjs';
 import type Database from 'better-sqlite3';
-import { and, eq, gte, like } from 'drizzle-orm';
+import { and, eq, gte, like, or } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 import type { AdaptiveNutritionReadState, AdaptiveProgramMutation } from '@pulse/shared';
@@ -23,6 +23,7 @@ import {
 import { createAdaptiveNutritionStore } from '../routes/adaptive-nutrition/store.js';
 
 export const ADAPTIVE_PREVIEW_USERNAME_PREFIX = 'adaptive-preview-';
+export const ADAPTIVE_PREVIEW_USER_ID_PREFIX = 'f17e0000-0000-4000-8000-';
 export const ADAPTIVE_PREVIEW_PASSWORD = 'adaptive-preview-only';
 
 export type AdaptivePreviewFixtureName =
@@ -32,7 +33,13 @@ export type AdaptivePreviewFixtureName =
   | 'updating'
   | 'holding'
   | 'pending'
-  | 'goal-reached';
+  | 'goal-reached'
+  | 'goal-loss'
+  | 'goal-maintenance'
+  | 'goal-edited'
+  | 'goal-history'
+  | 'goal-change-pending'
+  | 'completion-required';
 
 export type AdaptivePreviewFixtureRecord = {
   fixture: AdaptivePreviewFixtureName;
@@ -46,7 +53,10 @@ export type AdaptivePreviewFixtureRecord = {
 type AdaptiveDatabase = BetterSQLite3Database<typeof schema>;
 
 const FIXTURES: Array<
-  Omit<AdaptivePreviewFixtureRecord, 'username' | 'userId'> & { idSuffix: string }
+  Omit<AdaptivePreviewFixtureRecord, 'username' | 'userId'> & {
+    idSuffix: string;
+    usernameSuffix?: string;
+  }
 > = [
   {
     fixture: 'setup',
@@ -97,6 +107,51 @@ const FIXTURES: Array<
     expectedState: 'pending_recommendation',
     note: 'A pending loss recommendation is inside the goal tolerance and will move to maintenance.',
   },
+  {
+    fixture: 'goal-loss',
+    idSuffix: '0008',
+    name: 'Adaptive Preview · Current Loss Goal',
+    expectedState: 'updating',
+    note: 'An active loss goal has deterministic trend-based progress and no pending recommendation.',
+  },
+  {
+    fixture: 'goal-maintenance',
+    usernameSuffix: 'maintain',
+    idSuffix: '0009',
+    name: 'Adaptive Preview · Maintenance Goal',
+    expectedState: 'updating',
+    note: 'An active maintenance goal exposes its deterministic center and display range.',
+  },
+  {
+    fixture: 'goal-edited',
+    idSuffix: '0010',
+    name: 'Adaptive Preview · Edited Goal',
+    expectedState: 'updating',
+    note: 'A same-direction edit preserved the progress origin and has an accepted revision-two recommendation.',
+  },
+  {
+    fixture: 'goal-history',
+    idSuffix: '0011',
+    name: 'Adaptive Preview · Prior Goal History',
+    expectedState: 'updating',
+    note: 'A prior loss goal was replaced by an accepted gain goal with a new progress period.',
+  },
+  {
+    fixture: 'goal-change-pending',
+    usernameSuffix: 'goal-pending',
+    idSuffix: '0012',
+    name: 'Adaptive Preview · Goal Change Pending',
+    expectedState: 'pending_recommendation',
+    note: 'A same-direction edit is active while its explicit target recommendation remains pending.',
+  },
+  {
+    fixture: 'completion-required',
+    usernameSuffix: 'completion',
+    idSuffix: '0013',
+    name: 'Adaptive Preview · Completion Required',
+    expectedState: 'updating',
+    note: 'A reached loss target has been accepted and still requires the explicit maintenance transition.',
+  },
 ];
 
 const datePlus = (date: string, days: number) => {
@@ -142,7 +197,12 @@ const cleanupExistingFixtures = (db: AdaptiveDatabase) => {
   const fixtureUsers = db
     .select({ id: users.id })
     .from(users)
-    .where(like(users.username, `${ADAPTIVE_PREVIEW_USERNAME_PREFIX}%`))
+    .where(
+      or(
+        like(users.username, `${ADAPTIVE_PREVIEW_USERNAME_PREFIX}%`),
+        like(users.id, `${ADAPTIVE_PREVIEW_USER_ID_PREFIX}%`),
+      ),
+    )
     .all();
   for (const fixtureUser of fixtureUsers) {
     db.transaction((tx) => {
@@ -237,8 +297,8 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   const records = FIXTURES.map((fixture) => ({
     fixture: fixture.fixture,
     name: fixture.name,
-    username: `${ADAPTIVE_PREVIEW_USERNAME_PREFIX}${fixture.fixture}`,
-    userId: `a6d0c0de-0000-4000-8000-${fixture.idSuffix.padStart(12, '0')}`,
+    username: `${ADAPTIVE_PREVIEW_USERNAME_PREFIX}${fixture.usernameSuffix ?? fixture.fixture}`,
+    userId: `${ADAPTIVE_PREVIEW_USER_ID_PREFIX}${fixture.idSuffix.padStart(12, '0')}`,
     expectedState: fixture.expectedState,
     note: fixture.note,
   }));
@@ -317,6 +377,80 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   );
   seedEligibleHistory(db, goal.userId, anchorDate, clock, true);
   store.previewCheckIn(goal.userId, { kind: 'manual', includeToday: false });
+
+  const goalLoss = createAndAcceptBaseline(
+    'goal-loss',
+    programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+  );
+  seedEligibleHistory(db, goalLoss.userId, anchorDate, clock);
+  clock += 1000;
+
+  const maintenance = createAndAcceptBaseline('goal-maintenance');
+  seedEligibleHistory(db, maintenance.userId, anchorDate, clock);
+  clock += 1000;
+
+  const edited = createAndAcceptBaseline(
+    'goal-edited',
+    programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+  );
+  seedEligibleHistory(db, edited.userId, anchorDate, clock);
+  const editedCurrent = store.getCurrentGoal(edited.userId);
+  const editedResult = store.editGoal(edited.userId, editedCurrent.goal.id, {
+    type: 'lose',
+    targetWeightKg: 76,
+    maintenanceCenterKg: null,
+    goalRatePctPerWeek: -0.4,
+    expectedRevisionId: editedCurrent.latestRevision.id,
+    supersedePendingRecommendation: false,
+  });
+  store.acceptCheckIn(edited.userId, editedResult.pendingGoalChange?.id ?? '', {
+    replaceSameDateTarget: true,
+  });
+  clock += 1000;
+
+  const history = createAndAcceptBaseline(
+    'goal-history',
+    programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+  );
+  seedEligibleHistory(db, history.userId, anchorDate, clock);
+  const historyResult = store.startGoal(history.userId, {
+    type: 'gain',
+    targetWeightKg: 88,
+    maintenanceCenterKg: null,
+    goalRatePctPerWeek: 0.25,
+    supersedePendingRecommendation: false,
+  });
+  store.acceptCheckIn(history.userId, historyResult.pendingGoalChange?.id ?? '', {
+    replaceSameDateTarget: true,
+  });
+  clock += 1000;
+
+  const goalChange = createAndAcceptBaseline(
+    'goal-change-pending',
+    programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+  );
+  seedEligibleHistory(db, goalChange.userId, anchorDate, clock);
+  const goalChangeCurrent = store.getCurrentGoal(goalChange.userId);
+  store.editGoal(goalChange.userId, goalChangeCurrent.goal.id, {
+    type: 'lose',
+    targetWeightKg: 76,
+    maintenanceCenterKg: null,
+    goalRatePctPerWeek: -0.4,
+    expectedRevisionId: goalChangeCurrent.latestRevision.id,
+    supersedePendingRecommendation: false,
+  });
+  clock += 1000;
+
+  const completion = createAndAcceptBaseline(
+    'completion-required',
+    programInput({ goalType: 'lose', targetWeightKg: 81.2, goalRatePctPerWeek: -0.5 }),
+  );
+  seedEligibleHistory(db, completion.userId, anchorDate, clock, true);
+  const completionPreview = store.previewCheckIn(completion.userId, {
+    kind: 'manual',
+    includeToday: false,
+  });
+  store.acceptCheckIn(completion.userId, completionPreview.id, { replaceSameDateTarget: true });
 
   for (const fixture of records) {
     const state = store.getState(fixture.userId);

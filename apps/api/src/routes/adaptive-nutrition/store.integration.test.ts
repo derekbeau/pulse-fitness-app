@@ -14,6 +14,8 @@ import type { AdaptiveProgramMutation } from '@pulse/shared';
 import * as schema from '../../db/schema/index.js';
 import {
   adaptiveNutritionCheckIns,
+  adaptiveNutritionGoalRevisions,
+  adaptiveNutritionGoals,
   bodyWeight,
   mealItems,
   meals,
@@ -29,10 +31,14 @@ import {
   AdaptiveCalorieFloorError,
   AdaptiveCurrentWeightRequiredError,
   AdaptiveGoalDirectionError,
+  AdaptiveActiveGoalRequiredError,
+  AdaptiveGoalRevisionConflictError,
+  AdaptiveGoalTypeConflictError,
   AdaptivePendingCheckInExistsError,
   AdaptiveSameDateTargetExistsError,
   createAdaptiveNutritionStore,
 } from './store.js';
+import { AdaptiveGoalNotFoundError } from './goal-store.js';
 
 type TestDatabase = ReturnType<typeof drizzle<typeof schema>>;
 type TestStore = ReturnType<typeof createAdaptiveNutritionStore>;
@@ -433,7 +439,7 @@ describe('adaptive nutrition lifecycle store', () => {
     });
   });
 
-  it('does not silently change a reached goal while accepting its target', () => {
+  it('does not silently change a reached goal and completes retry-safely across connections', async () => {
     storeA.upsertProgram(
       'user-1',
       programInput({ goalType: 'lose', targetWeightKg: 81.7, goalRatePctPerWeek: -0.5 }),
@@ -456,6 +462,360 @@ describe('adaptive nutrition lifecycle store', () => {
       goalRatePctPerWeek: -0.5,
       targetWeightKg: 81.7,
     });
+    const reached = storeA.getCurrentGoal('user-1');
+    expect(reached.allowedActions.complete).toBe(true);
+    const [maintenance, repeatedMaintenance] = await Promise.all([
+      new Promise<ReturnType<TestStore['completeGoal']>>((resolve) =>
+        setImmediate(() =>
+          resolve(
+            storeA.completeGoal('user-1', reached.goal.id, {
+              checkInId: preview.id,
+              expectedRevisionId: reached.latestRevision.id,
+            }),
+          ),
+        ),
+      ),
+      new Promise<ReturnType<TestStore['completeGoal']>>((resolve) =>
+        setImmediate(() =>
+          resolve(
+            storeB.completeGoal('user-1', reached.goal.id, {
+              checkInId: preview.id,
+              expectedRevisionId: reached.latestRevision.id,
+            }),
+          ),
+        ),
+      ),
+    ]);
+    expect(maintenance.goal).toMatchObject({
+      type: 'maintain',
+      status: 'active',
+      maintenanceCenterKg: 81.7,
+    });
+    expect(maintenance.latestRevision.reason).toBe('goal_completion');
+    expect(maintenance.pendingGoalChange).toBeNull();
+    expect(repeatedMaintenance).toEqual(maintenance);
+    expect(
+      dbA
+        .select()
+        .from(adaptiveNutritionGoals)
+        .where(
+          and(
+            eq(adaptiveNutritionGoals.userId, 'user-1'),
+            eq(adaptiveNutritionGoals.status, 'active'),
+          ),
+        )
+        .all(),
+    ).toHaveLength(1);
+  });
+
+  it('edits a goal in place, appends a revision, and applies targets only after acceptance', () => {
+    storeA.upsertProgram(
+      'user-1',
+      programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+    );
+    const baseline = requireValue(storeA.getState('user-1').pendingCheckIn, 'Expected baseline');
+    storeA.acceptCheckIn('user-1', baseline.id, { replaceSameDateTarget: false });
+    nowMs = Date.parse('2026-06-22T16:00:00.000Z');
+    seedEligibleHistory('user-1');
+    const before = storeA.getCurrentGoal('user-1');
+    const targetCountBefore = dbA
+      .select()
+      .from(nutritionTargets)
+      .where(eq(nutritionTargets.userId, 'user-1'))
+      .all().length;
+    const acceptedBefore = storeA
+      .listCheckIns('user-1', {})
+      .data.filter((row) => row.status === 'accepted');
+
+    const edited = storeA.editGoal('user-1', before.goal.id, {
+      type: 'lose',
+      targetWeightKg: 76,
+      maintenanceCenterKg: null,
+      goalRatePctPerWeek: -0.4,
+      expectedRevisionId: before.latestRevision.id,
+      supersedePendingRecommendation: false,
+    });
+    expect(edited.goal).toMatchObject({
+      id: before.goal.id,
+      startTrendWeightKg: before.goal.startTrendWeightKg,
+      startedLocalDate: before.goal.startedLocalDate,
+      targetWeightKg: 76,
+    });
+    expect(edited.latestRevision).toMatchObject({ sequence: 2, reason: 'user_edit' });
+    expect(edited.pendingGoalChange).toMatchObject({ kind: 'goal_change', status: 'pending' });
+    expect(edited.pendingGoalChange?.proposedTdeeKcal ?? 0).toBe(2500);
+    expect(
+      dbA.select().from(nutritionTargets).where(eq(nutritionTargets.userId, 'user-1')).all(),
+    ).toHaveLength(targetCountBefore);
+    expect(
+      storeA.listCheckIns('user-1', {}).data.filter((row) => row.status === 'accepted'),
+    ).toEqual(acceptedBefore);
+    expect(storeA.getState('user-1').program).toMatchObject({
+      baselineTdeeKcal: 2500,
+      goalType: 'lose',
+      targetWeightKg: 76,
+      goalRatePctPerWeek: -0.4,
+    });
+
+    const accepted = storeA.acceptCheckIn(
+      'user-1',
+      requireValue(edited.pendingGoalChange, 'Expected goal-change recommendation').id,
+      { replaceSameDateTarget: false },
+    );
+    expect(accepted.checkIn.kind).toBe('goal_change');
+    expect(accepted.target.effectiveDate).toBe('2026-06-22');
+    expect(
+      dbA.select().from(nutritionTargets).where(eq(nutritionTargets.userId, 'user-1')).all(),
+    ).toHaveLength(targetCountBefore + 1);
+  });
+
+  it('enforces revision and pending conflicts and makes goal-change acceptance stale-safe', () => {
+    storeA.upsertProgram(
+      'user-1',
+      programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+    );
+    const baseline = requireValue(storeA.getState('user-1').pendingCheckIn, 'Expected baseline');
+    storeA.acceptCheckIn('user-1', baseline.id, { replaceSameDateTarget: false });
+    nowMs = Date.parse('2026-06-22T16:00:00.000Z');
+    seedEligibleHistory('user-1');
+    const current = storeA.getCurrentGoal('user-1');
+    const first = storeA.editGoal('user-1', current.goal.id, {
+      type: 'lose',
+      targetWeightKg: 76,
+      maintenanceCenterKg: null,
+      goalRatePctPerWeek: -0.4,
+      expectedRevisionId: current.latestRevision.id,
+      supersedePendingRecommendation: false,
+    });
+    expect(() =>
+      storeA.editGoal('user-1', current.goal.id, {
+        type: 'lose',
+        targetWeightKg: 77,
+        maintenanceCenterKg: null,
+        goalRatePctPerWeek: -0.3,
+        expectedRevisionId: current.latestRevision.id,
+        supersedePendingRecommendation: true,
+      }),
+    ).toThrow(AdaptiveGoalRevisionConflictError);
+    expect(() =>
+      storeA.editGoal('user-1', current.goal.id, {
+        type: 'lose',
+        targetWeightKg: 77,
+        maintenanceCenterKg: null,
+        goalRatePctPerWeek: -0.3,
+        expectedRevisionId: first.latestRevision.id,
+        supersedePendingRecommendation: false,
+      }),
+    ).toThrow(AdaptivePendingCheckInExistsError);
+    dbA
+      .update(bodyWeight)
+      .set({ weightKg: 81.7, weight: poundsFromKg(81.7), updatedAt: nowMs + 500 })
+      .where(and(eq(bodyWeight.userId, 'user-1'), eq(bodyWeight.date, '2026-06-21')))
+      .run();
+    expect(() =>
+      storeA.acceptCheckIn('user-1', requireValue(first.pendingGoalChange, 'Expected pending').id, {
+        replaceSameDateTarget: false,
+      }),
+    ).toThrow(AdaptiveCheckInStaleError);
+  });
+
+  it('starts a new direction atomically, preserves history, and cancellation blocks check-ins', () => {
+    storeA.upsertProgram(
+      'user-1',
+      programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+    );
+    const baseline = requireValue(storeA.getState('user-1').pendingCheckIn, 'Expected baseline');
+    storeA.acceptCheckIn('user-1', baseline.id, { replaceSameDateTarget: false });
+    nowMs = Date.parse('2026-06-22T16:00:00.000Z');
+    seedEligibleHistory('user-1');
+    const old = storeA.getCurrentGoal('user-1');
+    const targetRowsBefore = dbA.select().from(nutritionTargets).all();
+    const checkInsBefore = storeA
+      .listCheckIns('user-1', {})
+      .data.filter((row) => row.status === 'accepted');
+    const next = storeA.startGoal('user-1', {
+      type: 'gain',
+      targetWeightKg: 88,
+      maintenanceCenterKg: null,
+      goalRatePctPerWeek: 0.25,
+      supersedePendingRecommendation: false,
+    });
+    expect(next.goal).toMatchObject({ type: 'gain', status: 'active' });
+    expect(next.goal.id).not.toBe(old.goal.id);
+    expect(next.latestRevision).toMatchObject({ sequence: 1, reason: 'created' });
+    expect(next.pendingGoalChange?.kind).toBe('goal_change');
+    expect(
+      dbA
+        .select()
+        .from(adaptiveNutritionGoals)
+        .where(
+          and(
+            eq(adaptiveNutritionGoals.id, old.goal.id),
+            eq(adaptiveNutritionGoals.userId, 'user-1'),
+          ),
+        )
+        .get(),
+    ).toMatchObject({ status: 'replaced', endedReason: 'direction_changed' });
+    expect(dbA.select().from(nutritionTargets).all()).toEqual(targetRowsBefore);
+    expect(
+      storeA.listCheckIns('user-1', {}).data.filter((row) => row.status === 'accepted'),
+    ).toEqual(checkInsBefore);
+    expect(() =>
+      storeA.startGoal('user-1', {
+        type: 'gain',
+        targetWeightKg: 90,
+        maintenanceCenterKg: null,
+        goalRatePctPerWeek: 0.25,
+        supersedePendingRecommendation: true,
+      }),
+    ).toThrow(AdaptiveGoalTypeConflictError);
+
+    const cancelled = storeA.cancelGoal('user-1', next.goal.id, {
+      expectedRevisionId: next.latestRevision.id,
+    });
+    expect(cancelled.status).toBe('cancelled');
+    expect(storeA.getState('user-1').goalActionRequired).toBe('select_goal');
+    expect(() => storeA.previewCheckIn('user-1', { kind: 'manual', includeToday: false })).toThrow(
+      AdaptiveActiveGoalRequiredError,
+    );
+    expect(dbA.select().from(nutritionTargets).all()).toEqual(targetRowsBefore);
+  });
+
+  it('serializes concurrent edits so exactly one revision and recommendation win', async () => {
+    storeA.upsertProgram(
+      'user-1',
+      programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+    );
+    const baseline = requireValue(storeA.getState('user-1').pendingCheckIn, 'Expected baseline');
+    storeA.acceptCheckIn('user-1', baseline.id, { replaceSameDateTarget: false });
+    nowMs = Date.parse('2026-06-22T16:00:00.000Z');
+    seedEligibleHistory('user-1');
+    const current = storeA.getCurrentGoal('user-1');
+    const input = {
+      type: 'lose' as const,
+      targetWeightKg: 76,
+      maintenanceCenterKg: null,
+      goalRatePctPerWeek: -0.4,
+      expectedRevisionId: current.latestRevision.id,
+      supersedePendingRecommendation: true,
+    };
+    const results = await Promise.allSettled([
+      new Promise<ReturnType<TestStore['editGoal']>>((resolve, reject) =>
+        setImmediate(() => {
+          try {
+            resolve(storeA.editGoal('user-1', current.goal.id, input));
+          } catch (error) {
+            reject(error);
+          }
+        }),
+      ),
+      new Promise<ReturnType<TestStore['editGoal']>>((resolve, reject) =>
+        setImmediate(() => {
+          try {
+            resolve(storeB.editGoal('user-1', current.goal.id, input));
+          } catch (error) {
+            reject(error);
+          }
+        }),
+      ),
+    ]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(
+      dbA
+        .select()
+        .from(adaptiveNutritionGoalRevisions)
+        .where(eq(adaptiveNutritionGoalRevisions.goalId, current.goal.id))
+        .all(),
+    ).toHaveLength(2);
+    expect(
+      dbA
+        .select()
+        .from(adaptiveNutritionCheckIns)
+        .where(
+          and(
+            eq(adaptiveNutritionCheckIns.userId, 'user-1'),
+            eq(adaptiveNutritionCheckIns.status, 'pending'),
+          ),
+        )
+        .all(),
+    ).toHaveLength(1);
+  });
+
+  it('serializes concurrent new-goal requests and keeps exactly one active goal', async () => {
+    storeA.upsertProgram(
+      'user-1',
+      programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+    );
+    const baseline = requireValue(storeA.getState('user-1').pendingCheckIn, 'Expected baseline');
+    storeA.acceptCheckIn('user-1', baseline.id, { replaceSameDateTarget: false });
+    nowMs = Date.parse('2026-06-22T16:00:00.000Z');
+    seedEligibleHistory('user-1');
+    const input = {
+      type: 'gain' as const,
+      targetWeightKg: 88,
+      maintenanceCenterKg: null,
+      goalRatePctPerWeek: 0.25,
+      supersedePendingRecommendation: true,
+    };
+    const results = await Promise.allSettled([
+      new Promise<ReturnType<TestStore['startGoal']>>((resolve, reject) =>
+        setImmediate(() => {
+          try {
+            resolve(storeA.startGoal('user-1', input));
+          } catch (error) {
+            reject(error);
+          }
+        }),
+      ),
+      new Promise<ReturnType<TestStore['startGoal']>>((resolve, reject) =>
+        setImmediate(() => {
+          try {
+            resolve(storeB.startGoal('user-1', input));
+          } catch (error) {
+            reject(error);
+          }
+        }),
+      ),
+    ]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(
+      dbA
+        .select()
+        .from(adaptiveNutritionGoals)
+        .where(
+          and(
+            eq(adaptiveNutritionGoals.userId, 'user-1'),
+            eq(adaptiveNutritionGoals.status, 'active'),
+          ),
+        )
+        .all(),
+    ).toHaveLength(1);
+  });
+
+  it('returns not-found semantics for every cross-user goal mutation ID', () => {
+    storeA.upsertProgram(
+      'user-1',
+      programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+    );
+    const foreignGoal = storeA.getCurrentGoal('user-1');
+    storeA.upsertProgram('user-2', programInput({ currentWeight: { weight: 75, unit: 'kg' } }));
+    expect(() =>
+      storeA.editGoal('user-2', foreignGoal.goal.id, {
+        type: 'maintain',
+        targetWeightKg: null,
+        maintenanceCenterKg: 75,
+        goalRatePctPerWeek: 0,
+        supersedePendingRecommendation: true,
+      }),
+    ).toThrow(AdaptiveGoalNotFoundError);
+    expect(() => storeA.cancelGoal('user-2', foreignGoal.goal.id, {})).toThrow(
+      AdaptiveGoalNotFoundError,
+    );
+    expect(() =>
+      storeA.completeGoal('user-2', foreignGoal.goal.id, { checkInId: 'foreign-check-in' }),
+    ).toThrow(AdaptiveGoalNotFoundError);
   });
 
   it('scopes detail, history, preview, accept, and decline to the authenticated user', () => {

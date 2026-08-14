@@ -8,6 +8,12 @@ import {
   adaptiveConfidenceLabelSchema,
   adaptiveCurrentGoalSchema,
   adaptiveGoalDetailSchema,
+  adaptiveGoalEditInputSchema,
+  adaptiveGoalCompleteInputSchema,
+  adaptiveGoalLifecycleInputSchema,
+  adaptiveGoalProgressSchema,
+  adaptiveGoalProjectionSchema,
+  adaptiveGoalStartInputSchema,
   adaptiveGoalHistorySummarySchema,
   adaptiveGoalRevisionSchema,
   adaptiveGoalSchema,
@@ -426,6 +432,10 @@ describe('adaptive TDEE schemas', () => {
         checkInDue: false,
         nextCheckInDate: null,
         eligibility: null,
+        activeGoal: null,
+        goalProgress: null,
+        pendingGoalChange: null,
+        goalActionRequired: null,
       }),
     ).toMatchObject({ state: 'setup_required' });
   });
@@ -505,14 +515,108 @@ describe('adaptive TDEE schemas', () => {
         .success,
     ).toBe(true);
     expect(
+      adaptiveGoalProgressSchema.safeParse({
+        kind: 'weight_change',
+        goalId: goal.id,
+        goalRevisionId: revision.id,
+        revisionSequence: 1,
+        startedLocalDate: '2026-06-01',
+        currentLocalDate: '2026-06-21',
+        currentTrendWeightKg: 80,
+        latestScaleWeightKg: 79.8,
+        actualRateKgPerWeek: -0.4,
+        trendFreshness: 'fresh',
+        confidence: 'High',
+        provenance: 'valid_trend',
+        type: 'lose',
+        startTrendWeightKg: 82,
+        targetWeightKg: 75,
+        totalDistanceKg: 7,
+        completedDistanceKg: 2,
+        remainingDistanceKg: 5,
+        percentComplete: 200 / 7,
+        desiredRatePctPerWeek: -0.5,
+        desiredRateKgPerWeek: -0.4,
+        trajectory: 'toward_goal',
+        status: 'on_track',
+        desiredProjection: {
+          basis: 'desired',
+          weeks: 12.5,
+          projectedStartDate: '2026-09-08',
+          projectedEndDate: '2026-09-24',
+          unavailableReason: null,
+        },
+        actualProjection: {
+          basis: 'actual',
+          weeks: null,
+          projectedStartDate: null,
+          projectedEndDate: null,
+          unavailableReason: 'LOW_CONFIDENCE',
+        },
+      }).success,
+    ).toBe(true);
+    const progress = adaptiveGoalProgressSchema.parse({
+      kind: 'maintenance',
+      goalId: goal.id,
+      goalRevisionId: revision.id,
+      revisionSequence: 1,
+      startedLocalDate: '2026-06-01',
+      currentLocalDate: '2026-06-21',
+      currentTrendWeightKg: 80,
+      latestScaleWeightKg: 79.8,
+      actualRateKgPerWeek: 0,
+      trendFreshness: 'fresh',
+      confidence: 'High',
+      provenance: 'valid_trend',
+      type: 'maintain',
+      centerWeightKg: 80,
+      signedDistanceFromCenterKg: 0,
+      rangeRadiusKg: 0.8,
+      rangeLowerKg: 79.2,
+      rangeUpperKg: 80.8,
+      rangeStatus: 'within',
+      daysWithinRange: 10,
+      observedDays: 12,
+      trendDirection: 'flat',
+    });
+    expect(progress).not.toHaveProperty('percentComplete');
+    expect(
       adaptiveCurrentGoalSchema.safeParse({
         goal,
         latestRevision: revision,
-        progress: null,
+        progress: adaptiveGoalProgressSchema.parse({
+          ...progress,
+          kind: 'maintenance',
+          type: 'maintain',
+        }),
         pendingGoalChange: null,
         allowedActions: { edit: false, startNew: false, cancel: false, complete: false },
       }).success,
     ).toBe(true);
+    expect(adaptiveGoalProjectionSchema.safeParse({ basis: 'actual', weeks: null }).success).toBe(
+      false,
+    );
+    expect(
+      adaptiveGoalEditInputSchema.parse({
+        type: 'lose',
+        targetWeightKg: 74,
+        maintenanceCenterKg: null,
+        goalRatePctPerWeek: -0.4,
+      }),
+    ).toMatchObject({ supersedePendingRecommendation: false });
+    expect(
+      adaptiveGoalStartInputSchema.safeParse({
+        type: 'maintain',
+        targetWeightKg: null,
+        maintenanceCenterKg: 80,
+        goalRatePctPerWeek: 0,
+        unknown: true,
+      }).success,
+    ).toBe(false);
+    expect(adaptiveGoalLifecycleInputSchema.parse({})).toEqual({});
+    expect(adaptiveGoalCompleteInputSchema.parse({ checkInId: 'check-in-1' })).toEqual({
+      checkInId: 'check-in-1',
+    });
   });
 
   it('preserves version-one snapshots and requires goal linkage in version two', () => {

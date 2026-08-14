@@ -6,9 +6,14 @@ import {
   adaptiveCheckInQuerySchema,
   adaptiveCheckInSummarySchema,
   adaptiveCurrentGoalSchema,
+  adaptiveGoalCompleteInputSchema,
   adaptiveGoalDetailSchema,
+  adaptiveGoalEditInputSchema,
   adaptiveGoalHistorySummarySchema,
+  adaptiveGoalLifecycleInputSchema,
   adaptiveGoalQuerySchema,
+  adaptiveGoalSchema,
+  adaptiveGoalStartInputSchema,
   adaptiveNutritionStateSchema,
   adaptivePreviewInputSchema,
   adaptiveProgramMutationSchema,
@@ -29,12 +34,7 @@ import {
   jwtSecurity,
 } from '../../openapi.js';
 
-import {
-  AdaptiveGoalNotFoundError,
-  getAdaptiveGoal,
-  getCurrentAdaptiveGoal,
-  listAdaptiveGoals,
-} from './goal-store.js';
+import { AdaptiveGoalNotFoundError, getAdaptiveGoal, listAdaptiveGoals } from './goal-store.js';
 
 import {
   acceptAdaptiveNutritionCheckIn,
@@ -47,16 +47,24 @@ import {
   AdaptiveCheckInStaleError,
   AdaptiveCurrentWeightRequiredError,
   AdaptiveGoalDirectionError,
+  AdaptiveGoalCompletionError,
+  AdaptiveGoalRevisionConflictError,
+  AdaptiveGoalTypeConflictError,
   AdaptivePendingCheckInExistsError,
   AdaptiveProgramInvalidError,
   AdaptiveProgramNotFoundError,
   AdaptiveSameDateTargetExistsError,
+  cancelAdaptiveGoal,
+  completeAdaptiveGoal,
   declineAdaptiveNutritionCheckIn,
+  editAdaptiveGoal,
   getAdaptiveNutritionCheckIn,
   getAdaptiveNutritionState,
+  getCurrentAdaptiveGoalWithProgress,
   listAdaptiveNutritionCheckIns,
   previewAdaptiveNutritionCheckIn,
   putAdaptiveNutritionProgram,
+  startAdaptiveGoal,
 } from './store.js';
 
 const conflictResponseSchema = apiErrorResponseSchema;
@@ -67,6 +75,15 @@ const sendAdaptiveError = (reply: FastifyReply, error: unknown) => {
   }
   if (error instanceof AdaptiveActiveGoalRequiredError) {
     return sendError(reply, 409, 'ACTIVE_GOAL_REQUIRED', error.message);
+  }
+  if (error instanceof AdaptiveGoalRevisionConflictError) {
+    return sendError(reply, 409, 'GOAL_REVISION_CONFLICT', error.message);
+  }
+  if (error instanceof AdaptiveGoalTypeConflictError) {
+    return sendError(reply, 409, 'GOAL_TYPE_CONFLICT', error.message);
+  }
+  if (error instanceof AdaptiveGoalCompletionError) {
+    return sendError(reply, 409, 'GOAL_COMPLETION_NOT_READY', error.message);
   }
   if (error instanceof AdaptiveProgramNotFoundError) {
     return sendError(reply, 404, 'ADAPTIVE_PROGRAM_NOT_FOUND', error.message);
@@ -131,7 +148,126 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request, reply) => {
       try {
-        return reply.send({ data: await getCurrentAdaptiveGoal(request.userId) });
+        return reply.send({ data: await getCurrentAdaptiveGoalWithProgress(request.userId) });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
+  );
+
+  typedApp.patch(
+    '/goals/:id',
+    {
+      onRequest: requireJwtOnly,
+      schema: {
+        params: idParamsSchema,
+        body: adaptiveGoalEditInputSchema,
+        response: {
+          200: apiDataResponseSchema(adaptiveCurrentGoalSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: conflictResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Edit the active adaptive goal without applying nutrition targets',
+        security: jwtSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.send({
+          data: await editAdaptiveGoal(request.userId, request.params.id, request.body),
+        });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
+  );
+
+  typedApp.post(
+    '/goals',
+    {
+      onRequest: requireJwtOnly,
+      schema: {
+        body: adaptiveGoalStartInputSchema,
+        response: {
+          200: apiDataResponseSchema(adaptiveCurrentGoalSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: conflictResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Start a new adaptive goal and preserve expenditure history',
+        security: jwtSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.send({ data: await startAdaptiveGoal(request.userId, request.body) });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
+  );
+
+  typedApp.post(
+    '/goals/:id/cancel',
+    {
+      onRequest: requireJwtOnly,
+      schema: {
+        params: idParamsSchema,
+        body: adaptiveGoalLifecycleInputSchema,
+        response: {
+          200: apiDataResponseSchema(adaptiveGoalSchema),
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: conflictResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Cancel the active adaptive goal without changing nutrition targets',
+        security: jwtSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.send({
+          data: await cancelAdaptiveGoal(request.userId, request.params.id, request.body),
+        });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
+  );
+
+  typedApp.post(
+    '/goals/:id/complete',
+    {
+      onRequest: requireJwtOnly,
+      schema: {
+        params: idParamsSchema,
+        body: adaptiveGoalCompleteInputSchema,
+        response: {
+          200: apiDataResponseSchema(adaptiveCurrentGoalSchema),
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: conflictResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Complete a reached goal and begin explicit maintenance',
+        security: jwtSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.send({
+          data: await completeAdaptiveGoal(request.userId, request.params.id, request.body),
+        });
       } catch (error) {
         return sendAdaptiveError(reply, error);
       }

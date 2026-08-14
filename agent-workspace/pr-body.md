@@ -21,7 +21,7 @@ The work crosses weight-unit migration, nutrition completeness, target provenanc
 - [x] Backtest, seeded synthetic preview, browser acceptance, and Codex final handoff
 - [x] Vector Gate 6 independent re-review after confirmed backtest repairs
 - [x] Milestone 7 goal domain, migration, contracts, and isolated-clone rehearsal
-- [ ] Milestone 8 goal progress engine, mutations, and accepted target integration
+- [x] Milestone 8 goal progress engine, mutations, and accepted target integration
 - [ ] Milestone 9 persistent goal card and edit/new-goal flows
 - [ ] Milestone 10 goal detail, history, and completion UX
 - [ ] Milestone 11 final migration rehearsal and complete acceptance
@@ -119,15 +119,16 @@ Milestone 1 Gate 1 is independently approved at `2e539387c690f09710648d591e57c5d
 - [x] Milestone 6 read-only backtest, deterministic fixtures, sanitized Tailscale preview, clean-checkout gates, and Codex acceptance
 - [x] Vector Gate 6 independent re-review after confirmed backtest repairs
 - [x] Milestone 7 goal domain, migration, contracts, and isolated-clone rehearsal
-- [ ] Milestone 8 goal progress engine, mutations, and accepted target integration
+- [x] Milestone 8 goal progress engine, mutations, and accepted target integration
 - [ ] Milestone 9 persistent goal card and edit/new-goal flows
 - [ ] Milestone 10 goal detail, history, and completion UX
 - [ ] Milestone 11 final migration rehearsal and complete acceptance
 
-Current milestone state: `MILESTONE 7 COMPLETE; MILESTONE 8 IN PROGRESS`. Vector Gate 6 remains
-approved. Milestone 7 adds the first-class goal/revision domain, migration/backfill, immutable linkage,
-read-only JWT/AgentToken APIs, isolated-clone evidence, and explicit completion semantics. Milestones 8–11
-remain in the same authorized Codex goal. PR #100 remains draft and production remains unchanged.
+Current milestone state: `MILESTONE 8 COMPLETE; MILESTONE 9 IN PROGRESS`. Vector Gate 6 remains
+approved. Milestone 8 adds server-owned goal progress and projections, transactional edit/new/cancel/complete
+operations, explicit goal-change target acceptance, deterministic goal fixtures, backtest support, and
+adversarial stale/concurrent/retry coverage. Milestones 9–11 remain in the same authorized Codex goal. PR
+#100 remains draft and production remains unchanged.
 
 ## Review focus
 

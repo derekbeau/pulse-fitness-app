@@ -121,7 +121,7 @@ describe('adaptive goal read store', () => {
       expect(store.getCurrent('user-1')).toMatchObject({
         goal: { id: 'goal-1', status: 'active' },
         latestRevision: { id: 'revision-1', sequence: 1 },
-        progress: null,
+        progress: { kind: 'weight_change', provenance: 'scale_only' },
         pendingGoalChange: null,
       });
       expect(store.list('user-1', {})).toMatchObject({

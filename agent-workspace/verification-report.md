@@ -802,6 +802,57 @@ adaptive store/routes, provenance/account deletion), 17 shared schema tests, and
 No progress calculation, goal mutation, goal UI, production access, deployment, merge, or PR-ready promotion
 is included in Milestone 7. PR #100 remains draft. The next authorized work is Milestone 8.
 
+## Milestone 8 Codex verification
+
+Verdict: `MILESTONE 8 COMPLETE; MILESTONE 9 IN PROGRESS`
+
+### Progress, mutation, and acceptance behavior
+
+- Pure progress tests cover loss/gain directionality, clamping before start and beyond target, zero distance,
+  desired and actual projected date ranges, low-confidence/stale/moving-away/rate-too-small reasons, and
+  maintenance range boundaries without percentage or ETA fields.
+- Shared mutation and response schemas are strict. Current-goal and state responses carry authoritative
+  progress, active goal, pending goal change, and required lifecycle action.
+- Same-direction edits preserve goal ID, start trend, and start date while appending one immutable revision.
+  Direction changes create one new progress period. Both preserve accepted expenditure/check-in history and
+  create a pending `goal_change` recommendation without writing a nutrition target.
+- Explicit acceptance is the only target-write boundary. Fingerprints include goal/revision identity; source
+  changes, stale revisions, unapproved pending supersession, cross-user IDs, and AgentToken mutations fail
+  closed.
+- Cancellation supersedes pending work, leaves targets/history untouched, and blocks further previews until
+  a new goal exists. Completion requires an accepted fresh goal-reached check-in, creates maintenance exactly
+  once, consumes the already accepted maintenance target without duplicating it, and converges across two
+  real SQLite connections.
+
+### Fixtures, backtest, and isolated runtime
+
+- Backtest inputs accept optional goal strategy and expose goal type, target/center, and rate while old input
+  remains compatible. Goal-change simulation preserves prior Adaptive TDEE and changes targets only after
+  simulated acceptance.
+- The Gate 0 seeder deterministically creates 13 original-plus-goal accounts. Browser/API QA found and fixed
+  a fixture-ID collision with the isolated copy and three usernames longer than the login schema permits.
+  Regression coverage preserves unrelated colliding legacy IDs and enforces usable fixture usernames.
+- Built-in-browser QA used only the tracked isolated launcher. Signed-in Dashboard, Nutrition Log, and Coach
+  rendered correctly with empty warning/error diagnostics. Loopback JWT smoke exercised current/history/detail,
+  edit, explicit acceptance (including same-date confirmation), start, cancel, blocked preview, completion,
+  and retry. Only intentional 409 probes failed; observed product navigation requests returned 200.
+- The database was reseeded after mutation smoke. SQLite reported `quick_check=ok`, exactly 13 fixture users,
+  and preservation of the unrelated copied user. Ports 3102 and 5274 were free after shutdown.
+
+### Automated gates
+
+| Command                           | Observed result                                                        |
+| --------------------------------- | ---------------------------------------------------------------------- |
+| Focused shared/API                | Shared 412; API 684; Adaptive store integration 22                     |
+| `TURBO_FORCE=true pnpm lint`      | 3/3, 0 cached, zero errors; four pre-existing Fast Refresh warnings    |
+| `TURBO_FORCE=true pnpm typecheck` | 3/3, 0 cached                                                          |
+| `TURBO_FORCE=true pnpm test`      | Startup/isolation 9; shared 412, API 684, web 989; 6/6 tasks, 0 cached |
+| `TURBO_FORCE=true pnpm build`     | 3/3, 0 cached                                                          |
+| Prettier and `git diff --check`   | Pass                                                                   |
+
+Milestone 8 adds no production UI, production access, deployment, merge, or PR-ready promotion. PR #100
+remains draft. The next authorized work is Milestone 9.
+
 ### Gate 6 backtest repair
 
 Verdict: `AWAITING VECTOR GATE 6 RE-REVIEW`

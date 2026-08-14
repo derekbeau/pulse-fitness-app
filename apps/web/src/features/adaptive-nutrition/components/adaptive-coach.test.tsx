@@ -249,6 +249,10 @@ function createState(
       latestWeightAgeDays: 3,
       reasonCodes: state === 'holding' ? ['STALE_WEIGHT'] : ['INSUFFICIENT_NUTRITION'],
     },
+    activeGoal: null,
+    goalProgress: null,
+    pendingGoalChange: null,
+    goalActionRequired: null,
     ...overrides,
   };
 }

@@ -10,7 +10,10 @@ import {
   adaptiveNutritionDaySchema,
   adaptiveProgramCalculationSchema,
   adaptiveWeightEntrySchema,
+  adaptiveGoalTypeSchema,
+  allocateMacros,
   buildAdaptiveRecommendation,
+  calculateGoalCalories,
   type AdaptiveCheckInKind,
   type AdaptiveCurrentTarget,
   type AdaptiveNutritionDay,
@@ -25,6 +28,11 @@ export type AdaptiveBacktestCheckIn = {
   date: string;
   includeToday: boolean;
   kind: Exclude<AdaptiveCheckInKind, 'baseline'>;
+  goalStrategy?: {
+    goalType: AdaptiveProgramCalculation['goalType'];
+    targetWeightKg: number | null;
+    goalRatePctPerWeek: number;
+  };
 };
 
 export type AdaptiveBacktestSource = {
@@ -68,6 +76,9 @@ export type AdaptiveBacktestRow = {
   currentTargetCalories: number | null;
   currentTargetSource: AdaptiveCurrentTarget['source'] | null;
   currentTargetEffectiveDate: string | null;
+  goalType: AdaptiveProgramCalculation['goalType'];
+  targetWeightKg: number | null;
+  goalRatePctPerWeek: number;
 };
 
 type DatabaseProgramRow = {
@@ -122,10 +133,48 @@ const parseCheckIns = (value: unknown): AdaptiveBacktestCheckIn[] =>
       if (item.kind === 'weekly' && item.includeToday) {
         throw new Error(`checkIns[${index}] cannot include today for a weekly check-in`);
       }
+      const rawGoalStrategy =
+        item.goalStrategy === undefined
+          ? undefined
+          : requireObject(item.goalStrategy, `checkIns[${index}].goalStrategy`);
+      const goalStrategy = rawGoalStrategy
+        ? {
+            goalType: adaptiveGoalTypeSchema.parse(rawGoalStrategy.goalType),
+            targetWeightKg:
+              rawGoalStrategy.targetWeightKg === null
+                ? null
+                : typeof rawGoalStrategy.targetWeightKg === 'number' &&
+                    Number.isFinite(rawGoalStrategy.targetWeightKg)
+                  ? rawGoalStrategy.targetWeightKg
+                  : (() => {
+                      throw new Error(
+                        `checkIns[${index}].goalStrategy.targetWeightKg must be finite or null`,
+                      );
+                    })(),
+            goalRatePctPerWeek:
+              typeof rawGoalStrategy.goalRatePctPerWeek === 'number' &&
+              Number.isFinite(rawGoalStrategy.goalRatePctPerWeek)
+                ? rawGoalStrategy.goalRatePctPerWeek
+                : (() => {
+                    throw new Error(
+                      `checkIns[${index}].goalStrategy.goalRatePctPerWeek must be finite`,
+                    );
+                  })(),
+          }
+        : undefined;
       return {
         date: item.date,
         includeToday: item.includeToday,
         kind: item.kind as AdaptiveBacktestCheckIn['kind'],
+        ...(goalStrategy
+          ? {
+              goalStrategy: {
+                goalType: goalStrategy.goalType,
+                targetWeightKg: goalStrategy.targetWeightKg,
+                goalRatePctPerWeek: goalStrategy.goalRatePctPerWeek,
+              },
+            }
+          : {}),
       };
     }),
   ).sort(compareCheckIns);
@@ -185,6 +234,14 @@ export function runAdaptiveTdeeBacktest(source: AdaptiveBacktestSource): Adaptiv
   const checkIns = rejectDuplicateCheckIns([...source.checkIns]).sort(compareCheckIns);
 
   return checkIns.map((checkIn) => {
+    const program = checkIn.goalStrategy
+      ? adaptiveProgramCalculationSchema.parse({
+          ...source.program,
+          goalType: checkIn.goalStrategy.goalType,
+          targetWeightKg: checkIn.goalStrategy.targetWeightKg,
+          goalRatePctPerWeek: checkIn.goalStrategy.goalRatePctPerWeek,
+        })
+      : source.program;
     const persistedTarget = targetAtDate(source.currentTargets, checkIn.date);
     const currentTarget = targetAtDate(
       [persistedTarget, simulatedTarget].filter(
@@ -200,10 +257,35 @@ export function runAdaptiveTdeeBacktest(source: AdaptiveBacktestSource): Adaptiv
       localDate: checkIn.date,
       nutritionDays: source.nutritionDays,
       priorTdee,
-      program: source.program,
+      program,
       weightEntries: source.weightEntries,
     });
-    const proposedTdeeKcal = result.adaptiveUpdate?.proposedTdeeKcal ?? null;
+    const acceptedTdeeKcal = priorTdee?.tdeeKcal ?? program.baselineTdeeKcal;
+    const goalChangeGoal =
+      checkIn.kind === 'goal_change' && result.latestTrendWeightKg !== null
+        ? calculateGoalCalories({
+            goalType: program.goalType,
+            goalRatePctPerWeek: program.goalRatePctPerWeek,
+            targetWeightKg: program.targetWeightKg,
+            latestTrendWeightKg: result.latestTrendWeightKg,
+            adaptiveTdeeKcal: acceptedTdeeKcal,
+            systemCalorieFloorKcal: program.systemCalorieFloorKcal,
+            userCalorieFloorKcal: program.userCalorieFloorKcal,
+          })
+        : null;
+    const goalChangeMacros = goalChangeGoal
+      ? allocateMacros({
+          goalCalories: goalChangeGoal.goalCalories,
+          proteinGrams: program.proteinGrams,
+          fatAllocationPct: program.fatAllocationPct,
+        })
+      : null;
+    const proposedTdeeKcal =
+      checkIn.kind === 'goal_change'
+        ? acceptedTdeeKcal
+        : (result.adaptiveUpdate?.proposedTdeeKcal ?? null);
+    const resultGoal = goalChangeGoal ?? result.goal;
+    const resultMacros = goalChangeMacros ?? result.macros;
     const row: AdaptiveBacktestRow = {
       checkInDate: checkIn.date,
       kind: checkIn.kind,
@@ -241,28 +323,33 @@ export function runAdaptiveTdeeBacktest(source: AdaptiveBacktestSource): Adaptiv
       weightRecencyScore: result.confidence?.recencyScore ?? null,
       priorTdeeKcal: result.priorTdeeKcal,
       proposedTdeeKcal,
-      goalCalories: result.goal?.goalCalories ?? null,
-      proteinGrams: result.macros?.protein ?? null,
-      carbohydrateGrams: result.macros?.carbs ?? null,
-      fatGrams: result.macros?.fat ?? null,
+      goalCalories: resultGoal?.goalCalories ?? null,
+      proteinGrams: resultMacros?.protein ?? null,
+      carbohydrateGrams: resultMacros?.carbs ?? null,
+      fatGrams: resultMacros?.fat ?? null,
       reasonCodes: result.reasonCodes,
       currentTargetCalories: currentTarget?.calories ?? null,
       currentTargetSource: currentTarget?.source ?? null,
       currentTargetEffectiveDate: currentTarget?.effectiveDate ?? null,
+      goalType: program.goalType,
+      targetWeightKg: program.targetWeightKg,
+      goalRatePctPerWeek: program.goalRatePctPerWeek,
     };
 
-    if (result.state === 'updating' && proposedTdeeKcal !== null && result.macros) {
+    if (result.state === 'updating' && proposedTdeeKcal !== null && resultMacros) {
       const simulatedId = `backtest-${checkIn.date}`;
-      priorTdee = { checkInId: simulatedId, tdeeKcal: proposedTdeeKcal };
+      if (checkIn.kind !== 'goal_change') {
+        priorTdee = { checkInId: simulatedId, tdeeKcal: proposedTdeeKcal };
+      }
       simulatedTarget = adaptiveCurrentTargetSchema.parse({
         id: `target-${checkIn.date}`,
-        calories: result.macros.calories,
-        protein: result.macros.protein,
-        carbs: result.macros.carbs,
-        fat: result.macros.fat,
+        calories: resultMacros.calories,
+        protein: resultMacros.protein,
+        carbs: resultMacros.carbs,
+        fat: resultMacros.fat,
         source: 'adaptive',
         adaptiveCheckInId: simulatedId,
-        macroCalories: result.macros.macroCalories,
+        macroCalories: resultMacros.macroCalories,
         effectiveDate: checkIn.date,
         updatedAt: Date.parse(`${checkIn.date}T12:00:00.000Z`),
       });

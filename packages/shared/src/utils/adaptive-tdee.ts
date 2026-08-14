@@ -12,6 +12,7 @@ import {
   type AdaptiveConfidenceLabel,
   type AdaptiveCurrentTarget,
   type AdaptiveGoalType,
+  type AdaptiveGoalSnapshot,
   type AdaptiveNutritionDay,
   type AdaptivePriorTdee,
   type AdaptiveProgramCalculation,
@@ -172,6 +173,7 @@ export interface AdaptiveFingerprintInput {
   includeToday: boolean;
   nutritionDays: AdaptiveNutritionDay[];
   weightEntries: AdaptiveWeightEntry[];
+  goal?: AdaptiveGoalSnapshot;
 }
 
 export interface AdaptiveRecommendationInput {
@@ -972,6 +974,7 @@ export function canonicalizeAdaptiveFingerprintInput(input: AdaptiveFingerprintI
     boundaries: input.boundaries,
     constants,
     currentTarget,
+    goal: input.goal ?? null,
     includeToday: input.includeToday,
     nutritionDays,
     priorTdee,

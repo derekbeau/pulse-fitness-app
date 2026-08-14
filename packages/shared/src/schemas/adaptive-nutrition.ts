@@ -789,12 +789,130 @@ export const adaptiveGoalAllowedActionsSchema = z
   })
   .strict();
 
+export const adaptiveGoalProjectionUnavailableReasonSchema = z.enum([
+  'INSUFFICIENT_TREND',
+  'STALE_WEIGHT',
+  'MOVING_AWAY',
+  'RATE_TOO_SMALL',
+  'LOW_CONFIDENCE',
+]);
+
+export const adaptiveGoalProjectionSchema = z
+  .object({
+    basis: z.enum(['desired', 'actual']),
+    weeks: z.number().nonnegative().finite().nullable(),
+    projectedStartDate: dateSchema.nullable(),
+    projectedEndDate: dateSchema.nullable(),
+    unavailableReason: adaptiveGoalProjectionUnavailableReasonSchema.nullable(),
+  })
+  .strict()
+  .superRefine((projection, context) => {
+    const available = projection.weeks !== null;
+    const valid = available
+      ? projection.projectedStartDate !== null &&
+        projection.projectedEndDate !== null &&
+        projection.unavailableReason === null
+      : projection.projectedStartDate === null &&
+        projection.projectedEndDate === null &&
+        projection.unavailableReason !== null;
+    if (!valid) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Projection dates, weeks, and unavailable reason must agree',
+        path: ['weeks'],
+      });
+    }
+  });
+
+const adaptiveGoalProgressBaseFields = {
+  goalId: z.string().min(1),
+  goalRevisionId: z.string().min(1),
+  revisionSequence: z.number().int().positive(),
+  startedLocalDate: dateSchema,
+  currentLocalDate: dateSchema,
+  currentTrendWeightKg: bodyWeightKgSchema.nullable(),
+  latestScaleWeightKg: bodyWeightKgSchema.nullable(),
+  actualRateKgPerWeek: z.number().finite().nullable(),
+  trendFreshness: z.enum(['fresh', 'stale', 'missing']),
+  confidence: adaptiveConfidenceLabelSchema.nullable(),
+  provenance: z.enum(['valid_trend', 'stale_trend', 'scale_only', 'no_usable_weight']),
+} as const;
+
+export const adaptiveWeightChangeGoalProgressSchema = z
+  .object({
+    kind: z.literal('weight_change'),
+    ...adaptiveGoalProgressBaseFields,
+    type: z.enum(['lose', 'gain']),
+    startTrendWeightKg: bodyWeightKgSchema,
+    targetWeightKg: bodyWeightKgSchema,
+    totalDistanceKg: z.number().nonnegative().finite(),
+    completedDistanceKg: z.number().nonnegative().finite().nullable(),
+    remainingDistanceKg: z.number().nonnegative().finite().nullable(),
+    percentComplete: z.number().min(0).max(100).finite().nullable(),
+    desiredRatePctPerWeek: z.number().min(-1).max(0.5).finite(),
+    desiredRateKgPerWeek: z.number().finite().nullable(),
+    trajectory: z.enum(['toward_goal', 'flat', 'away_from_goal', 'insufficient_data']),
+    status: z.enum(['on_track', 'ahead', 'behind', 'moving_away', 'reached', 'insufficient_data']),
+    desiredProjection: adaptiveGoalProjectionSchema,
+    actualProjection: adaptiveGoalProjectionSchema,
+  })
+  .strict();
+
+export const adaptiveMaintenanceGoalProgressSchema = z
+  .object({
+    kind: z.literal('maintenance'),
+    ...adaptiveGoalProgressBaseFields,
+    type: z.literal('maintain'),
+    centerWeightKg: bodyWeightKgSchema,
+    signedDistanceFromCenterKg: z.number().finite().nullable(),
+    rangeRadiusKg: z.number().positive().finite(),
+    rangeLowerKg: z.number().positive().finite(),
+    rangeUpperKg: z.number().positive().finite(),
+    rangeStatus: z.enum(['within', 'near_edge', 'below', 'above', 'insufficient_data']),
+    daysWithinRange: z.number().int().nonnegative(),
+    observedDays: z.number().int().nonnegative(),
+    trendDirection: z.enum(['rising', 'flat', 'falling', 'insufficient_data']),
+  })
+  .strict();
+
+export const adaptiveGoalProgressSchema = z.discriminatedUnion('kind', [
+  adaptiveWeightChangeGoalProgressSchema,
+  adaptiveMaintenanceGoalProgressSchema,
+]);
+
+const adaptiveGoalMutationStrategyObjectSchema = adaptiveGoalStrategyFieldsSchema.extend({
+  type: adaptiveGoalTypeSchema,
+});
+
+export const adaptiveGoalEditInputSchema = adaptiveGoalMutationStrategyObjectSchema
+  .extend({
+    supersedePendingRecommendation: z.boolean().default(false),
+    expectedRevisionId: z.string().min(1).optional(),
+  })
+  .strict()
+  .superRefine(validateGoalStrategy);
+
+export const adaptiveGoalStartInputSchema = adaptiveGoalMutationStrategyObjectSchema
+  .extend({
+    supersedePendingRecommendation: z.boolean().default(false),
+  })
+  .strict()
+  .superRefine(validateGoalStrategy);
+
+export const adaptiveGoalLifecycleInputSchema = z
+  .object({ expectedRevisionId: z.string().min(1).optional() })
+  .strict();
+
+export const adaptiveGoalCompleteInputSchema = adaptiveGoalLifecycleInputSchema.extend({
+  checkInId: z.string().min(1),
+});
+
 export const adaptiveCurrentGoalSchema = z
   .object({
     goal: adaptiveGoalSchema,
     latestRevision: adaptiveGoalRevisionSchema,
-    progress: z.null(),
-    pendingGoalChange: z.null(),
+    progress: adaptiveGoalProgressSchema,
+    pendingGoalChange: adaptiveCheckInSummarySchema.nullable(),
     allowedActions: adaptiveGoalAllowedActionsSchema,
   })
   .strict();
@@ -839,6 +957,10 @@ export const adaptiveNutritionStateSchema = z
     checkInDue: z.boolean(),
     nextCheckInDate: dateSchema.nullable(),
     eligibility: adaptiveEligibilityProgressSchema.nullable(),
+    activeGoal: adaptiveGoalSchema.nullable(),
+    goalProgress: adaptiveGoalProgressSchema.nullable(),
+    pendingGoalChange: adaptiveCheckInSummarySchema.nullable(),
+    goalActionRequired: z.enum(['select_goal', 'complete_goal']).nullable(),
   })
   .strict();
 
@@ -863,6 +985,12 @@ export type AdaptiveGoal = z.infer<typeof adaptiveGoalSchema>;
 export type AdaptiveGoalRevision = z.infer<typeof adaptiveGoalRevisionSchema>;
 export type AdaptiveGoalSnapshot = z.infer<typeof adaptiveGoalSnapshotSchema>;
 export type AdaptiveCurrentGoal = z.infer<typeof adaptiveCurrentGoalSchema>;
+export type AdaptiveGoalProgress = z.infer<typeof adaptiveGoalProgressSchema>;
+export type AdaptiveGoalProjection = z.infer<typeof adaptiveGoalProjectionSchema>;
+export type AdaptiveGoalEditInput = z.infer<typeof adaptiveGoalEditInputSchema>;
+export type AdaptiveGoalStartInput = z.infer<typeof adaptiveGoalStartInputSchema>;
+export type AdaptiveGoalLifecycleInput = z.infer<typeof adaptiveGoalLifecycleInputSchema>;
+export type AdaptiveGoalCompleteInput = z.infer<typeof adaptiveGoalCompleteInputSchema>;
 export type AdaptiveGoalHistorySummary = z.infer<typeof adaptiveGoalHistorySummarySchema>;
 export type AdaptiveGoalDetail = z.infer<typeof adaptiveGoalDetailSchema>;
 export type AdaptiveNutritionDay = z.infer<typeof adaptiveNutritionDaySchema>;
