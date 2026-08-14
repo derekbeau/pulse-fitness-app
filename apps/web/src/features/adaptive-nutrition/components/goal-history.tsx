@@ -1,5 +1,4 @@
 import {
-  ADAPTIVE_TDEE_CONSTANTS,
   type AdaptiveGoal,
   type AdaptiveGoalDetail,
   type AdaptiveGoalHistorySummary,
@@ -31,18 +30,19 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 
-import { useAdaptiveGoalDetail, useAdaptiveGoalHistory } from '../api/adaptive-nutrition';
+import { useAdaptiveGoalDetail, useInfiniteAdaptiveGoalHistory } from '../api/adaptive-nutrition';
 import { formatAdaptiveDate, formatAdaptiveWeight } from '../lib/format-adaptive-nutrition';
 
 const HISTORY_LIMIT = 20;
 
 export function GoalHistory({ activeGoalId }: { activeGoalId: string }) {
   const { weightUnit } = useWeightUnit();
-  const historyQuery = useAdaptiveGoalHistory(1, HISTORY_LIMIT);
+  const historyQuery = useInfiniteAdaptiveGoalHistory(HISTORY_LIMIT);
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
   const detailQuery = useAdaptiveGoalDetail(selectedGoalId, selectedGoalId !== null);
-  const goals = historyQuery.data?.data ?? [];
+  const goals = historyQuery.data?.pages.flatMap((page) => page.data) ?? [];
+  const total = historyQuery.data?.pages[0]?.meta.total ?? 0;
   const active = goals.find((summary) => summary.goal.id === activeGoalId);
   const prior = goals.filter((summary) => summary.goal.id !== activeGoalId);
 
@@ -110,6 +110,23 @@ export function GoalHistory({ activeGoalId }: { activeGoalId: string }) {
                   </p>
                 )}
               </div>
+              {historyQuery.hasNextPage ? (
+                <Button
+                  className="min-h-11 w-full"
+                  disabled={historyQuery.isFetchingNextPage}
+                  onClick={() => void historyQuery.fetchNextPage()}
+                  type="button"
+                  variant="outline"
+                >
+                  {historyQuery.isFetchingNextPage
+                    ? 'Loading more goals…'
+                    : `Load more goals (${goals.length} of ${total})`}
+                </Button>
+              ) : total > HISTORY_LIMIT ? (
+                <p className="text-center text-xs text-muted-foreground">
+                  All {total} goals loaded.
+                </p>
+              ) : null}
             </>
           )}
         </CardContent>
@@ -269,12 +286,24 @@ function GoalDetailContent({ detail, unit }: { detail: AdaptiveGoalDetail; unit:
           </p>
         )}
       </section>
+
+      {detail.completion ? (
+        <section aria-labelledby="goal-completion-link" className="space-y-2">
+          <h3 className="font-semibold" id="goal-completion-link">
+            Completion transition
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Accepted check-in {detail.completion.checkInId} immutably links completed goal{' '}
+            {detail.completion.completedGoalId} to maintenance goal{' '}
+            {detail.completion.maintenanceGoalId}.
+          </p>
+        </section>
+      ) : null}
     </div>
   );
 }
 
 function GoalProgressChart({ detail, unit }: { detail: AdaptiveGoalDetail; unit: WeightUnit }) {
-  const revision = detail.revisions.at(-1);
   const data = useMemo(
     () =>
       detail.trendPoints.map((point) => ({
@@ -282,9 +311,9 @@ function GoalProgressChart({ detail, unit }: { detail: AdaptiveGoalDetail; unit:
         displayTrend: displayWeight(point.trendWeightKg, unit),
         displayScale:
           point.scaleWeightKg === null ? null : displayWeight(point.scaleWeightKg, unit),
-        progress: revision ? progressForPoint(detail.goal, revision, point.trendWeightKg) : null,
+        progress: point.kind === 'weight_change' ? point.percentComplete : null,
       })),
-    [detail, revision, unit],
+    [detail.trendPoints, unit],
   );
   const values = data.map((point) => point.displayTrend);
   const domain: [number, number] = [Math.min(...values) - 1, Math.max(...values) + 1];
@@ -353,21 +382,25 @@ function GoalProgressChart({ detail, unit }: { detail: AdaptiveGoalDetail; unit:
 
       {detail.goal.type === 'maintain' ? (
         <div className="space-y-2" aria-label="Maintenance range history">
-          {data.map((point) => (
-            <div
-              className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-2 text-xs"
-              key={point.date}
-            >
-              <span>{shortDate(point.date)}</span>
-              <div className="h-2 overflow-hidden rounded-full bg-secondary">
-                <div
-                  className={`h-full rounded-full ${point.progress === 100 ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                  style={{ width: `${point.progress === 100 ? 100 : 35}%` }}
-                />
+          {data.map((point) =>
+            point.kind === 'maintenance' ? (
+              <div
+                className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-2 text-xs"
+                key={point.date}
+              >
+                <span>{shortDate(point.date)}</span>
+                <div className="h-2 overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className={`h-full rounded-full ${point.rangeStatus === 'within' || point.rangeStatus === 'near_edge' ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                    style={{
+                      width: `${point.rangeStatus === 'within' || point.rangeStatus === 'near_edge' ? 100 : 35}%`,
+                    }}
+                  />
+                </div>
+                <span>{maintenanceRangeLabel(point.rangeStatus)}</span>
               </div>
-              <span>{point.progress === 100 ? 'Within range' : 'Outside range'}</span>
-            </div>
-          ))}
+            ) : null,
+          )}
         </div>
       ) : (
         <div className="space-y-2" aria-label="Week-by-week goal distance progress">
@@ -418,9 +451,9 @@ function GoalProgressChart({ detail, unit }: { detail: AdaptiveGoalDetail; unit:
                 <td className="p-3">{formatAdaptiveWeight(point.scaleWeightKg, unit)}</td>
                 <td className="p-3">
                   {detail.goal.type === 'maintain'
-                    ? point.progress === 100
-                      ? 'Within maintenance range'
-                      : 'Outside maintenance range'
+                    ? point.kind === 'maintenance'
+                      ? `${maintenanceRangeLabel(point.rangeStatus)} · ${formatAdaptiveWeight(point.rangeLowerKg, unit)} to ${formatAdaptiveWeight(point.rangeUpperKg, unit)} · revision ${point.revisionSequence}`
+                      : 'Unavailable'
                     : `${Math.round(point.progress ?? 0)}% of goal distance`}
                 </td>
               </tr>
@@ -439,23 +472,6 @@ function DetailMetric({ label, value }: { label: string; value: string }) {
       <dd className="mt-1 text-sm font-semibold">{value}</dd>
     </div>
   );
-}
-
-function progressForPoint(goal: AdaptiveGoal, revision: AdaptiveGoalRevision, trendKg: number) {
-  if (goal.type === 'maintain') {
-    const center = revision.maintenanceCenterKg ?? goal.startTrendWeightKg;
-    const radius = Math.max(
-      ADAPTIVE_TDEE_CONSTANTS.goalToleranceAbsoluteKg,
-      center * ADAPTIVE_TDEE_CONSTANTS.goalToleranceFraction,
-    );
-    return Math.abs(trendKg - center) <= radius ? 100 : 0;
-  }
-  const target = revision.targetWeightKg ?? goal.startTrendWeightKg;
-  const total = Math.abs(goal.startTrendWeightKg - target);
-  if (total === 0) return 100;
-  const completed =
-    goal.type === 'lose' ? goal.startTrendWeightKg - trendKg : trendKg - goal.startTrendWeightKg;
-  return Math.min(100, Math.max(0, (completed / total) * 100));
 }
 
 const displayWeight = (kg: number, unit: WeightUnit) => (unit === 'kg' ? kg : kg / 0.45359237);
@@ -487,6 +503,14 @@ const revisionReasonLabel = (reason: AdaptiveGoalRevision['reason']) =>
       : reason === 'migration'
         ? 'Migrated'
         : 'Created';
+const maintenanceRangeLabel = (status: 'within' | 'near_edge' | 'below' | 'above') =>
+  status === 'within'
+    ? 'Within range'
+    : status === 'near_edge'
+      ? 'Near range edge'
+      : status === 'below'
+        ? 'Below range'
+        : 'Above range';
 const strategyWeight = (revision: AdaptiveGoalRevision, unit: WeightUnit, previous = false) =>
   formatAdaptiveWeight(
     previous

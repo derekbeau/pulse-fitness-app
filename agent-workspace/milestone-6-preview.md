@@ -1,5 +1,8 @@
 # Milestone 6 Preview and Backtest Runbook
 
+> Historical Milestone 6 runbook. Current final-QA fixtures extend goal history beyond 20 rows; use
+> `codex-kickoff.md` and `verification-report.md` for current commands and evidence.
+
 This runbook is non-production only. The preview must use the tracked Gate 0 ports and exact ignored
 database path. A database containing production-derived health data must never be bound to a network
 interface.

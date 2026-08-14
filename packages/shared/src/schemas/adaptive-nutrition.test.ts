@@ -8,6 +8,7 @@ import {
   adaptiveConfidenceLabelSchema,
   adaptiveCurrentGoalSchema,
   adaptiveGoalDetailSchema,
+  adaptiveGoalCompletionSchema,
   adaptiveGoalEditInputSchema,
   adaptiveGoalCompleteInputSchema,
   adaptiveGoalLifecycleInputSchema,
@@ -449,6 +450,7 @@ describe('adaptive TDEE schemas', () => {
       status: 'active' as const,
       startTrendWeightKg: 82,
       startScaleWeightKg: 82.2,
+      finalTrendWeightKg: null,
       targetWeightKg: 75,
       maintenanceCenterKg: null,
       goalRatePctPerWeek: -0.5,
@@ -476,6 +478,15 @@ describe('adaptive TDEE schemas', () => {
     expect(adaptiveGoalSchema.parse(goal)).toEqual(goal);
     expect(adaptiveGoalRevisionSchema.parse(revision)).toEqual(revision);
     expect(
+      adaptiveGoalSchema.safeParse({
+        ...goal,
+        status: 'completed',
+        finalTrendWeightKg: 79.4,
+        endedLocalDate: '2026-08-01',
+        endedReason: 'completed',
+      }).success,
+    ).toBe(true);
+    expect(
       adaptiveGoalSchema.safeParse({ ...goal, status: 'completed', endedLocalDate: null }).success,
     ).toBe(false);
     expect(
@@ -490,6 +501,15 @@ describe('adaptive TDEE schemas', () => {
       adaptiveGoalSchema.safeParse({ ...goal, type: 'maintain', targetWeightKg: null }).success,
     ).toBe(false);
     expect(adaptiveGoalSchema.safeParse({ ...goal, unexpected: true }).success).toBe(false);
+    expect(
+      adaptiveGoalCompletionSchema.safeParse({
+        checkInId: 'check-in-1',
+        userId: goal.userId,
+        completedGoalId: goal.id,
+        maintenanceGoalId: 'maintenance-goal-1',
+        createdAt: 2,
+      }).success,
+    ).toBe(true);
     expect(adaptiveGoalRevisionSchema.safeParse({ ...revision, sequence: 0 }).success).toBe(false);
     expect(
       adaptiveGoalSnapshotSchema.safeParse({
@@ -515,7 +535,21 @@ describe('adaptive TDEE schemas', () => {
         goal,
         revisions: [revision],
         acceptedCheckIns: [],
-        trendPoints: [{ date: '2026-06-01', trendWeightKg: 82, scaleWeightKg: 82.2 }],
+        trendPoints: [
+          {
+            kind: 'weight_change',
+            date: '2026-06-01',
+            trendWeightKg: 82,
+            scaleWeightKg: 82.2,
+            goalRevisionId: revision.id,
+            revisionSequence: 1,
+            targetWeightKg: 75,
+            completedDistanceKg: 0,
+            remainingDistanceKg: 7,
+            percentComplete: 0,
+          },
+        ],
+        completion: null,
       }).success,
     ).toBe(true);
     expect(

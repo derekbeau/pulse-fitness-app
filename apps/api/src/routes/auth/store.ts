@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import {
   adaptiveNutritionAccountDeletionScope,
   adaptiveNutritionCheckIns,
+  adaptiveNutritionGoalCompletions,
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
   adaptiveNutritionPrograms,
@@ -179,6 +180,9 @@ export const deleteUserAccount = async (userId: string): Promise<boolean> => {
     // another account deletion from borrowing it, and rollback restores every ordered deletion.
     tx.insert(adaptiveNutritionAccountDeletionScope).values({ userId }).run();
     tx.delete(nutritionTargets).where(eq(nutritionTargets.userId, userId)).run();
+    tx.delete(adaptiveNutritionGoalCompletions)
+      .where(eq(adaptiveNutritionGoalCompletions.userId, userId))
+      .run();
     tx.delete(adaptiveNutritionCheckIns).where(eq(adaptiveNutritionCheckIns.userId, userId)).run();
     tx.delete(adaptiveNutritionGoalRevisions)
       .where(eq(adaptiveNutritionGoalRevisions.userId, userId))

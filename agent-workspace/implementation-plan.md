@@ -2,7 +2,9 @@
 
 Authoritative contract: [`../docs/specs/adaptive-tdee-v1.md`](../docs/specs/adaptive-tdee-v1.md)
 
-The milestones are ordered dependencies. Each milestone is a separate Codex goal and requires both Codex self-verification and Vector approval before the next milestone is authorized. Do not start with UI.
+Milestones 0–11 below are the completed historical implementation plan. Their gate wording records the
+process used at the time and is not a current authorization protocol. The active work is the bounded final
+goal-strategy repair at the end of this file.
 
 ## Milestone 0: Baseline and development isolation
 
@@ -151,3 +153,15 @@ The authoritative scope, acceptance criteria, and gate evidence are in specifica
 - [x] Preview URL and test workflow are verified before Derek receives them.
 - [x] Production remains unchanged.
 - [x] The extension uses one Codex goal, one commit per Milestone 7–11, extensive automated/browser QA after each milestone, and one independent Vector final review before any readiness verdict.
+
+## Final goal-strategy repair
+
+- [x] Enforce strategy changes through exactly one database-authoritative next revision.
+- [x] Make historical progress revision-effective and server-authoritative.
+- [x] Canonicalize maintenance range behavior in current and historical responses.
+- [x] Persist actual final trends and immutable completion-transition ownership.
+- [x] Add goal-history load-more beyond 20 rows.
+- [x] Add permanent focused, migration, concurrency, replayability, UI, and browser regressions.
+- [x] Pass exact uncached full gates, installed Chrome, built-in browser, and final database integrity checks.
+- [x] Reconcile evidence, create/push exactly one repair commit, update the draft PR body, and stop at
+      `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`.

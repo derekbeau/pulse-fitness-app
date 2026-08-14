@@ -12,6 +12,7 @@ import * as schema from '../db/schema/index.js';
 import {
   adaptiveNutritionAccountDeletionScope,
   adaptiveNutritionCheckIns,
+  adaptiveNutritionGoalCompletions,
   adaptiveNutritionPrograms,
   bodyWeight,
   mealItems,
@@ -213,6 +214,9 @@ const cleanupExistingFixtures = (db: AdaptiveDatabase) => {
         .onConflictDoNothing()
         .run();
       tx.delete(nutritionTargets).where(eq(nutritionTargets.userId, fixtureUser.id)).run();
+      tx.delete(adaptiveNutritionGoalCompletions)
+        .where(eq(adaptiveNutritionGoalCompletions.userId, fixtureUser.id))
+        .run();
       tx.delete(adaptiveNutritionCheckIns)
         .where(eq(adaptiveNutritionCheckIns.userId, fixtureUser.id))
         .run();
@@ -441,6 +445,20 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   store.acceptCheckIn(history.userId, historyResult.pendingGoalChange?.id ?? '', {
     replaceSameDateTarget: true,
   });
+  for (let replacement = 0; replacement < 19; replacement += 1) {
+    const nextIsLoss = replacement % 2 === 0;
+    const next = store.startGoal(history.userId, {
+      type: nextIsLoss ? 'lose' : 'gain',
+      targetWeightKg: nextIsLoss ? 75 : 88,
+      maintenanceCenterKg: null,
+      goalRatePctPerWeek: nextIsLoss ? -0.5 : 0.25,
+      supersedePendingRecommendation: false,
+    });
+    store.acceptCheckIn(history.userId, next.pendingGoalChange?.id ?? '', {
+      replaceSameDateTarget: true,
+    });
+    clock += 1;
+  }
   clock += 1000;
 
   const goalChange = createHistoricalBaseline(

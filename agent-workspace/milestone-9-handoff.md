@@ -1,5 +1,8 @@
 # Milestone 9 Handoff
 
+> Historical checkpoint for the Milestone 9 commit. The state and counts below are not current; use the
+> final-QA repair handoff for present verification.
+
 **State:** `MILESTONE 9 COMPLETE; MILESTONE 10 IN PROGRESS`
 **Branch:** `feat/adaptive-tdee-v1`
 **Environment:** tracked isolated `pnpm dev:gate0` only; production unchanged

@@ -7,7 +7,7 @@ This directory is the durable handoff surface for the Adaptive TDEE implementati
 1. Read `../AGENTS.md`.
 2. Read `../docs/specs/adaptive-tdee-v1.md` completely.
 3. Read `current-status.md`, `implementation-plan.md`, and `decision-log.md`.
-4. Continue the first incomplete milestone. Do not restart planning unless the specification or repository changed materially.
+4. Follow the active bounded repair in `codex-kickoff.md`; Milestones 0–11 are historical checkpoints.
 5. Update `current-status.md` after each meaningful work session and milestone commit.
 6. Record genuine design decisions or spec deviations in `decision-log.md` before implementation.
 7. Record final commands and observed results in `verification-report.md`; never claim a check passed without real output.
@@ -23,8 +23,8 @@ This directory is the durable handoff surface for the Adaptive TDEE implementati
 - Subagents may investigate or review in parallel, but they must not edit this same checkout concurrently.
 - Use separate worktrees for concurrent editors and merge only reviewed commits.
 - Write tests during each milestone, not after the feature is assembled.
-- Commit coherent milestones using the repository's Conventional Commit rules.
-- After each milestone's Codex self-review and built-in-browser QA, stop for the Vector gate described in `verification-report.md`. Before handing the feature to Derek, Vector must complete the final independent acceptance gate.
+- Commit the current final-QA repair as exactly one Conventional Commit.
+- After complete automated and browser verification, stop at `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`; Vector owns the independent re-review.
 
 ## Durable artifacts
 

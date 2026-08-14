@@ -32,6 +32,7 @@ vi.mock('../api/adaptive-nutrition', () => ({
   useAdaptiveNutritionCheckIn: mocks.useCheckIn,
   useAdaptiveNutritionHistory: mocks.useHistory,
   useAdaptiveGoalHistory: mocks.useGoalHistory,
+  useInfiniteAdaptiveGoalHistory: mocks.useGoalHistory,
   useAdaptiveGoalDetail: mocks.useGoalDetail,
   useAcceptAdaptiveNutritionCheckIn: () => ({ isPending: false, mutateAsync: mocks.accept }),
   useDeclineAdaptiveNutritionCheckIn: () => ({ isPending: false, mutateAsync: mocks.decline }),
@@ -100,6 +101,7 @@ const activeGoal = {
   goalRatePctPerWeek: -0.5,
   startTrendWeightKg: 82,
   startScaleWeightKg: 82.2,
+  finalTrendWeightKg: null,
   startedLocalDate: '2026-07-01',
   endedLocalDate: null,
   endedReason: null,
@@ -353,19 +355,26 @@ describe('AdaptiveCoach', () => {
     });
     mocks.useGoalHistory.mockReturnValue({
       data: {
-        data: [
+        pages: [
           {
-            goal: activeGoal,
-            latestRevision: goalRevision,
-            finalTrendWeightKg: null,
-            netChangeKg: null,
-            durationDays: null,
+            data: [
+              {
+                goal: activeGoal,
+                latestRevision: goalRevision,
+                finalTrendWeightKg: null,
+                netChangeKg: null,
+                durationDays: null,
+              },
+            ],
+            meta: { page: 1, limit: 20, total: 1 },
           },
         ],
-        meta: { page: 1, limit: 20, total: 1 },
       },
       isLoading: false,
       isError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
       refetch: vi.fn(),
     });
     mocks.useGoalDetail.mockReturnValue({
@@ -374,9 +383,32 @@ describe('AdaptiveCoach', () => {
         revisions: [goalRevision],
         acceptedCheckIns: [],
         trendPoints: [
-          { date: '2026-07-01', trendWeightKg: 82, scaleWeightKg: 82.2 },
-          { date: '2026-07-08', trendWeightKg: 81.5, scaleWeightKg: 81.4 },
+          {
+            kind: 'weight_change',
+            date: '2026-07-01',
+            trendWeightKg: 82,
+            scaleWeightKg: 82.2,
+            goalRevisionId: goalRevision.id,
+            revisionSequence: 1,
+            targetWeightKg: 75,
+            completedDistanceKg: 0,
+            remainingDistanceKg: 7,
+            percentComplete: 0,
+          },
+          {
+            kind: 'weight_change',
+            date: '2026-07-08',
+            trendWeightKg: 81.5,
+            scaleWeightKg: 81.4,
+            goalRevisionId: goalRevision.id,
+            revisionSequence: 1,
+            targetWeightKg: 75,
+            completedDistanceKg: 0.5,
+            remainingDistanceKg: 6.5,
+            percentComplete: 7.143,
+          },
         ],
+        completion: null,
       },
       isLoading: false,
       isError: false,
@@ -932,6 +964,38 @@ describe('AdaptiveCoach', () => {
     ).toBeInTheDocument();
   });
 
+  it('offers load-more pagination when goal history exceeds the first 20 rows', () => {
+    const fetchNextPage = vi.fn();
+    mocks.useGoalHistory.mockReturnValue({
+      data: {
+        pages: [
+          {
+            data: [
+              {
+                goal: activeGoal,
+                latestRevision: goalRevision,
+                finalTrendWeightKg: null,
+                netChangeKg: null,
+                durationDays: null,
+              },
+            ],
+            meta: { page: 1, limit: 20, total: 21 },
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      hasNextPage: true,
+      isFetchingNextPage: false,
+      fetchNextPage,
+      refetch: vi.fn(),
+    });
+
+    render(<AdaptiveCoach />);
+    fireEvent.click(screen.getByRole('button', { name: 'Load more goals (1 of 21)' }));
+    expect(fetchNextPage).toHaveBeenCalledOnce();
+  });
+
   it('renders immutable goal history, revisions, linked check-ins, and chart text equivalents', async () => {
     const priorGoal = {
       ...activeGoal,
@@ -942,26 +1006,33 @@ describe('AdaptiveCoach', () => {
     };
     mocks.useGoalHistory.mockReturnValue({
       data: {
-        data: [
+        pages: [
           {
-            goal: activeGoal,
-            latestRevision: { ...goalRevision, sequence: 2, reason: 'user_edit' as const },
-            finalTrendWeightKg: 79.5,
-            netChangeKg: -2.5,
-            durationDays: null,
-          },
-          {
-            goal: priorGoal,
-            latestRevision: { ...goalRevision, id: 'prior-revision', goalId: priorGoal.id },
-            finalTrendWeightKg: 79.8,
-            netChangeKg: -2.2,
-            durationDays: 30,
+            data: [
+              {
+                goal: activeGoal,
+                latestRevision: { ...goalRevision, sequence: 2, reason: 'user_edit' as const },
+                finalTrendWeightKg: null,
+                netChangeKg: null,
+                durationDays: null,
+              },
+              {
+                goal: { ...priorGoal, finalTrendWeightKg: 79.8 },
+                latestRevision: { ...goalRevision, id: 'prior-revision', goalId: priorGoal.id },
+                finalTrendWeightKg: 79.8,
+                netChangeKg: -2.2,
+                durationDays: 30,
+              },
+            ],
+            meta: { page: 1, limit: 20, total: 2 },
           },
         ],
-        meta: { page: 1, limit: 20, total: 2 },
       },
       isLoading: false,
       isError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
       refetch: vi.fn(),
     });
     mocks.useGoalDetail.mockReturnValue({
@@ -988,10 +1059,44 @@ describe('AdaptiveCoach', () => {
           },
         ],
         trendPoints: [
-          { date: '2026-07-01', trendWeightKg: 82, scaleWeightKg: 82.2 },
-          { date: '2026-07-08', trendWeightKg: 81.4, scaleWeightKg: 81.3 },
-          { date: '2026-07-15', trendWeightKg: 80.9, scaleWeightKg: null },
+          {
+            kind: 'weight_change',
+            date: '2026-07-01',
+            trendWeightKg: 82,
+            scaleWeightKg: 82.2,
+            goalRevisionId: goalRevision.id,
+            revisionSequence: 1,
+            targetWeightKg: 75,
+            completedDistanceKg: 0,
+            remainingDistanceKg: 7,
+            percentComplete: 0,
+          },
+          {
+            kind: 'weight_change',
+            date: '2026-07-08',
+            trendWeightKg: 81.4,
+            scaleWeightKg: 81.3,
+            goalRevisionId: goalRevision.id,
+            revisionSequence: 1,
+            targetWeightKg: 75,
+            completedDistanceKg: 0.6,
+            remainingDistanceKg: 6.4,
+            percentComplete: 8.571,
+          },
+          {
+            kind: 'weight_change',
+            date: '2026-07-15',
+            trendWeightKg: 80.9,
+            scaleWeightKg: null,
+            goalRevisionId: 'goal-revision-2',
+            revisionSequence: 2,
+            targetWeightKg: 76,
+            completedDistanceKg: 1.1,
+            remainingDistanceKg: 4.9,
+            percentComplete: 18.333,
+          },
         ],
+        completion: null,
       },
       isLoading: false,
       isError: false,

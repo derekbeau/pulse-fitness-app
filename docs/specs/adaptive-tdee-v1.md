@@ -625,11 +625,11 @@ A goal is reached when:
 - Lose: `trendWeightKg <= targetWeightKg + goalToleranceKg`
 - Gain: `trendWeightKg >= targetWeightKg - goalToleranceKg`
 
-When reached, return `goalReached = true` and propose maintenance calories at Adaptive TDEE. Acceptance may apply the proposed maintenance nutrition target, but it must not silently overwrite the active goal row. The goal-management phase defined in sections 30–38 records the current goal as completed and creates a distinct maintenance goal only after explicit user confirmation. Until that phase is implemented, retain the existing v1 compatibility behavior behind the current API contract and migrate it atomically when goal records ship.
+When reached, return `goalReached = true` and propose maintenance calories at Adaptive TDEE. Acceptance may apply the proposed maintenance nutrition target, but it must not silently overwrite the active goal row. The implemented goal-management phase defined in sections 30–38 records the current goal as completed and creates a distinct maintenance goal only after explicit user confirmation.
 
 ### 12.7 Maintenance behavior
 
-v1 maintenance target is exactly Adaptive TDEE. Dynamic maintenance bands and corrective surplus/deficit nudges are deferred.
+v1 maintenance calories are exactly Adaptive TDEE. Dynamic calorie bands and corrective surplus/deficit nudges are deferred. This wording is superseded for progress display only by section 32.3: the UI uses the canonical informational range `max(0.68 kg, centerWeightKg × 0.01)` on each side, without changing calories.
 
 ## 13. Macro Allocation
 
@@ -1591,6 +1591,7 @@ During Milestones 7–11:
 | `status`              | text          | `active`, `completed`, `replaced`, `cancelled`                                    |
 | `startTrendWeightKg`  | real          | Immutable progress origin                                                         |
 | `startScaleWeightKg`  | real nullable | Latest scale snapshot at creation; display/audit only                             |
+| `finalTrendWeightKg`  | real nullable | Null while active; required and immutable once closed                             |
 | `targetWeightKg`      | real nullable | Required for lose/gain                                                            |
 | `maintenanceCenterKg` | real nullable | Required for maintain; target retained when a completed goal moves to maintenance |
 | `goalRatePctPerWeek`  | real          | Signed; same bounds as section 12.1                                               |
@@ -1606,6 +1607,8 @@ Constraints:
 - Lose/gain require `targetWeightKg`, forbid `maintenanceCenterKg`, and require a directionally valid signed rate.
 - Maintain requires `maintenanceCenterKg`, requires rate zero, and stores `targetWeightKg = NULL`.
 - Start weight and start date never change after insert.
+- Replacement, cancellation, and completion persist the actual final canonical trend; history and net
+  change never reconstruct it from a later check-in.
 - Completed/replaced/cancelled rows are immutable except account deletion.
 
 ### 31.2 `adaptive_nutrition_goal_revisions`
@@ -1626,13 +1629,23 @@ Constraints:
 | `effectiveLocalDate`     | text date     | Program-time-zone date                                         |
 | `createdAt`              | integer ms    | Immutable                                                      |
 
-Revisions are append-only. Database triggers reject update/delete outside the existing account-deletion transaction. The initial goal creates sequence 1 with reason `created` or `migration`.
+Revisions are append-only. Database triggers reject update/delete outside the existing account-deletion
+transaction. Target, center, and rate cannot be updated directly. Inserting exactly one matching next
+revision is the database-authoritative operation: the insert validates the next sequence and previous
+strategy, then atomically applies the new strategy to the active goal. The initial goal creates sequence 1
+with reason `created` or `migration`.
 
 ### 31.3 Goal linkage
 
 Add nullable `goalId` and `goalRevisionId` columns to `adaptive_nutrition_checkins` and include both in immutable input snapshots. New baseline, manual, and weekly check-ins require both IDs once the migration is complete. Historical rows may remain null only when they predate the goal migration; their existing program snapshot is authoritative.
 
 A goal-change recommendation is a normal immutable check-in with kind `goal_change`. Extend every shared enum, constraint, OpenAPI response, history label, backtest parser, and fixture accordingly.
+
+Explicit completion additionally creates one immutable `adaptive_nutrition_goal_completions` row. Its
+primary-key check-in ID must identify the accepted check-in linked to the completed goal; unique same-owner
+foreign keys identify that completed goal and the distinct active maintenance goal in the same program.
+Insert validation is database-enforced. Update and ordinary delete are rejected; guarded account deletion
+removes the relation before its protected parents.
 
 ### 31.4 Migration and backfill
 
@@ -1651,7 +1664,10 @@ Migration is idempotent, transactional per user, covered by rollback tests, and 
 
 ## 32. Goal Progress Contract
 
-The server computes progress; clients never independently derive authoritative progress values.
+The server computes progress; clients never independently derive authoritative progress values. Historical
+points resolve the latest revision whose effective local date is on or before the point date, so a later edit
+cannot rewrite earlier progress. The stored start trend and stored final trend are authoritative endpoints;
+interior historical points use the canonical trend pipeline.
 
 ### 32.1 Loss/gain calculations
 
@@ -1729,7 +1745,10 @@ Return 404 only when migration/setup genuinely left the user without a goal. Cro
 
 ### 33.2 `GET /api/v1/adaptive-nutrition/goals`
 
-Paginated history ordered by `startedLocalDate DESC, createdAt DESC`. Includes status, start/final trend weight, target/center, net change, duration, and latest revision. Detail route returns all revisions and linked accepted check-ins.
+Paginated history ordered by `startedLocalDate DESC, createdAt DESC`. Includes status, start/final trend
+weight, target/center, net change, duration, and latest revision. Clients that promise complete history must
+load subsequent pages. Detail returns all revisions, linked accepted check-ins, revision-effective
+server-authoritative progress points, and any immutable completion-transition relation.
 
 ### 33.3 `PATCH /api/v1/adaptive-nutrition/goals/:id`
 
@@ -1954,6 +1973,10 @@ Required cases:
 - optimistic revision conflict returns 409;
 - goal-change fingerprints become stale when source data change;
 - completion creates maintenance exactly once and is retry-safe;
+- completion stores one immutable accepted-check-in/completed-goal/maintenance-goal relation;
+- direct SQL cannot change target, maintenance center, or rate without exactly one matching next revision;
+- later edits do not rewrite earlier historical progress;
+- replacement, cancellation, and completion history uses the persisted actual final canonical trend;
 - concurrent edit/new/complete operations cannot produce two active goals or duplicate revisions;
 - cancellation leaves targets/history intact and blocks check-ins until a new goal exists;
 - cross-user IDs return 404;
@@ -1973,6 +1996,7 @@ RTL tests cover:
 - pending-recommendation replacement confirmation;
 - goal-change comparison and query invalidations;
 - history/revision rendering;
+- goal-history pagination beyond 20 entries;
 - completion-to-maintenance flow;
 - keyboard and screen-reader text equivalents.
 

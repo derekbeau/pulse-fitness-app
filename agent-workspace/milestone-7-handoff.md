@@ -1,5 +1,8 @@
 # Adaptive TDEE goal strategy — Milestone 7 handoff
 
+> Historical checkpoint for the Milestone 7 commit. The state and counts below are not current; the
+> database-trigger design is superseded by migration 0044 and the final-QA repair evidence.
+
 Status: `MILESTONE 7 COMPLETE; CONTINUING TO MILESTONE 8`
 
 Milestone 7 establishes the authoritative goal foundation only: constrained goals, immutable revisions,

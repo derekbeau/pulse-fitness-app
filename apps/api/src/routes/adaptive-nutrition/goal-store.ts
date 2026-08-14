@@ -1,8 +1,9 @@
-import { and, asc, count, desc, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, lte, or } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 import {
   adaptiveCurrentGoalSchema,
+  adaptiveGoalCompletionSchema,
   adaptiveGoalDetailSchema,
   adaptiveGoalHistorySummarySchema,
   adaptiveGoalQuerySchema,
@@ -17,6 +18,7 @@ import {
   type AdaptiveCheckInSummary,
   type AdaptiveCurrentGoal,
   type AdaptiveGoal,
+  type AdaptiveGoalCompletion,
   type AdaptiveGoalDetail,
   type AdaptiveGoalHistorySummary,
   type AdaptiveGoalRevision,
@@ -25,6 +27,7 @@ import {
 import * as schema from '../../db/schema/index.js';
 import {
   adaptiveNutritionCheckIns,
+  adaptiveNutritionGoalCompletions,
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
   bodyWeight,
@@ -47,6 +50,7 @@ export const adaptiveGoalSelection = {
   status: adaptiveNutritionGoals.status,
   startTrendWeightKg: adaptiveNutritionGoals.startTrendWeightKg,
   startScaleWeightKg: adaptiveNutritionGoals.startScaleWeightKg,
+  finalTrendWeightKg: adaptiveNutritionGoals.finalTrendWeightKg,
   targetWeightKg: adaptiveNutritionGoals.targetWeightKg,
   maintenanceCenterKg: adaptiveNutritionGoals.maintenanceCenterKg,
   goalRatePctPerWeek: adaptiveNutritionGoals.goalRatePctPerWeek,
@@ -105,6 +109,7 @@ const parseCheckIn = (value: unknown): AdaptiveCheckInSummary =>
 
 const sampleWeeklyTrendPoints = (
   goal: AdaptiveGoal,
+  revisions: AdaptiveGoalRevision[],
   entries: Array<{ id: string; date: string; weightKg: number; updatedAt: number }>,
 ) => {
   const interpolated = interpolateDailyWeights(entries);
@@ -127,15 +132,90 @@ const sampleWeeklyTrendPoints = (
       index === inGoal.length - 1 ||
       calendarDaysBetween(goal.startedLocalDate, point.date) % 7 === 0,
   );
-  if (sampled.length > 0) return sampled;
-  return [
-    {
-      date: goal.startedLocalDate,
-      trendWeightKg: goal.startTrendWeightKg,
-      scaleWeightKg: goal.startScaleWeightKg,
-    },
-  ];
+  const pointByDate = new Map(sampled.map((point) => [point.date, point]));
+  pointByDate.set(goal.startedLocalDate, {
+    date: goal.startedLocalDate,
+    trendWeightKg: goal.startTrendWeightKg,
+    scaleWeightKg: goal.startScaleWeightKg,
+  });
+  if (goal.endedLocalDate !== null && goal.finalTrendWeightKg !== null) {
+    pointByDate.set(goal.endedLocalDate, {
+      date: goal.endedLocalDate,
+      trendWeightKg: goal.finalTrendWeightKg,
+      scaleWeightKg: scaleByDate.get(goal.endedLocalDate) ?? null,
+    });
+  }
+  const points = [...pointByDate.values()].sort((left, right) =>
+    left.date.localeCompare(right.date),
+  );
+  return points.map((point, index) => {
+    const revision =
+      [...revisions].reverse().find((candidate) => candidate.effectiveLocalDate <= point.date) ??
+      revisions[0];
+    if (!revision) throw new AdaptiveGoalNotFoundError();
+    const progress = calculateAdaptiveGoalProgress({
+      goal,
+      revision,
+      currentLocalDate: point.date,
+      currentTrendWeightKg: point.trendWeightKg,
+      latestScaleWeightKg: point.scaleWeightKg,
+      latestWeightAgeDays: 0,
+      confidence: null,
+      trendPoints: points.slice(0, index + 1).map((candidate) => ({
+        date: candidate.date,
+        trendWeightKg: candidate.trendWeightKg,
+      })),
+    });
+    if (progress.kind === 'maintenance') {
+      if (
+        progress.signedDistanceFromCenterKg === null ||
+        progress.rangeStatus === 'insufficient_data'
+      ) {
+        throw new Error('Historical maintenance progress requires canonical trend weight');
+      }
+      return {
+        kind: progress.kind,
+        ...point,
+        goalRevisionId: progress.goalRevisionId,
+        revisionSequence: progress.revisionSequence,
+        centerWeightKg: progress.centerWeightKg,
+        signedDistanceFromCenterKg: progress.signedDistanceFromCenterKg,
+        rangeRadiusKg: progress.rangeRadiusKg,
+        rangeLowerKg: progress.rangeLowerKg,
+        rangeUpperKg: progress.rangeUpperKg,
+        rangeStatus: progress.rangeStatus,
+      };
+    }
+    if (
+      progress.completedDistanceKg === null ||
+      progress.remainingDistanceKg === null ||
+      progress.percentComplete === null
+    ) {
+      throw new Error('Historical goal progress requires canonical trend weight');
+    }
+    return {
+      kind: progress.kind,
+      ...point,
+      goalRevisionId: progress.goalRevisionId,
+      revisionSequence: progress.revisionSequence,
+      targetWeightKg: progress.targetWeightKg,
+      completedDistanceKg: progress.completedDistanceKg,
+      remainingDistanceKg: progress.remainingDistanceKg,
+      percentComplete: progress.percentComplete,
+    };
+  });
 };
+
+const completionSelection = {
+  checkInId: adaptiveNutritionGoalCompletions.checkInId,
+  userId: adaptiveNutritionGoalCompletions.userId,
+  completedGoalId: adaptiveNutritionGoalCompletions.completedGoalId,
+  maintenanceGoalId: adaptiveNutritionGoalCompletions.maintenanceGoalId,
+  createdAt: adaptiveNutritionGoalCompletions.createdAt,
+};
+
+const parseCompletion = (value: unknown): AdaptiveGoalCompletion =>
+  adaptiveGoalCompletionSchema.parse(value);
 
 export const createAdaptiveGoalReadStore = ({ db }: { db: AdaptiveDatabase }) => {
   const findLatestRevision = (userId: string, goalId: string): AdaptiveGoalRevision | null => {
@@ -225,42 +305,10 @@ export const createAdaptiveGoalReadStore = ({ db }: { db: AdaptiveDatabase }) =>
     for (const revision of revisions) {
       if (!latestByGoal.has(revision.goalId)) latestByGoal.set(revision.goalId, revision);
     }
-    const accepted =
-      goalIds.length === 0
-        ? []
-        : db
-            .select({
-              goalId: adaptiveNutritionCheckIns.goalId,
-              latestTrendWeightKg: adaptiveNutritionCheckIns.calculationSnapshot,
-              resolvedAt: adaptiveNutritionCheckIns.resolvedAt,
-              createdAt: adaptiveNutritionCheckIns.createdAt,
-            })
-            .from(adaptiveNutritionCheckIns)
-            .where(
-              and(
-                eq(adaptiveNutritionCheckIns.userId, userId),
-                eq(adaptiveNutritionCheckIns.status, 'accepted'),
-                inArray(adaptiveNutritionCheckIns.goalId, goalIds),
-              ),
-            )
-            .orderBy(
-              desc(adaptiveNutritionCheckIns.resolvedAt),
-              desc(adaptiveNutritionCheckIns.createdAt),
-            )
-            .all();
-    const finalTrendByGoal = new Map<string, number | null>();
-    for (const row of accepted) {
-      if (!row.goalId || finalTrendByGoal.has(row.goalId)) continue;
-      const snapshot = row.latestTrendWeightKg as { latestTrendWeightKg?: unknown };
-      finalTrendByGoal.set(
-        row.goalId,
-        typeof snapshot.latestTrendWeightKg === 'number' ? snapshot.latestTrendWeightKg : null,
-      );
-    }
     const data = goals.map((goal) => {
       const latestRevision = latestByGoal.get(goal.id);
       if (!latestRevision) throw new AdaptiveGoalNotFoundError();
-      const finalTrendWeightKg = finalTrendByGoal.get(goal.id) ?? null;
+      const finalTrendWeightKg = goal.finalTrendWeightKg;
       return adaptiveGoalHistorySummarySchema.parse({
         goal,
         latestRevision,
@@ -319,6 +367,20 @@ export const createAdaptiveGoalReadStore = ({ db }: { db: AdaptiveDatabase }) =>
       )
       .all()
       .map(parseCheckIn);
+    const completionRow = db
+      .select(completionSelection)
+      .from(adaptiveNutritionGoalCompletions)
+      .where(
+        and(
+          eq(adaptiveNutritionGoalCompletions.userId, userId),
+          or(
+            eq(adaptiveNutritionGoalCompletions.completedGoalId, goalId),
+            eq(adaptiveNutritionGoalCompletions.maintenanceGoalId, goalId),
+          ),
+        ),
+      )
+      .limit(1)
+      .get();
     const weightEntries = db
       .select({
         id: bodyWeight.id,
@@ -340,7 +402,8 @@ export const createAdaptiveGoalReadStore = ({ db }: { db: AdaptiveDatabase }) =>
       goal,
       revisions,
       acceptedCheckIns,
-      trendPoints: sampleWeeklyTrendPoints(goal, weightEntries),
+      trendPoints: sampleWeeklyTrendPoints(goal, revisions, weightEntries),
+      completion: completionRow ? parseCompletion(completionRow) : null,
     });
   };
 

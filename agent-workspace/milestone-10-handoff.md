@@ -1,5 +1,8 @@
 # Milestone 10 Handoff
 
+> Historical checkpoint for the Milestone 10 commit. Historical progress semantics, completion ownership,
+> and first-page-only history are superseded by the final-QA repair.
+
 **State:** `MILESTONE 10 COMPLETE; MILESTONE 11 IN PROGRESS`
 **Branch:** `feat/adaptive-tdee-v1`
 **Environment:** tracked isolated `pnpm dev:gate0` only; production unchanged

@@ -10,7 +10,12 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import * as schema from '../db/schema/index.js';
-import { adaptiveNutritionGoals, adaptiveNutritionPrograms, users } from '../db/schema/index.js';
+import {
+  adaptiveNutritionGoalCompletions,
+  adaptiveNutritionGoals,
+  adaptiveNutritionPrograms,
+  users,
+} from '../db/schema/index.js';
 import { createAdaptiveNutritionStore } from '../routes/adaptive-nutrition/store.js';
 import { createAdaptiveGoalReadStore } from '../routes/adaptive-nutrition/goal-store.js';
 
@@ -127,9 +132,30 @@ describe('Adaptive TDEE preview fixtures', () => {
         .from(adaptiveNutritionGoals)
         .where(eq(adaptiveNutritionGoals.userId, history.userId))
         .get(),
-    ).toEqual({ total: 2 });
+    ).toEqual({ total: 21 });
+    expect(goalReadStore.list(history.userId, { page: 1, limit: 20 })).toMatchObject({
+      data: expect.any(Array),
+      meta: { page: 1, limit: 20, total: 21 },
+    });
+    expect(goalReadStore.list(history.userId, { page: 1, limit: 20 }).data).toHaveLength(20);
+    expect(goalReadStore.list(history.userId, { page: 2, limit: 20 }).data).toHaveLength(1);
     expect(store.getCurrentGoal(goalChange.userId).pendingGoalChange?.kind).toBe('goal_change');
     expect(store.getState(completion.userId).goalActionRequired).toBe('complete_goal');
+
+    const completionGoal = store.getCurrentGoal(completion.userId);
+    const acceptedCompletion = store.getState(completion.userId).latestAcceptedCheckIn;
+    if (!acceptedCompletion) throw new Error('Completion fixture accepted check-in missing');
+    store.completeGoal(completion.userId, completionGoal.goal.id, {
+      checkInId: acceptedCompletion.id,
+      expectedRevisionId: completionGoal.latestRevision.id,
+    });
+    expect(
+      db
+        .select({ total: count() })
+        .from(adaptiveNutritionGoalCompletions)
+        .where(eq(adaptiveNutritionGoalCompletions.userId, completion.userId))
+        .get(),
+    ).toEqual({ total: 1 });
 
     const second = seedAdaptiveTdeePreviewFixtures(options);
     expect(second).toEqual(first);
@@ -153,6 +179,9 @@ describe('Adaptive TDEE preview fixtures', () => {
     for (const fixture of second) {
       expect(store.getState(fixture.userId).state).toBe(fixture.expectedState);
     }
+    expect(db.select({ total: count() }).from(adaptiveNutritionGoalCompletions).get()).toEqual({
+      total: 0,
+    });
     sqlite.close();
   });
 });

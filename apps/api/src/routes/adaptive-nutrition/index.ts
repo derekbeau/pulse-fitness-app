@@ -175,7 +175,7 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
         tags: ['adaptive-nutrition'],
         summary: 'Edit the active adaptive goal without applying nutrition targets',
         description:
-          'Preserves the progress origin, appends an immutable revision, and creates a reviewable goal-change recommendation. Current nutrition targets remain unchanged until explicit acceptance.',
+          'Atomically appends the one required immutable next revision, preserves the progress origin, and creates a reviewable goal-change recommendation. Current nutrition targets remain unchanged until explicit acceptance.',
         security: jwtSecurity,
       },
     },
@@ -207,7 +207,7 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
         tags: ['adaptive-nutrition'],
         summary: 'Start a new adaptive goal and preserve expenditure history',
         description:
-          'Ends the prior direction, starts a new progress period, and creates a reviewable goal-change recommendation without resetting Adaptive TDEE or applying nutrition targets.',
+          'Persists the prior goal’s actual final canonical trend, starts a new progress period from that same trend, and creates a reviewable goal-change recommendation without resetting Adaptive TDEE or applying nutrition targets.',
         security: jwtSecurity,
       },
     },
@@ -237,7 +237,7 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
         tags: ['adaptive-nutrition'],
         summary: 'Cancel the active adaptive goal without changing nutrition targets',
         description:
-          'Closes the active goal with optimistic revision checks and preserves weight, nutrition, expenditure, target, and check-in history.',
+          'Closes the active goal with optimistic revision checks, persists its actual final canonical trend, and preserves weight, nutrition, expenditure, target, and check-in history.',
         security: jwtSecurity,
       },
     },
@@ -269,7 +269,7 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
         tags: ['adaptive-nutrition'],
         summary: 'Complete a reached goal and begin explicit maintenance',
         description:
-          'Rechecks the accepted reached-goal fingerprint, completes the goal, and creates maintenance exactly once. This separate reviewed transition does not create or replace a nutrition target.',
+          'Rechecks the accepted reached-goal fingerprint, persists the final canonical trend, and creates maintenance exactly once with an immutable relation linking the accepted check-in and both goals. This separate reviewed transition does not create or replace a nutrition target.',
         security: jwtSecurity,
       },
     },
@@ -296,7 +296,7 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
         tags: ['adaptive-nutrition'],
         summary: 'List adaptive nutrition goal history',
         description:
-          'Returns paginated active and historical goal summaries with lifecycle status, final canonical trend weight, net trend change, and duration.',
+          'Returns paginated active and historical goal summaries. Closed-goal history and net change use the final canonical trend persisted when the goal ended.',
         security: authSecurity,
       },
     },
@@ -316,7 +316,7 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
         tags: ['adaptive-nutrition'],
         summary: 'Get adaptive nutrition goal details',
         description:
-          'Returns one owned goal with immutable revisions, linked accepted check-ins, and canonical weekly trend points. Nullable scale weights are separately identified from authoritative trend weights.',
+          'Returns one owned goal with immutable revisions, linked accepted check-ins, any immutable completion relation, and server-authoritative weekly progress resolved against the revision effective on each date. Nullable scale weights are separately identified from authoritative trend weights; maintenance points use max(0.68 kg, center × 1%) on each side.',
         security: authSecurity,
       },
     },

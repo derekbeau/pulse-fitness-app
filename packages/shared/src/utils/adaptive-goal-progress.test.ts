@@ -14,6 +14,7 @@ const goal = (overrides: Partial<AdaptiveGoal> = {}): AdaptiveGoal => ({
   status: 'active',
   startTrendWeightKg: 100,
   startScaleWeightKg: 100.5,
+  finalTrendWeightKg: null,
   targetWeightKg: 90,
   maintenanceCenterKg: null,
   goalRatePctPerWeek: -0.5,

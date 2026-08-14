@@ -23,6 +23,7 @@ import type {
 import {
   activities,
   adaptiveNutritionCheckIns,
+  adaptiveNutritionGoalCompletions,
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
   adaptiveNutritionPrograms,
@@ -752,10 +753,26 @@ describe('adaptive nutrition persistence schema', () => {
       'adaptive_nutrition_checkins_program_user_fk',
     );
     expect(config.indexes.map((entry) => entry.config.name).sort()).toEqual([
+      'adaptive_nutrition_checkins_id_user_id_unique',
       'adaptive_nutrition_checkins_one_pending_per_program_unique',
       'adaptive_nutrition_checkins_pending_fingerprint_unique',
       'adaptive_nutrition_checkins_program_id_local_date_idx',
       'adaptive_nutrition_checkins_user_id_created_at_idx',
+    ]);
+  });
+
+  it('defines one immutable accepted-check-in relation for completed and maintenance goals', () => {
+    expect(getTableName(adaptiveNutritionGoalCompletions)).toBe(
+      'adaptive_nutrition_goal_completions',
+    );
+    const config = getTableConfig(adaptiveNutritionGoalCompletions);
+    expect(config.foreignKeys).toHaveLength(7);
+    expect(config.indexes.map((entry) => entry.config.name).sort()).toEqual([
+      'adaptive_nutrition_goal_completions_completed_goal_unique',
+      'adaptive_nutrition_goal_completions_maintenance_goal_unique',
+    ]);
+    expect(config.checks.map((entry) => entry.name)).toEqual([
+      'adaptive_nutrition_goal_completions_distinct_goals_check',
     ]);
   });
 });

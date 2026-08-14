@@ -67,6 +67,7 @@ import {
 import * as schema from '../../db/schema/index.js';
 import {
   adaptiveNutritionCheckIns,
+  adaptiveNutritionGoalCompletions,
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
   adaptiveNutritionPrograms,
@@ -1213,6 +1214,20 @@ export const createAdaptiveNutritionStore = (options: {
     return currentTrendWeightKg;
   };
 
+  const resolveClosingTrendWeight = (
+    userId: string,
+    goal: AdaptiveGoal,
+    localDate: string,
+  ): number => {
+    const boundaries = calculateAdaptiveDateBoundaries(localDate, false);
+    const eligibility = evaluateEligibility({
+      boundaries,
+      nutritionDays: loadNutritionDays(userId, boundaries.analysisStart, boundaries.analysisEnd),
+      weightEntries: loadWeightEntries(userId, boundaries.warmupStart, boundaries.analysisEnd),
+    });
+    return eligibility.trendPoints.at(-1)?.trendWeightKg ?? goal.startTrendWeightKg;
+  };
+
   const validateGoalTargetDirection = (
     type: AdaptiveGoal['type'],
     targetWeightKg: number | null,
@@ -1267,24 +1282,6 @@ export const createAdaptiveNutritionStore = (options: {
       const localDate = getDateKeyInTimeZone(new Date(timestamp), program.timeZone);
       const currentTrendWeightKg = requireFreshTrendWeight(userId, program, current, localDate);
       validateGoalTargetDirection(input.type, input.targetWeightKg, currentTrendWeightKg);
-      const updatedRow = db
-        .update(adaptiveNutritionGoals)
-        .set({
-          targetWeightKg: input.targetWeightKg,
-          maintenanceCenterKg: input.maintenanceCenterKg,
-          goalRatePctPerWeek: input.goalRatePctPerWeek,
-          updatedAt: timestamp,
-        })
-        .where(
-          and(
-            eq(adaptiveNutritionGoals.id, goalId),
-            eq(adaptiveNutritionGoals.userId, userId),
-            eq(adaptiveNutritionGoals.status, 'active'),
-          ),
-        )
-        .returning(adaptiveGoalSelection)
-        .get();
-      if (!updatedRow) throw new AdaptiveGoalNotFoundError();
       const revisionRow = db
         .insert(adaptiveNutritionGoalRevisions)
         .values({
@@ -1305,6 +1302,19 @@ export const createAdaptiveNutritionStore = (options: {
         .returning(adaptiveGoalRevisionSelection)
         .get();
       if (!revisionRow) throw new Error('Failed to append adaptive goal revision');
+      const updatedRow = db
+        .select(adaptiveGoalSelection)
+        .from(adaptiveNutritionGoals)
+        .where(
+          and(
+            eq(adaptiveNutritionGoals.id, goalId),
+            eq(adaptiveNutritionGoals.userId, userId),
+            eq(adaptiveNutritionGoals.status, 'active'),
+          ),
+        )
+        .limit(1)
+        .get();
+      if (!updatedRow) throw new AdaptiveGoalNotFoundError();
       const programRow = db
         .update(adaptiveNutritionPrograms)
         .set({
@@ -1360,6 +1370,7 @@ export const createAdaptiveNutritionStore = (options: {
         db.update(adaptiveNutritionGoals)
           .set({
             status: 'replaced',
+            finalTrendWeightKg: startTrendWeightKg,
             endedLocalDate: localDate,
             endedReason: 'direction_changed',
             updatedAt: timestamp,
@@ -1463,6 +1474,7 @@ export const createAdaptiveNutritionStore = (options: {
         throw new AdaptiveGoalRevisionConflictError();
       }
       const localDate = getDateKeyInTimeZone(new Date(timestamp), program.timeZone);
+      const finalTrendWeightKg = resolveClosingTrendWeight(userId, current.goal, localDate);
       const pending = findPending(userId, program.id);
       if (pending) {
         db.update(adaptiveNutritionCheckIns)
@@ -1480,6 +1492,7 @@ export const createAdaptiveNutritionStore = (options: {
         .update(adaptiveNutritionGoals)
         .set({
           status: 'cancelled',
+          finalTrendWeightKg,
           endedLocalDate: localDate,
           endedReason: 'cancelled',
           updatedAt: timestamp,
@@ -1519,8 +1532,27 @@ export const createAdaptiveNutritionStore = (options: {
       if (!requestedGoalRow) throw new AdaptiveGoalNotFoundError();
       const requestedGoal = adaptiveGoalSchema.parse(requestedGoalRow);
       if (requestedGoal.status === 'completed') {
+        const completion = db
+          .select({
+            checkInId: adaptiveNutritionGoalCompletions.checkInId,
+            maintenanceGoalId: adaptiveNutritionGoalCompletions.maintenanceGoalId,
+          })
+          .from(adaptiveNutritionGoalCompletions)
+          .where(
+            and(
+              eq(adaptiveNutritionGoalCompletions.userId, userId),
+              eq(adaptiveNutritionGoalCompletions.completedGoalId, requestedGoal.id),
+            ),
+          )
+          .limit(1)
+          .get();
+        if (!completion || completion.checkInId !== input.checkInId) {
+          throw new AdaptiveGoalCompletionError();
+        }
         const active = findActiveGoal(userId, program.id);
-        if (active?.goal.type === 'maintain') return getCurrentGoal(userId);
+        if (active?.goal.type === 'maintain' && active.goal.id === completion.maintenanceGoalId) {
+          return getCurrentGoal(userId);
+        }
         throw new AdaptiveGoalCompletionError();
       }
       const current = requireActiveGoal(userId, program.id);
@@ -1558,9 +1590,12 @@ export const createAdaptiveNutritionStore = (options: {
       const localDate = getDateKeyInTimeZone(new Date(timestamp), program.timeZone);
       const centerWeightKg = current.revision.targetWeightKg;
       if (centerWeightKg === null) throw new AdaptiveGoalCompletionError();
+      const finalTrendWeightKg = rebuilt.recommendation.latestTrendWeightKg;
+      if (finalTrendWeightKg === null) throw new AdaptiveGoalCompletionError();
       db.update(adaptiveNutritionGoals)
         .set({
           status: 'completed',
+          finalTrendWeightKg,
           endedLocalDate: localDate,
           endedReason: 'completed',
           updatedAt: timestamp,
@@ -1583,7 +1618,7 @@ export const createAdaptiveNutritionStore = (options: {
           programId: program.id,
           type: 'maintain',
           status: 'active',
-          startTrendWeightKg: checkIn.calculationSnapshot.latestTrendWeightKg ?? centerWeightKg,
+          startTrendWeightKg: finalTrendWeightKg,
           startScaleWeightKg: latestScale?.weightKg ?? null,
           targetWeightKg: null,
           maintenanceCenterKg: centerWeightKg,
@@ -1628,6 +1663,15 @@ export const createAdaptiveNutritionStore = (options: {
         )
         .run();
       if (!goalRow || !revisionRow) throw new Error('Failed to create maintenance goal');
+      db.insert(adaptiveNutritionGoalCompletions)
+        .values({
+          checkInId: checkIn.id,
+          userId,
+          completedGoalId: current.goal.id,
+          maintenanceGoalId: newGoalId,
+          createdAt: timestamp,
+        })
+        .run();
       return getCurrentGoal(userId);
     });
   };

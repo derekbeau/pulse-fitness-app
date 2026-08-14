@@ -123,6 +123,7 @@ export const adaptiveNutritionGoals = sqliteTable(
     status: text('status').$type<'active' | 'completed' | 'replaced' | 'cancelled'>().notNull(),
     startTrendWeightKg: real('start_trend_weight_kg').notNull(),
     startScaleWeightKg: real('start_scale_weight_kg'),
+    finalTrendWeightKg: real('final_trend_weight_kg'),
     targetWeightKg: real('target_weight_kg'),
     maintenanceCenterKg: real('maintenance_center_kg'),
     goalRatePctPerWeek: real('goal_rate_pct_per_week').notNull(),
@@ -163,7 +164,7 @@ export const adaptiveNutritionGoals = sqliteTable(
     ),
     check(
       'adaptive_nutrition_goals_weight_bounds_check',
-      sql`${table.startTrendWeightKg} between 25 and 350 and (${table.startScaleWeightKg} is null or ${table.startScaleWeightKg} between 25 and 350) and (${table.targetWeightKg} is null or ${table.targetWeightKg} between 25 and 350) and (${table.maintenanceCenterKg} is null or ${table.maintenanceCenterKg} between 25 and 350)`,
+      sql`${table.startTrendWeightKg} between 25 and 350 and (${table.startScaleWeightKg} is null or ${table.startScaleWeightKg} between 25 and 350) and (${table.finalTrendWeightKg} is null or ${table.finalTrendWeightKg} between 25 and 350) and (${table.targetWeightKg} is null or ${table.targetWeightKg} between 25 and 350) and (${table.maintenanceCenterKg} is null or ${table.maintenanceCenterKg} between 25 and 350)`,
     ),
     check(
       'adaptive_nutrition_goals_strategy_check',
@@ -175,7 +176,7 @@ export const adaptiveNutritionGoals = sqliteTable(
     ),
     check(
       'adaptive_nutrition_goals_lifecycle_check',
-      sql`(${table.status} = 'active' and ${table.endedLocalDate} is null and ${table.endedReason} is null) or (${table.status} = 'completed' and ${table.endedLocalDate} is not null and ${table.endedReason} = 'completed') or (${table.status} = 'replaced' and ${table.endedLocalDate} is not null and ${table.endedReason} = 'direction_changed') or (${table.status} = 'cancelled' and ${table.endedLocalDate} is not null and ${table.endedReason} = 'cancelled')`,
+      sql`(${table.status} = 'active' and ${table.endedLocalDate} is null and ${table.endedReason} is null and ${table.finalTrendWeightKg} is null) or (${table.status} = 'completed' and ${table.endedLocalDate} is not null and ${table.endedReason} = 'completed' and ${table.finalTrendWeightKg} is not null) or (${table.status} = 'replaced' and ${table.endedLocalDate} is not null and ${table.endedReason} = 'direction_changed' and ${table.finalTrendWeightKg} is not null) or (${table.status} = 'cancelled' and ${table.endedLocalDate} is not null and ${table.endedReason} = 'cancelled' and ${table.finalTrendWeightKg} is not null)`,
     ),
   ],
 );
@@ -298,6 +299,7 @@ export const adaptiveNutritionCheckIns = sqliteTable(
   },
   (table) => [
     index('adaptive_nutrition_checkins_user_id_created_at_idx').on(table.userId, table.createdAt),
+    uniqueIndex('adaptive_nutrition_checkins_id_user_id_unique').on(table.id, table.userId),
     foreignKey({
       columns: [table.programId, table.userId],
       foreignColumns: [adaptiveNutritionPrograms.id, adaptiveNutritionPrograms.userId],
@@ -345,6 +347,55 @@ export const adaptiveNutritionCheckIns = sqliteTable(
     check(
       'adaptive_nutrition_checkins_fingerprint_check',
       sql`length(${table.dataFingerprint}) = 64 and ${table.dataFingerprint} not glob '*[^0-9a-f]*'`,
+    ),
+  ],
+);
+
+export const adaptiveNutritionGoalCompletions = sqliteTable(
+  'adaptive_nutrition_goal_completions',
+  {
+    checkInId: text('check_in_id')
+      .primaryKey()
+      .references(() => adaptiveNutritionCheckIns.id, { onDelete: 'restrict' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    completedGoalId: text('completed_goal_id')
+      .notNull()
+      .references(() => adaptiveNutritionGoals.id, { onDelete: 'restrict' }),
+    maintenanceGoalId: text('maintenance_goal_id')
+      .notNull()
+      .references(() => adaptiveNutritionGoals.id, { onDelete: 'restrict' }),
+    createdAt: integer('created_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`)
+      .$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    uniqueIndex('adaptive_nutrition_goal_completions_completed_goal_unique').on(
+      table.completedGoalId,
+    ),
+    uniqueIndex('adaptive_nutrition_goal_completions_maintenance_goal_unique').on(
+      table.maintenanceGoalId,
+    ),
+    foreignKey({
+      columns: [table.checkInId, table.userId],
+      foreignColumns: [adaptiveNutritionCheckIns.id, adaptiveNutritionCheckIns.userId],
+      name: 'adaptive_nutrition_goal_completions_checkin_user_fk',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.completedGoalId, table.userId],
+      foreignColumns: [adaptiveNutritionGoals.id, adaptiveNutritionGoals.userId],
+      name: 'adaptive_nutrition_goal_completions_completed_user_fk',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.maintenanceGoalId, table.userId],
+      foreignColumns: [adaptiveNutritionGoals.id, adaptiveNutritionGoals.userId],
+      name: 'adaptive_nutrition_goal_completions_maintenance_user_fk',
+    }).onDelete('restrict'),
+    check(
+      'adaptive_nutrition_goal_completions_distinct_goals_check',
+      sql`${table.completedGoalId} <> ${table.maintenanceGoalId}`,
     ),
   ],
 );

@@ -1,5 +1,8 @@
 # Milestone 8 Handoff
 
+> Historical checkpoint for the Milestone 8 commit. The state and counts below are not current; completion
+> ownership and final-trend behavior are superseded by the final-QA repair evidence.
+
 **State:** `MILESTONE 8 COMPLETE; MILESTONE 9 IN PROGRESS`
 **Branch:** `feat/adaptive-tdee-v1`
 **Environment:** tracked isolated `pnpm dev:gate0` only; production unchanged

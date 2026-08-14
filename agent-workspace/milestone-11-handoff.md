@@ -1,5 +1,8 @@
 # Milestone 11 Handoff
 
+> Historical checkpoint superseded by Vector's confirmed final findings and the bounded final-QA repair.
+> Its verdict and counts describe the pre-repair commit, not the current branch.
+
 Verdict: `AWAITING VECTOR FINAL GOAL-STRATEGY REVIEW`
 
 ## Release scope
@@ -78,3 +81,18 @@ Verdict: `AWAITING VECTOR FINAL GOAL-STRATEGY REVIEW`
 Milestones 7–11 each have exactly one commit. PR #100 must remain draft. Production was not opened writable,
 deployed, restarted, or changed. Vector owns the independent final goal-strategy review; Codex must not
 promote the PR or begin another milestone without a new authorization.
+
+## Superseding final-QA repair handoff
+
+Current verdict: `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`
+
+Vector's confirmed post-Milestone-11 findings were repaired in one bounded follow-up: database-authoritative
+strategy revisions, revision-effective server history, the canonical maintenance range, persisted final
+trends, the immutable completion transition, and goal-history pagination. Permanent migration, direct-SQL,
+store, API, shared-schema, concurrency, replayability, UI, and browser regressions cover those behaviors.
+
+Current evidence is authoritative in `current-status.md` and the final section of
+`verification-report.md`. The historical 44-migration, 13-goal, 19-journey, and pre-repair test counts above
+remain valid only for the original Milestone 11 commit. The repair ends with 45 migrations and 32 seeded
+goals because the load-more fixture permanently owns 21 goal records. PR #100 remains draft; production,
+deployment, merge, readiness promotion, and nutrition-target automation remain out of scope.

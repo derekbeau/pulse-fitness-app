@@ -275,10 +275,13 @@ test.describe.serial('Adaptive TDEE deterministic preview fixtures', () => {
     const assertDiagnostics = monitorPage(page);
     await openCoach(page, 'goal-history');
     await expect(page.getByText('Prior goals')).toBeVisible();
-    await expect(page.getByText('Replaced')).toBeVisible();
+    await expect(page.getByText('Replaced').first()).toBeVisible();
     const detailButtons = page.getByRole('button', { name: 'View goal details' });
-    await expect(detailButtons).toHaveCount(2);
-    await detailButtons.nth(1).click();
+    await expect(detailButtons).toHaveCount(20);
+    await page.getByRole('button', { name: 'Load more goals (20 of 21)' }).click();
+    await expect(detailButtons).toHaveCount(21);
+    await expect(page.getByText('All 21 goals loaded.')).toBeVisible();
+    await detailButtons.nth(20).click();
     const priorDialog = page.getByRole('dialog');
     await expect(priorDialog.getByRole('heading', { name: 'Weekly goal progress' })).toBeVisible();
     await expect(
@@ -293,7 +296,7 @@ test.describe.serial('Adaptive TDEE deterministic preview fixtures', () => {
       priorDialog.getByRole('heading', { name: 'Linked accepted check-ins' }),
     ).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(detailButtons.nth(1)).toBeFocused();
+    await expect(detailButtons.nth(20)).toBeFocused();
 
     await openCoach(page, 'goal-edited');
     await page.getByRole('button', { name: 'View goal details' }).nth(1).click();
@@ -357,6 +360,13 @@ test.describe.serial('Adaptive TDEE deterministic preview fixtures', () => {
     await expect(page.getByText(/Goal completed\. Maintenance is now centered/)).toBeVisible();
     expect(completionAttempts).toBe(3);
 
+    await page.getByRole('button', { name: 'View goal details' }).first().click();
+    const completionDetail = page.getByRole('dialog');
+    await expect(
+      completionDetail.getByRole('heading', { name: 'Completion transition' }),
+    ).toBeVisible();
+    await expect(completionDetail).toContainText('immutably links completed goal');
+
     assertDiagnostics();
   });
 
@@ -371,7 +381,7 @@ test.describe.serial('Adaptive TDEE deterministic preview fixtures', () => {
     const target = page.getByLabel('Target weight (lbs)');
     await target.focus();
     await page.keyboard.press('ControlOrMeta+A');
-    await page.keyboard.type('192');
+    await page.keyboard.type('160');
     const review = page.getByRole('button', { name: 'Review change' });
     await review.focus();
     await page.keyboard.press('Enter');

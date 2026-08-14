@@ -13,6 +13,10 @@ const migrationSql = readFileSync(
   join(process.cwd(), 'drizzle/0043_adaptive_goal_strategy.sql'),
   'utf8',
 );
+const finalQaMigrationSql = readFileSync(
+  join(process.cwd(), 'drizzle/0044_adaptive_goal_final_qa.sql'),
+  'utf8',
+);
 
 const runSqlStatements = (sqlite: Database.Database, sqlContent: string) => {
   for (const statement of sqlContent
@@ -67,7 +71,7 @@ const seedProgram = (
     .run(`program-${userId}`, userId, type, targetWeightKg, rate);
 };
 
-describe('migration 0043 adaptive goal strategy', () => {
+describe('adaptive goal strategy migrations', () => {
   it('creates the constrained goal domain and preserves fresh-database integrity', () => {
     const sqlite = migrateFresh();
     try {
@@ -169,6 +173,81 @@ describe('migration 0043 adaptive goal strategy', () => {
     }
   });
 
+  it('upgrades a 0043 database and preserves a closed goal final trend', () => {
+    const sqlite = new Database(':memory:');
+    try {
+      sqlite.exec(`
+        PRAGMA foreign_keys = ON;
+        CREATE TABLE users (id TEXT PRIMARY KEY NOT NULL);
+        CREATE TABLE adaptive_nutrition_account_deletion_scope (user_id TEXT PRIMARY KEY NOT NULL);
+        CREATE TABLE adaptive_nutrition_programs (
+          id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL,
+          UNIQUE(id, user_id)
+        );
+        CREATE TABLE adaptive_nutrition_goals (
+          id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, program_id TEXT NOT NULL,
+          type TEXT NOT NULL, status TEXT NOT NULL, start_trend_weight_kg REAL NOT NULL,
+          start_scale_weight_kg REAL, target_weight_kg REAL, maintenance_center_kg REAL,
+          goal_rate_pct_per_week REAL NOT NULL, started_local_date TEXT NOT NULL,
+          ended_local_date TEXT, ended_reason TEXT, created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL, UNIQUE(id, user_id)
+        );
+        CREATE TABLE adaptive_nutrition_goal_revisions (
+          id TEXT PRIMARY KEY NOT NULL, goal_id TEXT NOT NULL, user_id TEXT NOT NULL,
+          sequence INTEGER NOT NULL, target_weight_kg REAL, maintenance_center_kg REAL,
+          goal_rate_pct_per_week REAL NOT NULL, previous_target_weight_kg REAL,
+          previous_center_kg REAL, previous_rate_pct_per_week REAL NOT NULL,
+          reason TEXT NOT NULL, effective_local_date TEXT NOT NULL, created_at INTEGER NOT NULL,
+          UNIQUE(goal_id, sequence)
+        );
+        CREATE TABLE adaptive_nutrition_checkins (
+          id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, program_id TEXT NOT NULL,
+          goal_id TEXT, status TEXT NOT NULL, calculation_snapshot TEXT NOT NULL,
+          resolved_at INTEGER, created_at INTEGER NOT NULL
+        );
+        CREATE TRIGGER adaptive_nutrition_goals_immutable_fields_guard
+          BEFORE UPDATE ON adaptive_nutrition_goals
+          BEGIN SELECT RAISE(ABORT, 'closed goals and goal progress origins are immutable'); END;
+        INSERT INTO users VALUES ('legacy-user');
+        INSERT INTO adaptive_nutrition_programs VALUES ('legacy-program', 'legacy-user');
+        INSERT INTO adaptive_nutrition_goals VALUES (
+          'legacy-goal', 'legacy-user', 'legacy-program', 'lose', 'completed', 82, 82.1,
+          78, NULL, -0.5, '2026-07-01', '2026-08-01', 'completed', 1, 2
+        );
+        INSERT INTO adaptive_nutrition_goal_revisions VALUES (
+          'legacy-revision', 'legacy-goal', 'legacy-user', 1, 78, NULL, -0.5,
+          78, NULL, -0.5, 'created', '2026-07-01', 1
+        );
+        INSERT INTO adaptive_nutrition_checkins VALUES (
+          'legacy-checkin', 'legacy-user', 'legacy-program', 'legacy-goal', 'accepted',
+          '{"latestTrendWeightKg":78.4}', 2, 1
+        );
+      `);
+
+      runSqlStatements(sqlite, finalQaMigrationSql);
+
+      expect(
+        sqlite
+          .prepare(
+            `SELECT final_trend_weight_kg AS finalTrendWeightKg
+             FROM adaptive_nutrition_goals WHERE id = 'legacy-goal'`,
+          )
+          .get(),
+      ).toEqual({ finalTrendWeightKg: 78.4 });
+      expect(
+        sqlite
+          .prepare(
+            `SELECT count(*) AS count FROM sqlite_master
+             WHERE type = 'table' AND name = 'adaptive_nutrition_goal_completions'`,
+          )
+          .get(),
+      ).toEqual({ count: 1 });
+      expect(sqlite.pragma('foreign_key_check')).toEqual([]);
+    } finally {
+      sqlite.close();
+    }
+  });
+
   it('rolls back only the failing user and enforces active/revision/check/immutability guards', () => {
     const sqlite = migrateFresh();
     try {
@@ -239,6 +318,18 @@ describe('migration 0043 adaptive goal strategy', () => {
           .prepare(
             `INSERT INTO adaptive_nutrition_goals
              (id, user_id, program_id, type, status, start_trend_weight_kg,
+              target_weight_kg, goal_rate_pct_per_week, started_local_date,
+              ended_local_date, ended_reason, created_at, updated_at)
+             VALUES ('closed-without-final', 'z-fault', 'program-z-fault', 'gain', 'cancelled',
+                     80, 90, 0.25, '2026-08-01', '2026-08-13', 'cancelled', 1, 2)`,
+          )
+          .run(),
+      ).toThrow(/closed goals require them/u);
+      expect(() =>
+        sqlite
+          .prepare(
+            `INSERT INTO adaptive_nutrition_goals
+             (id, user_id, program_id, type, status, start_trend_weight_kg,
               target_weight_kg, goal_rate_pct_per_week, started_local_date, created_at, updated_at)
              VALUES ('cross-owner', 'z-fault', 'program-a-ok', 'gain', 'active', 80, 90, 0.25,
                      '2026-08-13', 1, 1)`,
@@ -256,7 +347,130 @@ describe('migration 0043 adaptive goal strategy', () => {
                      'migration', '2026-08-13', 1)`,
           )
           .run(goal.id),
-      ).toThrow(/FOREIGN KEY constraint failed/u);
+      ).toThrow(/matching next strategy revision|FOREIGN KEY constraint failed/u);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('makes the database apply exactly one matching next strategy revision', () => {
+    const sqlite = migrateFresh();
+    try {
+      seedUser(sqlite, 'sql-guard');
+      seedProgram(sqlite, 'sql-guard', 'lose', 70, -0.5);
+      seedWeight(sqlite, 'sql-guard', '2026-08-13', 80);
+      expect(
+        backfillAdaptiveNutritionGoals(sqlite, {
+          now: () => new Date('2026-08-13T16:00:00.000Z'),
+        }),
+      ).toEqual({ created: 1, skipped: 0, blocked: 0 });
+      const goal = sqlite
+        .prepare(
+          `SELECT id, target_weight_kg AS targetWeightKg,
+                  goal_rate_pct_per_week AS rate
+           FROM adaptive_nutrition_goals WHERE user_id = 'sql-guard'`,
+        )
+        .get() as { id: string; targetWeightKg: number; rate: number };
+
+      expect(() =>
+        sqlite
+          .prepare(
+            `UPDATE adaptive_nutrition_goals
+             SET target_weight_kg = 69, goal_rate_pct_per_week = -0.4
+             WHERE id = ?`,
+          )
+          .run(goal.id),
+      ).toThrow(/exactly one matching next revision/u);
+      expect(() =>
+        sqlite
+          .prepare(
+            `INSERT INTO adaptive_nutrition_goal_revisions
+             (id, goal_id, user_id, sequence, target_weight_kg, goal_rate_pct_per_week,
+              previous_target_weight_kg, previous_rate_pct_per_week, reason,
+              effective_local_date, created_at)
+             VALUES ('bad-next', ?, 'sql-guard', 2, 69, -0.4, 71, -0.5,
+                     'user_edit', '2026-08-14', 2)`,
+          )
+          .run(goal.id),
+      ).toThrow(/matching next strategy revision/u);
+
+      sqlite
+        .prepare(
+          `INSERT INTO adaptive_nutrition_goal_revisions
+           (id, goal_id, user_id, sequence, target_weight_kg, goal_rate_pct_per_week,
+            previous_target_weight_kg, previous_rate_pct_per_week, reason,
+            effective_local_date, created_at)
+           VALUES ('valid-next', ?, 'sql-guard', 2, 69, -0.4, 70, -0.5,
+                   'user_edit', '2026-08-14', 2)`,
+        )
+        .run(goal.id);
+
+      expect(
+        sqlite
+          .prepare(
+            `SELECT target_weight_kg AS targetWeightKg,
+                    goal_rate_pct_per_week AS rate
+             FROM adaptive_nutrition_goals WHERE id = ?`,
+          )
+          .get(goal.id),
+      ).toEqual({ targetWeightKg: 69, rate: -0.4 });
+      expect(
+        sqlite
+          .prepare(
+            `SELECT count(*) AS count
+             FROM adaptive_nutrition_goal_revisions WHERE goal_id = ?`,
+          )
+          .get(goal.id),
+      ).toEqual({ count: 2 });
+      expect(() =>
+        sqlite
+          .prepare(
+            `UPDATE adaptive_nutrition_goals
+             SET target_weight_kg = 68 WHERE id = ?`,
+          )
+          .run(goal.id),
+      ).toThrow(/exactly one matching next revision/u);
+
+      seedUser(sqlite, 'sql-maintenance-guard');
+      seedProgram(sqlite, 'sql-maintenance-guard', 'maintain', null, 0);
+      seedWeight(sqlite, 'sql-maintenance-guard', '2026-08-13', 80);
+      expect(
+        backfillAdaptiveNutritionGoals(sqlite, {
+          now: () => new Date('2026-08-13T16:00:01.000Z'),
+        }),
+      ).toEqual({ created: 1, skipped: 1, blocked: 0 });
+      const maintenanceGoal = sqlite
+        .prepare(
+          `SELECT id, maintenance_center_kg AS centerWeightKg
+           FROM adaptive_nutrition_goals WHERE user_id = 'sql-maintenance-guard'`,
+        )
+        .get() as { id: string; centerWeightKg: number };
+      expect(() =>
+        sqlite
+          .prepare(
+            `UPDATE adaptive_nutrition_goals
+             SET maintenance_center_kg = 81 WHERE id = ?`,
+          )
+          .run(maintenanceGoal.id),
+      ).toThrow(/exactly one matching next revision/u);
+      sqlite
+        .prepare(
+          `INSERT INTO adaptive_nutrition_goal_revisions
+           (id, goal_id, user_id, sequence, maintenance_center_kg, goal_rate_pct_per_week,
+            previous_center_kg, previous_rate_pct_per_week, reason,
+            effective_local_date, created_at)
+           VALUES ('valid-maintenance-next', ?, 'sql-maintenance-guard', 2, 81, 0, ?, 0,
+                   'user_edit', '2026-08-14', 3)`,
+        )
+        .run(maintenanceGoal.id, maintenanceGoal.centerWeightKg);
+      expect(
+        sqlite
+          .prepare(
+            `SELECT maintenance_center_kg AS centerWeightKg
+             FROM adaptive_nutrition_goals WHERE id = ?`,
+          )
+          .get(maintenanceGoal.id),
+      ).toEqual({ centerWeightKg: 81 });
     } finally {
       sqlite.close();
     }

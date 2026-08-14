@@ -1,5 +1,8 @@
 # Vector Gate 1 Re-review
 
+> Historical independent review record. Its gate instructions are closed and are not current execution
+> authority; see `codex-kickoff.md` for the active final-QA repair.
+
 **Previously reviewed commit:** `f80d2094b10531cc80f840f74f4b7e9b48b924fa`
 **Previous verdict:** `VECTOR GATE 1 CHANGES REQUIRED`
 **Current state:** `VECTOR GATE 1 APPROVED`

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   adaptiveAcceptResultSchema,
   adaptiveCheckInDetailSchema,
@@ -131,6 +131,17 @@ export const useAdaptiveGoalHistory = (page = 1, limit = 20) =>
   useQuery({
     queryKey: adaptiveNutritionQueryKeys.goalHistory(page, limit),
     queryFn: ({ signal }) => fetchAdaptiveGoalHistory(page, limit, signal),
+  });
+
+export const useInfiniteAdaptiveGoalHistory = (limit = 20) =>
+  useInfiniteQuery({
+    queryKey: adaptiveNutritionQueryKeys.goalHistoryInfinite(limit),
+    queryFn: ({ pageParam, signal }) => fetchAdaptiveGoalHistory(pageParam, limit, signal),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.meta.page * lastPage.meta.limit < lastPage.meta.total
+        ? lastPage.meta.page + 1
+        : undefined,
   });
 
 export const useAdaptiveGoalDetail = (id: string | null, enabled = true) =>

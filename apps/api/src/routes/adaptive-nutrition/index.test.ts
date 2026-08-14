@@ -99,6 +99,7 @@ const goalRecord = {
   status: 'active' as const,
   startTrendWeightKg: 82,
   startScaleWeightKg: 82,
+  finalTrendWeightKg: null,
   targetWeightKg: null,
   maintenanceCenterKg: 82,
   goalRatePctPerWeek: 0,
@@ -307,6 +308,7 @@ describe('adaptive nutrition routes', () => {
     vi.mocked(cancelAdaptiveGoal).mockResolvedValue({
       ...goalRecord,
       status: 'cancelled',
+      finalTrendWeightKg: 82,
       endedLocalDate: '2026-06-01',
       endedReason: 'cancelled',
     });
@@ -326,7 +328,23 @@ describe('adaptive nutrition routes', () => {
       goal: goalRecord,
       revisions: [goalRevision],
       acceptedCheckIns: [],
-      trendPoints: [{ date: goalRecord.startedLocalDate, trendWeightKg: 82, scaleWeightKg: 82.2 }],
+      trendPoints: [
+        {
+          kind: 'maintenance',
+          date: goalRecord.startedLocalDate,
+          trendWeightKg: 82,
+          scaleWeightKg: 82.2,
+          goalRevisionId: goalRevision.id,
+          revisionSequence: 1,
+          centerWeightKg: 82,
+          signedDistanceFromCenterKg: 0,
+          rangeRadiusKg: 0.82,
+          rangeLowerKg: 81.18,
+          rangeUpperKg: 82.82,
+          rangeStatus: 'within',
+        },
+      ],
+      completion: null,
     });
   });
 
@@ -626,8 +644,10 @@ describe('adaptive nutrition routes', () => {
       expect(completeGoalOperation?.description).toMatch(
         /does not create or replace a nutrition target/u,
       );
-      expect(goalHistoryOperation?.description).toMatch(/final canonical trend weight/u);
-      expect(goalDetailOperation?.description).toMatch(/Nullable scale weights/u);
+      expect(completeGoalOperation?.description).toMatch(/immutable relation/u);
+      expect(goalHistoryOperation?.description).toMatch(/final canonical trend persisted/u);
+      expect(goalDetailOperation?.description).toMatch(/revision effective on each date/u);
+      expect(goalDetailOperation?.description).toMatch(/max\(0\.68 kg, center × 1%\)/u);
     } finally {
       await app.close();
     }

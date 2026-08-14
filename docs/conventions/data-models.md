@@ -32,6 +32,9 @@ Direct `userId` ownership lives on these root tables:
 - `nutrition_targets`
 - `adaptive_nutrition_programs`
 - `adaptive_nutrition_checkins`
+- `adaptive_nutrition_goals`
+- `adaptive_nutrition_goal_revisions`
+- `adaptive_nutrition_goal_completions`
 - `dashboard_config`
 - `scheduled_workouts`
 - `health_conditions`
@@ -496,8 +499,9 @@ lifecycle. Stores build inputs and resolve check-ins in explicit SQLite immediat
 stale acceptance rereads mutable rows using the persisted preview boundaries and never writes a target.
 
 A delete trigger blocks every individual check-in deletion. Account deletion creates a user-scoped
-authorization row inside the same SQLite write transaction, then explicitly deletes that user's
-targets, check-ins, program, and user in order. The authorization row cascades away with the user;
+authorization row inside the same SQLite write transaction, then explicitly deletes that user's targets,
+goal-completion relations, check-ins, goal revisions, goals, program, and user in dependency order. The
+authorization row cascades away with the user;
 rollback restores the whole sequence, and foreign keys remain enabled globally.
 
 Check-ins may link `goalId` and `goalRevisionId` as an all-or-nothing pair. New V2 calculation snapshots
@@ -515,6 +519,8 @@ First-class goal lifecycle rows own progress origins and preserve prior directio
 - `type`: `lose | maintain | gain`
 - target/maintenance strategy columns plus canonical `startTrendWeightKg` and nullable
   `startScaleWeightKg`
+- nullable `finalTrendWeightKg`, which is null while active and stores the actual canonical trend used
+  when the goal is completed, replaced, or cancelled
 - `startedLocalDate`, nullable `endedLocalDate`, and `active | completed | replaced | cancelled` status
 - `createdAt` / `updatedAt`: integer Unix ms
 
@@ -532,11 +538,26 @@ Every created or edited strategy has an immutable revision linked to one goal an
 - `reason`: `created | user_edit | migration | goal_completion`
 - `effectiveLocalDate` and `createdAt`
 
-Database triggers reject revision update/delete and reject goal strategy changes unless a matching next
-revision is inserted in the same transaction. Same-direction edits append revisions while keeping the goal's
-start trend/date fixed. Direction changes end the old goal and create a new progress period. Explicit
-completion ends the reached goal and creates one maintenance goal/revision without resetting Adaptive TDEE,
-weight, nutrition, targets, or check-in history.
+Database triggers reject revision update/delete and direct goal-strategy updates. Inserting exactly one
+matching next revision is the database-authoritative operation: its trigger validates sequence and previous
+strategy, then atomically applies target/center/rate to the active goal. Same-direction edits keep the goal's
+start trend/date fixed. Direction changes persist the actual final canonical trend on the old goal and use it
+as the new progress origin.
+
+#### `adaptive_nutrition_goal_completions`
+
+One immutable relation records each explicit completion transition:
+
+- `checkInId`: primary key and same-owner FK to the accepted goal-reached check-in
+- `userId`: direct owner
+- `completedGoalId`: unique same-owner FK to the completed loss/gain goal
+- `maintenanceGoalId`: unique same-owner FK to the new active maintenance goal
+- `createdAt`: integer Unix ms
+
+An insert trigger verifies that the accepted check-in belongs to the completed goal, both goals share the
+same user/program, and the destination is the active maintenance goal. Update/delete are blocked except for
+the existing guarded account-deletion transaction. The relation makes retries and historical ownership
+auditable without inferring the transition from timestamps.
 
 #### `dashboard_config`
 

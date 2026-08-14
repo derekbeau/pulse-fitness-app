@@ -1,11 +1,15 @@
 # Adaptive TDEE v1 Verification Report
 
-**Status:** MILESTONES 7–11 AUTHORIZED AS ONE CODEX GOAL<br>
+**Status:** `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
-**Reviewer:** Vector specification extension and single-goal handoff preparation complete<br>
-**Last verified state:** Gate 6 remains approved; Milestones 7–11 are authorized but unimplemented
+**Reviewer:** Vector confirmed the bounded final-QA findings; Codex owns this one repair commit<br>
+**Last verified state:** Milestones 7–11 are implemented; their initial final-review handoff is superseded
 
 This report must contain observed results, not intended commands or agent self-reports.
+
+All milestone sections below are historical evidence for their original commits. Their counts and gate
+verdicts are not current totals or current execution instructions. Current repair evidence is recorded in
+the final section of this report.
 
 ## Baseline
 
@@ -1084,3 +1088,77 @@ integrity audit, and exact uncached repository gates.
 
 Production remained untouched. PR #100 remains draft. Vector owns the independent final goal-strategy
 review; no deployment, merge, readiness promotion, or Milestone 12 work was performed.
+
+## Final goal-strategy QA repair
+
+Verdict: `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`
+
+### Implemented findings
+
+- Migration 0044 stores final canonical goal trends, adds the immutable accepted-check-in/completed-goal/
+  maintenance-goal relation, and installs database guards that accept a strategy change only when exactly
+  one matching next revision exists. The revision insert atomically applies that strategy.
+- Direct-SQL regressions reject unaccompanied target, center, and rate edits; reject mismatched or out-of-order
+  revisions; accept one valid next revision; and keep completion relations immutable.
+- Goal reads build revision-effective, server-authoritative trend points. Stored origins and final trends own
+  chart endpoints and closed-goal net change. Current and historical maintenance points share
+  `max(0.68 kg, center × 1%)`.
+- Replacement, cancellation, and completion compute and persist the actual closing canonical trend.
+  Completion uses that same value as the new maintenance origin and records the immutable transition.
+- The web client consumes the authoritative progress fields, loads goal-history pages beyond 20, and exposes
+  the completion relation in goal details.
+- The preview seeder deletes completion relations before their protected parents, remains replayable after a
+  completed browser journey, and permanently tests that replay.
+
+### Defects found and repaired during acceptance
+
+1. The first real old-database startup exposed that the legacy immutable-goal trigger blocked the final-trend
+   backfill. Migration 0044 now drops that trigger before backfill and recreates the stronger guards afterward;
+   the permanent old-database migration test includes the fail-closed legacy trigger.
+2. Reseeding after the Chrome completion journey exposed the new restrictive relation before the seeder
+   removed its parent check-in. Cleanup now deletes completion relations first, with a complete-then-reseed
+   regression.
+3. Chrome acceptance exposed a strict duplicate `Replaced` locator and a fixture keyboard target that no
+   longer matched the 21-goal seed's active direction. Both permanent journeys were corrected.
+4. One Chrome attempt encountered a transient external Google Fonts 404. The unchanged exact command was
+   rerun immediately and passed 11/11; the final accepted run had no console, page, request, or unexpected HTTP
+   diagnostics.
+
+### Focused and browser evidence
+
+| Check                                      | Observed result                                                                                                                            |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Shared schemas and progress                | 2 files, 25/25                                                                                                                             |
+| Adaptive API/migration/store/backtest/seed | 8 files, 94/94                                                                                                                             |
+| Adaptive web API and Coach                 | 2 files, 34/34                                                                                                                             |
+| Installed Chrome                           | 11/11 at 320, 375, 390, 430, 768, and 1280 px                                                                                              |
+| Built-in browser                           | 21/21 history rows loaded; loss history, current/history maintenance range, and completion relation verified; zero console warnings/errors |
+
+Installed Chrome ran exactly:
+
+```bash
+API_PORT=3102 BASE_URL=http://127.0.0.1:5274 PLAYWRIGHT_CHANNEL=chrome pnpm --filter @pulse/web exec playwright test e2e/adaptive-preview-fixtures.spec.ts --project=chromium
+```
+
+The built-in browser used only tracked `pnpm dev:gate0`. It verified the 21st prior goal and its persisted
+final endpoint/net change, the maintenance range `179 lbs to 182.6 lbs` in both the current card and every
+historical row, and the accepted-check-in completion relation on the resulting maintenance goal. Its console
+warning/error log was empty. Observed Gate 0 product requests returned 200.
+
+After browser mutation, the tracked seeder restored deterministic fixtures. The isolated database returned
+`quick_check=ok` and no `foreign_key_check` rows, with 45 migrations, 13 users, 81 weights, 12 programs,
+32 goals, 12 active goals, 0 completion relations, and 3 pending check-ins. Ports 3102 and 5274 were free.
+
+### Exact uncached final gates
+
+| Command                           | Observed result                                                     |
+| --------------------------------- | ------------------------------------------------------------------- |
+| `TURBO_FORCE=true pnpm lint`      | 3/3, 0 cached, zero errors; four pre-existing Fast Refresh warnings |
+| `TURBO_FORCE=true pnpm typecheck` | 3/3, 0 cached                                                       |
+| `TURBO_FORCE=true pnpm test`      | Startup/isolation 9; shared 412, API 689, web 1005; 0 cached        |
+| `TURBO_FORCE=true pnpm build`     | 3/3, 0 cached; Vite transformed 3,848 modules                       |
+| `git diff --check`                | Pass                                                                |
+
+Production was not accessed, deployed, restarted, or modified. Nutrition targets changed only in the existing
+explicit acceptance test journeys and were restored by deterministic reseeding. No merge or readiness
+promotion occurred, and PR #100 remains draft. Vector owns the independent re-review.

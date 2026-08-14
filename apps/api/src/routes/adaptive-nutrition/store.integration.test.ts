@@ -14,6 +14,7 @@ import type { AdaptiveProgramMutation } from '@pulse/shared';
 import * as schema from '../../db/schema/index.js';
 import {
   adaptiveNutritionCheckIns,
+  adaptiveNutritionGoalCompletions,
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
   bodyWeight,
@@ -31,6 +32,7 @@ import {
   AdaptiveCalorieFloorError,
   AdaptiveCurrentWeightRequiredError,
   AdaptiveGoalDirectionError,
+  AdaptiveGoalCompletionError,
   AdaptiveActiveGoalRequiredError,
   AdaptiveGoalRevisionConflictError,
   AdaptiveGoalTypeConflictError,
@@ -206,6 +208,7 @@ beforeEach(() => {
     INSERT OR IGNORE INTO adaptive_nutrition_account_deletion_scope (user_id)
     SELECT id FROM users;
     DELETE FROM nutrition_targets;
+    DELETE FROM adaptive_nutrition_goal_completions;
     DELETE FROM adaptive_nutrition_checkins;
     DELETE FROM adaptive_nutrition_programs;
     DELETE FROM users;
@@ -494,6 +497,44 @@ describe('adaptive nutrition lifecycle store', () => {
     expect(maintenance.latestRevision.reason).toBe('goal_completion');
     expect(maintenance.pendingGoalChange).toBeNull();
     expect(repeatedMaintenance).toEqual(maintenance);
+    const completedGoal = dbA
+      .select()
+      .from(adaptiveNutritionGoals)
+      .where(eq(adaptiveNutritionGoals.id, reached.goal.id))
+      .get();
+    expect(completedGoal).toMatchObject({
+      status: 'completed',
+      finalTrendWeightKg: preview.calculationSnapshot.latestTrendWeightKg,
+    });
+    expect(
+      dbA
+        .select()
+        .from(adaptiveNutritionGoalCompletions)
+        .where(eq(adaptiveNutritionGoalCompletions.checkInId, preview.id))
+        .get(),
+    ).toMatchObject({
+      userId: 'user-1',
+      completedGoalId: reached.goal.id,
+      maintenanceGoalId: maintenance.goal.id,
+    });
+    expect(() =>
+      storeA.completeGoal('user-1', reached.goal.id, {
+        checkInId: 'different-check-in',
+        expectedRevisionId: reached.latestRevision.id,
+      }),
+    ).toThrow(AdaptiveGoalCompletionError);
+    expect(() =>
+      sqliteA
+        .prepare(
+          'UPDATE adaptive_nutrition_goal_completions SET maintenance_goal_id = completed_goal_id WHERE check_in_id = ?',
+        )
+        .run(preview.id),
+    ).toThrow(/completion relations are immutable/u);
+    expect(() =>
+      sqliteA
+        .prepare('DELETE FROM adaptive_nutrition_goal_completions WHERE check_in_id = ?')
+        .run(preview.id),
+    ).toThrow(/may only be deleted in account deletion scope/u);
     expect(
       dbA
         .select()
@@ -655,7 +696,11 @@ describe('adaptive nutrition lifecycle store', () => {
           ),
         )
         .get(),
-    ).toMatchObject({ status: 'replaced', endedReason: 'direction_changed' });
+    ).toMatchObject({
+      status: 'replaced',
+      endedReason: 'direction_changed',
+      finalTrendWeightKg: next.goal.startTrendWeightKg,
+    });
     expect(dbA.select().from(nutritionTargets).all()).toEqual(targetRowsBefore);
     expect(
       storeA.listCheckIns('user-1', {}).data.filter((row) => row.status === 'accepted'),
@@ -673,7 +718,10 @@ describe('adaptive nutrition lifecycle store', () => {
     const cancelled = storeA.cancelGoal('user-1', next.goal.id, {
       expectedRevisionId: next.latestRevision.id,
     });
-    expect(cancelled.status).toBe('cancelled');
+    expect(cancelled).toMatchObject({
+      status: 'cancelled',
+      finalTrendWeightKg: expect.any(Number),
+    });
     expect(storeA.getState('user-1').goalActionRequired).toBe('select_goal');
     expect(() => storeA.previewCheckIn('user-1', { kind: 'manual', includeToday: false })).toThrow(
       AdaptiveActiveGoalRequiredError,

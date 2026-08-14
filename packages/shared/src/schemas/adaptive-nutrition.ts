@@ -601,6 +601,7 @@ export const adaptiveGoalSchema = adaptiveGoalStrategyFieldsSchema
     status: adaptiveGoalStatusSchema,
     startTrendWeightKg: bodyWeightKgSchema,
     startScaleWeightKg: bodyWeightKgSchema.nullable(),
+    finalTrendWeightKg: bodyWeightKgSchema.nullable(),
     startedLocalDate: dateSchema,
     endedLocalDate: dateSchema.nullable(),
     endedReason: adaptiveGoalEndedReasonSchema.nullable(),
@@ -612,8 +613,12 @@ export const adaptiveGoalSchema = adaptiveGoalStrategyFieldsSchema
     validateGoalStrategy(goal, context);
     const active = goal.status === 'active';
     const lifecycleFieldsMatch = active
-      ? goal.endedLocalDate === null && goal.endedReason === null
-      : goal.endedLocalDate !== null && goal.endedReason !== null;
+      ? goal.endedLocalDate === null &&
+        goal.endedReason === null &&
+        goal.finalTrendWeightKg === null
+      : goal.endedLocalDate !== null &&
+        goal.endedReason !== null &&
+        goal.finalTrendWeightKg !== null;
     if (!lifecycleFieldsMatch) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -772,11 +777,50 @@ export const adaptiveGoalHistorySummarySchema = z
   })
   .strict();
 
-export const adaptiveGoalTrendPointSchema = z
+const adaptiveGoalTrendPointBaseFields = {
+  date: dateSchema,
+  trendWeightKg: bodyWeightKgSchema,
+  scaleWeightKg: bodyWeightKgSchema.nullable(),
+  goalRevisionId: z.string().min(1),
+  revisionSequence: z.number().int().positive(),
+} as const;
+
+export const adaptiveGoalWeightChangeTrendPointSchema = z
   .object({
-    date: dateSchema,
-    trendWeightKg: bodyWeightKgSchema,
-    scaleWeightKg: bodyWeightKgSchema.nullable(),
+    kind: z.literal('weight_change'),
+    ...adaptiveGoalTrendPointBaseFields,
+    targetWeightKg: bodyWeightKgSchema,
+    completedDistanceKg: z.number().nonnegative().finite(),
+    remainingDistanceKg: z.number().nonnegative().finite(),
+    percentComplete: z.number().min(0).max(100).finite(),
+  })
+  .strict();
+
+export const adaptiveGoalMaintenanceTrendPointSchema = z
+  .object({
+    kind: z.literal('maintenance'),
+    ...adaptiveGoalTrendPointBaseFields,
+    centerWeightKg: bodyWeightKgSchema,
+    signedDistanceFromCenterKg: z.number().finite(),
+    rangeRadiusKg: z.number().positive().finite(),
+    rangeLowerKg: z.number().positive().finite(),
+    rangeUpperKg: z.number().positive().finite(),
+    rangeStatus: z.enum(['within', 'near_edge', 'below', 'above']),
+  })
+  .strict();
+
+export const adaptiveGoalTrendPointSchema = z.discriminatedUnion('kind', [
+  adaptiveGoalWeightChangeTrendPointSchema,
+  adaptiveGoalMaintenanceTrendPointSchema,
+]);
+
+export const adaptiveGoalCompletionSchema = z
+  .object({
+    checkInId: z.string().min(1),
+    userId: z.string().min(1),
+    completedGoalId: z.string().min(1),
+    maintenanceGoalId: z.string().min(1),
+    createdAt: z.number().int(),
   })
   .strict();
 
@@ -786,6 +830,7 @@ export const adaptiveGoalDetailSchema = z
     revisions: z.array(adaptiveGoalRevisionSchema).min(1),
     acceptedCheckIns: z.array(adaptiveCheckInSummarySchema),
     trendPoints: z.array(adaptiveGoalTrendPointSchema).min(1),
+    completion: adaptiveGoalCompletionSchema.nullable(),
   })
   .strict();
 
@@ -1002,6 +1047,7 @@ export type AdaptiveGoalLifecycleInput = z.infer<typeof adaptiveGoalLifecycleInp
 export type AdaptiveGoalCompleteInput = z.infer<typeof adaptiveGoalCompleteInputSchema>;
 export type AdaptiveGoalHistorySummary = z.infer<typeof adaptiveGoalHistorySummarySchema>;
 export type AdaptiveGoalHistoryTrendPoint = z.infer<typeof adaptiveGoalTrendPointSchema>;
+export type AdaptiveGoalCompletion = z.infer<typeof adaptiveGoalCompletionSchema>;
 export type AdaptiveGoalDetail = z.infer<typeof adaptiveGoalDetailSchema>;
 export type AdaptiveNutritionDay = z.infer<typeof adaptiveNutritionDaySchema>;
 export type AdaptivePriorTdee = z.infer<typeof adaptivePriorTdeeSchema>;
