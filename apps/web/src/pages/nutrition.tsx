@@ -123,6 +123,14 @@ export function NutritionPage() {
                 Nutrition Coach estimates personalized expenditure from complete days and weight
                 trend; recommendations require your approval.
               </li>
+              <li>
+                Goal progress uses smoothed trend weight and labels the latest scale entry
+                separately. Edits and new directions preserve your learned expenditure and history.
+              </li>
+              <li>
+                Goal-driven targets remain proposals until accepted. Reaching a target still
+                requires a separate completion review before maintenance begins.
+              </li>
             </ul>
           </HelpIcon>
         }

@@ -107,6 +107,26 @@ Notes:
 
 ## Endpoint Reference
 
+### Adaptive TDEE and goals
+
+AgentToken callers may read coaching state and create a reviewable preview, but all account, target, and goal
+lifecycle decisions remain JWT-only:
+
+- `GET /api/v1/adaptive-nutrition/` — current program, pending/latest accepted check-ins, active goal, and
+  server-owned goal progress.
+- `POST /api/v1/adaptive-nutrition/check-ins/preview` — persist a proposal or held attempt; never applies a
+  target automatically.
+- `GET /api/v1/adaptive-nutrition/check-ins` and `GET .../check-ins/:id` — replayable check-in history.
+- `GET /api/v1/adaptive-nutrition/goals/current` — current goal and progress.
+- `GET /api/v1/adaptive-nutrition/goals` and `GET .../goals/:id` — lifecycle history, immutable revisions,
+  linked accepted check-ins, and canonical weekly trend points.
+
+Treat `trendWeightKg` as the progress source. `scaleWeightKg` is a separately labeled optional observation,
+not a substitute trend. Do not call JWT-only `PUT /program`, check-in accept/decline, or goal
+edit/start/cancel/complete routes with AgentToken auth. Never infer that a goal change applied targets:
+nutrition changes only after the user explicitly accepts its `goal_change` recommendation, and reaching a
+target still requires a separate reviewed completion-to-maintenance step.
+
 ### Auth Check
 
 #### `GET /api/v1/ping`

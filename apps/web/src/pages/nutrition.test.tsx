@@ -855,6 +855,10 @@ describe('NutritionPage', () => {
     expect(
       screen.getByText(/food definition edits later will not retroactively change/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/goal progress uses smoothed trend weight/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/separate completion review before maintenance begins/i),
+    ).toBeInTheDocument();
   });
 
   it('shows date-aware empty-state copy and today shortcuts on non-today dates', async () => {

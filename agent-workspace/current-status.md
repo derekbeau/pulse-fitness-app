@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** MILESTONES 7–11 AUTHORIZED AS ONE CODEX GOAL<br>
+**Overall:** AWAITING VECTOR FINAL GOAL-STRATEGY REVIEW<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
-**Last updated:** 2026-08-13 (Milestone 10 implemented; Milestone 11 in progress)
+**Last updated:** 2026-08-14 (Milestones 7–11 implemented, verified, committed, and pushed)
 
 ## Completed
 
@@ -123,12 +123,12 @@
 
 ## Current milestone
 
-**Goal-strategy extension: Milestones 7–11 — AUTHORIZED AS ONE CODEX GOAL**
+**Goal-strategy extension: Milestones 7–11 — COMPLETE; AWAITING VECTOR FINAL REVIEW**
 
 The original Adaptive TDEE Milestones 1–6 remain approved. Specification sections 30–38 define the
 first-class goal strategy extension, progress model, persistent UI, history/completion behavior, testing,
-and Milestones 7–11. Codex is authorized to implement all five milestones in one uninterrupted Goal Mode
-goal, with exactly one commit and extensive automated/built-in-browser QA per milestone, then stop at
+and Milestones 7–11. Codex implemented all five milestones in one uninterrupted Goal Mode goal, with
+exactly one commit and extensive automated/built-in-browser QA per milestone, and has stopped at
 `AWAITING VECTOR FINAL GOAL-STRATEGY REVIEW`.
 
 ### Milestone 7 checkpoint
@@ -220,15 +220,34 @@ goal, with exactly one commit and extensive automated/built-in-browser QA per mi
   The fixture database was restored after mutation QA; `quick_check` and FK validation passed with 13
   fixture users, 13 active goals, and 3 pending recommendations.
 
+### Milestone 11 checkpoint
+
+- Original-format backtest compatibility passed. The reviewed anonymized production-history cohort used
+  19 weights from 2026-03-11 through 2026-04-07, produced an eligible April 8 estimate and an August 13 hold
+  with zero current weight inputs, and preserved both private source SQLite families byte-for-byte.
+- A fresh isolated production clone migrated 19 legacy rows through an explicit secure pounds map. First
+  startup reported `legacy-mapped`, second startup reported `already-canonical`, compatibility delta was
+  zero, and the clone preserved exactly the source's 37 pre-existing FK violations tracked in issue #101.
+- README, API/data-model/agent conventions, the tracked Pulse agent skill, Nutrition help, OpenAPI operation
+  descriptions, and the preview runbook now state the canonical trend/scale distinction and explicit
+  goal-change acceptance/completion boundaries. Focused API 8/8 and Nutrition 17/17 tests passed.
+- Installed Chrome passed 19/19 original-plus-goal journeys with strict console/page/network/HTTP monitoring
+  and all six required widths. Built-in-browser QA walked all 13 accounts, visually inspected the goal chart
+  and table equivalent, completed the reviewed maintenance transition, and verified keyboard focus restore.
+- Exact uncached gates passed lint/typecheck/test/build with zero cached Turbo tasks: startup/isolation 9,
+  shared 412, API 684, and web 1004 tests. Lint retained only four pre-existing warnings.
+- Remote PR checks passed 4/4: CI lint, typecheck, build, and Claude Code Review. Branch and PR head were
+  synchronized, and PR #100 remained draft.
+- The final ignored Gate0 database was rebuilt from empty and reseeded after mutation QA. `quick_check` and
+  FK validation passed with 44 migrations, 13 users, 81 weights, 12 programs, 13 goals, 12 active goals,
+  and 3 pending check-ins. Production remained untouched and PR #100 remains draft.
+
 ## Next actions
 
-1. Create and push exactly one Milestone 10 commit, then continue directly into Milestone 11.
-2. Rehearse migration on a fresh isolated production clone and run original-plus-goal backtest/demo acceptance.
-3. Finish docs, OpenAPI/agent guidance, exact release evidence, installed-Chrome/built-in-browser acceptance,
-   branch/PR synchronization, and remote CI while keeping PR #100 draft.
-4. After Milestone 11 Codex stops once for Vector's independent final QA. Confirmed defects return to the
+1. Vector performs the independent final goal-strategy QA on PR #100.
+2. Confirmed defects return to the
    same Codex goal as one bounded repair pass.
-5. Do not deploy, merge, modify production, or make PR #100 ready without separate authorization.
+3. Do not deploy, merge, modify production, or make PR #100 ready without separate authorization.
 
 ## Blocking issues
 
@@ -242,6 +261,6 @@ None.
 
 ## Vector review handoff protocol
 
-PR #100 remains draft. Vector Gate 6 remains approved. Milestones 7–10 are implemented and verified;
-Milestone 11 remains in progress. Codex owns the five milestone commits and per-milestone evidence, while Vector owns one independent final QA,
-the bounded defect list, and final re-review after Codex repairs.
+PR #100 remains draft. Vector Gate 6 remains approved. Milestones 7–11 are implemented and verified with
+exactly one commit per milestone. Codex owns the five milestone commits and per-milestone evidence, while
+Vector owns one independent final QA, the bounded defect list, and final re-review after Codex repairs.

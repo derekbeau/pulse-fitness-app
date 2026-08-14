@@ -38,14 +38,25 @@ acceptance route validates and resolves an owned pending check-in inside an imme
 The `/api/v1/adaptive-nutrition` plugin uses shared strict schemas and standard response envelopes:
 
 - `GET /` and `GET /check-ins[/:id]`: JWT or AgentToken read state and replayable history.
+- `GET /goals/current`, `GET /goals`, and `GET /goals/:id`: JWT or AgentToken current goal,
+  paginated lifecycle history, immutable revisions, linked accepted check-ins, and canonical weekly trend
+  points. `trendWeightKg` is authoritative; `scaleWeightKg` is nullable and separately labeled.
 - `POST /check-ins/preview`: JWT or AgentToken mutation that persists a proposal or held attempt but never changes targets.
 - `PUT /program`, `POST /check-ins/:id/accept`, and `POST /check-ins/:id/decline`: JWT-only account/coaching decisions.
+- `PATCH /goals/:id`, `POST /goals`, `POST /goals/:id/cancel`, and
+  `POST /goals/:id/complete`: JWT-only goal decisions with optimistic revision/fingerprint conflicts.
 
 Preview and acceptance use explicit SQLite immediate transactions. Identical pending previews
 converge, changed inputs supersede the old pending row, and acceptance recomputes the fingerprint
 from the check-in's persisted local date and boundaries. Stale inputs return `409 CHECKIN_STALE`;
 same-date target replacement requires `replaceSameDateTarget: true`. Accepted and repeatedly
 declined rows are idempotent as specified, while held/superseded/other terminal rows are not reopened.
+
+Goal edits preserve the existing progress origin and append an immutable revision. A different direction
+creates a new historical goal and a `goal_change` recommendation; current nutrition targets remain unchanged
+until that recommendation is accepted. Completion consumes an already accepted reached-goal check-in,
+rechecks its source fingerprint, closes the goal, and creates maintenance exactly once without creating or
+replacing another target. Lost-response retries must reuse the same `checkInId` and `expectedRevisionId`.
 
 ## Request Validation
 

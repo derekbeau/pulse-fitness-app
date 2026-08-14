@@ -577,7 +577,10 @@ describe('adaptive nutrition routes', () => {
       await app.ready();
       const response = await app.inject({ method: 'GET', url: '/api/docs/json' });
       const document = response.json() as {
-        paths: Record<string, Record<string, { security: unknown }>>;
+        paths: Record<
+          string,
+          Record<string, { description?: string; security: unknown; summary?: string }>
+        >;
       };
       expect(response.statusCode).toBe(200);
       expect(Object.keys(document.paths)).toEqual(
@@ -605,6 +608,8 @@ describe('adaptive nutrition routes', () => {
         document.paths['/api/v1/adaptive-nutrition/goals/{id}/cancel']?.post;
       const completeGoalOperation =
         document.paths['/api/v1/adaptive-nutrition/goals/{id}/complete']?.post;
+      const goalHistoryOperation = document.paths['/api/v1/adaptive-nutrition/goals']?.get;
+      const goalDetailOperation = document.paths['/api/v1/adaptive-nutrition/goals/{id}']?.get;
       expect(programOperation?.security).toEqual([{ bearerAuth: [] }]);
       expect(previewOperation?.security).toEqual([{ bearerAuth: [] }, { agentToken: [] }]);
       expect(goalOperation?.security).toEqual([{ bearerAuth: [] }, { agentToken: [] }]);
@@ -616,6 +621,13 @@ describe('adaptive nutrition routes', () => {
       ]) {
         expect(operation?.security).toEqual([{ bearerAuth: [] }]);
       }
+      expect(goalOperation?.description).toMatch(/server-owned trend-weight progress/u);
+      expect(editGoalOperation?.description).toMatch(/remain unchanged until explicit acceptance/u);
+      expect(completeGoalOperation?.description).toMatch(
+        /does not create or replace a nutrition target/u,
+      );
+      expect(goalHistoryOperation?.description).toMatch(/final canonical trend weight/u);
+      expect(goalDetailOperation?.description).toMatch(/Nullable scale weights/u);
     } finally {
       await app.close();
     }

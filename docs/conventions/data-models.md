@@ -500,6 +500,44 @@ authorization row inside the same SQLite write transaction, then explicitly dele
 targets, check-ins, program, and user in order. The authorization row cascades away with the user;
 rollback restores the whole sequence, and foreign keys remain enabled globally.
 
+Check-ins may link `goalId` and `goalRevisionId` as an all-or-nothing pair. New V2 calculation snapshots
+carry the same authoritative goal/revision identity; historical V1 snapshots remain valid and unchanged.
+The `goal_change` kind is a normal immutable recommendation and never writes a nutrition target before
+explicit acceptance.
+
+#### `adaptive_nutrition_goals`
+
+First-class goal lifecycle rows own progress origins and preserve prior directions.
+
+- `id`: `text` primary key UUID
+- `userId`: `text`, required, FK -> `users.id`, `ON DELETE CASCADE`
+- `programId`: `text`, required, same-owner FK -> `adaptive_nutrition_programs`
+- `type`: `lose | maintain | gain`
+- target/maintenance strategy columns plus canonical `startTrendWeightKg` and nullable
+  `startScaleWeightKg`
+- `startedLocalDate`, nullable `endedLocalDate`, and `active | completed | replaced | cancelled` status
+- `createdAt` / `updatedAt`: integer Unix ms
+
+There is at most one active goal per user. Lifecycle checks keep loss/gain targets directional from the
+canonical start trend and require maintenance center/rate semantics. Goal history is append-only in normal
+operation; guarded account deletion is the only destructive path.
+
+#### `adaptive_nutrition_goal_revisions`
+
+Every created or edited strategy has an immutable revision linked to one goal and owner.
+
+- monotonic positive `sequence`, unique per goal
+- target/center/rate fields for the effective strategy
+- previous strategy fields for replayable change display
+- `reason`: `created | user_edit | migration | goal_completion`
+- `effectiveLocalDate` and `createdAt`
+
+Database triggers reject revision update/delete and reject goal strategy changes unless a matching next
+revision is inserted in the same transaction. Same-direction edits append revisions while keeping the goal's
+start trend/date fixed. Direction changes end the old goal and create a new progress period. Explicit
+completion ends the reached goal and creates one maintenance goal/revision without resetting Adaptive TDEE,
+weight, nutrition, targets, or check-in history.
+
 #### `dashboard_config`
 
 - `id`: `text` primary key UUID

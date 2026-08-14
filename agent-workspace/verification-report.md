@@ -1019,3 +1019,68 @@ After browser mutation, the tracked seeder restored the deterministic 2026-08-13
 `quick_check` returned `ok`, `foreign_key_check` returned no rows, and counts were 13 preview users, 13 active
 goals, and 3 pending check-ins. No production access, deployment, merge, or PR-ready promotion occurred.
 PR #100 remains draft. Milestone 11 is next.
+
+## Milestone 11: Final acceptance and release evidence
+
+Verdict: `AWAITING VECTOR FINAL GOAL-STRATEGY REVIEW`
+
+Milestone 11 completed the original-format and production-history backtests, fresh isolated production-clone
+migration rehearsal, original-plus-goal demo acceptance, user/agent/OpenAPI documentation, fresh-database
+integrity audit, and exact uncached repository gates.
+
+### Backtest and migration rehearsal
+
+- The unchanged original JSON fixture remains compatible: 2026-04-02 was eligible from 20 complete days and
+  8 weights with a 2,490 kcal proposal; 2026-08-13 held with zero current weight inputs and no proposal.
+- The accepted anonymized production-history cohort contains 19 weights from 2026-03-11 through 2026-04-07.
+  It produced an eligible 2026-04-08 row with a 2,430 kcal proposal and an August 13 hold with zero current
+  weight inputs. A first-user shortcut was rejected as invalid evidence after exposing reverse chronology;
+  the permanent runbook now requires the reviewed aggregate cohort.
+- Before/after source-family hashes were identical. The snapshot database hash remained
+  `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4`; the private history database hash
+  remained `536bd528d7413422a1ded82549891cc75c5de1c451458e1a61175e791915fcb6`; the empty WAL hash was
+  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`; and the SHM hash was
+  `fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb`.
+- A fresh isolated snapshot clone used an explicit mode-0600 pounds map for one user and 19 legacy rows
+  (`edf9c53e0d2f0714de7c37f708a94a7028bf9de13826c11e4f0734e6c7c7d751`). First startup reported
+  `legacy-mapped`; second startup reported `already-canonical`. Canonical/provenance nulls and pounds
+  compatibility deltas were zero.
+- The clone retained exactly the source's 37 pre-existing foreign-key violations. Both sorted violation sets
+  hashed to `e4504203d53b83a34f839da256dd26385f8b1950949c58a54646d6e293d18812`; issue #101 remains unchanged.
+- A separate empty regular Gate0 database passed `fresh-database`, 44/44 migrations, `quick_check=ok`, zero
+  foreign-key rows, and zero users/weights/programs/goals/revisions/check-ins before seeding.
+
+### Documentation and contract verification
+
+- README, API conventions, data models, agent integration, the tracked Pulse agent skill, Nutrition help,
+  and the preview runbook now document canonical trend versus scale weight, immutable goal history,
+  JWT-only mutations, explicit goal-change target acceptance, and separate completion review.
+- All seven goal OpenAPI operations explain their read/write, history, target, and completion boundaries.
+  Focused route coverage passed 8/8; focused Nutrition help coverage passed 17/17.
+
+### Browser and database acceptance
+
+- Installed Chrome passed 19/19 original-plus-goal journeys with strict console/page/network/HTTP monitoring.
+  It covered every original Coach lifecycle, every deterministic goal account, mutation/history/completion,
+  stale and retry behavior, keyboard focus, and 320/375/390/430/768/1280 px without overflow.
+- Built-in-browser acceptance walked all 13 accounts using only `pnpm dev:gate0`, visually inspected the
+  Recharts history chart and its native-table equivalent, exercised explicit maintenance completion, and
+  verified Escape restored focus. Observed Gate0 product requests returned 200. The in-app viewport remained
+  1280; the exact six-width proof is the installed-Chrome run.
+- The final Gate0 database was rebuilt from empty and reseeded after mutation QA. It passed `quick_check`,
+  emitted no foreign-key rows, and contains 44 migrations, 13 users, 81 weights, 12 programs, 13 goals,
+  12 active goals, and 3 pending check-ins.
+
+### Exact uncached gates
+
+| Check                             | Observed result                                              |
+| --------------------------------- | ------------------------------------------------------------ |
+| `TURBO_FORCE=true pnpm lint`      | 3/3, 0 cached, zero errors; four pre-existing warnings       |
+| `TURBO_FORCE=true pnpm typecheck` | 3/3, 0 cached                                                |
+| `TURBO_FORCE=true pnpm test`      | Startup/isolation 9; shared 412, API 684, web 1004; 0 cached |
+| `TURBO_FORCE=true pnpm build`     | 3/3, 0 cached; Vite transformed 3,848 modules                |
+| Formatting and diff               | Prettier and `git diff --check` passed                       |
+| Remote PR checks                  | 4/4: CI lint, typecheck, build, and Claude Code Review       |
+
+Production remained untouched. PR #100 remains draft. Vector owns the independent final goal-strategy
+review; no deployment, merge, readiness promotion, or Milestone 12 work was performed.

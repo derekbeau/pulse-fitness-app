@@ -9,7 +9,7 @@ A personal health and fitness tracking app. Most data entry happens via AI agent
 - **Active Workout Sessions** — Multiple concurrent active sessions, server-side session state, and agent-driven mid-session exercise add/remove/reorder updates
 - **Workout Planning** — Calendar scheduling plus reschedule/remove workflows linked to templates and sessions
 - **Exercise Management** — Taxonomy improvements (category/form cues/tags), dedup-aware creation, metadata enrichment workflows, card/table library view toggle, and a unified exercise detail modal across templates/sessions/library
-- **Nutrition** — Tabbed nutrition workspace with `Log`, `Coach`, `Foods`, and `Trends` views, explicit `unknown | partial | complete` day status, and review-before-apply Adaptive TDEE setup, readiness, recommendations, calculations, and history (meals entered via agent API)
+- **Nutrition** — Tabbed nutrition workspace with `Log`, `Coach`, `Foods`, and `Trends` views, explicit `unknown | partial | complete` day status, review-before-apply Adaptive TDEE recommendations, and persistent trend-weight goals with honest progress, immutable revisions/history, and explicit completion-to-maintenance review (meals entered via agent API)
 - **Foods** — Per-user food database inside Nutrition (`/nutrition?view=foods`) with search, management, soft delete support, and recency tracking (`lastUsedAt`)
 - **Unified List Controls** — Exercises, foods, and workout templates use shared sort controls and per-page pagination
 - **Standardized Route Headers** — Shared `PageHeader` pattern for consistent title, description, back-navigation, and header action layouts across pages
@@ -112,7 +112,7 @@ pnpm format     # Format with Prettier
 - Agent-specific conveniences such as name resolution, auto-create behavior, and enriched hints activate automatically for AgentToken callers on `/api/v1/*`.
 - Sensitive auth-management routes, including agent token CRUD, remain JWT-only.
 - Meal summaries can be explicitly updated via meal PATCH routes (`PATCH /api/v1/meals/:id` and `PATCH /api/v1/nutrition/:date/meals/:mealId`) by sending `summary` as text or `null`.
-- `/api/v1/adaptive-nutrition` exposes program state plus preview/history/detail reads to JWT and AgentToken callers. Program changes and recommendation acceptance/decline are JWT-only; previews never apply targets automatically.
+- `/api/v1/adaptive-nutrition` exposes program/check-in state plus current goal, goal history, and canonical trend-detail reads to JWT and AgentToken callers. Program and goal lifecycle decisions are JWT-only. Goal changes create reviewable recommendations; previews and goal mutations never apply nutrition targets automatically, and completion is a separate reviewed transition after target acceptance.
 
 ### Response Format
 

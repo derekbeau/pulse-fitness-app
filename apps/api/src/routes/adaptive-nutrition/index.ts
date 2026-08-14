@@ -143,6 +143,8 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
         },
         tags: ['adaptive-nutrition'],
         summary: 'Get the current adaptive nutrition goal',
+        description:
+          'Returns the active first-class goal, latest immutable revision, and server-owned trend-weight progress. AgentToken callers are read-only.',
         security: authSecurity,
       },
     },
@@ -172,6 +174,8 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
         },
         tags: ['adaptive-nutrition'],
         summary: 'Edit the active adaptive goal without applying nutrition targets',
+        description:
+          'Preserves the progress origin, appends an immutable revision, and creates a reviewable goal-change recommendation. Current nutrition targets remain unchanged until explicit acceptance.',
         security: jwtSecurity,
       },
     },
@@ -202,6 +206,8 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
         },
         tags: ['adaptive-nutrition'],
         summary: 'Start a new adaptive goal and preserve expenditure history',
+        description:
+          'Ends the prior direction, starts a new progress period, and creates a reviewable goal-change recommendation without resetting Adaptive TDEE or applying nutrition targets.',
         security: jwtSecurity,
       },
     },
@@ -230,6 +236,8 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
         },
         tags: ['adaptive-nutrition'],
         summary: 'Cancel the active adaptive goal without changing nutrition targets',
+        description:
+          'Closes the active goal with optimistic revision checks and preserves weight, nutrition, expenditure, target, and check-in history.',
         security: jwtSecurity,
       },
     },
@@ -260,6 +268,8 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
         },
         tags: ['adaptive-nutrition'],
         summary: 'Complete a reached goal and begin explicit maintenance',
+        description:
+          'Rechecks the accepted reached-goal fingerprint, completes the goal, and creates maintenance exactly once. This separate reviewed transition does not create or replace a nutrition target.',
         security: jwtSecurity,
       },
     },
@@ -285,6 +295,8 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
         },
         tags: ['adaptive-nutrition'],
         summary: 'List adaptive nutrition goal history',
+        description:
+          'Returns paginated active and historical goal summaries with lifecycle status, final canonical trend weight, net trend change, and duration.',
         security: authSecurity,
       },
     },
@@ -303,6 +315,8 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
         },
         tags: ['adaptive-nutrition'],
         summary: 'Get adaptive nutrition goal details',
+        description:
+          'Returns one owned goal with immutable revisions, linked accepted check-ins, and canonical weekly trend points. Nullable scale weights are separately identified from authoritative trend weights.',
         security: authSecurity,
       },
     },

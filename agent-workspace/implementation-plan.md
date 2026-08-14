@@ -136,10 +136,10 @@ The authoritative scope, acceptance criteria, and gate evidence are in specifica
 
 ### Milestone 11: Final acceptance and release evidence
 
-- [ ] Rehearse migration on a fresh isolated production clone.
-- [ ] Run complete original-plus-goal demo acceptance and backtest compatibility.
-- [ ] Update docs/OpenAPI/agent guidance and exact release evidence.
-- [ ] Pass uncached full gates, installed-Chrome E2E, branch/PR sync, and remote CI.
+- [x] Rehearse migration on a fresh isolated production clone.
+- [x] Run complete original-plus-goal demo acceptance and backtest compatibility.
+- [x] Update docs/OpenAPI/agent guidance and exact release evidence.
+- [x] Pass uncached full gates, installed-Chrome E2E, branch/PR sync, and remote CI.
 
 **Codex final stop:** after exact uncached full gates and extensive built-in-browser final acceptance, create/push exactly one Milestone 11 commit and stop at `AWAITING VECTOR FINAL GOAL-STRATEGY REVIEW`. Production remains untouched and PR #100 remains draft. Confirmed Vector final-QA defects return to the same Codex goal for one bounded repair commit and re-review.
 
