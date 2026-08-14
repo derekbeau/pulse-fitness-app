@@ -22,7 +22,7 @@ The work crosses weight-unit migration, nutrition completeness, target provenanc
 - [x] Vector Gate 6 independent re-review after confirmed backtest repairs
 - [x] Milestone 7 goal domain, migration, contracts, and isolated-clone rehearsal
 - [x] Milestone 8 goal progress engine, mutations, and accepted target integration
-- [ ] Milestone 9 persistent goal card and edit/new-goal flows
+- [x] Milestone 9 persistent goal card and edit/new-goal flows
 - [ ] Milestone 10 goal detail, history, and completion UX
 - [ ] Milestone 11 final migration rehearsal and complete acceptance
 
@@ -120,15 +120,15 @@ Milestone 1 Gate 1 is independently approved at `2e539387c690f09710648d591e57c5d
 - [x] Vector Gate 6 independent re-review after confirmed backtest repairs
 - [x] Milestone 7 goal domain, migration, contracts, and isolated-clone rehearsal
 - [x] Milestone 8 goal progress engine, mutations, and accepted target integration
-- [ ] Milestone 9 persistent goal card and edit/new-goal flows
+- [x] Milestone 9 persistent goal card and edit/new-goal flows
 - [ ] Milestone 10 goal detail, history, and completion UX
 - [ ] Milestone 11 final migration rehearsal and complete acceptance
 
-Current milestone state: `MILESTONE 8 COMPLETE; MILESTONE 9 IN PROGRESS`. Vector Gate 6 remains
-approved. Milestone 8 adds server-owned goal progress and projections, transactional edit/new/cancel/complete
-operations, explicit goal-change target acceptance, deterministic goal fixtures, backtest support, and
-adversarial stale/concurrent/retry coverage. Milestones 9–11 remain in the same authorized Codex goal. PR
-#100 remains draft and production remains unchanged.
+Current milestone state: `MILESTONE 9 COMPLETE; MILESTONE 10 IN PROGRESS`. Vector Gate 6 remains
+approved. Milestone 9 adds the persistent loss/gain/maintenance goal card, preferred-unit edit and
+new-direction confirmation flows, explicit pending-recommendation replacement, goal-change attribution,
+query invalidation, and keyboard/responsive coverage. Milestones 10–11 remain in the same authorized Codex
+goal. PR #100 remains draft and production remains unchanged.
 
 ## Review focus
 

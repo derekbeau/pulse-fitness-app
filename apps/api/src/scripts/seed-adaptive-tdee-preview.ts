@@ -105,7 +105,7 @@ const FIXTURES: Array<
     idSuffix: '0007',
     name: 'Adaptive Preview · Goal Reached',
     expectedState: 'pending_recommendation',
-    note: 'A pending loss recommendation is inside the goal tolerance and will move to maintenance.',
+    note: 'A pending loss recommendation is inside the goal tolerance and requires explicit completion after acceptance.',
   },
   {
     fixture: 'goal-loss',

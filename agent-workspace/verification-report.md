@@ -917,3 +917,51 @@ product transport failure.
 | Exact uncached tests             | startup/security 8; shared 402; API 668; web 989; 0 cached                        |
 | Exact uncached build             | 3/3, 0 cached                                                                     |
 | Isolation                        | Sensitive SQLite-family hashes unchanged; ports free; no deploy/production action |
+
+## Milestone 9: Persistent goal card and edit/new flows
+
+Milestone 9 renders a persistent `Your goal` card directly after the Coach status for every post-setup
+state. Loss/gain paths distinguish trend from scale, expose accessible distance progress, desired/actual
+pace, and honest completion windows or reasons. Maintenance exposes a center/range visualization,
+distance, status, and days in range without fake completion percentages.
+
+The preferred-unit RHF/Zod editor preserves the original goal origin for same-direction edits and starts a
+new progress period only after a reviewed different-direction confirmation. Pending recommendations require
+a separate supersession checkbox. Every save reveals the immutable `goal_change` recommendation, attributes
+expenditure, strategy, guardrails, and macro preferences separately, and leaves current targets unchanged
+until explicit acceptance.
+
+### Defects found and repaired during acceptance
+
+1. E2E exposed that closing the goal editor returned focus to the document instead of its invoking action.
+   Trigger refs and explicit post-close restoration fixed the product defect; RTL and keyboard-only Chrome
+   scenarios now lock it.
+2. Self-review found the `GOAL_REACHED` reason note still claimed accepting targets moved the program into
+   maintenance. The note and acceptance success message now require a separate reviewed completion step.
+3. The first final Chrome command pointed at Playwright's default E2E database and correctly failed the
+   fixture login before running any journey. The accepted rerun explicitly pinned Gate 0 API 3102, web
+   5274, and the tracked `pulse-tdee-dev.db`; 9/9 passed.
+
+### Automated and browser evidence
+
+| Check                             | Observed result                                                              |
+| --------------------------------- | ---------------------------------------------------------------------------- |
+| Focused adaptive RTL/API          | 2 files, 28/28                                                               |
+| Installed Chrome fixture journeys | 9/9; strict console, page-error, request-failure, and HTTP >= 400 assertions |
+| Responsive acceptance             | 320, 375, 390, 430, 768, and 1280 px; no horizontal overflow; 44 px actions  |
+| `TURBO_FORCE=true pnpm lint`      | 3/3, 0 cached, zero errors; four pre-existing Fast Refresh warnings          |
+| `TURBO_FORCE=true pnpm typecheck` | 3/3, 0 cached                                                                |
+| `TURBO_FORCE=true pnpm test`      | Startup/isolation 9; shared 412, API 684, web 999; 6/6 Turbo tasks, 0 cached |
+| `TURBO_FORCE=true pnpm build`     | 3/3, 0 cached                                                                |
+| Formatting and diff               | Prettier and `git diff --check` passed                                       |
+
+Built-in-browser QA used only `pnpm dev:gate0`. It exercised loss and maintenance cards, trend-versus-scale
+copy, progress/range semantics, edit prefill, reviewed projection, required pending replacement, a saved new
+direction with history/TDEE preservation, explicit goal-change comparison, Escape dismissal, and focus
+restoration. Final inspected tabs had empty console warning/error logs; observed product requests returned 200. The in-app viewport capability advertised width overrides but remained at 1280 after set/reload/new-tab
+attempts. This limitation is recorded rather than misrepresented; exact all-width evidence is the strict
+installed-Chrome run.
+
+After browser mutations, the preview seeder restored its deterministic 2026-08-13 state. SQLite returned
+`quick_check=ok`, 13 fixture users, 12 active goals, and 3 pending check-ins. No production access,
+deployment, merge, or PR-ready promotion occurred. PR #100 remains draft. Milestone 10 is next.

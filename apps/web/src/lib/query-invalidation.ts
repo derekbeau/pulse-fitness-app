@@ -30,6 +30,7 @@ export const crossFeatureInvalidationMap = {
   activeWorkoutSessionMutation: () =>
     [dashboardSnapshotQueryKeys.all] as const satisfies readonly QueryKey[],
   adaptiveProgramMutation: () => [adaptiveNutritionQueryKey] as const satisfies readonly QueryKey[],
+  adaptiveGoalMutation: () => [adaptiveNutritionQueryKey] as const satisfies readonly QueryKey[],
   adaptivePreviewMutation: () => [adaptiveNutritionQueryKey] as const satisfies readonly QueryKey[],
   adaptiveResolutionMutation: () =>
     [

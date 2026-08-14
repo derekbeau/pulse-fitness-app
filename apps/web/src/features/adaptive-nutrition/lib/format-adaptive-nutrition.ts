@@ -118,7 +118,8 @@ export const adaptiveReasonCopy: Record<AdaptiveReasonCode, { action: string; la
   },
   GOAL_REACHED: {
     label: 'Goal range reached',
-    action: 'Accepting this recommendation moves the program to maintenance.',
+    action:
+      'Accept this target recommendation, then review goal completion before moving to maintenance.',
   },
   TODAY_INCLUDED: {
     label: 'Today included',

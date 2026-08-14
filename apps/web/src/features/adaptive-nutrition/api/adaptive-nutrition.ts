@@ -3,10 +3,13 @@ import {
   adaptiveAcceptResultSchema,
   adaptiveCheckInDetailSchema,
   adaptiveCheckInSummarySchema,
+  adaptiveCurrentGoalSchema,
   adaptiveNutritionStateSchema,
   adaptiveProgramSchema,
   apiMetaSchema,
   type AdaptiveAcceptInput,
+  type AdaptiveGoalEditInput,
+  type AdaptiveGoalStartInput,
   type AdaptivePreviewInput,
   type AdaptiveProgramMutation,
 } from '@pulse/shared';
@@ -50,6 +53,18 @@ const declineAdaptiveNutritionCheckIn = (id: string) =>
   apiRequest<unknown>(`/api/v1/adaptive-nutrition/check-ins/${id}/decline`, {
     method: 'POST',
   }).then((value) => adaptiveCheckInDetailSchema.parse(value));
+
+const editAdaptiveGoal = ({ id, input }: { id: string; input: AdaptiveGoalEditInput }) =>
+  apiRequest<unknown>(`/api/v1/adaptive-nutrition/goals/${id}`, {
+    body: input,
+    method: 'PATCH',
+  }).then((value) => adaptiveCurrentGoalSchema.parse(value));
+
+const startAdaptiveGoal = (input: AdaptiveGoalStartInput) =>
+  apiRequest<unknown>('/api/v1/adaptive-nutrition/goals', {
+    body: input,
+    method: 'POST',
+  }).then((value) => adaptiveCurrentGoalSchema.parse(value));
 
 const fetchAdaptiveNutritionHistory = async (page: number, limit: number, signal?: AbortSignal) => {
   const response = await apiRequestWithMeta<unknown, unknown>(
@@ -136,6 +151,30 @@ export const useDeclineAdaptiveNutritionCheckIn = () => {
         crossFeatureInvalidationMap.adaptiveResolutionMutation(),
       );
       toast.success('Current targets kept');
+    },
+  });
+};
+
+export const useEditAdaptiveGoal = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: editAdaptiveGoal,
+    onSuccess: async () => {
+      await invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.adaptiveGoalMutation());
+      toast.success('Goal updated');
+    },
+  });
+};
+
+export const useStartAdaptiveGoal = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: startAdaptiveGoal,
+    onSuccess: async () => {
+      await invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.adaptiveGoalMutation());
+      toast.success('New goal started');
     },
   });
 };

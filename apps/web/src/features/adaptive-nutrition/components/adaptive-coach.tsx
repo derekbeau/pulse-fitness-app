@@ -1,5 +1,5 @@
 import { CalendarCheck2, CheckCircle2, RefreshCw, Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,8 @@ import { AdaptiveSetupForm } from './adaptive-setup-form';
 import { AlgorithmStatusCard } from './algorithm-status-card';
 import { CheckInComparison } from './check-in-comparison';
 import { CheckInHistory } from './check-in-history';
+import { GoalCard } from './goal-card';
+import { GoalEditorDialog } from './goal-editor-dialog';
 
 export function AdaptiveCoach() {
   const stateQuery = useAdaptiveNutritionState();
@@ -31,6 +33,10 @@ export function AdaptiveCoach() {
   const [actionMessage, setActionMessage] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [staleCheckInId, setStaleCheckInId] = useState<string | null>(null);
+  const [goalEditorMode, setGoalEditorMode] = useState<'edit' | 'new' | null>(null);
+  const editGoalButtonRef = useRef<HTMLButtonElement>(null);
+  const startNewGoalButtonRef = useRef<HTMLButtonElement>(null);
+  const lastGoalTriggerRef = useRef<HTMLButtonElement | null>(null);
   const { confirm, dialog } = useConfirmation();
   const pendingId = stateQuery.data?.pendingCheckIn?.id ?? null;
   const pendingDetailQuery = useAdaptiveNutritionCheckIn(pendingId, pendingId !== null);
@@ -93,7 +99,7 @@ export function AdaptiveCoach() {
       setStaleCheckInId(null);
       setActionMessage(
         result.checkIn.calculationSnapshot.goal?.goalReached
-          ? 'Targets accepted. Your goal range is reached, so the coaching program is now in maintenance.'
+          ? 'Targets accepted. Your goal range is reached; review goal completion before moving to maintenance.'
           : 'Targets accepted and applied from today.',
       );
     } catch (error) {
@@ -196,6 +202,22 @@ export function AdaptiveCoach() {
         <>
           <AlgorithmStatusCard state={state} />
 
+          <GoalCard
+            goal={state.activeGoal}
+            goalActionRequired={state.goalActionRequired}
+            editButtonRef={editGoalButtonRef}
+            onEdit={() => {
+              lastGoalTriggerRef.current = editGoalButtonRef.current;
+              setGoalEditorMode('edit');
+            }}
+            onStartNew={() => {
+              lastGoalTriggerRef.current = startNewGoalButtonRef.current;
+              setGoalEditorMode('new');
+            }}
+            progress={state.goalProgress}
+            startNewButtonRef={startNewGoalButtonRef}
+          />
+
           {actionMessage ? (
             <div
               aria-live="polite"
@@ -246,6 +268,28 @@ export function AdaptiveCoach() {
           )}
 
           <CheckInHistory />
+
+          {state.program ? (
+            <GoalEditorDialog
+              activeGoal={state.activeGoal}
+              fallbackGoalType={state.program.goalType}
+              fallbackGoalWeightKg={state.program.targetWeightKg}
+              mode={goalEditorMode ?? 'new'}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setGoalEditorMode(null);
+                  queueMicrotask(() => lastGoalTriggerRef.current?.focus());
+                }
+              }}
+              onSaved={(message) => {
+                setActionError(null);
+                setActionMessage(message);
+              }}
+              open={goalEditorMode !== null}
+              pendingRecommendation={state.pendingCheckIn}
+              progress={state.goalProgress}
+            />
+          ) : null}
         </>
       )}
       {dialog}

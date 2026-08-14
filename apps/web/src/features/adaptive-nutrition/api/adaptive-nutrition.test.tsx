@@ -15,8 +15,10 @@ import {
   useAcceptAdaptiveNutritionCheckIn,
   useAdaptiveNutritionHistory,
   useAdaptiveNutritionState,
+  useEditAdaptiveGoal,
   usePreviewAdaptiveNutritionCheckIn,
   usePutAdaptiveNutritionProgram,
+  useStartAdaptiveGoal,
 } from './adaptive-nutrition';
 import { adaptiveNutritionQueryKeys } from './keys';
 
@@ -209,6 +211,82 @@ const state: AdaptiveNutritionState = {
   goalActionRequired: null,
 };
 
+const currentGoal = {
+  goal: {
+    id: 'goal-1',
+    userId: 'user-1',
+    programId: 'program-1',
+    type: 'lose' as const,
+    status: 'active' as const,
+    targetWeightKg: 75,
+    maintenanceCenterKg: null,
+    goalRatePctPerWeek: -0.5,
+    startTrendWeightKg: 82,
+    startScaleWeightKg: 82.1,
+    startedLocalDate: '2026-07-01',
+    endedLocalDate: null,
+    endedReason: null,
+    createdAt: 1,
+    updatedAt: 1,
+  },
+  latestRevision: {
+    id: 'revision-1',
+    goalId: 'goal-1',
+    userId: 'user-1',
+    sequence: 1,
+    targetWeightKg: 75,
+    maintenanceCenterKg: null,
+    goalRatePctPerWeek: -0.5,
+    previousTargetWeightKg: 75,
+    previousCenterKg: null,
+    previousRatePctPerWeek: -0.5,
+    reason: 'created' as const,
+    effectiveLocalDate: '2026-07-01',
+    createdAt: 1,
+  },
+  progress: {
+    kind: 'weight_change' as const,
+    goalId: 'goal-1',
+    goalRevisionId: 'revision-1',
+    revisionSequence: 1,
+    startedLocalDate: '2026-07-01',
+    currentLocalDate: '2026-08-13',
+    currentTrendWeightKg: 80,
+    latestScaleWeightKg: 80.2,
+    actualRateKgPerWeek: -0.3,
+    trendFreshness: 'fresh' as const,
+    confidence: 'High' as const,
+    provenance: 'valid_trend' as const,
+    type: 'lose' as const,
+    startTrendWeightKg: 82,
+    targetWeightKg: 75,
+    totalDistanceKg: 7,
+    completedDistanceKg: 2,
+    remainingDistanceKg: 5,
+    percentComplete: 28.57,
+    desiredRatePctPerWeek: -0.5,
+    desiredRateKgPerWeek: -0.4,
+    trajectory: 'toward_goal' as const,
+    status: 'on_track' as const,
+    desiredProjection: {
+      basis: 'desired' as const,
+      weeks: 12.5,
+      projectedStartDate: '2026-10-25',
+      projectedEndDate: '2026-11-24',
+      unavailableReason: null,
+    },
+    actualProjection: {
+      basis: 'actual' as const,
+      weeks: 16.67,
+      projectedStartDate: '2026-11-11',
+      projectedEndDate: '2027-01-03',
+      unavailableReason: null,
+    },
+  },
+  pendingGoalChange: null,
+  allowedActions: { edit: true, startNew: true, cancel: true, complete: false },
+};
+
 function createJsonResponse(data: unknown, meta?: unknown) {
   return new Response(JSON.stringify(meta ? { data, meta } : { data }), {
     headers: { 'Content-Type': 'application/json' },
@@ -324,6 +402,63 @@ describe('adaptive nutrition api hooks', () => {
     ]) {
       expect(invalidateQueries).toHaveBeenCalledWith({ queryKey });
     }
+  });
+
+  it('edits and starts goals with strict payloads and adaptive invalidation', async () => {
+    mockFetch.mockResolvedValueOnce(createJsonResponse(currentGoal)).mockResolvedValueOnce(
+      createJsonResponse({
+        ...currentGoal,
+        goal: {
+          ...currentGoal.goal,
+          id: 'goal-2',
+          type: 'gain',
+          targetWeightKg: 86,
+          goalRatePctPerWeek: 0.25,
+        },
+      }),
+    );
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const editHook = renderHook(() => useEditAdaptiveGoal(), { wrapper });
+    const startHook = renderHook(() => useStartAdaptiveGoal(), { wrapper });
+
+    await act(async () => {
+      await editHook.result.current.mutateAsync({
+        id: 'goal-1',
+        input: {
+          type: 'lose',
+          targetWeightKg: 74,
+          maintenanceCenterKg: null,
+          goalRatePctPerWeek: -0.6,
+          supersedePendingRecommendation: true,
+          expectedRevisionId: 'revision-1',
+        },
+      });
+    });
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/v1/adaptive-nutrition/goals/goal-1');
+    expect(mockFetch.mock.calls[0][1]).toEqual(expect.objectContaining({ method: 'PATCH' }));
+    expect(JSON.parse(String(mockFetch.mock.calls[0][1]?.body))).toEqual({
+      type: 'lose',
+      targetWeightKg: 74,
+      maintenanceCenterKg: null,
+      goalRatePctPerWeek: -0.6,
+      supersedePendingRecommendation: true,
+      expectedRevisionId: 'revision-1',
+    });
+
+    await act(async () => {
+      await startHook.result.current.mutateAsync({
+        type: 'gain',
+        targetWeightKg: 86,
+        maintenanceCenterKg: null,
+        goalRatePctPerWeek: 0.25,
+        supersedePendingRecommendation: false,
+      });
+    });
+    expect(mockFetch.mock.calls[1][0]).toBe('/api/v1/adaptive-nutrition/goals');
+    expect(mockFetch.mock.calls[1][1]).toEqual(expect.objectContaining({ method: 'POST' }));
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: adaptiveNutritionQueryKey });
   });
 
   it('builds stable hierarchical keys', () => {

@@ -119,10 +119,10 @@ The authoritative scope, acceptance criteria, and gate evidence are in specifica
 
 ### Milestone 9: Persistent goal card and edit/new flows
 
-- [ ] Keep goal/progress visible in every Coach state.
-- [ ] Add loss/gain progress, maintenance range, and honest projections.
-- [ ] Add accessible edit/new-goal and pending-recommendation replacement flows.
-- [ ] Pass focused RTL, installed-Chrome journeys, and all required widths.
+- [x] Keep goal/progress visible in every Coach state.
+- [x] Add loss/gain progress, maintenance range, and honest projections.
+- [x] Add accessible edit/new-goal and pending-recommendation replacement flows.
+- [x] Pass focused RTL, installed-Chrome journeys, and all required widths.
 
 **Codex checkpoint:** run focused RTL, exact uncached full gates, installed-Chrome E2E, and extensive built-in-browser QA across all paths and widths; create/push exactly one Milestone 9 commit, then continue to Milestone 10.
 

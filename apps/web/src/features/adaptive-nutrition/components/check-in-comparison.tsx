@@ -37,12 +37,19 @@ export function CheckInComparison({
   const isStale = Boolean(onRefresh);
   const current = checkIn.currentTargets;
   const proposed = checkIn.proposedTargets;
+  const isGoalChange = checkIn.kind === 'goal_change';
 
   return (
     <Card className="gap-5 border-primary/30 py-5 shadow-[0_18px_60px_-42px_var(--color-primary)]">
       <CardHeader className="gap-2 px-5 sm:px-6">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge>{checkIn.kind === 'baseline' ? 'Starting plan' : 'Recommendation'}</Badge>
+          <Badge>
+            {checkIn.kind === 'baseline'
+              ? 'Starting plan'
+              : isGoalChange
+                ? 'Goal update'
+                : 'Recommendation'}
+          </Badge>
           {checkIn.reasonCodes.includes('GOAL_REACHED') ? (
             <Badge variant="outline">Goal reached</Badge>
           ) : null}
@@ -51,7 +58,9 @@ export function CheckInComparison({
           <h2>Current and proposed targets</h2>
         </CardTitle>
         <CardDescription>
-          Nothing changes until you accept. Keeping current targets preserves your existing plan.
+          {isGoalChange
+            ? 'Your goal changed. Your current nutrition targets stay in place until you accept this recommendation.'
+            : 'Nothing changes until you accept. Keeping current targets preserves your existing plan.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5 px-5 sm:px-6">
@@ -91,6 +100,37 @@ export function CheckInComparison({
             proposed={formatAdaptiveGrams(proposed?.fat)}
           />
         </div>
+
+        {isGoalChange ? (
+          <div
+            aria-label="Recommendation attribution"
+            className="rounded-xl border border-border/70 p-4"
+          >
+            <h3 className="text-sm font-semibold">What changed this recommendation</h3>
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+              <AttributionItem
+                label="Expenditure"
+                value={formatAdaptiveDifference(
+                  checkIn.proposedTdeeKcal,
+                  checkIn.priorTdeeKcal,
+                  'kcal',
+                )}
+              />
+              <AttributionItem label="Goal strategy" value="Updated goal, target, or pace" />
+              <AttributionItem
+                label="Guardrails"
+                value={
+                  checkIn.reasonCodes.some((code) =>
+                    ['CALORIE_FLOOR_APPLIED', 'DEFICIT_LIMIT_APPLIED'].includes(code),
+                  )
+                    ? 'Applied to the proposed calories'
+                    : 'No additional limit applied'
+                }
+              />
+              <AttributionItem label="Macro preferences" value="Preserved from your program" />
+            </dl>
+          </div>
+        ) : null}
 
         {checkIn.reasonCodes.length ? (
           <div className="flex flex-wrap gap-2" aria-label="Recommendation notes">
@@ -149,6 +189,15 @@ export function CheckInComparison({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function AttributionItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 font-medium">{value}</dd>
+    </div>
   );
 }
 

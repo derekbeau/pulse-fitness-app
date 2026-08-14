@@ -67,6 +67,7 @@ describe('crossFeatureInvalidationMap', () => {
     expect(crossFeatureInvalidationMap.adaptiveProgramMutation()).toEqual([
       adaptiveNutritionQueryKey,
     ]);
+    expect(crossFeatureInvalidationMap.adaptiveGoalMutation()).toEqual([adaptiveNutritionQueryKey]);
     expect(crossFeatureInvalidationMap.adaptivePreviewMutation()).toEqual([
       adaptiveNutritionQueryKey,
     ]);
