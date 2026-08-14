@@ -1,11 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { BodyWeightEntry } from '@pulse/shared';
-import { computeEWMA, computeWeightInsights } from '@pulse/shared';
+import {
+  bodyWeightEntrySchema,
+  computeEWMA,
+  computeWeightInsights,
+  type WeightUnit,
+} from '@pulse/shared';
 import { Link } from 'react-router';
 
 import { DashboardCardHeaderLink } from '@/features/dashboard/components/dashboard-drilldown-link';
 import { weightQueryKeys } from '@/features/weight/api/weight';
+import { useWeightUnit } from '@/hooks/use-weight-unit';
 import {
   CartesianGrid,
   Line,
@@ -102,15 +107,18 @@ const fetchWeightEntries = async ({ from, to }: ResolvedRange) => {
   const query = params.toString();
   const path = query ? `/api/v1/weight?${query}` : '/api/v1/weight';
 
-  return apiRequest<BodyWeightEntry[]>(path, { method: 'GET' });
+  const response = await apiRequest<unknown>(path, { method: 'GET' });
+  const entries = bodyWeightEntrySchema.array().parse(response);
+  if (new Set(entries.map((entry) => entry.unit)).size > 1) {
+    throw new Error('Weight response contains mixed display units.');
+  }
+  return entries;
 };
 
-const formatWeightLabel = (value: number) => formatWeight(value, 'lbs');
-
-const formatInsightChange = (change: number) => {
+const formatInsightChange = (change: number, unit: 'lbs' | 'kg') => {
   const formatted = formatTrendChange(change);
   const signPrefix = change > 0 ? '+' : '';
-  return `${signPrefix}${formatted} lbs`;
+  return `${signPrefix}${formatted} ${unit}`;
 };
 
 const getDirectionGlyph = (direction: 'up' | 'down' | 'stable') => {
@@ -144,6 +152,7 @@ const computeYAxisDomain = (data: ChartPoint[]): [number, number] => {
 };
 
 export function WeightTrendChart() {
+  const { weightUnit: profileWeightUnit } = useWeightUnit();
   const [selectedRange, setSelectedRange] = useState<RangeOption>(DEFAULT_RANGE);
   const [visibleSeries, setVisibleSeries] = useState({
     scale: true,
@@ -157,6 +166,8 @@ export function WeightTrendChart() {
     refetchInterval: getForegroundPollingInterval(WEIGHT_TREND_POLL_INTERVAL_MS) ?? false,
     refetchIntervalInBackground: false,
   });
+  const responseWeightUnit: WeightUnit = weightEntriesQuery.data?.[0]?.unit ?? profileWeightUnit;
+  const formatWeightLabel = (value: number) => formatWeight(value, responseWeightUnit);
 
   const chartData = useMemo(() => {
     const entries = weightEntriesQuery.data ?? [];
@@ -303,7 +314,11 @@ export function WeightTrendChart() {
                 className="h-[220px] w-full sm:h-[280px]"
                 role="img"
               >
-                <ResponsiveContainer height="100%" width="100%">
+                <ResponsiveContainer
+                  height="100%"
+                  initialDimension={{ height: 220, width: 320 }}
+                  width="100%"
+                >
                   <LineChart data={chartData} margin={{ top: 8, right: 4, bottom: 2, left: 0 }}>
                     <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
                     <XAxis
@@ -402,13 +417,15 @@ export function WeightTrendChart() {
               data-slot="weight-trend-insights"
             >
               <p className="text-sm text-foreground">
-                3-day change: {formatInsightChange(threeDayInsights.periodChange)}{' '}
+                3-day change:{' '}
+                {formatInsightChange(threeDayInsights.periodChange, responseWeightUnit)}{' '}
                 <span aria-label={`3-day direction ${threeDayInsights.direction}`}>
                   {getDirectionGlyph(threeDayInsights.direction)}
                 </span>
               </p>
               <p className="text-sm text-foreground">
-                7-day change: {formatInsightChange(sevenDayInsights.periodChange)}{' '}
+                7-day change:{' '}
+                {formatInsightChange(sevenDayInsights.periodChange, responseWeightUnit)}{' '}
                 <span aria-label={`7-day direction ${sevenDayInsights.direction}`}>
                   {getDirectionGlyph(sevenDayInsights.direction)}
                 </span>

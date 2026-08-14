@@ -12,6 +12,7 @@ import {
 import { fileURLToPath } from 'node:url';
 
 import { authRoutes } from './routes/auth/index.js';
+import { adaptiveNutritionRoutes } from './routes/adaptive-nutrition/index.js';
 import { agentTokenRoutes } from './routes/agent-tokens/index.js';
 import { exerciseRoutes } from './routes/exercises/index.js';
 import { foodsRoutes } from './routes/foods/index.js';
@@ -229,6 +230,7 @@ export const buildServer = () => {
 
   app.get('/health', async () => ({ status: 'ok' }));
   app.register(authRoutes, { prefix: '/api/v1/auth' });
+  app.register(adaptiveNutritionRoutes, { prefix: '/api/v1/adaptive-nutrition' });
   app.register(agentTokenRoutes, { prefix: '/api/v1/agent-tokens' });
   app.register(exerciseRoutes, { prefix: '/api/v1/exercises' });
   app.register(foodsRoutes, { prefix: '/api/v1/foods' });
@@ -256,12 +258,27 @@ const start = async () => {
       import('drizzle-orm/better-sqlite3/migrator'),
     ]);
     const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
+    const { prepareCanonicalWeightMigrationFromEnvironment } =
+      await import('./db/canonical-weight-migration.js');
+    const weightMigrationPreflight = prepareCanonicalWeightMigrationFromEnvironment(sqlite);
+    app.log.info(
+      {
+        affectedUsers: weightMigrationPreflight.affectedUsers,
+        legacyRows: weightMigrationPreflight.legacyRows,
+        mapSha256: weightMigrationPreflight.mapSha256,
+        state: weightMigrationPreflight.state,
+      },
+      'Canonical body-weight migration preflight passed',
+    );
 
     // Disable FK checks for migrations — PRAGMA foreign_keys doesn't work
     // inside transactions, and Drizzle wraps each migration in one.
     sqlite.pragma('foreign_keys = OFF');
     migrate(db, { migrationsFolder });
     sqlite.pragma('foreign_keys = ON');
+    const { backfillAdaptiveNutritionGoals } = await import('./db/adaptive-goal-backfill.js');
+    const goalBackfill = backfillAdaptiveNutritionGoals(sqlite);
+    app.log.info(goalBackfill, 'Adaptive nutrition goal backfill passed');
 
     const shutdown = async () => {
       app.log.info('Shutting down…');

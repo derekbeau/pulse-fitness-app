@@ -35,6 +35,21 @@ Use this skill to operate the Pulse fitness app through its agent API. This cove
 
 ## Nutrition & Food Logging
 
+### Adaptive TDEE and goal reads
+
+- Read current coaching state with `GET /api/v1/adaptive-nutrition/`.
+- AgentToken auth may create a reviewable preview with
+  `POST /api/v1/adaptive-nutrition/check-ins/preview`; it never applies a target automatically.
+- Read replayable check-ins from `GET /api/v1/adaptive-nutrition/check-ins[/:id]`.
+- Read the active goal from `GET /api/v1/adaptive-nutrition/goals/current` and goal history/detail from
+  `GET /api/v1/adaptive-nutrition/goals[/:id]`.
+- Goal detail exposes canonical `trendWeightKg` plus separately labeled nullable `scaleWeightKg`; use trend
+  weight for progress statements.
+- Program changes, recommendation accept/decline, and goal edit/start/cancel/complete operations are
+  JWT-only user decisions. Never claim a goal change updated nutrition before its recommendation is accepted,
+  or that reaching/accepting a target automatically completed the goal; maintenance begins only after the
+  separate reviewed completion step.
+
 ### Logging Workflow
 
 1. **Check recent food logs first.** Before asking clarifying questions, look at the last 2-3 days of nutrition logs. If the user gives vague or fuzzy details ("had some of that rice," "more chicken," "same as yesterday"), assume they mean something recently logged. Recent logs represent what is currently in the fridge/pantry.

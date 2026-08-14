@@ -38,6 +38,9 @@ type TestState = {
     protein: number;
     carbs: number;
     fat: number;
+    source: 'manual' | 'adaptive';
+    adaptiveCheckInId: string | null;
+    macroCalories: number | null;
     effectiveDate: string;
     createdAt: number;
     updatedAt: number;
@@ -86,9 +89,12 @@ function getLatestPostBody(pathFragment: string) {
 }
 
 describe('SettingsPage', () => {
+  let originalTimezone: string | undefined;
   let state: TestState;
 
   beforeEach(() => {
+    originalTimezone = process.env.TZ;
+    process.env.TZ = 'America/Detroit';
     state = {
       dashboardConfig: {
         habitChainIds: ['habit-hydrate'],
@@ -179,8 +185,25 @@ describe('SettingsPage', () => {
             );
           }
 
+          const input = JSON.parse(String(init.body)) as {
+            calories: number;
+            protein: number;
+            carbs: number;
+            fat: number;
+            effectiveDate: string;
+          };
+          state.nutritionCurrent = {
+            id: 'target-1',
+            ...input,
+            source: 'manual',
+            adaptiveCheckInId: null,
+            macroCalories: input.protein * 4 + input.carbs * 4 + input.fat * 9,
+            createdAt: 1,
+            updatedAt: 1,
+          };
+
           return Promise.resolve(
-            new Response(JSON.stringify({ data: JSON.parse(String(init.body)) }), {
+            new Response(JSON.stringify({ data: state.nutritionCurrent }), {
               headers: { 'Content-Type': 'application/json' },
               status: 200,
             }),
@@ -306,6 +329,12 @@ describe('SettingsPage', () => {
   });
 
   afterEach(() => {
+    if (originalTimezone === undefined) {
+      delete process.env.TZ;
+    } else {
+      process.env.TZ = originalTimezone;
+    }
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -366,6 +395,9 @@ describe('SettingsPage', () => {
   });
 
   it('saves nutrition targets and dashboard config via API', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-03-09T01:30:00.000Z'));
+
     renderSettingsPage();
 
     await waitFor(() => {
@@ -388,7 +420,7 @@ describe('SettingsPage', () => {
     expect(getLatestPostBody('/api/v1/nutrition-targets')).toEqual({
       calories: 2250,
       carbs: 250,
-      effectiveDate: new Date().toISOString().slice(0, 10),
+      effectiveDate: '2026-03-08',
       fat: 65,
       protein: 150,
     });

@@ -19,6 +19,45 @@ Current examples:
 - `/api/v1/agent-tokens`
 - `/api/v1/context`
 
+### Nutrition completeness
+
+`PATCH /api/v1/nutrition/:date/status` accepts JWT or AgentToken auth and body
+`{ "status": "unknown" | "partial" | "complete" }`. It returns the updated nutrition log in the
+standard envelope. Completing a future date returns `400 FUTURE_NUTRITION_DATE`; changing status
+without an owned log returns `409 NUTRITION_LOG_REQUIRED`. Meal and item mutations automatically
+downgrade complete days to partial in their data transaction.
+
+Nutrition-target responses include `source`, `adaptiveCheckInId`, and `macroCalories`. The existing
+manual target mutation never accepts caller-owned provenance: unknown adaptive-link fields are
+stripped by the shared request schema, and the store persists `source = manual`, a null check-in
+link, and server-derived macro calories. Adaptive target writes occur only when the JWT-only
+acceptance route validates and resolves an owned pending check-in inside an immediate transaction.
+
+### Adaptive nutrition lifecycle
+
+The `/api/v1/adaptive-nutrition` plugin uses shared strict schemas and standard response envelopes:
+
+- `GET /` and `GET /check-ins[/:id]`: JWT or AgentToken read state and replayable history.
+- `GET /goals/current`, `GET /goals`, and `GET /goals/:id`: JWT or AgentToken current goal,
+  paginated lifecycle history, immutable revisions, linked accepted check-ins, and canonical weekly trend
+  points. `trendWeightKg` is authoritative; `scaleWeightKg` is nullable and separately labeled.
+- `POST /check-ins/preview`: JWT or AgentToken mutation that persists a proposal or held attempt but never changes targets.
+- `PUT /program`, `POST /check-ins/:id/accept`, and `POST /check-ins/:id/decline`: JWT-only account/coaching decisions.
+- `PATCH /goals/:id`, `POST /goals`, `POST /goals/:id/cancel`, and
+  `POST /goals/:id/complete`: JWT-only goal decisions with optimistic revision/fingerprint conflicts.
+
+Preview and acceptance use explicit SQLite immediate transactions. Identical pending previews
+converge, changed inputs supersede the old pending row, and acceptance recomputes the fingerprint
+from the check-in's persisted local date and boundaries. Stale inputs return `409 CHECKIN_STALE`;
+same-date target replacement requires `replaceSameDateTarget: true`. Accepted and repeatedly
+declined rows are idempotent as specified, while held/superseded/other terminal rows are not reopened.
+
+Goal edits preserve the existing progress origin and append an immutable revision. A different direction
+creates a new historical goal and a `goal_change` recommendation; current nutrition targets remain unchanged
+until that recommendation is accepted. Completion consumes an already accepted reached-goal check-in,
+rechecks its source fingerprint, closes the goal, and creates maintenance exactly once without creating or
+replacing another target. Lost-response retries must reuse the same `checkInId` and `expectedRevisionId`.
+
 ## Request Validation
 
 - Validate every request boundary with Zod: body, querystring, params, and headers when applicable.

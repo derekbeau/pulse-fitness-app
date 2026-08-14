@@ -1,26 +1,26 @@
 import { randomUUID } from 'node:crypto';
 
 import { sql } from 'drizzle-orm';
-import {
-  check,
-  integer,
-  real,
-  sqliteTable,
-  text,
-  unique,
-} from 'drizzle-orm/sqlite-core';
+import { check, integer, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
+
+import type { WeightUnit } from '@pulse/shared';
 
 import { users } from './users.js';
 
 export const bodyWeight = sqliteTable(
   'body_weight',
   {
-    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     date: text('date').notNull(),
+    // v1 compatibility only: this column is always pounds. New readers must use weightKg.
     weight: real('weight').notNull(),
+    weightKg: real('weight_kg').notNull(),
+    unitAtEntry: text('unit_at_entry').$type<WeightUnit>().notNull(),
     notes: text('notes'),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
@@ -39,5 +39,11 @@ export const bodyWeight = sqliteTable(
       sql`${table.date} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
     ),
     check('body_weight_weight_check', sql`${table.weight} > 0`),
+    check('body_weight_weight_kg_check', sql`${table.weightKg} between 25 and 350`),
+    check('body_weight_unit_at_entry_check', sql`${table.unitAtEntry} in ('lbs', 'kg')`),
+    check(
+      'body_weight_legacy_pounds_check',
+      sql`abs(${table.weight} - (${table.weightKg} / 0.45359237)) < 0.000001`,
+    ),
   ],
 );

@@ -1,0 +1,237 @@
+#!/usr/bin/env node
+
+import console from 'node:console';
+import { constants, lstatSync, realpathSync } from 'node:fs';
+import { access } from 'node:fs/promises';
+import net from 'node:net';
+import { dirname, resolve } from 'node:path';
+import process from 'node:process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { spawn } from 'node:child_process';
+
+export const GATE0_API_PORT = 3102;
+export const GATE0_WEB_PORT = 5274;
+export const GATE0_DATABASE_RELATIVE_PATH = 'apps/api/data/pulse-tdee-dev.db';
+export const GATE0_WEIGHT_MAP_RELATIVE_PATH = 'apps/api/data/body-weight-legacy-unit-map.json';
+export const GATE0_DEFAULT_WEB_HOST = '127.0.0.1';
+
+export const validateGate0WebHost = (host) => {
+  if (host === GATE0_DEFAULT_WEB_HOST) return host;
+  const octets = host.split('.').map(Number);
+  const isTailscaleIpv4 =
+    octets.length === 4 &&
+    octets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255) &&
+    octets[0] === 100 &&
+    octets[1] >= 64 &&
+    octets[1] <= 127;
+  if (!isTailscaleIpv4) {
+    throw new Error(
+      'Refusing Gate 0 startup: web host must be 127.0.0.1 or a Tailscale IPv4 address in 100.64.0.0/10.',
+    );
+  }
+  return host;
+};
+
+export const resolveGate0Config = (repoRoot, webHost = GATE0_DEFAULT_WEB_HOST) => {
+  const databasePath = resolve(repoRoot, GATE0_DATABASE_RELATIVE_PATH);
+  const weightMapPath = resolve(repoRoot, GATE0_WEIGHT_MAP_RELATIVE_PATH);
+
+  return {
+    apiPort: GATE0_API_PORT,
+    databasePath,
+    proxyPort: GATE0_API_PORT,
+    webPort: GATE0_WEB_PORT,
+    webHost: validateGate0WebHost(webHost),
+    weightMapPath,
+  };
+};
+
+export const validateGate0Database = (repoRoot, databaseUrl) => {
+  const expectedPath = resolve(repoRoot, GATE0_DATABASE_RELATIVE_PATH);
+  const resolvedPath = resolve(repoRoot, databaseUrl);
+
+  if (resolvedPath !== expectedPath) {
+    throw new Error(
+      `Refusing Gate 0 startup: DATABASE_URL must resolve to ${GATE0_DATABASE_RELATIVE_PATH}.`,
+    );
+  }
+
+  const stat = lstatSync(resolvedPath);
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error(
+      'Refusing Gate 0 startup: isolated database must be a regular, non-symlink file.',
+    );
+  }
+
+  if ((stat.mode & 0o222) === 0) {
+    throw new Error('Refusing Gate 0 startup: isolated database is not writable.');
+  }
+
+  const realPath = realpathSync(resolvedPath);
+  if (realPath !== realpathSync(expectedPath)) {
+    throw new Error(
+      'Refusing Gate 0 startup: isolated database resolves outside its tracked location.',
+    );
+  }
+
+  return realPath;
+};
+
+export const createGate0Environment = (baseEnvironment, config) => ({
+  ...baseEnvironment,
+  DATABASE_URL: config.databasePath,
+  BODY_WEIGHT_LEGACY_UNIT_MAP_PATH: config.weightMapPath,
+  API_URL: `http://${config.webHost}:${config.webPort}`,
+  PORT: String(config.apiPort),
+  VITE_API_PORT: String(config.proxyPort),
+  VITE_API_PROXY_TARGET: `http://127.0.0.1:${config.proxyPort}`,
+  VITE_PORT: String(config.webPort),
+});
+
+const assertPortAvailable = (host, port) =>
+  new Promise((resolvePromise, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.once('error', () => {
+      reject(new Error(`Refusing Gate 0 startup: port ${port} is already in use.`));
+    });
+    server.listen({ host, port }, () => {
+      server.close(() => resolvePromise());
+    });
+  });
+
+const runWeightMigrationReview = (repoRoot, environment, unit) =>
+  new Promise((resolvePromise, reject) => {
+    const child = spawn(
+      'pnpm',
+      [
+        '--filter',
+        '@pulse/api',
+        'exec',
+        'tsx',
+        'src/scripts/review-body-weight-migration.ts',
+        '--assign-all',
+        unit,
+        '--reviewed-by',
+        'Gate 0 isolated fixture reviewer',
+        '--known-history',
+        `Reviewed isolated Gate 0 fixture history confirms all legacy entries use ${unit}.`,
+      ],
+      {
+        cwd: repoRoot,
+        env: environment,
+        stdio: 'inherit',
+      },
+    );
+
+    child.once('error', reject);
+    child.once('exit', (code, signal) => {
+      if (code === 0) {
+        resolvePromise();
+        return;
+      }
+
+      reject(
+        new Error(`Gate 0 weight migration review failed (${signal ?? `code ${code ?? 1}`}).`),
+      );
+    });
+  });
+
+const start = async () => {
+  const scriptDir = dirname(fileURLToPath(import.meta.url));
+  const repoRoot = resolve(scriptDir, '..');
+  const webHostArgument = process.argv.find((argument) => argument.startsWith('--web-host='));
+  const config = resolveGate0Config(
+    repoRoot,
+    webHostArgument?.split('=', 2)[1] ?? GATE0_DEFAULT_WEB_HOST,
+  );
+
+  validateGate0Database(repoRoot, config.databasePath);
+  await access(config.databasePath, constants.R_OK | constants.W_OK);
+  const environment = createGate0Environment(process.env, config);
+
+  const reviewArgument = process.argv.find((argument) =>
+    argument.startsWith('--review-weight-migration='),
+  );
+  if (reviewArgument) {
+    const unit = reviewArgument.split('=', 2)[1];
+    if (unit !== 'lbs' && unit !== 'kg') {
+      throw new Error('Gate 0 weight migration review unit must be lbs or kg.');
+    }
+
+    await runWeightMigrationReview(repoRoot, environment, unit);
+    return;
+  }
+
+  if (process.argv.includes('--check')) {
+    console.log(`Gate 0 database: ${GATE0_DATABASE_RELATIVE_PATH}`);
+    console.log(
+      `Gate 0 ports: API ${config.apiPort}, web ${config.webPort}, proxy ${config.proxyPort}`,
+    );
+    console.log(`Gate 0 weight map: ${GATE0_WEIGHT_MAP_RELATIVE_PATH}`);
+    return;
+  }
+
+  await Promise.all([
+    assertPortAvailable(GATE0_DEFAULT_WEB_HOST, config.apiPort),
+    assertPortAvailable(config.webHost, config.webPort),
+  ]);
+
+  const children = [
+    spawn('pnpm', ['--filter', '@pulse/api', 'dev'], {
+      cwd: repoRoot,
+      env: environment,
+      stdio: 'inherit',
+    }),
+    spawn(
+      'pnpm',
+      ['--filter', '@pulse/web', 'dev', '--host', config.webHost, '--port', '5274', '--strictPort'],
+      {
+        cwd: repoRoot,
+        env: environment,
+        stdio: 'inherit',
+      },
+    ),
+  ];
+
+  console.log(`Gate 0 API: http://127.0.0.1:${config.apiPort}`);
+  console.log(`Gate 0 web: http://${config.webHost}:${config.webPort}`);
+  console.log(`Gate 0 database: ${GATE0_DATABASE_RELATIVE_PATH}`);
+  console.log('Press Ctrl-C to stop both isolated development servers.');
+
+  let shuttingDown = false;
+  const shutdown = (signal, exitCode = 0) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    for (const child of children) {
+      if (!child.killed) child.kill(signal);
+    }
+    process.exitCode = exitCode;
+  };
+
+  process.once('SIGINT', () => shutdown('SIGINT'));
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+
+  for (const child of children) {
+    child.once('error', (error) => {
+      console.error(`Gate 0 development process failed: ${error.message}`);
+      shutdown('SIGTERM', 1);
+    });
+    child.once('exit', (code, signal) => {
+      if (!shuttingDown) {
+        console.error(
+          `Gate 0 development process exited unexpectedly (${signal ?? `code ${code ?? 1}`}).`,
+        );
+        shutdown('SIGTERM', code ?? 1);
+      }
+    });
+  }
+};
+
+const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : '';
+if (import.meta.url === invokedPath) {
+  start().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}

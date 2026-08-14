@@ -6,8 +6,13 @@ import { habitChainQueryKeys } from '@/hooks/use-habit-chains';
 import { macroTrendQueryKeys } from '@/hooks/use-macro-trend';
 import { recentWorkoutQueryKeys } from '@/hooks/use-recent-workouts';
 import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
+import { nutritionQueryKeys } from '@/features/nutrition/api/keys';
 
-import { crossFeatureInvalidationMap } from './query-invalidation';
+import {
+  adaptiveNutritionQueryKey,
+  crossFeatureInvalidationMap,
+  nutritionTargetQueryKey,
+} from './query-invalidation';
 
 describe('crossFeatureInvalidationMap', () => {
   it('returns the expected workout-session invalidations', () => {
@@ -22,11 +27,21 @@ describe('crossFeatureInvalidationMap', () => {
 
   it('returns the expected meal invalidations', () => {
     expect(crossFeatureInvalidationMap.mealMutation()).toEqual([
+      adaptiveNutritionQueryKey,
       dashboardSnapshotQueryKeys.all,
       macroTrendQueryKeys.all,
       habitQueryKeys.list(),
       habitQueryKeys.entryList(),
       habitChainQueryKeys.all,
+    ]);
+  });
+
+  it('returns all target-dependent invalidations', () => {
+    expect(crossFeatureInvalidationMap.nutritionTargetMutation()).toEqual([
+      adaptiveNutritionQueryKey,
+      nutritionQueryKeys.all,
+      dashboardSnapshotQueryKeys.all,
+      macroTrendQueryKeys.all,
     ]);
   });
 
@@ -39,11 +54,29 @@ describe('crossFeatureInvalidationMap', () => {
 
   it('returns the expected weight invalidations', () => {
     expect(crossFeatureInvalidationMap.weightMutation()).toEqual([
+      adaptiveNutritionQueryKey,
       dashboardSnapshotQueryKeys.all,
       dashboardWeightTrendQueryKeys.all,
       habitQueryKeys.list(),
       habitQueryKeys.entryList(),
       habitChainQueryKeys.all,
+    ]);
+  });
+
+  it('returns complete adaptive lifecycle invalidations', () => {
+    expect(crossFeatureInvalidationMap.adaptiveProgramMutation()).toEqual([
+      adaptiveNutritionQueryKey,
+    ]);
+    expect(crossFeatureInvalidationMap.adaptiveGoalMutation()).toEqual([adaptiveNutritionQueryKey]);
+    expect(crossFeatureInvalidationMap.adaptivePreviewMutation()).toEqual([
+      adaptiveNutritionQueryKey,
+    ]);
+    expect(crossFeatureInvalidationMap.adaptiveResolutionMutation()).toEqual([
+      adaptiveNutritionQueryKey,
+      nutritionTargetQueryKey,
+      nutritionQueryKeys.all,
+      dashboardSnapshotQueryKeys.all,
+      macroTrendQueryKeys.all,
     ]);
   });
 });

@@ -1,5 +1,6 @@
 export * from './users.js';
 export * from './activities.js';
+export * from './adaptive-nutrition.js';
 export * from './body-weight.js';
 export * from './dashboard-config.js';
 export * from './entity-links.js';

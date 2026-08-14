@@ -4,6 +4,8 @@ import { basename, join, relative, resolve } from 'node:path';
 
 import { and, eq, isNull, lt, max, or } from 'drizzle-orm';
 
+import { convertWeightToKg } from '@pulse/shared';
+
 import {
   bodyWeight,
   exercises,
@@ -18,6 +20,7 @@ import {
   workoutSessions,
   workoutTemplates,
 } from '../db/schema/index.js';
+import { downgradeCompleteNutritionLogs } from '../db/nutrition-completeness.js';
 
 export const DEFAULT_STATIC_DATA_ROOT = '/Volumes/meridian/Projects/health-fitness-static/data';
 export const DEFAULT_WORKOUT_TEMPLATE_SUBPATH = join('workouts', 'templates');
@@ -2462,6 +2465,8 @@ export const migrateDailyLogsAndBodyWeight = async ({
                 .run();
             }
           }
+
+          downgradeCompleteNutritionLogs(tx, [nutritionLog.id]);
         }
 
         if (dayRecord && dayRecord.habits.length > 0) {
@@ -2504,17 +2509,22 @@ export const migrateDailyLogsAndBodyWeight = async ({
         }
 
         if (weightForDay !== null) {
+          const weightKg = convertWeightToKg(weightForDay, 'lbs');
           tx.insert(bodyWeight)
             .values({
               userId,
               date,
               weight: weightForDay,
+              weightKg,
+              unitAtEntry: 'lbs',
               notes: null,
             })
             .onConflictDoUpdate({
               target: [bodyWeight.userId, bodyWeight.date],
               set: {
                 weight: weightForDay,
+                weightKg,
+                unitAtEntry: 'lbs',
                 notes: null,
                 updatedAt: Date.now(),
               },

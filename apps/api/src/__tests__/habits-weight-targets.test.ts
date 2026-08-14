@@ -40,6 +40,9 @@ type StoredNutritionTarget = {
   protein: number;
   carbs: number;
   fat: number;
+  source: 'manual' | 'adaptive';
+  adaptiveCheckInId: string | null;
+  macroCalories: number | null;
   effectiveDate: string;
   createdAt: number;
   updatedAt: number;
@@ -211,6 +214,11 @@ vi.mock('../middleware/store.js', () => ({
 }));
 
 vi.mock('../routes/weight/store.js', () => ({
+  getBodyWeightDisplayUnit: vi.fn(async () => 'lbs'),
+  toBodyWeightEntry: vi.fn((entry: Omit<StoredWeightEntry, 'userId'>, unit: 'lbs' | 'kg') => ({
+    ...entry,
+    unit,
+  })),
   findBodyWeightEntryByDate: vi.fn(async (userId: string, date: string) => {
     const entry = testState.weightEntries.get(getWeightEntryKey(userId, date)) ?? null;
 
@@ -364,6 +372,9 @@ vi.mock('../routes/nutrition-targets/store.js', () => ({
         protein: input.protein,
         carbs: input.carbs,
         fat: input.fat,
+        source: 'manual',
+        adaptiveCheckInId: null,
+        macroCalories: input.protein * 4 + input.carbs * 4 + input.fat * 9,
         effectiveDate: input.effectiveDate,
         createdAt: Date.now(),
         updatedAt: Date.now(),

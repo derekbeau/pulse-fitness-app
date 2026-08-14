@@ -30,6 +30,11 @@ Direct `userId` ownership lives on these root tables:
 - `nutrition_logs`
 - `body_weight`
 - `nutrition_targets`
+- `adaptive_nutrition_programs`
+- `adaptive_nutrition_checkins`
+- `adaptive_nutrition_goals`
+- `adaptive_nutrition_goal_revisions`
+- `adaptive_nutrition_goal_completions`
 - `dashboard_config`
 - `scheduled_workouts`
 - `health_conditions`
@@ -64,6 +69,8 @@ Inherited ownership comes from foreign-key chains:
 - `username`: `text`, required, unique
 - `name`: nullable `text`
 - `passwordHash`: `text`, required
+- `weightUnit`: `text`, required, one of `lbs | kg`; controls response-boundary display
+  conversion and never determines stored body-weight history
 - `preferences`: nullable JSON text blob for user-level UI, theme, and agent settings
 - `createdAt`: `integer` Unix ms, required, default now
 - `updatedAt`: `integer` Unix ms, required, default now, auto-updates
@@ -345,6 +352,8 @@ Indexes and constraints:
 - `userId`: `text`, required, FK -> `users.id`, `ON DELETE CASCADE`
 - `date`: `text`, required, `YYYY-MM-DD`
 - `notes`: nullable `text`
+- `status`: `text`, required, one of `unknown | partial | complete`, default `unknown`
+- `statusUpdatedAt`: nullable `integer` Unix ms; set on explicit changes and automatic downgrades
 - `createdAt`: `integer` Unix ms, required, default now
 - `updatedAt`: `integer` Unix ms, required, default now, auto-updates
 
@@ -352,6 +361,12 @@ Constraints:
 
 - unique on `(userId, date)`
 - `nutrition_logs_date_format_check`
+- `nutrition_logs_status_check`
+
+Existing rows migrate to `unknown`; completeness is never inferred from calories or target
+attainment. Successful meal/item creates, edits, appends, deletes, static re-imports, food merges,
+and purges downgrade a `complete` log to `partial` in the same transaction. Failed or rolled-back
+mutations leave status unchanged.
 
 #### `meals`
 
@@ -395,7 +410,11 @@ Constraints:
 - `id`: `text` primary key UUID
 - `userId`: `text`, required, FK -> `users.id`, `ON DELETE CASCADE`
 - `date`: `text`, required, `YYYY-MM-DD`
-- `weight`: `real`, required
+- `weightKg`: `real`, required; canonical kilograms used by every application reader
+- `unitAtEntry`: `text`, required, one of `lbs | kg`; provenance for the unit used by
+  the write that established the stored measurement
+- `weight`: `real`, required; compatibility-only pounds derived exactly as
+  `weightKg / 0.45359237`, never read by application code
 - `notes`: nullable `text`
 - `createdAt`: `integer` Unix ms, required, default now
 - `updatedAt`: `integer` Unix ms, required, default now, auto-updates
@@ -405,6 +424,14 @@ Constraints:
 - unique on `(userId, date)`
 - `body_weight_date_format_check`
 - `body_weight_weight_check`
+- `body_weight_weight_kg_check`
+- `body_weight_unit_at_entry_check`
+- `body_weight_legacy_pounds_check`
+
+Legacy databases require a reviewed, exact per-user historical-unit map before the canonical
+columns are backfilled. Current user preferences are not migration evidence. Startup fails closed
+for missing, partial, extra-user, or ambiguous maps; fresh and already-canonical databases do not
+require a map.
 
 #### `nutrition_targets`
 
@@ -414,6 +441,10 @@ Constraints:
 - `protein`: `real`, required
 - `carbs`: `real`, required
 - `fat`: `real`, required
+- `source`: `text`, required, one of `manual | adaptive`, default `manual`
+- `adaptiveCheckInId`: nullable `text`, FK -> `adaptive_nutrition_checkins.id`, `ON DELETE RESTRICT`;
+  required only for adaptive targets
+- `macroCalories`: nullable `real`; persisted `protein * 4 + carbs * 4 + fat * 9`
 - `effectiveDate`: `text`, required, `YYYY-MM-DD`
 - `createdAt`: `integer` Unix ms, required, default now
 - `updatedAt`: `integer` Unix ms, required, default now, auto-updates
@@ -423,6 +454,110 @@ Constraints:
 - unique on `(userId, effectiveDate)`
 - `nutrition_targets_effective_date_format_check`
 - `nutrition_targets_macros_nonnegative_check`
+- `nutrition_targets_source_check`
+- `nutrition_targets_provenance_check`
+- `nutrition_targets_macro_calories_nonnegative_check`
+
+Manual writes always clear adaptive linkage and calculate macro calories server-side. The internal
+adaptive writer accepts only a pending, non-holding check-in whose persisted, typed proposal exactly
+matches the target values and effective date. Replacement updates the existing same-date row only
+after the owned check-in snapshot is verified to preserve the row being replaced.
+
+#### `adaptive_nutrition_programs`
+
+One lifetime row per user holds adaptive-coaching configuration and stable baseline values. Ordinary
+updates preserve calculated baseline fields; only explicit `rebaseline: true` recalculates them.
+Creating or rebaselining requires a setup-entered weight or canonical saved weight no more than seven
+program-local calendar days old. A calculation-affecting update explicitly supersedes a pending
+check-in.
+
+- `id`: `text` primary key UUID
+- `userId`: `text`, required, unique, FK -> `users.id`, `ON DELETE CASCADE`
+- configuration and baseline columns from the Adaptive TDEE v1 specification
+- `algorithmVersion`: required `text`
+- `createdAt` / `updatedAt`: `integer` Unix ms
+
+#### `adaptive_nutrition_checkins`
+
+Immutable calculation/audit rows are the restricted provenance source for adaptive targets and now
+back the operational preview, acceptance, decline, history, and detail lifecycle.
+
+- `id`: `text` primary key UUID
+- `userId`: `text`, required, FK -> `users.id`, `ON DELETE CASCADE`, indexed with `createdAt`
+- `programId`: `text`, required, FK -> `adaptive_nutrition_programs.id`, `ON DELETE CASCADE`; a
+  composite `(programId, userId)` foreign key also requires the program and check-in owners to match
+- kind/status/state/date, boundary, version, and fingerprint columns from the specification
+- `inputSnapshot`, `calculationSnapshot`, `reasonCodes`, `currentTargets`, and `proposedTargets`:
+  JSON audit snapshots
+- `acceptedNutritionTargetId`: nullable text without a reverse FK, avoiding a circular relationship
+- `resolvedAt`: nullable `integer` Unix ms
+
+A database trigger forbids changes to calculation inputs, outputs, boundaries, and target snapshots
+after insert. Only resolution fields (`status`, `acceptedNutritionTargetId`, and `resolvedAt`) may
+change. Pending-fingerprint and one-pending-per-program partial unique indexes are installed for the
+lifecycle. Stores build inputs and resolve check-ins in explicit SQLite immediate transactions;
+stale acceptance rereads mutable rows using the persisted preview boundaries and never writes a target.
+
+A delete trigger blocks every individual check-in deletion. Account deletion creates a user-scoped
+authorization row inside the same SQLite write transaction, then explicitly deletes that user's targets,
+goal-completion relations, check-ins, goal revisions, goals, program, and user in dependency order. The
+authorization row cascades away with the user;
+rollback restores the whole sequence, and foreign keys remain enabled globally.
+
+Check-ins may link `goalId` and `goalRevisionId` as an all-or-nothing pair. New V2 calculation snapshots
+carry the same authoritative goal/revision identity; historical V1 snapshots remain valid and unchanged.
+The `goal_change` kind is a normal immutable recommendation and never writes a nutrition target before
+explicit acceptance.
+
+#### `adaptive_nutrition_goals`
+
+First-class goal lifecycle rows own progress origins and preserve prior directions.
+
+- `id`: `text` primary key UUID
+- `userId`: `text`, required, FK -> `users.id`, `ON DELETE CASCADE`
+- `programId`: `text`, required, same-owner FK -> `adaptive_nutrition_programs`
+- `type`: `lose | maintain | gain`
+- target/maintenance strategy columns plus canonical `startTrendWeightKg` and nullable
+  `startScaleWeightKg`
+- nullable `finalTrendWeightKg`, which is null while active and stores the actual canonical trend used
+  when the goal is completed, replaced, or cancelled
+- `startedLocalDate`, nullable `endedLocalDate`, and `active | completed | replaced | cancelled` status
+- `createdAt` / `updatedAt`: integer Unix ms
+
+There is at most one active goal per user. Lifecycle checks keep loss/gain targets directional from the
+canonical start trend and require maintenance center/rate semantics. Goal history is append-only in normal
+operation; guarded account deletion is the only destructive path.
+
+#### `adaptive_nutrition_goal_revisions`
+
+Every created or edited strategy has an immutable revision linked to one goal and owner.
+
+- monotonic positive `sequence`, unique per goal
+- target/center/rate fields for the effective strategy
+- previous strategy fields for replayable change display
+- `reason`: `created | user_edit | migration | goal_completion`
+- `effectiveLocalDate` and `createdAt`
+
+Database triggers reject revision update/delete and direct goal-strategy updates. Inserting exactly one
+matching next revision is the database-authoritative operation: its trigger validates sequence and previous
+strategy, then atomically applies target/center/rate to the active goal. Same-direction edits keep the goal's
+start trend/date fixed. Direction changes persist the actual final canonical trend on the old goal and use it
+as the new progress origin.
+
+#### `adaptive_nutrition_goal_completions`
+
+One immutable relation records each explicit completion transition:
+
+- `checkInId`: primary key and same-owner FK to the accepted goal-reached check-in
+- `userId`: direct owner
+- `completedGoalId`: unique same-owner FK to the completed loss/gain goal
+- `maintenanceGoalId`: unique same-owner FK to the new active maintenance goal
+- `createdAt`: integer Unix ms
+
+An insert trigger verifies that the accepted check-in belongs to the completed goal, both goals share the
+same user/program, and the destination is the active maintenance goal. Update/delete are blocked except for
+the existing guarded account-deletion transaction. The relation makes retries and historical ownership
+auditable without inferring the transition from timestamps.
 
 #### `dashboard_config`
 
@@ -608,7 +743,7 @@ This is the polymorphic bridge for cross-entity references such as journal -> wo
 
 ## Relationship Patterns
 
-- `users` has many `agent_tokens`, `habits`, `habit_entries`, `workout_templates`, `workout_sessions`, `foods`, `nutrition_logs`, `body_weight`, `nutrition_targets`, `scheduled_workouts`, `health_conditions`, `journal_entries`, `activities`, `resources`, `equipment_locations`, and `entity_links`.
+- `users` has many `agent_tokens`, `habits`, `habit_entries`, `workout_templates`, `workout_sessions`, `foods`, `nutrition_logs`, `body_weight`, `nutrition_targets`, `adaptive_nutrition_checkins`, `adaptive_nutrition_goals`, `adaptive_nutrition_goal_revisions`, `adaptive_nutrition_goal_completions`, `scheduled_workouts`, `health_conditions`, `journal_entries`, `activities`, `resources`, `equipment_locations`, and `entity_links`; it has one `adaptive_nutrition_programs` row in v1.
 - `users` has one `dashboard_config`.
 - `habits` has many `habit_entries`.
 - `workout_templates` has many `template_exercises`.
@@ -616,6 +751,12 @@ This is the polymorphic bridge for cross-entity references such as journal -> wo
 - `session_sets` references both `workout_sessions` and `exercises`.
 - `scheduled_workouts` may point to both a `workout_template` and a realized `workout_session`.
 - `nutrition_logs` has many `meals`; `meals` has many `meal_items`; `meal_items` may reference `foods`.
+- `adaptive_nutrition_programs` has many immutable `adaptive_nutrition_checkins` and many
+  `adaptive_nutrition_goals`; each goal has many immutable `adaptive_nutrition_goal_revisions`.
+- `adaptive_nutrition_checkins` may link one goal/revision pair; an adaptive `nutrition_targets` row restricts
+  deletion of its source check-in.
+- `adaptive_nutrition_goal_completions` immutably relates one accepted completion check-in, one completed
+  loss/gain goal, and one successor maintenance goal under the same user and program.
 - `health_conditions` has many `condition_timeline_events`, `condition_protocols`, and `condition_severity_points`.
 - `equipment_locations` has many `equipment_items`.
 - `entity_links` is polymorphic and enforced in application code rather than SQLite foreign keys.

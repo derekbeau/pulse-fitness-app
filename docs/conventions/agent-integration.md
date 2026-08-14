@@ -107,6 +107,26 @@ Notes:
 
 ## Endpoint Reference
 
+### Adaptive TDEE and goals
+
+AgentToken callers may read coaching state and create a reviewable preview, but all account, target, and goal
+lifecycle decisions remain JWT-only:
+
+- `GET /api/v1/adaptive-nutrition/` — current program, pending/latest accepted check-ins, active goal, and
+  server-owned goal progress.
+- `POST /api/v1/adaptive-nutrition/check-ins/preview` — persist a proposal or held attempt; never applies a
+  target automatically.
+- `GET /api/v1/adaptive-nutrition/check-ins` and `GET .../check-ins/:id` — replayable check-in history.
+- `GET /api/v1/adaptive-nutrition/goals/current` — current goal and progress.
+- `GET /api/v1/adaptive-nutrition/goals` and `GET .../goals/:id` — lifecycle history, immutable revisions,
+  linked accepted check-ins, and canonical weekly trend points.
+
+Treat `trendWeightKg` as the progress source. `scaleWeightKg` is a separately labeled optional observation,
+not a substitute trend. Do not call JWT-only `PUT /program`, check-in accept/decline, or goal
+edit/start/cancel/complete routes with AgentToken auth. Never infer that a goal change applied targets:
+nutrition changes only after the user explicitly accepts its `goal_change` recommendation, and reaching a
+target still requires a separate reviewed completion-to-maintenance step.
+
 ### Auth Check
 
 #### `GET /api/v1/ping`
@@ -158,7 +178,7 @@ Response:
       "target": { "calories": 2400, "protein": 200, "carbs": 250, "fat": 80 },
       "meals": []
     },
-    "weight": { "current": 182.4, "trend7d": -0.8 },
+    "weight": { "current": 182.4, "trend7d": -0.8, "unit": "lbs" },
     "habits": [
       { "name": "Hydrate", "trackingType": "numeric", "streak": 5, "todayCompleted": true }
     ],
@@ -429,6 +449,12 @@ Unified-schema convenience example:
 
 Creates or updates a weight entry for the provided date. AgentToken responses may include follow-up hints about deltas from the previous entry.
 
+The optional `unit` field declares the request value as `lbs` or `kg`; when omitted, the user's
+current weight-unit preference is used. The API converts writes to canonical kilograms, preserves
+the declared unit as entry provenance, and returns the value converted to the current display unit
+with an explicit `unit` field. Changing the preference changes later responses but never reinterprets
+or rewrites historical measurements.
+
 #### `GET /api/v1/habits`
 
 Lists user habits available for agent workflows.
@@ -438,6 +464,13 @@ Lists user habits available for agent workflows.
 Upserts a habit entry for a date. AgentToken responses may include completion hints plus `suggestedActions`.
 
 ### Nutrition Summary
+
+#### Adaptive nutrition
+
+Agents may read `GET /api/v1/adaptive-nutrition`, list or inspect check-ins, and call
+`POST /api/v1/adaptive-nutrition/check-ins/preview`. A preview is an auditable proposal only: it
+never applies targets. Program configuration, acceptance, and decline are deliberate user decisions
+and therefore reject AgentToken auth with `403 FORBIDDEN`; those routes require a Pulse session JWT.
 
 #### `GET /api/v1/nutrition/:date/summary`
 

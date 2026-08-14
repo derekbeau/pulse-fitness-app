@@ -6,6 +6,10 @@ import { habitChainQueryKeys } from '@/hooks/use-habit-chains';
 import { macroTrendQueryKeys } from '@/hooks/use-macro-trend';
 import { recentWorkoutQueryKeys } from '@/hooks/use-recent-workouts';
 import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
+import { nutritionQueryKeys } from '@/features/nutrition/api/keys';
+
+export const adaptiveNutritionQueryKey = ['adaptive-nutrition'] as const;
+export const nutritionTargetQueryKey = ['nutrition-targets'] as const;
 
 /**
  * Query key convention:
@@ -25,6 +29,17 @@ import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
 export const crossFeatureInvalidationMap = {
   activeWorkoutSessionMutation: () =>
     [dashboardSnapshotQueryKeys.all] as const satisfies readonly QueryKey[],
+  adaptiveProgramMutation: () => [adaptiveNutritionQueryKey] as const satisfies readonly QueryKey[],
+  adaptiveGoalMutation: () => [adaptiveNutritionQueryKey] as const satisfies readonly QueryKey[],
+  adaptivePreviewMutation: () => [adaptiveNutritionQueryKey] as const satisfies readonly QueryKey[],
+  adaptiveResolutionMutation: () =>
+    [
+      adaptiveNutritionQueryKey,
+      nutritionTargetQueryKey,
+      nutritionQueryKeys.all,
+      dashboardSnapshotQueryKeys.all,
+      macroTrendQueryKeys.all,
+    ] as const satisfies readonly QueryKey[],
   habitDefinitionMutation: () =>
     [dashboardSnapshotQueryKeys.all] as const satisfies readonly QueryKey[],
   habitEntryMutation: () =>
@@ -34,14 +49,23 @@ export const crossFeatureInvalidationMap = {
     ] as const satisfies readonly QueryKey[],
   mealMutation: () =>
     [
+      adaptiveNutritionQueryKey,
       dashboardSnapshotQueryKeys.all,
       macroTrendQueryKeys.all,
       habitQueryKeys.list(),
       habitQueryKeys.entryList(),
       habitChainQueryKeys.all,
     ] as const satisfies readonly QueryKey[],
+  nutritionTargetMutation: () =>
+    [
+      adaptiveNutritionQueryKey,
+      nutritionQueryKeys.all,
+      dashboardSnapshotQueryKeys.all,
+      macroTrendQueryKeys.all,
+    ] as const satisfies readonly QueryKey[],
   weightMutation: () =>
     [
+      adaptiveNutritionQueryKey,
       dashboardSnapshotQueryKeys.all,
       dashboardWeightTrendQueryKeys.all,
       habitQueryKeys.list(),

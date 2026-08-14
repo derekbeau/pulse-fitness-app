@@ -19,7 +19,13 @@ describe('ConfirmationDialog', () => {
     expect(screen.getByText('This action cannot be undone.')).toBeInTheDocument();
     const alertDialog = screen.getByRole('alertdialog');
 
-    expect(alertDialog.parentElement).toHaveClass('fixed', 'inset-0', 'flex', 'items-center', 'justify-center');
+    expect(alertDialog.parentElement).toHaveClass(
+      'fixed',
+      'inset-0',
+      'flex',
+      'items-center',
+      'justify-center',
+    );
     expect(alertDialog).toHaveClass('gap-3', 'p-5', 'max-h-[calc(100dvh-2rem)]', 'overflow-y-auto');
     expect(alertDialog).not.toHaveClass('translate-x-[-50%]', 'translate-y-[-50%]');
     expect(document.querySelector('[data-slot="alert-dialog-footer"]')).toHaveClass('pt-1');
@@ -153,6 +159,19 @@ describe('useConfirmation', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     await waitFor(() => {
       expect(screen.queryByText('Delete meal?')).not.toBeInTheDocument();
+    });
+  });
+
+  it('restores focus to the trigger after cancellation', async () => {
+    render(<HookHarness onConfirm={vi.fn()} />);
+
+    const trigger = screen.getByRole('button', { name: 'Open confirm' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => {
+      expect(trigger).toHaveFocus();
     });
   });
 

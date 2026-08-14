@@ -2,10 +2,12 @@ import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { Calendar, LayoutDashboard, Pencil } from 'lucide-react';
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 
 import { PageHeader } from '@/components/layout/page-header';
 import { StatCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
@@ -20,6 +22,7 @@ import { HabitChain } from '@/features/dashboard/components/habit-chain';
 import { MacroRings } from '@/features/dashboard/components/macro-rings';
 import { RecentWorkouts } from '@/features/dashboard/components/recent-workouts';
 import { SnapshotCards } from '@/features/dashboard/components/snapshot-cards';
+import { useAdaptiveNutritionState } from '@/features/adaptive-nutrition';
 import { getDashboardGreeting } from '@/features/dashboard/lib/greeting';
 import { TrendSparklines } from '@/features/dashboard/components/trend-sparkline';
 import { WeightTrendChart } from '@/features/dashboard/components/weight-trend-chart';
@@ -36,12 +39,14 @@ import { useLogWeight } from '@/features/weight/api/weight';
 import { prefetchDashboardSnapshot, useDashboardSnapshot } from '@/hooks/use-dashboard-snapshot';
 import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboard-config';
 import { useHabitChains } from '@/hooks/use-habit-chains';
+import { useWeightUnit } from '@/hooks/use-weight-unit';
 import {
   DASHBOARD_SNAPSHOT_POLL_INTERVAL_MS,
   HABIT_ENTRIES_POLL_INTERVAL_MS,
   getForegroundPollingInterval,
 } from '@/lib/query-polling';
 import { addDays, getToday, isSameDay, toDateKey } from '@/lib/date';
+import { formatWeight as formatDisplayWeight } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 const dashboardDateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -100,6 +105,7 @@ function DashboardWidgetFrame({
 export function DashboardPage() {
   const isMountedRef = useRef(true);
   const queryClient = useQueryClient();
+  const { weightUnit } = useWeightUnit();
   const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());
   const [weightInput, setWeightInput] = useState('');
   const [weightStatus, setWeightStatus] = useState<DashboardWeightStatus | null>(null);
@@ -120,6 +126,7 @@ export function DashboardPage() {
   const snapshotQuery = useDashboardSnapshot(selectedDateKey, {
     refetchIntervalMs: getForegroundPollingInterval(DASHBOARD_SNAPSHOT_POLL_INTERVAL_MS),
   });
+  const adaptiveStateQuery = useAdaptiveNutritionState();
   // TODO: apply widgetOrder to section layout once ordering UI is added.
   const dashboardConfigQuery = useDashboardConfig();
   const habitsQuery = useHabits({
@@ -250,6 +257,7 @@ export function DashboardPage() {
       await logWeightMutation.mutateAsync({
         date: selectedDateKey,
         weight: parsedWeight,
+        unit: weightUnit,
       });
       setWeightInput('');
       setWeightStatus({
@@ -307,7 +315,7 @@ export function DashboardPage() {
                       Logged
                     </p>
                     <p className="text-xl font-semibold text-foreground">
-                      {selectedWeight.value.toFixed(1)} lbs
+                      {formatDisplayWeight(selectedWeight.value, selectedWeight.unit)}
                     </p>
                   </div>
                   <Button
@@ -335,7 +343,10 @@ export function DashboardPage() {
                   variant="outline"
                 >
                   <span>Log weight</span>
-                  <span aria-hidden="true" className="size-2 rounded-full bg-accent animate-pulse" />
+                  <span
+                    aria-hidden="true"
+                    className="size-2 rounded-full bg-accent animate-pulse"
+                  />
                 </Button>
               )}
 
@@ -347,7 +358,7 @@ export function DashboardPage() {
                   onSubmit={handleWeightSubmit}
                 >
                   <div className="space-y-2">
-                    <Label htmlFor="dashboard-weight-input">Weight (lbs)</Label>
+                    <Label htmlFor="dashboard-weight-input">Weight ({weightUnit})</Label>
                     <Input
                       aria-describedby="dashboard-weight-status"
                       data-qa="dashboard-weight-input"
@@ -446,7 +457,10 @@ export function DashboardPage() {
     if (widgetId === 'trend-sparklines') {
       return (
         <DashboardWidgetFrame widgetLabel={DASHBOARD_WIDGET_IDS['trend-sparklines']}>
-          <TrendSparklines endDate={selectedDateKey} metrics={dashboardConfigQuery.data?.trendMetrics} />
+          <TrendSparklines
+            endDate={selectedDateKey}
+            metrics={dashboardConfigQuery.data?.trendMetrics}
+          />
         </DashboardWidgetFrame>
       );
     }
@@ -507,16 +521,15 @@ export function DashboardPage() {
             <>
               <HelpIcon title="Dashboard help">
                 <p>
-                  Dashboard gives you a daily snapshot of nutrition, body weight trend, habits,
-                  and recent workout activity.
+                  Dashboard gives you a daily snapshot of nutrition, body weight trend, habits, and
+                  recent workout activity.
                 </p>
                 <ul className="list-disc space-y-1 pl-5">
                   <li>
                     Nutrition totals come from meals logged by your AI agent, not manual entry.
                   </li>
                   <li>
-                    Use Weight Trend range buttons to zoom and compare short vs long-term
-                    direction.
+                    Use Weight Trend range buttons to zoom and compare short vs long-term direction.
                   </li>
                   <li>
                     The trend line smooths daily swings so it is easier to spot overall momentum.
@@ -553,7 +566,7 @@ export function DashboardPage() {
           }
           title="Dashboard"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm text-muted-foreground sm:text-base">{selectedDateLabel}</p>
             <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
               <PopoverTrigger asChild>
@@ -569,6 +582,21 @@ export function DashboardPage() {
                 />
               </PopoverContent>
             </Popover>
+            {adaptiveStateQuery.data?.checkInDue || adaptiveStateQuery.data?.pendingCheckIn ? (
+              <Button asChild className="rounded-full" size="sm" variant="outline">
+                <Link to="/nutrition?view=coach">
+                  Nutrition Coach
+                  <Badge aria-hidden="true" className="px-1.5 text-[0.65rem]">
+                    {adaptiveStateQuery.data.pendingCheckIn ? 'Review' : 'Due'}
+                  </Badge>
+                  <span className="sr-only">
+                    {adaptiveStateQuery.data.pendingCheckIn
+                      ? ' recommendation ready'
+                      : ' check-in due'}
+                  </span>
+                </Link>
+              </Button>
+            ) : null}
           </div>
         </PageHeader>
       </div>
@@ -584,10 +612,19 @@ export function DashboardPage() {
                 {widgetEditMessage}
               </span>
             ) : null}
-            <Button disabled={isSavingDashboardConfig} onClick={handleEditCancel} type="button" variant="ghost">
+            <Button
+              disabled={isSavingDashboardConfig}
+              onClick={handleEditCancel}
+              type="button"
+              variant="ghost"
+            >
               Cancel
             </Button>
-            <Button disabled={isSavingDashboardConfig} onClick={() => void handleEditSave()} type="button">
+            <Button
+              disabled={isSavingDashboardConfig}
+              onClick={() => void handleEditSave()}
+              type="button"
+            >
               {isSavingDashboardConfig ? 'Saving...' : 'Save'}
             </Button>
           </div>
@@ -717,7 +754,6 @@ export function DashboardPage() {
           ) : null}
         </div>
       )}
-
     </main>
   );
 }

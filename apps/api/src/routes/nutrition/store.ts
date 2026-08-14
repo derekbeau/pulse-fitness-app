@@ -25,12 +25,15 @@ import {
   nutritionTargets,
   users,
 } from '../../db/schema/index.js';
+import { downgradeCompleteNutritionLogs } from '../../db/nutrition-completeness.js';
 
 export type NutritionLogRecord = {
   id: string;
   userId: string;
   date: string;
   notes: string | null;
+  status: 'unknown' | 'partial' | 'complete';
+  statusUpdatedAt: number | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -118,6 +121,8 @@ const nutritionLogSelection = {
   userId: nutritionLogs.userId,
   date: nutritionLogs.date,
   notes: nutritionLogs.notes,
+  status: nutritionLogs.status,
+  statusUpdatedAt: nutritionLogs.statusUpdatedAt,
   createdAt: nutritionLogs.createdAt,
   updatedAt: nutritionLogs.updatedAt,
 };
@@ -771,6 +776,8 @@ export const createMealForDate = async (
       throw new Error('Failed to persist meal items');
     }
 
+    downgradeCompleteNutritionLogs(tx, [nutritionLog.id]);
+
     return { meal, items };
   });
 
@@ -1047,7 +1054,7 @@ export const deleteMealForDate = async (
 
   const deleteResult = db.transaction((tx) => {
     const scopedMeal = tx
-      .select({ id: meals.id })
+      .select({ id: meals.id, nutritionLogId: meals.nutritionLogId })
       .from(meals)
       .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
       .where(
@@ -1071,6 +1078,10 @@ export const deleteMealForDate = async (
 
     tx.delete(mealItems).where(eq(mealItems.mealId, mealId)).run();
     const result = tx.delete(meals).where(eq(meals.id, mealId)).run();
+
+    if (result.changes === 1) {
+      downgradeCompleteNutritionLogs(tx, [scopedMeal.nutritionLogId]);
+    }
 
     return {
       deleted: result.changes === 1,
@@ -1209,6 +1220,8 @@ export const addItemsToMeal = async (
       throw new Error('Failed to persist meal update');
     }
 
+    downgradeCompleteNutritionLogs(tx, [meal.nutritionLogId], now);
+
     const allItems = tx
       .select(mealItemSelection)
       .from(mealItems)
@@ -1273,17 +1286,32 @@ export const patchMealById = async (
     mealUpdate.notes = updates.notes;
   }
 
-  const scopedNutritionLogIds = db
-    .select({ id: nutritionLogs.id })
-    .from(nutritionLogs)
-    .where(eq(nutritionLogs.userId, userId));
+  return db.transaction((tx) => {
+    const existingMeal = tx
+      .select(mealSelection)
+      .from(meals)
+      .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
+      .where(and(eq(meals.id, mealId), eq(nutritionLogs.userId, userId)))
+      .limit(1)
+      .get();
 
-  return db
-    .update(meals)
-    .set(mealUpdate)
-    .where(and(eq(meals.id, mealId), inArray(meals.nutritionLogId, scopedNutritionLogIds)))
-    .returning(mealSelection)
-    .get();
+    if (!existingMeal) {
+      return undefined;
+    }
+
+    const updatedMeal = tx
+      .update(meals)
+      .set(mealUpdate)
+      .where(and(eq(meals.id, mealId), eq(meals.nutritionLogId, existingMeal.nutritionLogId)))
+      .returning(mealSelection)
+      .get();
+
+    if (updatedMeal) {
+      downgradeCompleteNutritionLogs(tx, [existingMeal.nutritionLogId], now);
+    }
+
+    return updatedMeal;
+  });
 };
 
 export const findMealItemForDate = async (
@@ -1341,7 +1369,10 @@ export const patchMealItemById = async (
   const updated = db.transaction((tx) => {
     const itemUpdate: Partial<typeof mealItems.$inferInsert> = {};
     const existingItem = tx
-      .select(mealItemSelection)
+      .select({
+        ...mealItemSelection,
+        nutritionLogId: meals.nutritionLogId,
+      })
       .from(mealItems)
       .innerJoin(meals, eq(meals.id, mealItems.mealId))
       .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
@@ -1412,6 +1443,8 @@ export const patchMealItemById = async (
     if (!updatedItem) {
       return undefined;
     }
+
+    downgradeCompleteNutritionLogs(tx, [existingItem.nutritionLogId]);
 
     return {
       previousFoodId: existingItem.foodId,

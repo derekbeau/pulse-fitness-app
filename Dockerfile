@@ -51,6 +51,9 @@ RUN pnpm install --frozen-lockfile --prod --ignore-scripts && \
 COPY --from=build /app/apps/api/dist apps/api/dist
 COPY --from=build /app/apps/api/drizzle apps/api/drizzle
 COPY --from=build /app/packages/shared/dist packages/shared/dist
+COPY scripts/verify-body-weight-map-mount.mjs scripts/verify-body-weight-map-mount.mjs
+COPY scripts/api-container-entrypoint.sh scripts/api-container-entrypoint.sh
+RUN chmod 0555 scripts/api-container-entrypoint.sh
 
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
@@ -58,7 +61,7 @@ ENV PORT=3001
 
 EXPOSE 3001
 
-CMD ["node", "apps/api/dist/index.js"]
+CMD ["/app/scripts/api-container-entrypoint.sh"]
 
 # ---------- Stage 3: Frontend (nginx) ----------
 FROM nginx:alpine AS web

@@ -8,6 +8,8 @@ const MAX_MACRO_GRAMS_TARGET = 1_000;
 const calorieTargetSchema = z.number().nonnegative().finite().max(MAX_CALORIES_TARGET);
 const macroGramTargetSchema = z.number().nonnegative().finite().max(MAX_MACRO_GRAMS_TARGET);
 
+export const nutritionTargetSourceSchema = z.enum(['manual', 'adaptive']);
+
 export const createNutritionTargetInputSchema = z.object({
   calories: calorieTargetSchema,
   protein: macroGramTargetSchema,
@@ -17,16 +19,31 @@ export const createNutritionTargetInputSchema = z.object({
   effectiveDate: dateSchema,
 });
 
-export const nutritionTargetSchema = z.object({
-  id: z.string(),
-  calories: calorieTargetSchema,
-  protein: macroGramTargetSchema,
-  carbs: macroGramTargetSchema,
-  fat: macroGramTargetSchema,
-  effectiveDate: dateSchema,
-  createdAt: z.number().int(),
-  updatedAt: z.number().int(),
-});
+export const nutritionTargetSchema = z
+  .object({
+    id: z.string(),
+    calories: calorieTargetSchema,
+    protein: macroGramTargetSchema,
+    carbs: macroGramTargetSchema,
+    fat: macroGramTargetSchema,
+    source: nutritionTargetSourceSchema,
+    adaptiveCheckInId: z.string().nullable(),
+    macroCalories: z.number().nonnegative().finite().nullable(),
+    effectiveDate: dateSchema,
+    createdAt: z.number().int(),
+    updatedAt: z.number().int(),
+  })
+  .superRefine((target, context) => {
+    const hasAdaptiveLink = target.adaptiveCheckInId !== null;
+    if ((target.source === 'adaptive') !== hasAdaptiveLink) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['adaptiveCheckInId'],
+        message: 'adaptive targets require a check-in link and manual targets forbid one',
+      });
+    }
+  });
 
 export type CreateNutritionTargetInput = z.infer<typeof createNutritionTargetInputSchema>;
 export type NutritionTarget = z.infer<typeof nutritionTargetSchema>;
+export type NutritionTargetSource = z.infer<typeof nutritionTargetSourceSchema>;

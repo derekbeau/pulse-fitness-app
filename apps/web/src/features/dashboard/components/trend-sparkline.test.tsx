@@ -16,14 +16,28 @@ vi.mock('@/hooks/use-macro-trend', () => ({
   useMacroTrend: vi.fn(),
 }));
 
+vi.mock('@/hooks/use-weight-unit', () => ({
+  useWeightUnit: () => ({ weightUnit: 'lbs' }),
+}));
+
 vi.mock('recharts', async () => {
   const actual = await vi.importActual<typeof import('recharts')>('recharts');
   const React = await vi.importActual<typeof import('react')>('react');
 
   return {
     ...actual,
-    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-      <div data-testid="responsive-container">
+    ResponsiveContainer: ({
+      children,
+      initialDimension,
+    }: {
+      children: React.ReactNode;
+      initialDimension?: { height: number; width: number };
+    }) => (
+      <div
+        data-initial-height={initialDimension?.height}
+        data-initial-width={initialDimension?.width}
+        data-testid="responsive-container"
+      >
         {React.isValidElement(children)
           ? React.cloneElement(
               children as React.ReactElement<{ height?: number; width?: number }>,
@@ -39,8 +53,8 @@ vi.mock('recharts', async () => {
 });
 
 const sampleWeightTrend = [
-  { date: '2026-03-06', value: 175.6 },
-  { date: '2026-03-07', value: 175.2 },
+  { date: '2026-03-06', value: 175.6, unit: 'lbs' },
+  { date: '2026-03-07', value: 175.2, unit: 'lbs' },
 ];
 
 const sampleMacroTrend = [
@@ -95,7 +109,8 @@ describe('TrendSparkline', () => {
     expect(screen.getByText('175.4 lbs')).toBeInTheDocument();
     expect(screen.getByText('-0.4%')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Weight Trend sparkline' })).toBeInTheDocument();
-    expect(screen.getByTestId('responsive-container')).toBeInTheDocument();
+    expect(screen.getByTestId('responsive-container')).toHaveAttribute('data-initial-height', '48');
+    expect(screen.getByTestId('responsive-container')).toHaveAttribute('data-initial-width', '320');
     expect(container.querySelector('.recharts-line .recharts-curve')).toBeInTheDocument();
     expect(container.querySelector('.recharts-cartesian-axis')).not.toBeInTheDocument();
     expect(container.querySelector('.recharts-legend-wrapper')).not.toBeInTheDocument();

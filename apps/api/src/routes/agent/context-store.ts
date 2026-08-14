@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
-import type { AgentContextResponse } from '@pulse/shared';
+import { convertWeightFromKg, type AgentContextResponse } from '@pulse/shared';
 
 import {
   bodyWeight,
@@ -285,11 +285,19 @@ export const getAgentContextTodayNutrition = async (
 export const getAgentContextWeight = async (userId: string): Promise<AgentContextWeight> => {
   const { db } = await import('../../db/index.js');
 
+  const unit =
+    db
+      .select({ weightUnit: users.weightUnit })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+      .get()?.weightUnit ?? 'lbs';
+
   const latest =
     db
       .select({
         date: bodyWeight.date,
-        weight: bodyWeight.weight,
+        weightKg: bodyWeight.weightKg,
       })
       .from(bodyWeight)
       .where(eq(bodyWeight.userId, userId))
@@ -301,6 +309,7 @@ export const getAgentContextWeight = async (userId: string): Promise<AgentContex
     return {
       current: 0,
       trend7d: 0,
+      unit,
     };
   }
 
@@ -308,7 +317,7 @@ export const getAgentContextWeight = async (userId: string): Promise<AgentContex
   const reference =
     db
       .select({
-        weight: bodyWeight.weight,
+        weightKg: bodyWeight.weightKg,
       })
       .from(bodyWeight)
       .where(and(eq(bodyWeight.userId, userId), lte(bodyWeight.date, referenceDate)))
@@ -316,12 +325,16 @@ export const getAgentContextWeight = async (userId: string): Promise<AgentContex
       .limit(1)
       .get() ?? null;
 
-  const current = toNumber(latest.weight);
-  const trend7d = reference ? Number((current - toNumber(reference.weight)).toFixed(2)) : 0;
+  const currentKg = toNumber(latest.weightKg);
+  const current = Number(convertWeightFromKg(currentKg, unit).toFixed(8));
+  const trend7d = reference
+    ? Number(convertWeightFromKg(currentKg - toNumber(reference.weightKg), unit).toFixed(2))
+    : 0;
 
   return {
     current,
     trend7d,
+    unit,
   };
 };
 

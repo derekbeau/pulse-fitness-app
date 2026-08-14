@@ -1,5 +1,5 @@
 type CaloriesUnit = 'none' | 'cal' | 'kcal';
-type WeightUnit = 'none' | 'lbs';
+type WeightUnit = 'none' | 'lbs' | 'kg';
 
 const SECONDS_PER_MINUTE = 60;
 const HOUR_DISPLAY_THRESHOLD_SECONDS = 90 * SECONDS_PER_MINUTE;

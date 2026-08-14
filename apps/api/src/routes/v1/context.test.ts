@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
-import { findAgentTokenByHash, findUserAuthById, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
+import {
+  findAgentTokenByHash,
+  findUserAuthById,
+  updateAgentTokenLastUsedAt,
+} from '../../middleware/store.js';
 import {
   findAgentContextUser,
   getAgentContextTodayNutrition,
@@ -61,7 +65,11 @@ describe('v1 context routes', () => {
       target: { calories: 2200, protein: 180, carbs: 250, fat: 70 },
       meals: [],
     });
-    vi.mocked(getAgentContextWeight).mockResolvedValue({ current: 180, trend7d: -1.2 });
+    vi.mocked(getAgentContextWeight).mockResolvedValue({
+      current: 180,
+      trend7d: -1.2,
+      unit: 'lbs',
+    });
     vi.mocked(listAgentContextHabits).mockResolvedValue([]);
     vi.mocked(listAgentContextScheduledWorkouts).mockResolvedValue([]);
 
@@ -92,7 +100,7 @@ describe('v1 context routes', () => {
             target: { calories: 2200, protein: 180, carbs: 250, fat: 70 },
             meals: [],
           },
-          weight: { current: 180, trend7d: -1.2 },
+          weight: { current: 180, trend7d: -1.2, unit: 'lbs' },
           habits: [],
           scheduledWorkouts: [],
         },
@@ -108,7 +116,10 @@ describe('v1 context routes', () => {
 
     try {
       await app.ready();
-      const token = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const token = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/context',

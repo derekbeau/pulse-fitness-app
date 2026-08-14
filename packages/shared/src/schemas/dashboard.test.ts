@@ -77,7 +77,7 @@ describe('dashboardSnapshotSchema', () => {
         value: 178.4,
         trendValue: 178.4,
         date: '2026-03-08',
-        unit: 'lb',
+        unit: 'lbs',
       },
       macros: {
         actual: {
@@ -108,7 +108,7 @@ describe('dashboardSnapshotSchema', () => {
     });
 
     expect(snapshot.habits.percentage).toBe(66.7);
-    expect(snapshot.weight?.unit).toBe('lb');
+    expect(snapshot.weight?.unit).toBe('lbs');
   });
 
   it('accepts null weight and workout values', () => {
@@ -244,6 +244,7 @@ describe('dashboard trend schemas', () => {
       {
         date: '2026-03-07',
         value: 181.2,
+        unit: 'lbs',
       },
     ]);
 

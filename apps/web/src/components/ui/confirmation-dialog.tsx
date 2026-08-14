@@ -90,15 +90,21 @@ export function useConfirmation() {
   const [loading, setLoading] = React.useState(false);
   const [confirmation, setConfirmation] = React.useState<ConfirmationRequest | null>(null);
   const confirmedRef = React.useRef(false);
+  const triggerRef = React.useRef<HTMLElement | null>(null);
 
   const close = React.useCallback(() => {
     setLoading(false);
     setOpen(false);
     setConfirmation(null);
+    const trigger = triggerRef.current;
+    triggerRef.current = null;
+    window.setTimeout(() => trigger?.focus(), 0);
   }, []);
 
   const confirm = React.useCallback((request: ConfirmationRequest) => {
     confirmedRef.current = false;
+    triggerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setLoading(false);
     setConfirmation(request);
     setOpen(true);

@@ -5,10 +5,16 @@ import type {
   NutritionMeal,
   NutritionSummary,
   NutritionWeekSummary,
+  NutritionLogStatus,
 } from '@pulse/shared';
+import { dailyNutritionSchema, nutritionLogSchema } from '@pulse/shared';
 import { toast } from 'sonner';
 
-import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
+import {
+  adaptiveNutritionQueryKey,
+  crossFeatureInvalidationMap,
+  invalidateQueryKeys,
+} from '@/lib/query-invalidation';
 import { apiRequest } from '@/lib/api-client';
 
 import { nutritionQueryKeys } from './keys';
@@ -24,6 +30,11 @@ export type RenameMealInput = {
   name: string;
 };
 
+export type UpdateNutritionStatusInput = {
+  date: string;
+  status: NutritionLogStatus;
+};
+
 type RenameMealMutationContext = {
   previousDailyNutrition: DailyNutrition | null | undefined;
 };
@@ -34,10 +45,10 @@ type NutritionQueryOptions = {
 };
 
 const fetchDailyNutrition = (date: string, signal?: AbortSignal) =>
-  apiRequest<DailyNutrition>(`/api/v1/nutrition/${date}`, {
+  apiRequest<unknown>(`/api/v1/nutrition/${date}`, {
     method: 'GET',
     signal,
-  });
+  }).then((value) => dailyNutritionSchema.parse(value));
 
 const fetchNutritionSummary = (date: string, signal?: AbortSignal) =>
   apiRequest<NutritionSummary>(`/api/v1/nutrition/${date}/summary`, {
@@ -69,6 +80,12 @@ const renameMeal = ({ date, mealId, name }: RenameMealInput) =>
     },
     method: 'PATCH',
   });
+
+const updateNutritionStatus = ({ date, status }: UpdateNutritionStatusInput) =>
+  apiRequest<unknown>(`/api/v1/nutrition/${date}/status`, {
+    body: { status },
+    method: 'PATCH',
+  }).then((value) => nutritionLogSchema.parse(value));
 
 const renameMealInDailyNutrition = (
   dailyNutrition: DailyNutrition | null | undefined,
@@ -203,6 +220,20 @@ export const useRenameMeal = () => {
         invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.mealMutation()),
       ]);
       toast.success('Meal renamed');
+    },
+  });
+};
+
+export const useUpdateNutritionStatus = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateNutritionStatus,
+    onSuccess: async (_result, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: nutritionQueryKeys.day(variables.date) }),
+        queryClient.invalidateQueries({ queryKey: adaptiveNutritionQueryKey }),
+      ]);
     },
   });
 };

@@ -2,6 +2,10 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClientWrapper } from '@/test/query-client';
+import { nutritionQueryKeys } from './keys';
+import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
+import { macroTrendQueryKeys } from '@/hooks/use-macro-trend';
+import { adaptiveNutritionQueryKey } from '@/lib/query-invalidation';
 
 import { nutritionTargetQueryKeys, useNutritionTargets, useUpdateTargets } from './targets';
 
@@ -29,6 +33,9 @@ describe('nutrition target api hooks', () => {
         protein: 190,
         carbs: 260,
         fat: 75,
+        source: 'manual',
+        adaptiveCheckInId: null,
+        macroCalories: 2475,
         effectiveDate: '2026-03-07',
         createdAt: 1,
         updatedAt: 1,
@@ -67,6 +74,9 @@ describe('nutrition target api hooks', () => {
         protein: 185,
         carbs: 245,
         fat: 70,
+        source: 'manual',
+        adaptiveCheckInId: null,
+        macroCalories: 2350,
         effectiveDate: '2026-03-07',
         createdAt: 1,
         updatedAt: 2,
@@ -101,5 +111,9 @@ describe('nutrition target api hooks', () => {
       }),
     );
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: nutritionTargetQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: adaptiveNutritionQueryKey });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: nutritionQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: dashboardSnapshotQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: macroTrendQueryKeys.all });
   });
 });

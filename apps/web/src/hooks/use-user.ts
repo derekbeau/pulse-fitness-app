@@ -2,6 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { userProfileSchema, type UserProfile, type UpdateUserInput } from '@pulse/shared';
 
 import { apiRequest } from '@/lib/api-client';
+import { weightQueryKeys } from '@/features/weight/api/weight';
+import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
+import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
 
 export const userQueryKeys = {
   all: ['user'] as const,
@@ -37,8 +40,17 @@ export const useUpdateUser = () => {
 
   return useMutation({
     mutationFn: patchCurrentUser,
-    onSuccess: async () => {
+    onSuccess: async (_user, input) => {
       await queryClient.invalidateQueries({ queryKey: userQueryKeys.all });
+
+      if (input.weightUnit !== undefined) {
+        // These API responses are already converted to the user's display unit. Remove the
+        // inactive caches so returning to a weight surface cannot reuse values from the prior
+        // preference; mounted queries will fetch normally on their next render.
+        queryClient.removeQueries({ queryKey: weightQueryKeys.all });
+        queryClient.removeQueries({ queryKey: dashboardSnapshotQueryKeys.all });
+        queryClient.removeQueries({ queryKey: dashboardWeightTrendQueryKeys.all });
+      }
     },
   });
 };

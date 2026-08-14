@@ -209,7 +209,11 @@ export function NutritionTrends() {
         </div>
       ) : (
         <div aria-label="Nutrition macro trend chart" className="h-[260px] w-full" role="img">
-          <ResponsiveContainer height="100%" width="100%">
+          <ResponsiveContainer
+            height="100%"
+            initialDimension={{ height: 260, width: 320 }}
+            width="100%"
+          >
             <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
               <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
               <XAxis

@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 import { dateSchema } from './common.js';
+import { weightUnitSchema } from './users.js';
+import { convertWeightToKg, isCanonicalBodyWeight } from '../utils/weight-unit.js';
 
 const MAX_BODY_WEIGHT = 1_500;
 
@@ -12,25 +14,62 @@ const weightNotesSchema = z
 
 const bodyWeightValueSchema = z.number().positive().finite().max(MAX_BODY_WEIGHT);
 
-export const createWeightInputSchema = z.object({
-  date: dateSchema,
-  weight: bodyWeightValueSchema,
-  notes: weightNotesSchema.optional(),
-});
+const validateExplicitWeightUnit = (
+  value: { unit?: 'lbs' | 'kg'; weight?: number },
+  context: z.RefinementCtx,
+) => {
+  if (value.weight === undefined || value.unit === undefined) {
+    return;
+  }
+
+  if (!isCanonicalBodyWeight(convertWeightToKg(value.weight, value.unit))) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Weight must be between 25 and 350 kg after conversion',
+      path: ['weight'],
+    });
+  }
+};
+
+export const createWeightInputSchema = z
+  .object({
+    date: dateSchema,
+    weight: bodyWeightValueSchema,
+    unit: weightUnitSchema.optional(),
+    notes: weightNotesSchema.optional(),
+  })
+  .superRefine(validateExplicitWeightUnit);
 
 export const patchWeightInputSchema = z
   .object({
     weight: bodyWeightValueSchema.optional(),
+    unit: weightUnitSchema.optional(),
     notes: weightNotesSchema.nullable().optional(),
   })
-  .refine((value) => Object.values(value).some((field) => field !== undefined), {
-    message: 'At least one field must be provided',
+  .superRefine((value, context) => {
+    if (value.weight === undefined && value.notes === undefined) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'At least one field must be provided',
+      });
+    }
+
+    if (value.unit !== undefined && value.weight === undefined) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: '`unit` requires `weight`',
+        path: ['unit'],
+      });
+    }
+
+    validateExplicitWeightUnit(value, context);
   });
 
 export const bodyWeightEntrySchema = z.object({
   id: z.string(),
   date: dateSchema,
   weight: bodyWeightValueSchema,
+  unit: weightUnitSchema,
   notes: z.string().nullable(),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),

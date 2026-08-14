@@ -47,7 +47,7 @@ export const resolveWeightCompletion = async (
   const { db } = await import('../db/index.js');
 
   const row = db
-    .select({ id: bodyWeight.id })
+    .select({ id: bodyWeight.id, weightKg: bodyWeight.weightKg })
     .from(bodyWeight)
     .where(and(eq(bodyWeight.userId, userId), eq(bodyWeight.date, date)))
     .limit(1)

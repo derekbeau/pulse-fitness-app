@@ -6,6 +6,7 @@ import { computeEWMA, type DashboardTrendMetric } from '@pulse/shared';
 import { Card, CardContent } from '@/components/ui/card';
 import { useMacroTrend } from '@/hooks/use-macro-trend';
 import { useWeightTrend } from '@/hooks/use-weight-trend';
+import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { WEIGHT_TREND_POLL_INTERVAL_MS, getForegroundPollingInterval } from '@/lib/query-polling';
 import { accentCardStyles } from '@/lib/accent-card-styles';
 import { addDays, parseDateInput, toDateKey } from '@/lib/date';
@@ -209,7 +210,11 @@ export function TrendSparkline({
           data-slot="trend-sparkline-chart"
           role="img"
         >
-          <ResponsiveContainer height="100%" width="100%">
+          <ResponsiveContainer
+            height="100%"
+            initialDimension={{ height: 48, width: 320 }}
+            width="100%"
+          >
             <LineChart data={plottedData} margin={{ top: 6, right: 0, bottom: 2, left: 0 }}>
               <Tooltip
                 content={({ active, payload }) => {
@@ -332,6 +337,7 @@ function TrendMetricCardSkeleton() {
 }
 
 export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
+  const { weightUnit } = useWeightUnit();
   const resolvedMetrics = metrics ?? DEFAULT_TREND_METRICS;
   const needsWeight = resolvedMetrics.includes('weight');
   const needsMacros = resolvedMetrics.includes('calories') || resolvedMetrics.includes('protein');
@@ -379,6 +385,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
   const calorieSeries = buildPlotSeries(filterSeriesWithData(calorieSeriesRaw));
   const proteinSeries = buildPlotSeries(filterSeriesWithData(proteinSeriesRaw));
   const latestWeight = getLatestTrend(weightSeries, 0);
+  const weightDisplayUnit = weightTrendQuery.data?.at(-1)?.unit ?? weightUnit;
   const latestCalories = getLatestTrend(calorieSeries, 0);
   const latestProtein = getLatestTrend(proteinSeries, 0);
   const allConfigs = {
@@ -386,7 +393,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
       label: 'Weight Trend',
       subtitle: LOOKBACK_LABEL,
       to: '/weight/history',
-      currentValue: weightSeries.length > 0 ? formatWeight(latestWeight, 'lbs') : '--',
+      currentValue: weightSeries.length > 0 ? formatWeight(latestWeight, weightDisplayUnit) : '--',
       changePercent:
         weightSeries.length > 1
           ? calculateTrendChangePercent(latestWeight, getPreviousTrend(weightSeries, latestWeight))
@@ -395,7 +402,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
       data: weightSeries,
       className: accentCardStyles.cream,
       textClassName: 'text-on-cream',
-      formatTooltip: (v: number) => formatWeight(v, 'lbs'),
+      formatTooltip: (v: number) => formatWeight(v, weightDisplayUnit),
     },
     calories: {
       label: 'Calorie Trend',

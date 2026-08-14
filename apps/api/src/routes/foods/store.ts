@@ -8,7 +8,8 @@ import type {
   UpdateFoodInput,
 } from '@pulse/shared';
 
-import { foods, mealItems } from '../../db/schema/index.js';
+import { foods, mealItems, meals, nutritionLogs } from '../../db/schema/index.js';
+import { downgradeCompleteNutritionLogs } from '../../db/nutrition-completeness.js';
 
 export type FoodRecord = Food;
 
@@ -471,8 +472,26 @@ export const mergeFoods = async (
       throw new FoodMergeNotFoundError('loser');
     }
 
+    const affectedNutritionLogs = tx
+      .selectDistinct({ id: nutritionLogs.id })
+      .from(mealItems)
+      .innerJoin(meals, eq(meals.id, mealItems.mealId))
+      .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
+      .where(and(eq(mealItems.foodId, loserId), eq(nutritionLogs.userId, userId)))
+      .all();
+
     // We scope winner/loser lookup by user first; UUID food IDs are globally unique, so this relink is user-safe.
-    tx.update(mealItems).set({ foodId: winnerId }).where(eq(mealItems.foodId, loserId)).run();
+    const relinkResult = tx
+      .update(mealItems)
+      .set({ foodId: winnerId })
+      .where(eq(mealItems.foodId, loserId))
+      .run();
+    if (relinkResult.changes > 0) {
+      downgradeCompleteNutritionLogs(
+        tx,
+        affectedNutritionLogs.map((log) => log.id),
+      );
+    }
 
     const now = Date.now();
     const updatedWinnerUsageCount = winner.usageCount + loser.usageCount;

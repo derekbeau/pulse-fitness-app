@@ -2,7 +2,17 @@ import { randomUUID } from 'node:crypto';
 
 import { eq } from 'drizzle-orm';
 
-import { habits, users } from '../../db/schema/index.js';
+import {
+  adaptiveNutritionAccountDeletionScope,
+  adaptiveNutritionCheckIns,
+  adaptiveNutritionGoalCompletions,
+  adaptiveNutritionGoalRevisions,
+  adaptiveNutritionGoals,
+  adaptiveNutritionPrograms,
+  habits,
+  nutritionTargets,
+  users,
+} from '../../db/schema/index.js';
 
 export type AuthUserRecord = {
   id: string;
@@ -154,5 +164,32 @@ export const ensureStarterHabitsForUser = async (userId: string): Promise<void> 
     if (habitInsertResult.changes !== starterHabits.length) {
       throw new Error('Failed to persist starter habits');
     }
+  });
+};
+
+export const deleteUserAccount = async (userId: string): Promise<boolean> => {
+  const { db } = await import('../../db/index.js');
+
+  return db.transaction((tx) => {
+    const user = tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).get();
+    if (!user) {
+      return false;
+    }
+
+    // The scope row exists only inside this write transaction. SQLite's single-writer lock prevents
+    // another account deletion from borrowing it, and rollback restores every ordered deletion.
+    tx.insert(adaptiveNutritionAccountDeletionScope).values({ userId }).run();
+    tx.delete(nutritionTargets).where(eq(nutritionTargets.userId, userId)).run();
+    tx.delete(adaptiveNutritionGoalCompletions)
+      .where(eq(adaptiveNutritionGoalCompletions.userId, userId))
+      .run();
+    tx.delete(adaptiveNutritionCheckIns).where(eq(adaptiveNutritionCheckIns.userId, userId)).run();
+    tx.delete(adaptiveNutritionGoalRevisions)
+      .where(eq(adaptiveNutritionGoalRevisions.userId, userId))
+      .run();
+    tx.delete(adaptiveNutritionGoals).where(eq(adaptiveNutritionGoals.userId, userId)).run();
+    tx.delete(adaptiveNutritionPrograms).where(eq(adaptiveNutritionPrograms.userId, userId)).run();
+    const result = tx.delete(users).where(eq(users.id, userId)).run();
+    return result.changes === 1;
   });
 };

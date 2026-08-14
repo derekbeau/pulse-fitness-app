@@ -26,10 +26,12 @@ import {
   findBodyWeightEntryById,
   findBodyWeightEntryByDate,
   getLatestBodyWeightEntry,
+  getBodyWeightDisplayUnit,
   listBodyWeightEntries,
   listBodyWeightEntriesPaginated,
   patchBodyWeightEntryById,
   upsertBodyWeightEntry,
+  toBodyWeightEntry,
 } from './store.js';
 
 const listWeightEntriesResponseSchema = z.union([
@@ -59,8 +61,25 @@ export const weightRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const existingEntry = await findBodyWeightEntryByDate(request.userId, request.body.date);
-      const entry = await upsertBodyWeightEntry(request.userId, request.body);
+      const displayUnit = await getBodyWeightDisplayUnit(request.userId);
+      const inputUnit = request.body.unit ?? displayUnit;
+      const existingCanonicalEntry = await findBodyWeightEntryByDate(
+        request.userId,
+        request.body.date,
+      );
+      let canonicalEntry;
+      try {
+        canonicalEntry = await upsertBodyWeightEntry(request.userId, request.body, inputUnit);
+      } catch (error) {
+        if (error instanceof RangeError) {
+          return sendError(reply, 400, 'WEIGHT_OUT_OF_RANGE', error.message);
+        }
+        throw error;
+      }
+      const existingEntry = existingCanonicalEntry
+        ? toBodyWeightEntry(existingCanonicalEntry, displayUnit)
+        : null;
+      const entry = toBodyWeightEntry(canonicalEntry, displayUnit);
 
       return reply.code(existingEntry ? 200 : 201).send(
         buildDataResponse(request, entry, {
@@ -85,7 +104,9 @@ export const weightRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const entry = await getLatestBodyWeightEntry(request.userId);
+      const displayUnit = await getBodyWeightDisplayUnit(request.userId);
+      const canonicalEntry = await getLatestBodyWeightEntry(request.userId);
+      const entry = canonicalEntry ? toBodyWeightEntry(canonicalEntry, displayUnit) : null;
 
       return reply.send(buildDataResponse(request, entry));
     },
@@ -107,6 +128,7 @@ export const weightRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
+      const displayUnit = await getBodyWeightDisplayUnit(request.userId);
       const { days, from, limit, page, to } = request.query;
       const queryFilters = {
         days,
@@ -118,10 +140,15 @@ export const weightRoutes: FastifyPluginAsync = async (app) => {
         const resolvedPage = page ?? 1;
         const resolvedLimit = limit ?? 50;
         const offset = (resolvedPage - 1) * resolvedLimit;
-        const { entries, total } = await listBodyWeightEntriesPaginated(request.userId, queryFilters, {
-          limit: resolvedLimit,
-          offset,
-        });
+        const { entries: canonicalEntries, total } = await listBodyWeightEntriesPaginated(
+          request.userId,
+          queryFilters,
+          {
+            limit: resolvedLimit,
+            offset,
+          },
+        );
+        const entries = canonicalEntries.map((entry) => toBodyWeightEntry(entry, displayUnit));
 
         return reply.send({
           data: entries,
@@ -133,7 +160,8 @@ export const weightRoutes: FastifyPluginAsync = async (app) => {
         });
       }
 
-      const entries = await listBodyWeightEntries(request.userId, queryFilters);
+      const canonicalEntries = await listBodyWeightEntries(request.userId, queryFilters);
+      const entries = canonicalEntries.map((entry) => toBodyWeightEntry(entry, displayUnit));
       return reply.send({ data: entries });
     },
   );
@@ -156,19 +184,33 @@ export const weightRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const existingEntry = await findBodyWeightEntryById(request.params.id, request.userId);
-      if (!existingEntry) {
+      const displayUnit = await getBodyWeightDisplayUnit(request.userId);
+      const existingCanonicalEntry = await findBodyWeightEntryById(
+        request.params.id,
+        request.userId,
+      );
+      if (!existingCanonicalEntry) {
         return sendError(reply, 404, 'WEIGHT_NOT_FOUND', 'Weight entry not found');
       }
 
-      const entry = await patchBodyWeightEntryById(
-        request.params.id,
-        request.userId,
-        request.body,
-      );
-      if (!entry) {
+      let canonicalEntry;
+      try {
+        canonicalEntry = await patchBodyWeightEntryById(
+          request.params.id,
+          request.userId,
+          request.body,
+          request.body.unit ?? displayUnit,
+        );
+      } catch (error) {
+        if (error instanceof RangeError) {
+          return sendError(reply, 400, 'WEIGHT_OUT_OF_RANGE', error.message);
+        }
+        throw error;
+      }
+      if (!canonicalEntry) {
         return sendError(reply, 404, 'WEIGHT_NOT_FOUND', 'Weight entry not found');
       }
+      const entry = toBodyWeightEntry(canonicalEntry, displayUnit);
 
       return reply.send({
         data: entry,

@@ -1,6 +1,22 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { computeEWMA, computeWeightInsights, createWeightInputSchema, type BodyWeightEntry, type CreateWeightInput } from '@pulse/shared';
-import { Area, AreaChart, CartesianGrid, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  computeEWMA,
+  computeWeightInsights,
+  createWeightInputSchema,
+  formatWeight as formatWeightWithUnit,
+  type BodyWeightEntry,
+  type CreateWeightInput,
+} from '@pulse/shared';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { PencilLine, Plus, Scale, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -17,7 +33,7 @@ import {
   useWeightEntries,
 } from '@/features/weight/api/weight';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
-import { addDays, formatUtcDateKey, parseDateInput } from '@/lib/date';
+import { addDays, formatDateKey, parseDateInput } from '@/lib/date';
 
 type RangeOption = {
   days: number | null;
@@ -66,8 +82,8 @@ function filterEntriesByRange(entries: BodyWeightEntry[], days: number | null) {
     return entries;
   }
 
-  const rangeEnd = formatUtcDateKey(new Date());
-  const rangeStart = formatUtcDateKey(addDays(parseDateInput(`${rangeEnd}T00:00:00`), -(days - 1)));
+  const rangeEnd = formatDateKey(new Date());
+  const rangeStart = formatDateKey(addDays(parseDateInput(`${rangeEnd}T00:00:00`), -(days - 1)));
 
   return entries.filter((entry) => entry.date >= rangeStart && entry.date <= rangeEnd);
 }
@@ -101,7 +117,7 @@ function formatSignedChange(value: number, formatWeightValue: (value: number) =>
 }
 
 function getDefaultDate() {
-  return formatUtcDateKey(new Date());
+  return formatDateKey(new Date());
 }
 
 export function WeightHistory() {
@@ -115,9 +131,11 @@ export function WeightHistory() {
   const [addErrorMessage, setAddErrorMessage] = useState('');
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editingWeight, setEditingWeight] = useState('');
+  const [editingUnit, setEditingUnit] = useState<'lbs' | 'kg'>('lbs');
   const [editingNotes, setEditingNotes] = useState('');
   const [editingWeightError, setEditingWeightError] = useState('');
-  const { formatWeight } = useWeightUnit();
+  const { weightUnit } = useWeightUnit();
+  const addWeightPlaceholder = weightUnit === 'kg' ? '82.3' : '181.4';
 
   const {
     formState: { errors: addEntryErrors },
@@ -155,25 +173,30 @@ export function WeightHistory() {
   );
   const yDomain = useMemo(() => computeYAxisDomain(chartData), [chartData]);
   const latestEntry = sortedWeightEntries[0] ?? null;
+  const responseUnit = latestEntry?.unit ?? weightUnit;
+  const formatResponseWeight = (value: number) => formatWeightWithUnit(value, responseUnit);
 
   async function onSubmitNewEntry(values: CreateWeightInput) {
     setAddErrorMessage('');
 
     try {
-      await logWeightMutation.mutateAsync(values);
+      await logWeightMutation.mutateAsync({ ...values, unit: weightUnit });
       reset({
         date: getDefaultDate(),
         notes: undefined,
       });
       setIsAddFormOpen(false);
     } catch (error) {
-      setAddErrorMessage(error instanceof Error ? error.message : 'Weight entry could not be saved.');
+      setAddErrorMessage(
+        error instanceof Error ? error.message : 'Weight entry could not be saved.',
+      );
     }
   }
 
   function startEditing(entry: BodyWeightEntry) {
     setEditingEntryId(entry.id);
     setEditingWeight(entry.weight.toString());
+    setEditingUnit(entry.unit);
     setEditingNotes(entry.notes ?? '');
     setEditingWeightError('');
   }
@@ -181,6 +204,7 @@ export function WeightHistory() {
   function stopEditing() {
     setEditingEntryId(null);
     setEditingWeight('');
+    setEditingUnit('lbs');
     setEditingNotes('');
     setEditingWeightError('');
   }
@@ -216,6 +240,7 @@ export function WeightHistory() {
         input: {
           notes: editingNotes.trim().length > 0 ? editingNotes.trim() : null,
           weight: parsedWeight,
+          unit: editingUnit,
         },
       });
       stopEditing();
@@ -277,7 +302,7 @@ export function WeightHistory() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground" htmlFor="weight-entry-value">
-                Weight
+                Weight ({weightUnit})
               </label>
               <Input
                 id="weight-entry-value"
@@ -287,7 +312,7 @@ export function WeightHistory() {
                 inputMode="decimal"
                 aria-invalid={addEntryErrors.weight ? true : undefined}
                 disabled={logWeightMutation.isPending}
-                placeholder="181.4"
+                placeholder={addWeightPlaceholder}
                 {...register('weight', { valueAsNumber: true })}
               />
               {addEntryErrors.weight?.message ? (
@@ -342,7 +367,8 @@ export function WeightHistory() {
             <div className="space-y-1">
               <h2 className="text-lg font-semibold text-foreground">Trend chart</h2>
               <p className="text-sm text-muted">
-                Logged weigh-ins with the dashboard&apos;s EWMA smoothing across your selected range.
+                Logged weigh-ins with the dashboard&apos;s EWMA smoothing across your selected
+                range.
               </p>
             </div>
             <div
@@ -372,7 +398,7 @@ export function WeightHistory() {
                 Latest entry
               </p>
               <p className="mt-1 text-lg font-semibold text-foreground">
-                {latestEntry ? formatWeight(latestEntry.weight) : '--'}
+                {latestEntry ? formatWeightWithUnit(latestEntry.weight, latestEntry.unit) : '--'}
               </p>
             </div>
             <div className="rounded-2xl bg-secondary/40 px-4 py-3">
@@ -380,7 +406,7 @@ export function WeightHistory() {
                 Period average
               </p>
               <p className="mt-1 text-lg font-semibold text-foreground">
-                {chartData.length > 0 ? formatWeight(rangeInsights.avgWeight) : '--'}
+                {chartData.length > 0 ? formatResponseWeight(rangeInsights.avgWeight) : '--'}
               </p>
             </div>
             <div className="rounded-2xl bg-secondary/40 px-4 py-3">
@@ -388,7 +414,9 @@ export function WeightHistory() {
                 Range change
               </p>
               <p className="mt-1 text-lg font-semibold text-foreground">
-                {chartData.length > 0 ? formatSignedChange(rangeInsights.periodChange, formatWeight) : '--'}
+                {chartData.length > 0
+                  ? formatSignedChange(rangeInsights.periodChange, formatResponseWeight)
+                  : '--'}
               </p>
             </div>
           </div>
@@ -397,7 +425,9 @@ export function WeightHistory() {
             <div className="h-[280px] w-full animate-pulse rounded-2xl bg-muted/50 sm:h-[360px]" />
           ) : isError ? (
             <div className="rounded-2xl border border-dashed border-destructive/40 p-6">
-              <h3 className="text-base font-semibold text-foreground">Unable to load weight history</h3>
+              <h3 className="text-base font-semibold text-foreground">
+                Unable to load weight history
+              </h3>
               <p className="mt-1 text-sm text-muted">
                 {entriesQuery.error instanceof Error
                   ? entriesQuery.error.message
@@ -408,7 +438,9 @@ export function WeightHistory() {
             <div className="flex min-h-[240px] items-center justify-center rounded-2xl border border-dashed border-border bg-muted/15 px-4 text-center sm:min-h-[320px]">
               <div className="space-y-2">
                 <p className="text-base font-semibold text-foreground">
-                  {isEmpty ? 'Log your first weight entry to build a trend.' : 'No entries in this range yet.'}
+                  {isEmpty
+                    ? 'Log your first weight entry to build a trend.'
+                    : 'No entries in this range yet.'}
                 </p>
                 <p className="text-sm text-muted">
                   Try a wider date range or add a new weigh-in above.
@@ -416,8 +448,16 @@ export function WeightHistory() {
               </div>
             </div>
           ) : (
-            <div aria-label="Weight history trend chart" className="h-[280px] w-full sm:h-[360px]" role="img">
-              <ResponsiveContainer height="100%" width="100%">
+            <div
+              aria-label="Weight history trend chart"
+              className="h-[280px] w-full sm:h-[360px]"
+              role="img"
+            >
+              <ResponsiveContainer
+                height="100%"
+                initialDimension={{ height: 280, width: 320 }}
+                width="100%"
+              >
                 <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 2, left: 0 }}>
                   <defs>
                     <linearGradient id="weight-history-scale-fill" x1="0" x2="0" y1="0" y2="1">
@@ -453,10 +493,10 @@ export function WeightHistory() {
                     }}
                     formatter={(value: number | undefined, name: string | undefined) => {
                       if (name === 'scale') {
-                        return [formatWeight(value ?? 0), 'Logged weight'];
+                        return [formatResponseWeight(value ?? 0), 'Logged weight'];
                       }
 
-                      return [formatWeight(value ?? 0), 'Trend weight'];
+                      return [formatResponseWeight(value ?? 0), 'Trend weight'];
                     }}
                     labelFormatter={(label) =>
                       typeof label === 'string'
@@ -478,7 +518,12 @@ export function WeightHistory() {
                   />
                   <Line
                     dataKey="trend"
-                    dot={{ fill: 'var(--color-card)', r: 4, stroke: 'var(--color-accent-cream)', strokeWidth: 2 }}
+                    dot={{
+                      fill: 'var(--color-card)',
+                      r: 4,
+                      stroke: 'var(--color-accent-cream)',
+                      strokeWidth: 2,
+                    }}
                     isAnimationActive={false}
                     name="trend"
                     stroke="var(--color-accent-cream)"
@@ -499,7 +544,10 @@ export function WeightHistory() {
               Logged weight
             </span>
             <span className="inline-flex items-center gap-2">
-              <span aria-hidden="true" className="size-2 rounded-full bg-[var(--color-accent-cream)]" />
+              <span
+                aria-hidden="true"
+                className="size-2 rounded-full bg-[var(--color-accent-cream)]"
+              />
               EWMA trend
             </span>
           </div>
@@ -510,7 +558,8 @@ export function WeightHistory() {
         <div className="space-y-1">
           <h2 className="text-lg font-semibold text-foreground">Entries</h2>
           <p className="text-sm text-muted">
-            Review every weigh-in, update mistaken values or notes, and remove entries you no longer want.
+            Review every weigh-in, update mistaken values or notes, and remove entries you no longer
+            want.
           </p>
         </div>
 
@@ -540,15 +589,19 @@ export function WeightHistory() {
                       {isEditing ? (
                         <div className="grid gap-3 sm:max-w-xl sm:grid-cols-2">
                           <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground" htmlFor={`weight-edit-${entry.id}`}>
-                              Weight
+                            <label
+                              className="text-sm font-medium text-foreground"
+                              htmlFor={`weight-edit-${entry.id}`}
+                            >
+                              Weight ({editingUnit})
                             </label>
                             <Input
-                              aria-label={`Weight value for ${formattedDate}`}
+                              aria-label={`Weight value for ${formattedDate} (${editingUnit})`}
                               className="h-10"
                               id={`weight-edit-${entry.id}`}
                               inputMode="decimal"
                               min="0.1"
+                              placeholder={editingUnit === 'kg' ? '82.3' : '181.4'}
                               onChange={(event) => {
                                 setEditingWeight(event.currentTarget.value);
                                 setEditingWeightError('');
@@ -560,7 +613,10 @@ export function WeightHistory() {
                           </div>
 
                           <div className="space-y-2 sm:col-span-2">
-                            <label className="text-sm font-medium text-foreground" htmlFor={`weight-notes-${entry.id}`}>
+                            <label
+                              className="text-sm font-medium text-foreground"
+                              htmlFor={`weight-notes-${entry.id}`}
+                            >
                               Notes
                             </label>
                             <Textarea
@@ -589,15 +645,24 @@ export function WeightHistory() {
                             >
                               Save
                             </Button>
-                            <Button className="min-h-11" onClick={stopEditing} type="button" variant="ghost">
+                            <Button
+                              className="min-h-11"
+                              onClick={stopEditing}
+                              type="button"
+                              variant="ghost"
+                            >
                               Cancel
                             </Button>
                           </div>
                         </div>
                       ) : (
                         <>
-                          <p className="text-lg font-semibold text-primary">{formatWeight(entry.weight)}</p>
-                          {entry.notes ? <p className="break-words text-sm text-muted">{entry.notes}</p> : null}
+                          <p className="text-lg font-semibold text-primary">
+                            {formatWeightWithUnit(entry.weight, entry.unit)}
+                          </p>
+                          {entry.notes ? (
+                            <p className="break-words text-sm text-muted">{entry.notes}</p>
+                          ) : null}
                         </>
                       )}
                     </div>

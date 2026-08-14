@@ -1,0 +1,6 @@
+{
+  "checkIns": [
+    { "date": "2026-04-08", "kind": "manual", "includeToday": false },
+    { "date": "2026-08-13", "kind": "manual", "includeToday": false }
+  ]
+}

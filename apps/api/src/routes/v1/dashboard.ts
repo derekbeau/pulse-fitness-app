@@ -16,11 +16,7 @@ import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
-import {
-  apiErrorResponseSchema,
-  authSecurity,
-  badRequestResponseSchema,
-} from '../../openapi.js';
+import { apiErrorResponseSchema, authSecurity, badRequestResponseSchema } from '../../openapi.js';
 
 import {
   getDashboardConfig,
@@ -69,7 +65,10 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
-  const getValidatedTrendRange = (query: z.infer<typeof dashboardTrendQuerySchema>, reply: FastifyReply) => {
+  const getValidatedTrendRange = (
+    query: z.infer<typeof dashboardTrendQuerySchema>,
+    reply: FastifyReply,
+  ) => {
     const range = resolveTrendRange(query);
     const parsedRange = resolvedDashboardTrendRangeSchema.safeParse(range);
     if (!parsedRange.success) {
@@ -127,7 +126,9 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const trend = await getDashboardWeightTrend(request.userId, range.from, range.to);
-      reply.header('Cache-Control', 'private, max-age=3600');
+      // Weight values are converted using the current display preference. Revalidate instead of
+      // serving an hour-old representation after the user switches between pounds and kilograms.
+      reply.header('Cache-Control', 'private, no-cache');
       return reply.send({
         data: trend,
       });

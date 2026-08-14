@@ -8,6 +8,10 @@ import { createQueryClientWrapper } from '@/test/query-client';
 
 import { WeightTrendChart } from './weight-trend-chart';
 
+vi.mock('@/hooks/use-weight-unit', () => ({
+  useWeightUnit: () => ({ weightUnit: 'lbs' }),
+}));
+
 vi.mock('recharts', async () => {
   const actual = await vi.importActual<typeof import('recharts')>('recharts');
   const React = await vi.importActual<typeof import('react')>('react');
@@ -35,6 +39,7 @@ const weightEntriesFixture = [
     id: 'weight-1',
     date: '2026-03-04',
     weight: 181.2,
+    unit: 'lbs',
     notes: null,
     createdAt: 1,
     updatedAt: 1,
@@ -43,6 +48,7 @@ const weightEntriesFixture = [
     id: 'weight-2',
     date: '2026-03-05',
     weight: 180.4,
+    unit: 'lbs',
     notes: null,
     createdAt: 2,
     updatedAt: 2,
@@ -51,6 +57,7 @@ const weightEntriesFixture = [
     id: 'weight-3',
     date: '2026-03-06',
     weight: 180.9,
+    unit: 'lbs',
     notes: null,
     createdAt: 3,
     updatedAt: 3,
@@ -59,6 +66,7 @@ const weightEntriesFixture = [
     id: 'weight-4',
     date: '2026-03-07',
     weight: 180.2,
+    unit: 'lbs',
     notes: null,
     createdAt: 4,
     updatedAt: 4,
@@ -174,6 +182,43 @@ describe('WeightTrendChart', () => {
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith('/api/v1/weight', expect.any(Object));
     });
+  });
+
+  it('uses response kg units when profile preference is stale', async () => {
+    const kgEntries = weightEntriesFixture.map((entry) => ({
+      ...entry,
+      weight: Number((entry.weight / 2.2046226218).toFixed(1)),
+      unit: 'kg' as const,
+    }));
+    mockFetch.mockImplementation((input: string | URL | Request, init?: RequestInit) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'http://localhost');
+
+      if (url.pathname === '/api/v1/weight' && init?.method === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: kgEntries }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+
+    const { container } = renderChart();
+
+    await waitFor(() => {
+      expect(screen.getByRole('img', { name: 'Weight trend chart' })).toBeInTheDocument();
+    });
+    expect(container.querySelector('[data-slot="weight-trend-current-trend"]')).toHaveTextContent(
+      'kg',
+    );
+    expect(container.querySelector('[data-slot="weight-trend-period-average"]')).toHaveTextContent(
+      'kg',
+    );
+    expect(screen.queryByText(/lbs/)).not.toBeInTheDocument();
   });
 
   it('refetches after dashboard weight trend invalidation', async () => {

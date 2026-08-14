@@ -20,11 +20,24 @@ import {
   mealItemInputSchema,
   nutritionLoggingContextQuerySchema,
   nutritionLoggingContextSchema,
+  nutritionLogStatusSchema,
   nutritionWeekSummarySchema,
   patchMealInputSchema,
   patchMealItemInputSchema,
   nutritionSummarySchema,
+  updateNutritionLogStatusInputSchema,
 } from './nutrition';
+
+describe('nutrition log status schemas', () => {
+  it.each(['unknown', 'partial', 'complete'] as const)('accepts %s', (status) => {
+    expect(nutritionLogStatusSchema.parse(status)).toBe(status);
+    expect(updateNutritionLogStatusInputSchema.parse({ status })).toEqual({ status });
+  });
+
+  it.each(['done', '', null, 1])('rejects invalid status %j', (status) => {
+    expect(() => updateNutritionLogStatusInputSchema.parse({ status })).toThrow();
+  });
+});
 
 describe('mealItemInputSchema', () => {
   it('parses a valid meal item payload', () => {
@@ -564,6 +577,8 @@ describe('dailyNutritionSchema', () => {
         userId: 'user-1',
         date: '2026-03-09',
         notes: null,
+        status: 'unknown',
+        statusUpdatedAt: null,
         createdAt: 1,
         updatedAt: 1,
       },
@@ -606,6 +621,7 @@ describe('dailyNutritionSchema', () => {
     expect(payload?.meals[0]?.items[0]?.name).toBe('Large Eggs');
     expect(payload?.meals[0]?.items[0]?.displayUnit).toBe('eggs');
     expect(payload?.meals[0]?.meal.summary).toBeNull();
+    expect(payload?.log.status).toBe('unknown');
   });
 
   it('accepts null when no log exists for the date', () => {

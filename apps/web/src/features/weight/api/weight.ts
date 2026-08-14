@@ -1,18 +1,21 @@
 import { type QueryKey, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type {
-  BodyWeightEntry,
-  CreateWeightInput,
-  DashboardSnapshot,
-  DashboardWeightTrendPoint,
-  DeleteWeightResult,
-  PatchWeightInput,
+import {
+  apiMetaSchema,
+  bodyWeightEntrySchema,
+  deleteWeightResultSchema,
+  type BodyWeightEntry,
+  type CreateWeightInput,
+  type DashboardSnapshot,
+  type DashboardWeightTrendPoint,
+  type DeleteWeightResult,
+  type PatchWeightInput,
 } from '@pulse/shared';
 import { toast } from 'sonner';
 
 import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
 import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
 import { apiRequest, apiRequestWithMeta } from '@/lib/api-client';
-import { addDays, formatUtcDateKey, parseDateInput } from '@/lib/date';
+import { addDays, formatDateKey, parseDateInput } from '@/lib/date';
 import { createOptimisticMutation } from '@/lib/optimistic';
 import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 
@@ -30,12 +33,6 @@ type LogWeightCache =
   | null
   | DashboardSnapshot
   | DashboardWeightTrendPoint[];
-
-type PaginatedWeightListMeta = {
-  limit: number;
-  page: number;
-  total: number;
-};
 
 const normalizeWeightListFilters = ({ days, from, limit, page, to }: WeightListFilters = {}) => ({
   days: days ?? null,
@@ -96,32 +93,58 @@ const buildWeightEntriesPath = ({ days, from, limit, page, to }: WeightListFilte
   return queryString ? `/api/v1/weight?${queryString}` : '/api/v1/weight';
 };
 
-const fetchLatestWeight = () => apiRequest<BodyWeightEntry | null>('/api/v1/weight/latest');
+const fetchLatestWeight = async () => {
+  const response = await apiRequest<unknown>('/api/v1/weight/latest');
+  return bodyWeightEntrySchema.nullable().parse(response);
+};
 
-const fetchWeightEntries = (filters: WeightListFilters) =>
-  apiRequest<BodyWeightEntry[]>(buildWeightEntriesPath(filters));
+const parseWeightEntryCollection = (response: unknown) => {
+  const entries = bodyWeightEntrySchema.array().parse(response);
+  if (new Set(entries.map((entry) => entry.unit)).size > 1) {
+    throw new Error('Weight response contains mixed display units.');
+  }
+  return entries;
+};
 
-const fetchPaginatedWeightEntries = (
+const fetchWeightEntries = async (filters: WeightListFilters) => {
+  const response = await apiRequest<unknown>(buildWeightEntriesPath(filters));
+  return parseWeightEntryCollection(response);
+};
+
+const fetchPaginatedWeightEntries = async (
   filters: Required<Pick<WeightListFilters, 'limit' | 'page'>> & WeightListFilters,
-) =>
-  apiRequestWithMeta<BodyWeightEntry[], PaginatedWeightListMeta>(buildWeightEntriesPath(filters));
+) => {
+  const { data, meta } = await apiRequestWithMeta<unknown, unknown>(
+    buildWeightEntriesPath(filters),
+  );
+  return {
+    data: parseWeightEntryCollection(data),
+    meta: apiMetaSchema.parse(meta),
+  };
+};
 
-const postWeightEntry = (input: CreateWeightInput) =>
-  apiRequest<BodyWeightEntry>('/api/v1/weight', {
+const postWeightEntry = async (input: CreateWeightInput) => {
+  const response = await apiRequest<unknown>('/api/v1/weight', {
     body: JSON.stringify(input),
     method: 'POST',
   });
+  return bodyWeightEntrySchema.parse(response);
+};
 
-const deleteWeightEntry = (id: string) =>
-  apiRequest<DeleteWeightResult>(`/api/v1/weight/${id}`, {
+const deleteWeightEntry = async (id: string) => {
+  const response = await apiRequest<unknown>(`/api/v1/weight/${id}`, {
     method: 'DELETE',
   });
+  return deleteWeightResultSchema.parse(response) as DeleteWeightResult;
+};
 
-const patchWeightEntry = (id: string, input: PatchWeightInput) =>
-  apiRequest<BodyWeightEntry>(`/api/v1/weight/${id}`, {
+const patchWeightEntry = async (id: string, input: PatchWeightInput) => {
+  const response = await apiRequest<unknown>(`/api/v1/weight/${id}`, {
     body: JSON.stringify(input),
     method: 'PATCH',
   });
+  return bodyWeightEntrySchema.parse(response);
+};
 
 const compareWeightEntries = (left: BodyWeightEntry, right: BodyWeightEntry) =>
   left.date.localeCompare(right.date) ||
@@ -182,11 +205,11 @@ const applyWeightEntryToListCache = (
       return entries;
     }
 
-    const resolvedTo = filters.to ?? formatUtcDateKey(new Date());
+    const resolvedTo = filters.to ?? formatDateKey(new Date());
     const resolvedFrom =
       filters.from ??
       (filters.days !== null
-        ? formatUtcDateKey(addDays(parseDateInput(`${resolvedTo}T00:00:00`), -(filters.days - 1)))
+        ? formatDateKey(addDays(parseDateInput(`${resolvedTo}T00:00:00`), -(filters.days - 1)))
         : null);
 
     if (
@@ -231,7 +254,7 @@ const applyWeightEntryToDashboardSnapshot = (
     ...snapshot,
     weight: {
       date: nextEntry.date,
-      unit: 'lb' as const,
+      unit: nextEntry.unit,
       value: nextEntry.weight,
       trendValue: snapshot.weight?.trendValue ?? null,
     },
@@ -259,6 +282,7 @@ const applyWeightEntryToDashboardTrend = (
   const nextPoint = {
     date: nextEntry.date,
     value: nextEntry.weight,
+    unit: nextEntry.unit,
   };
 
   if (existingIndex === -1) {
@@ -374,6 +398,7 @@ export const useLogWeight = () => {
         id: `optimistic-weight-${variables.date}`,
         date: variables.date,
         weight: variables.weight,
+        unit: variables.unit ?? 'lbs',
         notes: variables.notes ?? null,
         createdAt: Date.now(),
         updatedAt: Date.now(),
