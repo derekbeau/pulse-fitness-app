@@ -68,6 +68,8 @@ All persisted adaptive calculation inputs and outputs use kilograms. Display val
 - Idempotent weekly and manual check-ins.
 - Pure algorithm code with comprehensive unit and fixture tests.
 - Unified JWT and AgentToken API support unless a route explicitly changes account-level configuration.
+- A persistent, editable goal strategy that remains visible after onboarding and is separate from the learned expenditure model and accepted nutrition targets.
+- Trend-weight-based goal progress, honest projections, maintenance-range status, immutable goal history, and explicit acceptance of every target change caused by a goal change.
 
 ### 4.2 Non-goals for v1
 
@@ -91,6 +93,8 @@ All persisted adaptive calculation inputs and outputs use kilograms. Display val
 6. **Auditability:** every accepted adaptive target links to the exact check-in that produced it.
 7. **Determinism:** the same algorithm version, program, prior estimate, and data fingerprint produce the same result.
 8. **Local-date correctness:** “today,” weekly due dates, nutrition dates, and target effective dates use the program’s IANA time zone.
+9. **Separate model, strategy, and output:** Adaptive TDEE is the learned expenditure model; the active goal is the user’s strategy; nutrition targets are accepted outputs. Changing one must not silently rewrite or reset the others.
+10. **Persistent goal context:** the active goal and progress toward it remain visible in every post-setup Coach state.
 
 ## 6. Existing Pulse Capabilities and Required Changes
 
@@ -621,7 +625,7 @@ A goal is reached when:
 - Lose: `trendWeightKg <= targetWeightKg + goalToleranceKg`
 - Gain: `trendWeightKg >= targetWeightKg - goalToleranceKg`
 
-When reached, return `goalReached = true` and propose maintenance calories at Adaptive TDEE. Acceptance changes the program goal to `maintain`, sets rate to zero, and retains target weight as the maintenance center.
+When reached, return `goalReached = true` and propose maintenance calories at Adaptive TDEE. Acceptance may apply the proposed maintenance nutrition target, but it must not silently overwrite the active goal row. The goal-management phase defined in sections 30–38 records the current goal as completed and creates a distinct maintenance goal only after explicit user confirmation. Until that phase is implemented, retain the existing v1 compatibility behavior behind the current API contract and migrate it atomically when goal records ship.
 
 ### 12.7 Maintenance behavior
 
@@ -679,6 +683,8 @@ Implement in `apps/api/src/db/schema/adaptive-nutrition.ts` and export through t
 ### 14.1 `adaptive_nutrition_programs`
 
 One mutable lifetime program row per user in v1. Pausing preserves configuration and history; resuming updates the same row. Archiving/recreating multiple programs is deferred.
+
+The goal fields on this row are compatibility mirrors for the original six-milestone release. After Milestone 7, `adaptive_nutrition_goals` is authoritative. Program goal mirrors must be updated in the same transaction and removed only in a separately approved cleanup migration after every reader has moved to the goal domain.
 
 | Column                       | Type          | Constraints/meaning                                                 |
 | ---------------------------- | ------------- | ------------------------------------------------------------------- |
@@ -1533,6 +1539,614 @@ README.md
 
 Do not start with UI. The algorithm, canonical units, completeness semantics, audit model, and acceptance transaction are the foundation.
 
+## 30. Goal Strategy Extension Overview
+
+Sections 30–38 define the post-v1 goal-management extension implemented after the original six Adaptive TDEE milestones. These requirements are additive and supersede any earlier wording that treats goal fields on `adaptive_nutrition_programs` as the permanent source of truth.
+
+MacroFactor is the reference product for the useful separation of expenditure, goal, and macro program: editing a goal changes target weight or rate; changing direction creates a new goal; goal changes do not reset expenditure or historical data; and goal progress is based on trend weight.[10][11][12][14] Pulse adopts those principles while keeping its stronger preview-and-explicit-acceptance rule for nutrition-target changes.
+
+### 30.1 Domain boundaries
+
+Treat these as three distinct domains:
+
+1. **Expenditure model:** Adaptive TDEE learned from nutrition and weight history. Goal edits never reset it.
+2. **Goal strategy:** lose, maintain, or gain; target/center weight; desired rate; lifecycle; revisions; progress period.
+3. **Nutrition targets:** effective-dated calories/macros produced from expenditure plus goal strategy and applied only after explicit acceptance.
+
+No goal mutation may:
+
+- delete or rewrite prior check-ins, weight entries, nutrition logs, accepted targets, or expenditure history;
+- rebaseline Adaptive TDEE unless the user separately requests the existing explicit rebaseline flow;
+- silently apply calories or macros;
+- mutate an immutable goal revision or completed/replaced/cancelled goal;
+- infer a goal-direction change from target weight alone.
+
+### 30.2 Edit versus start-new semantics
+
+- **Edit current goal:** same direction only; may change target weight or desired rate; preserves the goal ID, original start date, and original start trend weight; appends an immutable revision.
+- **Start new goal:** required for any direction change, including lose → maintain, gain → maintain, maintain → lose/gain, or lose ↔ gain; closes the prior active goal and creates a new goal with a new progress period.
+- **Goal completion:** closes the active lose/gain goal as completed. Moving to maintenance creates a distinct maintenance goal only after explicit confirmation.
+- **Macro preferences:** protein, fat allocation, and calorie floor remain program preferences. They may be edited alongside a goal only when the UI clearly labels them as program settings; their changes still flow through a recommendation preview.
+
+### 30.3 Compatibility period
+
+During Milestones 7–11:
+
+- `adaptive_nutrition_goals` is authoritative after migration.
+- `adaptive_nutrition_programs.goalType`, `targetWeightKg`, and `goalRatePctPerWeek` remain transactional mirrors for existing calculation code.
+- Every write updates the goal domain and compatibility mirrors atomically.
+- Every check-in input snapshot includes the active goal ID and goal revision ID in addition to the mirrored values.
+- A later cleanup migration may remove mirrors only after all API, algorithm, backtest, and UI readers use the goal domain and Vector approves the cleanup.
+
+## 31. Goal Data Model
+
+### 31.1 `adaptive_nutrition_goals`
+
+| Column                | Type          | Constraints/meaning                                                               |
+| --------------------- | ------------- | --------------------------------------------------------------------------------- |
+| `id`                  | text UUID     | PK                                                                                |
+| `userId`              | text UUID     | FK users, cascade, indexed                                                        |
+| `programId`           | text UUID     | FK adaptive program, cascade, indexed                                             |
+| `type`                | text          | `lose`, `maintain`, `gain`                                                        |
+| `status`              | text          | `active`, `completed`, `replaced`, `cancelled`                                    |
+| `startTrendWeightKg`  | real          | Immutable progress origin                                                         |
+| `startScaleWeightKg`  | real nullable | Latest scale snapshot at creation; display/audit only                             |
+| `targetWeightKg`      | real nullable | Required for lose/gain                                                            |
+| `maintenanceCenterKg` | real nullable | Required for maintain; target retained when a completed goal moves to maintenance |
+| `goalRatePctPerWeek`  | real          | Signed; same bounds as section 12.1                                               |
+| `startedLocalDate`    | text date     | Program-time-zone date                                                            |
+| `endedLocalDate`      | text nullable | Set once when no longer active                                                    |
+| `endedReason`         | text nullable | `completed`, `direction_changed`, `cancelled`                                     |
+| `createdAt`           | integer ms    | Audit                                                                             |
+| `updatedAt`           | integer ms    | Mutable only while active                                                         |
+
+Constraints:
+
+- Partial unique index on `userId` where `status = 'active'`.
+- Lose/gain require `targetWeightKg`, forbid `maintenanceCenterKg`, and require a directionally valid signed rate.
+- Maintain requires `maintenanceCenterKg`, requires rate zero, and stores `targetWeightKg = NULL`.
+- Start weight and start date never change after insert.
+- Completed/replaced/cancelled rows are immutable except account deletion.
+
+### 31.2 `adaptive_nutrition_goal_revisions`
+
+| Column                   | Type          | Constraints/meaning                                            |
+| ------------------------ | ------------- | -------------------------------------------------------------- |
+| `id`                     | text UUID     | PK                                                             |
+| `goalId`                 | text UUID     | FK goal, cascade, indexed                                      |
+| `userId`                 | text UUID     | FK users, cascade; redundant for fail-closed ownership scoping |
+| `sequence`               | integer       | Starts at 1; unique with goal ID                               |
+| `targetWeightKg`         | real nullable | Snapshot after this revision                                   |
+| `maintenanceCenterKg`    | real nullable | Snapshot after this revision                                   |
+| `goalRatePctPerWeek`     | real          | Snapshot after this revision                                   |
+| `previousTargetWeightKg` | real nullable | Prior snapshot                                                 |
+| `previousCenterKg`       | real nullable | Prior snapshot                                                 |
+| `previousRatePctPerWeek` | real          | Prior snapshot                                                 |
+| `reason`                 | text          | `created`, `user_edit`, `migration`, `goal_completion`         |
+| `effectiveLocalDate`     | text date     | Program-time-zone date                                         |
+| `createdAt`              | integer ms    | Immutable                                                      |
+
+Revisions are append-only. Database triggers reject update/delete outside the existing account-deletion transaction. The initial goal creates sequence 1 with reason `created` or `migration`.
+
+### 31.3 Goal linkage
+
+Add nullable `goalId` and `goalRevisionId` columns to `adaptive_nutrition_checkins` and include both in immutable input snapshots. New baseline, manual, and weekly check-ins require both IDs once the migration is complete. Historical rows may remain null only when they predate the goal migration; their existing program snapshot is authoritative.
+
+A goal-change recommendation is a normal immutable check-in with kind `goal_change`. Extend every shared enum, constraint, OpenAPI response, history label, backtest parser, and fixture accordingly.
+
+### 31.4 Migration and backfill
+
+Run migrations only against development copies until production deployment is separately approved.
+
+For each program without an active goal:
+
+1. Select the latest usable trend weight as of migration time. If no valid trend exists, use the latest canonical scale weight. If neither exists, fail that user closed and require explicit goal setup; do not invent a weight.
+2. Create one active goal from the mirrored program goal fields.
+3. For maintenance, use `targetWeightKg` as the center when the original goal-completion flow retained it; otherwise use the selected start weight.
+4. Create revision sequence 1 with reason `migration`.
+5. Do not modify existing check-in snapshots or nutrition targets.
+6. Record deterministic migration counts for created, skipped, and blocked users.
+
+Migration is idempotent, transactional per user, covered by rollback tests, and must preserve foreign-key validity and check-in immutability triggers.
+
+## 32. Goal Progress Contract
+
+The server computes progress; clients never independently derive authoritative progress values.
+
+### 32.1 Loss/gain calculations
+
+Use current trend weight when eligibility has produced a trend. The latest scale weight is returned separately and never substituted into progress silently.
+
+```text
+totalDistanceKg = abs(targetWeightKg - startTrendWeightKg)
+completedDistanceKg =
+  lose: clamp(startTrendWeightKg - currentTrendWeightKg, 0, totalDistanceKg)
+  gain: clamp(currentTrendWeightKg - startTrendWeightKg, 0, totalDistanceKg)
+remainingDistanceKg = max(totalDistanceKg - completedDistanceKg, 0)
+percentComplete = totalDistanceKg == 0 ? 100 : 100 × completedDistanceKg / totalDistanceKg
+```
+
+Return:
+
+- start, current trend, latest scale, and target weights in kg;
+- completed and remaining distance;
+- `percentComplete` clamped to 0–100;
+- desired signed rate and recent actual trend rate;
+- `trajectory`: `toward_goal`, `flat`, `away_from_goal`, or `insufficient_data`;
+- `status`: `on_track`, `ahead`, `behind`, `moving_away`, `reached`, or `insufficient_data`;
+- desired-rate projection and optional actual-rate projection;
+- trend-data freshness and confidence labels;
+- goal start/revision metadata.
+
+### 32.2 Projection rules
+
+- Desired projection uses remaining distance and the selected percentage-of-current-trend-weight weekly rate. Recompute as weight changes; do not promise a fixed linear deadline.
+- Actual projection is present only when recent trend direction is toward the goal, confidence is adequate, data are fresh, and the absolute rate exceeds a documented non-zero threshold.
+- Return a projected date range, not a single false-precision date. Persist no projection because it is derived from current data.
+- When unavailable, return a machine-readable reason such as `INSUFFICIENT_TREND`, `STALE_WEIGHT`, `MOVING_AWAY`, or `RATE_TOO_SMALL` and display honest copy.
+- Goal coaching is week-by-week and never increases the requested rate to “catch up” for earlier missed progress.[9]
+
+### 32.3 Maintenance progress
+
+Maintenance must not return a fake completion percentage. Return:
+
+- center weight;
+- current trend and latest scale weight;
+- signed distance from center;
+- display range around center;
+- `rangeStatus`: `within`, `near_edge`, `below`, `above`, or `insufficient_data`;
+- days within range and observed days for the selected period;
+- recent trend direction and freshness.
+
+For this extension, the display range uses `max(0.68 kg, centerWeightKg × 0.01)` on each side, mirroring the useful MacroFactor maintenance visualization while preserving Pulse’s v1 rule that maintenance calories equal Adaptive TDEE.[13] The range is informational only; it must not introduce automatic corrective calorie nudges without a later specification.
+
+### 32.4 Data provenance
+
+Every progress response states whether current progress uses:
+
+- valid trend weight;
+- stale trend weight;
+- latest scale weight for display only; or
+- no usable current weight.
+
+Trend weight remains the meaningful progress signal because it reduces reactions to transient scale fluctuations and also underpins expenditure calculations.[14]
+
+## 33. Goal API Contract
+
+All goal mutations are JWT-only. AgentToken may read goals and progress but may not edit, start, cancel, complete, or accept goal-driven targets.
+
+### 33.1 `GET /api/v1/adaptive-nutrition/goals/current`
+
+Returns:
+
+- active goal;
+- latest revision;
+- server-computed progress;
+- related pending goal-change check-in, if any;
+- allowed actions.
+
+Return 404 only when migration/setup genuinely left the user without a goal. Cross-user IDs always return 404.
+
+### 33.2 `GET /api/v1/adaptive-nutrition/goals`
+
+Paginated history ordered by `startedLocalDate DESC, createdAt DESC`. Includes status, start/final trend weight, target/center, net change, duration, and latest revision. Detail route returns all revisions and linked accepted check-ins.
+
+### 33.3 `PATCH /api/v1/adaptive-nutrition/goals/:id`
+
+Edits the active goal in the same direction only.
+
+Request contains the complete intended target/center and rate plus:
+
+- `supersedePendingRecommendation: boolean`
+- optional `expectedRevisionId` for optimistic concurrency
+
+Transaction:
+
+1. Verify ownership, active status, expected revision, and same direction.
+2. Reject invalid target direction against current usable trend weight.
+3. If a pending recommendation exists, return 409 unless explicit supersession is true.
+4. Append a goal revision and update the active goal/mirrors.
+5. Generate and persist a `goal_change` recommendation from the latest accepted Adaptive TDEE and current target.
+6. Return the updated goal, progress, and pending recommendation.
+
+The mutation changes strategy immediately but changes no nutrition target.
+
+### 33.4 `POST /api/v1/adaptive-nutrition/goals`
+
+Starts a new directional goal. Request includes goal type, target or maintenance center, rate, and explicit pending-recommendation supersession.
+
+Transaction:
+
+1. Lock/read the current goal.
+2. Require the requested type to differ from the active type. Same-direction changes use PATCH.
+3. Resolve a fresh start trend weight; fail closed if unavailable.
+4. Close the prior goal as `replaced` with reason `direction_changed`.
+5. Create the new active goal and revision 1.
+6. Update compatibility mirrors.
+7. Create a `goal_change` recommendation without applying targets.
+
+A failure rolls back every step, leaving the old goal active.
+
+### 33.5 `POST /api/v1/adaptive-nutrition/goals/:id/cancel`
+
+Cancels only the active goal. Cancellation does not delete it or change nutrition targets. The product must immediately require a new goal before another adaptive check-in can be generated.
+
+### 33.6 Goal completion and maintenance transition
+
+When a check-in reports `goalReached = true`, its acceptance endpoint may apply the displayed maintenance nutrition target only after the existing target confirmation. The response then exposes `goalCompletionRequired = true` until the user confirms the goal transition.
+
+`POST /api/v1/adaptive-nutrition/goals/:id/complete`:
+
+- verifies the goal remains active and within completion tolerance using a fresh fingerprint;
+- marks it completed;
+- creates a maintenance goal centered on the completed target;
+- creates revision 1 with reason `goal_completion`;
+- updates mirrors;
+- links both goal records to the accepted completion check-in;
+- does not create a second nutrition target when the maintenance target was already accepted.
+
+The UI presents this as one reviewed completion flow, but the server keeps target acceptance and goal lifecycle transitions explicit and replayable.
+
+### 33.7 State endpoint integration
+
+Extend `GET /api/v1/adaptive-nutrition` with:
+
+- `activeGoal`
+- `goalProgress`
+- `pendingGoalChange`
+- `goalActionRequired`
+
+After Milestone 9, post-setup states require `activeGoal` and return goal progress or an explicit unavailable reason. Existing clients remain parseable during the rollout via additive nullable fields until the web client is deployed.
+
+## 34. Goal and Progress User Experience
+
+### 34.1 Persistent `Your goal` card
+
+Render directly below the Coach state header/status card in every post-setup state:
+
+- baseline;
+- learning;
+- holding;
+- updating;
+- pending recommendation;
+- check-in due;
+- paused program;
+- goal completion required.
+
+It never disappears because data readiness is poor or another recommendation is pending.
+
+Loss/gain card includes:
+
+- direction and target, for example `Lose to 175 lb`;
+- current trend weight, visibly distinguished from latest scale weight;
+- start weight;
+- completed and remaining distance;
+- accessible progress rail and percentage;
+- desired rate and actual recent rate;
+- honest estimated completion window or unavailable reason;
+- `Edit goal` primary action;
+- `Start a new goal` secondary action.
+
+Maintenance card includes:
+
+- `Maintain around <weight>`;
+- center, current trend, and distance from center;
+- accessible range/dial visualization;
+- within/near/outside status;
+- days in range;
+- edit and new-goal actions;
+- no percentage-complete language.
+
+The compact four-metric status grid may retain a short goal label, but it does not replace this card.
+
+### 34.2 Edit-goal flow
+
+The editor is prefilled from the latest goal revision and supports preferred units. It shows:
+
+- target/center weight;
+- desired rate and safe supported range;
+- projected completion impact;
+- current trend context;
+- explanatory copy that editing preserves the goal’s original starting point.
+
+Before save, show a summary. If a pending recommendation exists, require a separate explicit confirmation that it will be replaced. After save, navigate to or reveal the goal-change recommendation comparison.
+
+### 34.3 Start-new-goal flow
+
+The first step chooses lose, maintain, or gain. The flow explains that:
+
+- a new direction starts a new progress period;
+- prior goals remain in history;
+- weight, nutrition, check-ins, and Adaptive TDEE do not reset.[12]
+
+Show the new starting trend weight and require final confirmation before closing the prior goal.
+
+### 34.4 Goal-change recommendation
+
+Reuse the existing comparison and explicit acceptance patterns. Attribute changes separately to:
+
+- expenditure change;
+- goal type/rate/target change;
+- guardrails;
+- macro-preference changes.
+
+Copy must say: `Your goal changed. Your current nutrition targets stay in place until you accept this recommendation.`
+
+### 34.5 Goal detail and history
+
+Provide an expandable Coach section or dedicated route with:
+
+- current goal summary;
+- weekly trend-weight line;
+- week-by-week progress bars/waterfall for loss/gain;
+- maintenance range history;
+- goal revisions with before/after values;
+- prior goals and lifecycle status;
+- linked accepted check-ins.
+
+MacroFactor’s waterfall communicates initial goal size, weekly movement toward/away, and remaining distance; Pulse may use a different visual style but must preserve those semantics.[13]
+
+### 34.6 Goal completion
+
+Use restrained positive feedback, then show:
+
+- completed target and final trend weight;
+- total change and duration;
+- maintenance target comparison;
+- `Move to maintenance` confirmation;
+- option to review details before acceptance.
+
+Do not automatically celebrate a single noisy scale reading. Completion uses the existing trend-weight tolerance and a fresh fingerprint.
+
+### 34.7 Accessibility and responsive requirements
+
+- Full keyboard operation for edit/new/completion flows.
+- Charts expose text equivalents and tabular summaries.
+- Progress and range status are not communicated by color alone.
+- Preferred-unit formatting never feeds rounded display values back into calculations.
+- No horizontal overflow at 320, 375, 390, 430, 768, and 1280 px.
+- Goal actions remain at least 44 px high on touch layouts.
+- Dialog focus, errors, live announcements, and reduced-motion behavior follow section 20.
+
+## 35. Goal Testing Strategy
+
+### 35.1 Pure and schema tests
+
+Test:
+
+- loss/gain progress in both directions;
+- clamping before start and beyond target;
+- zero-distance defensive behavior;
+- desired-rate and actual-rate projections;
+- unavailable projection reasons;
+- stale/missing trend data;
+- maintenance range boundaries;
+- kg/display-unit round trips;
+- every goal, revision, progress, request, and response schema boundary;
+- strict rejection of unknown fields.
+
+### 35.2 Migration tests
+
+Test fresh databases and realistic copies containing:
+
+- lose, gain, and maintain programs;
+- prior goal-completion compatibility rows;
+- valid trend weight, scale-only fallback, and no-weight blocked users;
+- rerun idempotency;
+- rollback on one-user failure;
+- exactly one active goal per user;
+- revision sequence 1;
+- unchanged legacy check-in snapshots and nutrition targets;
+- foreign keys, indexes, check constraints, and immutability triggers.
+
+Run the migration against an isolated production clone before the Milestone 7 checkpoint commit. Never run it against production during implementation.
+
+### 35.3 Store/API integration tests
+
+Required cases:
+
+- same-direction edit preserves goal ID/start weight/start date and appends one revision;
+- direction change closes the old goal and creates exactly one active goal;
+- expenditure prior and accepted check-ins remain unchanged after either operation;
+- goal change creates a pending recommendation but writes no nutrition target;
+- acceptance writes/replaces the target only with explicit confirmation;
+- pending recommendation conflict requires explicit supersession and preserves the old snapshot;
+- optimistic revision conflict returns 409;
+- goal-change fingerprints become stale when source data change;
+- completion creates maintenance exactly once and is retry-safe;
+- concurrent edit/new/complete operations cannot produce two active goals or duplicate revisions;
+- cancellation leaves targets/history intact and blocks check-ins until a new goal exists;
+- cross-user IDs return 404;
+- AgentToken writes return 403;
+- account deletion removes goals/revisions in the documented order.
+
+### 35.4 Frontend tests
+
+RTL tests cover:
+
+- persistent goal card in every state;
+- trend versus scale labels;
+- loss/gain and maintenance variants;
+- ETA unavailable reasons;
+- edit prefill and validation;
+- new-direction confirmation;
+- pending-recommendation replacement confirmation;
+- goal-change comparison and query invalidations;
+- history/revision rendering;
+- completion-to-maintenance flow;
+- keyboard and screen-reader text equivalents.
+
+Playwright covers the complete user journeys plus every required width. Deterministic preview fixtures add current loss, maintenance, edited goal, prior-goal history, goal-change pending, and completion-required accounts.
+
+### 35.5 Property and invariant tests
+
+- `0 <= percentComplete <= 100`.
+- Remaining distance is never negative.
+- Moving toward the goal cannot decrease completed distance for otherwise identical inputs.
+- Maintenance never emits percent complete or a goal-completion ETA.
+- Exactly one active goal exists per user after every successful mutation.
+- Every active goal has at least one revision and latest sequence is gap-free.
+- Closed goals and revisions are immutable.
+- Goal mutation never changes Adaptive TDEE prior, historical check-ins, or nutrition targets before acceptance.
+- Same canonical inputs and active revision produce the same progress and goal-change recommendation fingerprint.
+
+## 36. Single-Goal Milestone and Final Review Plan
+
+The original Milestones 1–6 are complete. Codex runs Milestones 7–11 as **one uninterrupted Goal Mode goal** from the clean specification handoff commit. Milestone boundaries remain strict engineering checkpoints, not Vector stop gates:
+
+1. Complete only the current milestone's defined scope.
+2. Add permanent automated coverage and run the milestone's focused tests.
+3. Run the exact uncached repository lint, typecheck, full tests, and builds.
+4. Start the isolated app and perform extensive built-in-browser QA after **every** milestone. Exercise all new runnable behavior plus regression-smoke affected existing surfaces; inspect console, page errors, failed resources, and HTTP failures. Backend-only milestones still require browser smoke of the existing Coach/history surfaces and live API/OpenAPI inspection, while database-only invariants remain proven by automated tests.
+5. Fix all Codex-found defects and repeat affected automated/browser checks.
+6. Update the workspace evidence and create exactly **one coherent Conventional Commit for that milestone**. Do not combine milestones in one commit or split a milestone into routine follow-up commits.
+7. Continue directly to the next milestone without waiting for Vector, provided the milestone commit is green and production isolation remains proven.
+
+Codex pushes the milestone commits to the existing draft PR as it proceeds, but never deploys, merges, makes the PR ready, or modifies live production. After Milestone 11 it stops once at `AWAITING VECTOR FINAL GOAL-STRATEGY REVIEW`.
+
+Vector then independently reviews the complete five-commit sequence, source, migrations, isolated data, exact uncached pipeline, and browser journeys. Vector does not accept Codex evidence at face value. Confirmed final-QA defects are returned to the same Codex goal as a bounded repair list. Codex repairs only those defects, reruns the affected focused/full/browser gates, creates one clearly labeled final-QA repair commit, pushes it, and stops again at `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`. Vector independently verifies the repairs before issuing the final verdict.
+
+### Milestone 7: Goal domain, migration, and contracts
+
+Scope:
+
+- goal and revision tables, constraints, triggers, indexes, migration, and compatibility mirrors;
+- goal linkage in check-ins/snapshots;
+- shared schemas and OpenAPI contracts;
+- backfill service and isolated production-clone migration evidence;
+- store/API read paths for current goal/history; no user-facing editor yet.
+
+Required evidence:
+
+- fresh and cloned-database migration tests;
+- blocked no-weight behavior;
+- idempotency/rollback/immutability/concurrency tests;
+- no production access or mutation;
+- full uncached lint, typecheck, tests, and build;
+- isolated browser smoke of Coach/history plus live goal read/OpenAPI contracts, with zero unexpected console/network errors.
+
+Checkpoint: record exact evidence and create the **Milestone 7 commit**, then continue to Milestone 8. Do not include progress calculations or UI in that commit.
+
+### Milestone 8: Progress engine and goal mutations
+
+Scope:
+
+- pure progress/projection module;
+- edit/new/cancel/complete transactions;
+- `goal_change` recommendation and explicit acceptance integration;
+- state/current/history/detail APIs;
+- deterministic fixtures and backtest support.
+
+Required evidence:
+
+- all section 35.1, 35.3, and 35.5 cases relevant to backend behavior;
+- adversarial pending/stale/concurrent/retry tests;
+- proof goal edits do not reset expenditure or write targets;
+- full uncached pipeline;
+- isolated browser/API walkthrough of goal reads and every mutation/acceptance path that is runnable without the Milestone 9 UI, plus regression smoke of Coach/history.
+
+Checkpoint: record exact evidence and create the **Milestone 8 commit**, then continue to Milestone 9. Do not include UI in that commit.
+
+### Milestone 9: Persistent goal card and edit/new flows
+
+Scope:
+
+- goal card in every Coach state;
+- loss/gain progress rail, honest projections, and maintenance range;
+- edit and new-goal flows;
+- goal-change comparison/supersession UX;
+- preferred units, accessibility, and responsive behavior.
+
+Required evidence:
+
+- focused RTL coverage;
+- installed-Chrome Playwright user journeys and all required widths;
+- zero application console/network errors;
+- isolated demo accounts for Vector review;
+- full uncached pipeline;
+- built-in-browser QA of every edit/new-goal/recommendation path, keyboard flow, and required responsive width in addition to installed-Chrome Playwright.
+
+Checkpoint: record exact evidence and create the **Milestone 9 commit**, then continue to Milestone 10. Do not include history/completion polish in that commit.
+
+### Milestone 10: Goal detail, history, and completion UX
+
+Scope:
+
+- detailed trend/progress view and text-equivalent chart data;
+- immutable goal/revision history;
+- prior-goal summaries and linked check-ins;
+- reviewed goal-completion-to-maintenance flow;
+- deterministic seeded fixtures.
+
+Required evidence:
+
+- complete RTL and Playwright coverage;
+- completion idempotency and stale-data browser scenarios;
+- responsive/accessibility review;
+- full uncached pipeline;
+- built-in-browser QA of detail, revisions, prior goals, stale completion, retry-safe completion, accessibility text equivalents, and every required width.
+
+Checkpoint: record exact evidence and create the **Milestone 10 commit**, then continue to Milestone 11. Do not deploy, merge, or make the PR ready.
+
+### Milestone 11: Final acceptance and release evidence
+
+Scope:
+
+- production-history backtest compatibility;
+- final migration rehearsal on a fresh isolated production clone;
+- complete demo-account acceptance across original and goal-strategy features;
+- documentation, OpenAPI, agent guidance, and release evidence;
+- no feature expansion.
+
+Required evidence:
+
+- source database-family hashes unchanged;
+- exact fresh-database integrity checks;
+- all focused and full suites uncached;
+- installed-Chrome E2E and responsive checks;
+- branch/PR synchronization and remote CI;
+- production untouched and PR draft unless Derek separately authorizes release;
+- final built-in-browser acceptance across every original and goal-strategy state, mutation, history/completion path, keyboard path, and required width with clean diagnostics.
+
+Checkpoint: create the **Milestone 11 commit**, push all five milestone commits, update draft PR #100, and stop at `AWAITING VECTOR FINAL GOAL-STRATEGY REVIEW`.
+
+## 37. Goal Extension Definition of Done
+
+The extension is complete only when all are true:
+
+1. Every migrated/created user has at most one active first-class goal and immutable revisions.
+2. Goal edits preserve the progress origin; direction changes start a new historical goal.
+3. Goal changes never reset Adaptive TDEE, nutrition/weight history, accepted targets, or check-in history.
+4. Goal-driven calories/macros remain proposals until explicitly accepted.
+5. Pending/stale/same-date conflicts fail closed and require explicit replacement.
+6. Goal progress uses trend weight and labels latest scale weight separately.
+7. Loss/gain progress, remaining distance, rates, and projections are deterministic and honest about unavailable data.
+8. Maintenance uses center/range status and never fake percentage progress.
+9. The active goal remains visible in every post-setup Coach state.
+10. Goal history, revisions, completion, and maintenance transition are replayable and retry-safe.
+11. JWT/AgentToken permissions and cross-user isolation pass adversarial tests.
+12. Fresh and production-clone migrations pass integrity, rollback, idempotency, and source-isolation checks.
+13. Required RTL, Playwright, responsive, accessibility, unit, schema, store, API, migration, invariant, and backtest tests pass.
+14. Exact uncached `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` pass.
+15. Final branch is clean/synchronized, remote CI passes, PR remains draft, and production is untouched absent explicit approval.
+
+## 38. Codex Single-Goal Handoff Contract
+
+Codex receives this specification and the repository handoff commit. It must:
+
+1. Read sections 5, 12.6–12.7, 14, 17–18, 22.5, 23, 25, and 30–38 before editing.
+2. Inspect the current schema, migrations, check-in immutability triggers, store transactions, shared schemas, OpenAPI tests, backtest loader, and agent-workspace status before proposing changes.
+3. Run one continuous Goal Mode goal through Milestones 7, 8, 9, 10, and 11 in order. Respect scope boundaries even though no Vector approval is required between them.
+4. Use test-first implementation where practical and add permanent regressions for every discovered edge case.
+5. Use only fresh/isolated databases and an isolated production clone; never open production writable or deploy.
+6. Preserve check-in snapshots, target provenance, and current original-feature behavior.
+7. After every milestone, run focused checks, the exact uncached full pipeline, and extensive isolated built-in-browser QA as defined in section 36. A passing Playwright suite does not replace the built-in-browser walkthrough.
+8. After every milestone, update `agent-workspace/current-status.md`, `verification-report.md`, `pr-body.md`, and the milestone handoff evidence with exact commands, counts, browser scenarios, diagnostics, limitations, and isolation proof.
+9. Create exactly one coherent Conventional Commit per milestone and push it to draft PR #100 before continuing. The expected implementation sequence is five commits, one each for Milestones 7–11.
+10. Do not merge, make the PR ready, deploy, access or modify live production, or expand scope.
+11. After Milestone 11, stop at `AWAITING VECTOR FINAL GOAL-STRATEGY REVIEW` and report all five commit SHAs plus complete automated, migration, browser, and production-isolation evidence.
+12. If Vector returns confirmed final-QA defects, resume the same goal only for that bounded list, create one final-QA repair commit after all affected gates pass, and stop at `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`.
+
 ## Sources
 
 [1] https://help.macrofactorapp.com/en/articles/20-expenditure — MacroFactor: Expenditure
@@ -1544,3 +2158,8 @@ Do not start with UI. The algorithm, canonical units, completeness semantics, au
 [7] https://link.springer.com/article/10.1186/s12970-017-0177-8 — ISSN Protein and Exercise Position Stand
 [8] https://www.niddk.nih.gov/research-funding/at-niddk/labs-branches/laboratory-biological-modeling/integrative-physiology-section/research/body-weight-planner — NIDDK Body Weight Planner Research
 [9] https://help.macrofactorapp.com/en/articles/222-how-does-macrofactor-make-adjustments-for-a-weight-gain-or-weight-loss-goal — MacroFactor: Goal Adjustments
+[10] https://help.macrofactorapp.com/en/articles/88-edit-a-goal — MacroFactor: Edit a Goal
+[11] https://help.macrofactorapp.com/en/articles/90-set-a-new-goal — MacroFactor: Set a New Goal
+[12] https://help.macrofactorapp.com/en/articles/204-does-my-data-reset-if-i-change-goals-or-create-a-new-program — MacroFactor: Goal and Program Changes Do Not Reset Data
+[13] https://help.macrofactorapp.com/en/articles/22-get-to-know-your-dashboard — MacroFactor: Dashboard Goal Progress and Maintenance Views
+[14] https://help.macrofactorapp.com/dashboard/weight_trend — MacroFactor: Trend Weight as the Meaningful Progress Signal

@@ -20,6 +20,11 @@ The work crosses weight-unit migration, nutrition completeness, target provenanc
 - [x] Coach UI, completion controls, history, accessibility, and responsive behavior
 - [x] Backtest, seeded synthetic preview, browser acceptance, and Codex final handoff
 - [x] Vector Gate 6 independent re-review after confirmed backtest repairs
+- [ ] Milestone 7 goal domain, migration, contracts, and isolated-clone rehearsal
+- [ ] Milestone 8 goal progress engine, mutations, and accepted target integration
+- [ ] Milestone 9 persistent goal card and edit/new-goal flows
+- [ ] Milestone 10 goal detail, history, and completion UX
+- [ ] Milestone 11 final migration rehearsal and complete acceptance
 
 Live state: [`agent-workspace/current-status.md`](agent-workspace/current-status.md)  
 Execution plan: [`agent-workspace/implementation-plan.md`](agent-workspace/implementation-plan.md)  
@@ -113,15 +118,18 @@ Milestone 1 Gate 1 is independently approved at `2e539387c690f09710648d591e57c5d
 - [x] Vector Gate 5 approved
 - [x] Milestone 6 read-only backtest, deterministic fixtures, sanitized Tailscale preview, clean-checkout gates, and Codex acceptance
 - [x] Vector Gate 6 independent re-review after confirmed backtest repairs
+- [ ] Milestone 7 goal domain, migration, contracts, and isolated-clone rehearsal
+- [ ] Milestone 8 goal progress engine, mutations, and accepted target integration
+- [ ] Milestone 9 persistent goal card and edit/new-goal flows
+- [ ] Milestone 10 goal detail, history, and completion UX
+- [ ] Milestone 11 final migration rehearsal and complete acceptance
 
-Current milestone state: `VECTOR GATE 6 APPROVED — READY FOR DEREK PREVIEW`. Confirmed backtest defects
-are repaired and regression-covered; PR #100 remains draft and production remains unchanged. The repair prevents any
-SQLite open of the source database family, makes direct-source replay deterministic, separates effective
-manual-target inputs from Adaptive TDEE prior history, rejects unknown/duplicate CLI flags and replay
-check-ins, and documents clean `pnpm --silent` redirects. Focused tests passed 9/9; the exact uncached
-pipeline passed startup/security 8, shared 402, API 668, web 989, lint/typecheck/build, and zero cached
-Turbo tasks. Vector independently reran 4/4 seeded fixture scenarios across six widths, 8/8 adaptive
-lifecycle scenarios, and the exact uncached repository pipeline before approval.
+Current milestone state: `MILESTONES 7–11 AUTHORIZED AS ONE CODEX GOAL`. Vector Gate 6 remains
+approved. Specification sections 30–38 define the first-class goal domain, immutable revisions,
+trend-weight progress, explicit goal-change recommendations, persistent goal UI, history/completion,
+Milestones 7–11, and the exact single-goal/final-review contract. Codex must create one commit and run
+extensive automated plus built-in-browser QA per milestone before one independent Vector final review.
+PR #100 remains draft and production remains unchanged.
 
 ## Review focus
 

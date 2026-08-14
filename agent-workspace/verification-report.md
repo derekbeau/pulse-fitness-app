@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Verification Report
 
-**Status:** VECTOR GATE 6 APPROVED<br>
+**Status:** MILESTONES 7–11 AUTHORIZED AS ONE CODEX GOAL<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
-**Reviewer:** Vector independent Gate 6 re-review complete<br>
-**Last verified state:** Gate 6 approved repair tree; final commit recorded after publication
+**Reviewer:** Vector specification extension and single-goal handoff preparation complete<br>
+**Last verified state:** Gate 6 remains approved; Milestones 7–11 are authorized but unimplemented
 
 This report must contain observed results, not intended commands or agent self-reports.
 
@@ -711,13 +711,30 @@ After Codex completes and stops, Hermes/Vector must independently compare the im
 **Non-blocking findings:** Four pre-existing Fast Refresh lint warnings and 37 pre-existing copied-baseline foreign-key violations remain documented and out of Gate 0 scope.<br>
 **Resolution commits:** Gate 0 repair and approval commit recorded in branch history.
 
+## Goal-strategy specification extension
+
+Vector added specification sections 30–38 for the post-v1 goal-strategy extension. The extension defines:
+
+- first-class active/historical goals and immutable goal revisions;
+- trend-weight progress, honest projections, and maintenance-range semantics;
+- JWT-only edit/new/cancel/complete transactions and AgentToken read-only access;
+- goal-change recommendations that never apply nutrition targets before explicit acceptance;
+- persistent goal, edit/new-goal, history, and completion user experiences;
+- migration/backfill, isolated production-clone rehearsal, concurrency, security, invariant, RTL, Playwright, responsive, and accessibility requirements;
+- one uninterrupted Codex goal across Milestones 7–11, exactly one commit and extensive automated/built-in-browser QA per milestone, followed by one independent Vector final review.
+
+MacroFactor references for goal editing, new goals, data-reset behavior, dashboard progress, and trend weight are recorded as sources [10]–[14] in the specification. No implementation, migration, deployment, production access, merge, or PR-ready promotion was performed while extending the specification.
+
 ## Final verdict
 
-`VECTOR GATE 6 APPROVED`
+`MILESTONES 7–11 AUTHORIZED AS ONE CODEX GOAL`
 
-Codex may change milestone verdicts only to `AWAITING VECTOR GATE N REVIEW` after that milestone's implementation, automated checks, self-review, and built-in-browser QA pass. Codex must then stop, push, and hand off without starting later work.
-
-After Milestone 6, Codex may set the final verdict only to `AWAITING VECTOR FINAL REVIEW`. Only Hermes/Vector may change that to `READY FOR DEREK PREVIEW`, after independently rerunning acceptance and verifying the preview. Codex must not self-approve a gate, mark the feature ready for Derek, make the PR ready for review, merge, or deploy.
+Codex continues through Milestones 7–11 without intermediate Vector stops only after each milestone's focused
+tests, exact uncached full pipeline, self-review, extensive built-in-browser QA, evidence update, and single
+milestone commit are complete. After Milestone 11 it stops at `AWAITING VECTOR FINAL GOAL-STRATEGY REVIEW`.
+Only Hermes/Vector may issue the final readiness verdict after independently rerunning acceptance. Confirmed
+defects return to the same Codex goal for one bounded repair commit and independent Vector re-review. Codex
+must not mark the feature ready, make the PR ready for review, merge, deploy, or modify production.
 
 ### Gate 6 backtest repair
 

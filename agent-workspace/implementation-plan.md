@@ -90,9 +90,58 @@ The milestones are ordered dependencies. Each milestone is a separate Codex goal
 - [x] Produce and independently verify a Tailscale-accessible preview URL.
 - [x] Have Codex perform a fresh self-review against every definition-of-done item.
 - [x] Resolve all Codex-found blocking issues and rerun affected gates.
-- [ ] Hand off to Hermes/Vector for the independent acceptance review; Codex must not perform or waive this gate.
+- [x] Hand off to Hermes/Vector for the independent acceptance review; Codex must not perform or waive this gate.
 
 **Codex gate:** `verification-report.md` contains reproducible green evidence, no unresolved Codex-found blocking issues, and the verdict `AWAITING VECTOR FINAL REVIEW`. Push the final milestone commit and stop for Vector's independent acceptance.
+
+## Goal-strategy extension
+
+The authoritative scope, acceptance criteria, and gate evidence are in specification sections 30–38.
+
+### Milestone 7: Goal domain, migration, and contracts
+
+- [ ] Add first-class goals and immutable revisions with constraints, indexes, and triggers.
+- [ ] Add check-in goal/revision linkage and compatibility mirrors.
+- [ ] Backfill fresh and isolated production-clone databases without changing historical snapshots/targets.
+- [ ] Add shared schemas, OpenAPI contracts, and read-only current/history APIs.
+- [ ] Prove idempotency, rollback, immutability, concurrency, isolation, and no-weight fail-closed behavior.
+
+**Codex checkpoint:** run focused plus exact uncached full gates and extensive isolated built-in-browser/API/OpenAPI smoke; create/push exactly one Milestone 7 commit, then continue to Milestone 8. Do not include progress calculations, mutations, or UI in that commit.
+
+### Milestone 8: Progress engine and goal mutations
+
+- [ ] Add pure progress/projection and maintenance-range calculations.
+- [ ] Add edit/new/cancel/complete transactions and goal-change recommendations.
+- [ ] Preserve expenditure/history and require explicit target acceptance.
+- [ ] Add deterministic fixtures, backtest support, and adversarial concurrency/staleness tests.
+
+**Codex checkpoint:** run focused plus exact uncached full gates and extensive isolated browser/API mutation/acceptance smoke; create/push exactly one Milestone 8 commit, then continue to Milestone 9. Do not include UI in that commit.
+
+### Milestone 9: Persistent goal card and edit/new flows
+
+- [ ] Keep goal/progress visible in every Coach state.
+- [ ] Add loss/gain progress, maintenance range, and honest projections.
+- [ ] Add accessible edit/new-goal and pending-recommendation replacement flows.
+- [ ] Pass focused RTL, installed-Chrome journeys, and all required widths.
+
+**Codex checkpoint:** run focused RTL, exact uncached full gates, installed-Chrome E2E, and extensive built-in-browser QA across all paths and widths; create/push exactly one Milestone 9 commit, then continue to Milestone 10.
+
+### Milestone 10: Goal detail, history, and completion
+
+- [ ] Add detailed progress, chart text equivalents, revisions, and prior-goal history.
+- [ ] Add reviewed completion-to-maintenance flow and deterministic fixtures.
+- [ ] Pass complete RTL/Playwright, accessibility, responsive, stale, and retry scenarios.
+
+**Codex checkpoint:** run complete automated and extensive built-in-browser detail/history/completion/accessibility QA; create/push exactly one Milestone 10 commit, then continue to Milestone 11. Do not deploy or make the PR ready.
+
+### Milestone 11: Final acceptance and release evidence
+
+- [ ] Rehearse migration on a fresh isolated production clone.
+- [ ] Run complete original-plus-goal demo acceptance and backtest compatibility.
+- [ ] Update docs/OpenAPI/agent guidance and exact release evidence.
+- [ ] Pass uncached full gates, installed-Chrome E2E, branch/PR sync, and remote CI.
+
+**Codex final stop:** after exact uncached full gates and extensive built-in-browser final acceptance, create/push exactly one Milestone 11 commit and stop at `AWAITING VECTOR FINAL GOAL-STRATEGY REVIEW`. Production remains untouched and PR #100 remains draft. Confirmed Vector final-QA defects return to the same Codex goal for one bounded repair commit and re-review.
 
 ## Final handoff criteria
 
@@ -101,4 +150,4 @@ The milestones are ordered dependencies. Each milestone is a separate Codex goal
 - [x] CI is green or every external/non-code blocker is explicitly documented.
 - [x] Preview URL and test workflow are verified before Derek receives them.
 - [x] Production remains unchanged.
-- [x] Codex stops after every milestone at its named Vector gate; only Vector may authorize the next milestone or promote the final verdict to `READY FOR DEREK PREVIEW`.
+- [x] The extension uses one Codex goal, one commit per Milestone 7–11, extensive automated/browser QA after each milestone, and one independent Vector final review before any readiness verdict.

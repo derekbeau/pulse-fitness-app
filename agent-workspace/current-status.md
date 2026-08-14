@@ -1,9 +1,9 @@
 # Adaptive TDEE v1 Current Status
 
-**Overall:** VECTOR GATE 6 APPROVED — READY FOR DEREK PREVIEW<br>
+**Overall:** MILESTONES 7–11 AUTHORIZED AS ONE CODEX GOAL<br>
 **Branch:** `feat/adaptive-tdee-v1`
 **Execution checkout:** `/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee`
-**Last updated:** 2026-08-13 (Vector Gate 6 independent re-review approved)
+**Last updated:** 2026-08-13 (goal-strategy specification and Milestones 7–11 authorized)
 
 ## Completed
 
@@ -123,15 +123,21 @@
 
 ## Current milestone
 
-**Milestone 6: backtest, synthetic preview, and Codex acceptance — VECTOR GATE 6 APPROVED**
+**Goal-strategy extension: Milestones 7–11 — AUTHORIZED AS ONE CODEX GOAL**
 
-The confirmed Gate 6 defects are repaired, regression-covered, independently re-reviewed, and approved.
+The original Adaptive TDEE Milestones 1–6 remain approved. Specification sections 30–38 define the
+first-class goal strategy extension, progress model, persistent UI, history/completion behavior, testing,
+and Milestones 7–11. Codex is authorized to implement all five milestones in one uninterrupted Goal Mode
+goal, with exactly one commit and extensive automated/built-in-browser QA per milestone, then stop at
+`AWAITING VECTOR FINAL GOAL-STRATEGY REVIEW`.
 
 ## Next actions
 
-1. Keep PR #100 draft until Derek explicitly authorizes review-state promotion.
-2. Derek may use the isolated synthetic preview; no production deployment has been performed.
-3. Do not deploy, merge, or make PR #100 ready without separate explicit authorization and a verified backup.
+1. Hand off the clean specification commit to the primary Codex chat.
+2. Codex implements Milestones 7–11 in order using fresh databases and isolated production clones only.
+3. After each milestone Codex runs focused and exact uncached full gates plus extensive built-in-browser QA, fixes its findings, and creates/pushes exactly one milestone commit.
+4. After Milestone 11 Codex stops once for Vector's independent final QA. Confirmed defects return to the same Codex goal as one bounded repair pass.
+5. Do not deploy, merge, modify production, or make PR #100 ready without separate authorization.
 
 ## Blocking issues
 
@@ -145,4 +151,6 @@ None.
 
 ## Vector review handoff protocol
 
-PR #100 remains draft. Vector verdict is `VECTOR GATE 6 APPROVED`; the feature is `READY FOR DEREK PREVIEW`, not deployed or merged.
+PR #100 remains draft. Vector Gate 6 remains approved. Milestones 7–11 are authorized but not implemented;
+Codex owns the five milestone commits and per-milestone evidence, while Vector owns one independent final QA,
+the bounded defect list, and final re-review after Codex repairs.
