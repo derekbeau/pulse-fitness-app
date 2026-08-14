@@ -511,8 +511,12 @@ describe('adaptive TDEE schemas', () => {
       }).success,
     ).toBe(true);
     expect(
-      adaptiveGoalDetailSchema.safeParse({ goal, revisions: [revision], acceptedCheckIns: [] })
-        .success,
+      adaptiveGoalDetailSchema.safeParse({
+        goal,
+        revisions: [revision],
+        acceptedCheckIns: [],
+        trendPoints: [{ date: '2026-06-01', trendWeightKg: 82, scaleWeightKg: 82.2 }],
+      }).success,
     ).toBe(true);
     expect(
       adaptiveGoalProgressSchema.safeParse({

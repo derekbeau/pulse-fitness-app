@@ -772,11 +772,20 @@ export const adaptiveGoalHistorySummarySchema = z
   })
   .strict();
 
+export const adaptiveGoalTrendPointSchema = z
+  .object({
+    date: dateSchema,
+    trendWeightKg: bodyWeightKgSchema,
+    scaleWeightKg: bodyWeightKgSchema.nullable(),
+  })
+  .strict();
+
 export const adaptiveGoalDetailSchema = z
   .object({
     goal: adaptiveGoalSchema,
     revisions: z.array(adaptiveGoalRevisionSchema).min(1),
     acceptedCheckIns: z.array(adaptiveCheckInSummarySchema),
+    trendPoints: z.array(adaptiveGoalTrendPointSchema).min(1),
   })
   .strict();
 
@@ -992,6 +1001,7 @@ export type AdaptiveGoalStartInput = z.infer<typeof adaptiveGoalStartInputSchema
 export type AdaptiveGoalLifecycleInput = z.infer<typeof adaptiveGoalLifecycleInputSchema>;
 export type AdaptiveGoalCompleteInput = z.infer<typeof adaptiveGoalCompleteInputSchema>;
 export type AdaptiveGoalHistorySummary = z.infer<typeof adaptiveGoalHistorySummarySchema>;
+export type AdaptiveGoalHistoryTrendPoint = z.infer<typeof adaptiveGoalTrendPointSchema>;
 export type AdaptiveGoalDetail = z.infer<typeof adaptiveGoalDetailSchema>;
 export type AdaptiveNutritionDay = z.infer<typeof adaptiveNutritionDaySchema>;
 export type AdaptivePriorTdee = z.infer<typeof adaptivePriorTdeeSchema>;

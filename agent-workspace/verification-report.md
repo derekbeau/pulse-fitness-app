@@ -965,3 +965,57 @@ installed-Chrome run.
 After browser mutations, the preview seeder restored its deterministic 2026-08-13 state. SQLite returned
 `quick_check=ok`, 13 fixture users, 12 active goals, and 3 pending check-ins. No production access,
 deployment, merge, or PR-ready promotion occurred. PR #100 remains draft. Milestone 10 is next.
+
+## Milestone 10: Goal detail, history, and completion
+
+Milestone 10 adds on-demand goal detail for current and prior goals. The server constructs canonical weekly
+samples from the existing daily interpolation and seven-day-half-life EWMA pipeline, including the immutable
+goal origin, weekly observations, and the final observation. The UI converts only at the response/display
+boundary and distinguishes scale entries from trend values.
+
+The detail dialog combines a Recharts weekly trend with semantic distance-progress or maintenance-range
+history and a native-table text equivalent. It also exposes immutable strategy revisions and accepted
+check-ins linked to the goal/revision. The separate completion dialog reviews the accepted target, final
+trend, total change, period, maintenance center, source evidence, and the fact that no second nutrition target
+will be created. Confirmation rechecks the revision/fingerprint, fails stale data closed, and reuses stable
+idempotency identifiers after a lost response.
+
+### Acceptance defects found and repaired
+
+1. Installed Chrome found eager active-goal detail loading could be aborted when a reviewed new direction
+   changed the active goal. Detail loading is now strictly on demand.
+2. A later full run found completion invalidation refetched the obsolete goal detail before the transition
+   settled, producing another aborted request. The completion request now uses the canonical revision already
+   in Coach state and performs no redundant detail read.
+3. Both controlled dialogs raced Radix's focus handling. `onCloseAutoFocus` now restores the exact invoking
+   action and is covered by RTL and keyboard-only Chrome acceptance.
+4. Strict role locators were disambiguated. The browser monitor now permits only the exact synthetic 409 and
+   503 responses that stale/lost-response tests deliberately inject while still failing every unexpected
+   console, page, request, or HTTP diagnostic.
+5. Built-in visual QA found revision 1 described the target as “Started at,” which could be mistaken for the
+   canonical starting trend. The permanent copy and RTL assertion now say “Targeted.”
+
+### Automated and browser evidence
+
+| Check                             | Observed result                                                         |
+| --------------------------------- | ----------------------------------------------------------------------- |
+| Focused Adaptive Coach RTL        | 25/25                                                                   |
+| Installed Chrome fixture journeys | 11/11; strict console, page-error, request-failure, and HTTP assertions |
+| Responsive acceptance             | 320, 375, 390, 430, 768, and 1280 px; no horizontal overflow            |
+| `TURBO_FORCE=true pnpm lint`      | 3/3, 0 cached, zero errors; four pre-existing Fast Refresh warnings     |
+| `TURBO_FORCE=true pnpm typecheck` | 3/3, 0 cached                                                           |
+| `TURBO_FORCE=true pnpm test`      | Startup/isolation 9; shared 412, API 684, web 1004; 6/6 tasks, 0 cached |
+| `TURBO_FORCE=true pnpm build`     | 3/3, 0 cached; Vite transformed 3,848 modules                           |
+| Formatting and diff               | Prettier and `git diff --check` passed                                  |
+
+Built-in-browser QA used only the tracked `pnpm dev:gate0` runtime. It audited maintenance and prior-goal
+weekly charts, complete native-table equivalents, revision 1/2 history, linked accepted check-ins,
+preferred-unit output, completion evidence, keyboard focus restoration, and the explicit maintenance
+transition. The completion POST and every observed product request returned 200 in the Gate0 log. The in-app
+viewport remained 1280; the exact six-width matrix is therefore the strict installed-Chrome evidence rather
+than a false viewport claim.
+
+After browser mutation, the tracked seeder restored the deterministic 2026-08-13 fixtures. SQLite
+`quick_check` returned `ok`, `foreign_key_check` returned no rows, and counts were 13 preview users, 13 active
+goals, and 3 pending check-ins. No production access, deployment, merge, or PR-ready promotion occurred.
+PR #100 remains draft. Milestone 11 is next.

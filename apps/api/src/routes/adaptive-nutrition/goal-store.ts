@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 import {
@@ -9,8 +9,11 @@ import {
   adaptiveGoalRevisionSchema,
   adaptiveGoalSchema,
   adaptiveCheckInSummarySchema,
+  addCalendarDays,
+  calculateEwma,
   calculateAdaptiveGoalProgress,
   calendarDaysBetween,
+  interpolateDailyWeights,
   type AdaptiveCheckInSummary,
   type AdaptiveCurrentGoal,
   type AdaptiveGoal,
@@ -24,6 +27,7 @@ import {
   adaptiveNutritionCheckIns,
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
+  bodyWeight,
 } from '../../db/schema/index.js';
 
 type AdaptiveDatabase = BetterSQLite3Database<typeof schema>;
@@ -98,6 +102,40 @@ const parseRevision = (value: unknown): AdaptiveGoalRevision =>
   adaptiveGoalRevisionSchema.parse(value);
 const parseCheckIn = (value: unknown): AdaptiveCheckInSummary =>
   adaptiveCheckInSummarySchema.parse(value);
+
+const sampleWeeklyTrendPoints = (
+  goal: AdaptiveGoal,
+  entries: Array<{ id: string; date: string; weightKg: number; updatedAt: number }>,
+) => {
+  const interpolated = interpolateDailyWeights(entries);
+  const smoothed = calculateEwma(interpolated.map((point) => point.weightKg));
+  const scaleByDate = new Map(entries.map((entry) => [entry.date, entry.weightKg]));
+  const inGoal = interpolated
+    .map((point, index) => ({
+      date: point.date,
+      trendWeightKg: smoothed[index] ?? point.weightKg,
+      scaleWeightKg: scaleByDate.get(point.date) ?? null,
+    }))
+    .filter(
+      (point) =>
+        point.date >= goal.startedLocalDate &&
+        (goal.endedLocalDate === null || point.date <= goal.endedLocalDate),
+    );
+  const sampled = inGoal.filter(
+    (point, index) =>
+      index === 0 ||
+      index === inGoal.length - 1 ||
+      calendarDaysBetween(goal.startedLocalDate, point.date) % 7 === 0,
+  );
+  if (sampled.length > 0) return sampled;
+  return [
+    {
+      date: goal.startedLocalDate,
+      trendWeightKg: goal.startTrendWeightKg,
+      scaleWeightKg: goal.startScaleWeightKg,
+    },
+  ];
+};
 
 export const createAdaptiveGoalReadStore = ({ db }: { db: AdaptiveDatabase }) => {
   const findLatestRevision = (userId: string, goalId: string): AdaptiveGoalRevision | null => {
@@ -252,6 +290,7 @@ export const createAdaptiveGoalReadStore = ({ db }: { db: AdaptiveDatabase }) =>
       .limit(1)
       .get();
     if (!row) throw new AdaptiveGoalNotFoundError();
+    const goal = parseGoal(row);
     const revisions = db
       .select(adaptiveGoalRevisionSelection)
       .from(adaptiveNutritionGoalRevisions)
@@ -280,10 +319,28 @@ export const createAdaptiveGoalReadStore = ({ db }: { db: AdaptiveDatabase }) =>
       )
       .all()
       .map(parseCheckIn);
+    const weightEntries = db
+      .select({
+        id: bodyWeight.id,
+        date: bodyWeight.date,
+        weightKg: bodyWeight.weightKg,
+        updatedAt: bodyWeight.updatedAt,
+      })
+      .from(bodyWeight)
+      .where(
+        and(
+          eq(bodyWeight.userId, userId),
+          gte(bodyWeight.date, addCalendarDays(goal.startedLocalDate, -21)),
+          goal.endedLocalDate === null ? undefined : lte(bodyWeight.date, goal.endedLocalDate),
+        ),
+      )
+      .orderBy(asc(bodyWeight.date), asc(bodyWeight.id))
+      .all();
     return adaptiveGoalDetailSchema.parse({
-      goal: parseGoal(row),
+      goal,
       revisions,
       acceptedCheckIns,
+      trendPoints: sampleWeeklyTrendPoints(goal, weightEntries),
     });
   };
 

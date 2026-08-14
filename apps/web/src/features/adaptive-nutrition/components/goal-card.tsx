@@ -1,5 +1,5 @@
 import type { AdaptiveGoal, AdaptiveGoalProgress } from '@pulse/shared';
-import { ArrowDownRight, ArrowUpRight, Gauge, Pencil, Target } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, CheckCircle2, Gauge, Pencil, Target } from 'lucide-react';
 import type { RefObject } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -19,8 +19,10 @@ type GoalCardProps = {
   progress: AdaptiveGoalProgress | null;
   goalActionRequired: 'select_goal' | 'complete_goal' | null;
   editButtonRef?: RefObject<HTMLButtonElement | null>;
+  reviewCompletionButtonRef?: RefObject<HTMLButtonElement | null>;
   startNewButtonRef?: RefObject<HTMLButtonElement | null>;
   onEdit: () => void;
+  onReviewCompletion: () => void;
   onStartNew: () => void;
 };
 
@@ -54,8 +56,10 @@ export function GoalCard({
   progress,
   goalActionRequired,
   editButtonRef,
+  reviewCompletionButtonRef,
   startNewButtonRef,
   onEdit,
+  onReviewCompletion,
   onStartNew,
 }: GoalCardProps) {
   const { weightUnit } = useWeightUnit();
@@ -124,9 +128,20 @@ export function GoalCard({
         )}
 
         {goalActionRequired === 'complete_goal' ? (
-          <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-3 text-sm">
-            Your trend is within the goal range. Review the completion step before moving to
-            maintenance.
+          <div className="flex flex-col gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              Your trend is within the goal range. Review the completion step before moving to
+              maintenance.
+            </p>
+            <Button
+              className="min-h-11 shrink-0"
+              onClick={onReviewCompletion}
+              ref={reviewCompletionButtonRef}
+              type="button"
+              variant="outline"
+            >
+              <CheckCircle2 aria-hidden="true" /> Review completion
+            </Button>
           </div>
         ) : null}
 

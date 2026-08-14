@@ -326,6 +326,7 @@ describe('adaptive nutrition routes', () => {
       goal: goalRecord,
       revisions: [goalRevision],
       acceptedCheckIns: [],
+      trendPoints: [{ date: goalRecord.startedLocalDate, trendWeightKg: 82, scaleWeightKg: 82.2 }],
     });
   });
 

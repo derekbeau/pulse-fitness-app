@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as schema from '../db/schema/index.js';
 import { adaptiveNutritionGoals, adaptiveNutritionPrograms, users } from '../db/schema/index.js';
 import { createAdaptiveNutritionStore } from '../routes/adaptive-nutrition/store.js';
+import { createAdaptiveGoalReadStore } from '../routes/adaptive-nutrition/goal-store.js';
 
 import {
   ADAPTIVE_PREVIEW_USERNAME_PREFIX,
@@ -115,6 +116,11 @@ describe('Adaptive TDEE preview fixtures', () => {
     expect(store.getCurrentGoal(loss.userId).progress.kind).toBe('weight_change');
     expect(store.getCurrentGoal(maintenance.userId).progress.kind).toBe('maintenance');
     expect(store.getCurrentGoal(edited.userId).latestRevision.sequence).toBe(2);
+    const goalReadStore = createAdaptiveGoalReadStore({ db });
+    const lossGoal = store.getCurrentGoal(loss.userId).goal;
+    const lossDetail = goalReadStore.getDetail(loss.userId, lossGoal.id);
+    expect(lossDetail.trendPoints.length).toBeGreaterThanOrEqual(3);
+    expect(lossDetail.trendPoints[0]?.date).toBe(lossGoal.startedLocalDate);
     expect(
       db
         .select({ total: count() })

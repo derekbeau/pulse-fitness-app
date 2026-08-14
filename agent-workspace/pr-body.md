@@ -23,7 +23,7 @@ The work crosses weight-unit migration, nutrition completeness, target provenanc
 - [x] Milestone 7 goal domain, migration, contracts, and isolated-clone rehearsal
 - [x] Milestone 8 goal progress engine, mutations, and accepted target integration
 - [x] Milestone 9 persistent goal card and edit/new-goal flows
-- [ ] Milestone 10 goal detail, history, and completion UX
+- [x] Milestone 10 goal detail, history, and completion UX
 - [ ] Milestone 11 final migration rehearsal and complete acceptance
 
 Live state: [`agent-workspace/current-status.md`](agent-workspace/current-status.md)  
@@ -121,14 +121,14 @@ Milestone 1 Gate 1 is independently approved at `2e539387c690f09710648d591e57c5d
 - [x] Milestone 7 goal domain, migration, contracts, and isolated-clone rehearsal
 - [x] Milestone 8 goal progress engine, mutations, and accepted target integration
 - [x] Milestone 9 persistent goal card and edit/new-goal flows
-- [ ] Milestone 10 goal detail, history, and completion UX
+- [x] Milestone 10 goal detail, history, and completion UX
 - [ ] Milestone 11 final migration rehearsal and complete acceptance
 
-Current milestone state: `MILESTONE 9 COMPLETE; MILESTONE 10 IN PROGRESS`. Vector Gate 6 remains
-approved. Milestone 9 adds the persistent loss/gain/maintenance goal card, preferred-unit edit and
-new-direction confirmation flows, explicit pending-recommendation replacement, goal-change attribution,
-query invalidation, and keyboard/responsive coverage. Milestones 10–11 remain in the same authorized Codex
-goal. PR #100 remains draft and production remains unchanged.
+Current milestone state: `MILESTONE 10 COMPLETE; MILESTONE 11 IN PROGRESS`. Vector Gate 6 remains
+approved. Milestone 10 adds on-demand canonical weekly goal detail, accessible chart text equivalents,
+immutable revision and prior-goal history, linked accepted check-ins, and a reviewed stale-safe/idempotent
+completion-to-maintenance transition. Milestone 11 remains in the same authorized Codex goal. PR #100
+remains draft and production remains unchanged.
 
 ## Review focus
 

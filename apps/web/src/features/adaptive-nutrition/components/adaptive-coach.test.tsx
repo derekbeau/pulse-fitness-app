@@ -13,12 +13,15 @@ import { AdaptiveCoach } from './adaptive-coach';
 const mocks = vi.hoisted(() => ({
   accept: vi.fn(),
   decline: vi.fn(),
+  completeGoal: vi.fn(),
   editGoal: vi.fn(),
   preview: vi.fn(),
   putProgram: vi.fn(),
   startGoal: vi.fn(),
   useCheckIn: vi.fn(),
   useHistory: vi.fn(),
+  useGoalHistory: vi.fn(),
+  useGoalDetail: vi.fn(),
   useLatestWeight: vi.fn(),
   useState: vi.fn(),
   weightUnit: 'lbs' as 'kg' | 'lbs',
@@ -28,8 +31,11 @@ vi.mock('../api/adaptive-nutrition', () => ({
   useAdaptiveNutritionState: mocks.useState,
   useAdaptiveNutritionCheckIn: mocks.useCheckIn,
   useAdaptiveNutritionHistory: mocks.useHistory,
+  useAdaptiveGoalHistory: mocks.useGoalHistory,
+  useAdaptiveGoalDetail: mocks.useGoalDetail,
   useAcceptAdaptiveNutritionCheckIn: () => ({ isPending: false, mutateAsync: mocks.accept }),
   useDeclineAdaptiveNutritionCheckIn: () => ({ isPending: false, mutateAsync: mocks.decline }),
+  useCompleteAdaptiveGoal: () => ({ isPending: false, mutateAsync: mocks.completeGoal }),
   useEditAdaptiveGoal: () => ({ isPending: false, mutateAsync: mocks.editGoal }),
   usePreviewAdaptiveNutritionCheckIn: () => ({ isPending: false, mutateAsync: mocks.preview }),
   usePutAdaptiveNutritionProgram: () => ({ isPending: false, mutateAsync: mocks.putProgram }),
@@ -139,6 +145,22 @@ const lossProgress = {
     projectedEndDate: '2026-11-28',
     unavailableReason: null,
   },
+};
+
+const goalRevision = {
+  id: 'goal-revision-1',
+  goalId: activeGoal.id,
+  userId: activeGoal.userId,
+  sequence: 1,
+  targetWeightKg: 75,
+  maintenanceCenterKg: null,
+  goalRatePctPerWeek: -0.5,
+  previousTargetWeightKg: 75,
+  previousCenterKg: null,
+  previousRatePctPerWeek: -0.5,
+  reason: 'created' as const,
+  effectiveLocalDate: activeGoal.startedLocalDate,
+  createdAt: 1,
 };
 
 const detail: AdaptiveCheckInDetail = {
@@ -329,6 +351,37 @@ describe('AdaptiveCoach', () => {
       isLoading: false,
       isError: false,
     });
+    mocks.useGoalHistory.mockReturnValue({
+      data: {
+        data: [
+          {
+            goal: activeGoal,
+            latestRevision: goalRevision,
+            finalTrendWeightKg: null,
+            netChangeKg: null,
+            durationDays: null,
+          },
+        ],
+        meta: { page: 1, limit: 20, total: 1 },
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    mocks.useGoalDetail.mockReturnValue({
+      data: {
+        goal: activeGoal,
+        revisions: [goalRevision],
+        acceptedCheckIns: [],
+        trendPoints: [
+          { date: '2026-07-01', trendWeightKg: 82, scaleWeightKg: 82.2 },
+          { date: '2026-07-08', trendWeightKg: 81.5, scaleWeightKg: 81.4 },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
     mocks.useLatestWeight.mockReturnValue({ data: null, isLoading: false });
     mocks.useCheckIn.mockReturnValue({ data: detail, isLoading: false, isError: false });
     mocks.useState.mockReturnValue({
@@ -345,6 +398,16 @@ describe('AdaptiveCoach', () => {
     });
     mocks.editGoal.mockResolvedValue({});
     mocks.startGoal.mockResolvedValue({});
+    mocks.completeGoal.mockResolvedValue({
+      goal: {
+        ...activeGoal,
+        id: 'maintenance-goal',
+        type: 'maintain',
+        targetWeightKg: null,
+        maintenanceCenterKg: 75,
+        goalRatePctPerWeek: 0,
+      },
+    });
   });
 
   it.each([
@@ -867,5 +930,157 @@ describe('AdaptiveCoach', () => {
     expect(
       await screen.findByText(/review goal completion before moving to maintenance/i),
     ).toBeInTheDocument();
+  });
+
+  it('renders immutable goal history, revisions, linked check-ins, and chart text equivalents', async () => {
+    const priorGoal = {
+      ...activeGoal,
+      id: 'goal-prior',
+      status: 'replaced' as const,
+      endedLocalDate: '2026-06-30',
+      endedReason: 'direction_changed' as const,
+    };
+    mocks.useGoalHistory.mockReturnValue({
+      data: {
+        data: [
+          {
+            goal: activeGoal,
+            latestRevision: { ...goalRevision, sequence: 2, reason: 'user_edit' as const },
+            finalTrendWeightKg: 79.5,
+            netChangeKg: -2.5,
+            durationDays: null,
+          },
+          {
+            goal: priorGoal,
+            latestRevision: { ...goalRevision, id: 'prior-revision', goalId: priorGoal.id },
+            finalTrendWeightKg: 79.8,
+            netChangeKg: -2.2,
+            durationDays: 30,
+          },
+        ],
+        meta: { page: 1, limit: 20, total: 2 },
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    mocks.useGoalDetail.mockReturnValue({
+      data: {
+        goal: activeGoal,
+        revisions: [
+          goalRevision,
+          {
+            ...goalRevision,
+            id: 'goal-revision-2',
+            sequence: 2,
+            targetWeightKg: 76,
+            previousTargetWeightKg: 75,
+            reason: 'user_edit' as const,
+            effectiveLocalDate: '2026-07-15',
+          },
+        ],
+        acceptedCheckIns: [
+          {
+            ...detail,
+            goalId: activeGoal.id,
+            goalRevisionId: 'goal-revision-2',
+            status: 'accepted' as const,
+          },
+        ],
+        trendPoints: [
+          { date: '2026-07-01', trendWeightKg: 82, scaleWeightKg: 82.2 },
+          { date: '2026-07-08', trendWeightKg: 81.4, scaleWeightKg: 81.3 },
+          { date: '2026-07-15', trendWeightKg: 80.9, scaleWeightKg: null },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(<AdaptiveCoach />);
+    expect(screen.getByText('Prior goals')).toBeInTheDocument();
+    expect(screen.getByText('Replaced')).toBeInTheDocument();
+    const firstDetailButton = screen.getAllByRole('button', { name: 'View goal details' })[0];
+    if (!firstDetailButton) throw new Error('Expected a current-goal detail action');
+    fireEvent.click(firstDetailButton);
+    expect(
+      await screen.findByRole('heading', { name: 'Weekly goal progress' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: /weekly trend-weight chart with 3 points/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Text equivalent of weekly goal trend and progress chart'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Targeted .* with a .* weekly rate\./)).toBeInTheDocument();
+    expect(screen.getAllByText('Revision 2')).toHaveLength(2);
+    expect(screen.getByText('Linked accepted check-ins')).toBeInTheDocument();
+  });
+
+  it('reviews and completes a reached goal without combining target acceptance', async () => {
+    const accepted = {
+      ...detail,
+      goalId: activeGoal.id,
+      goalRevisionId: goalRevision.id,
+      status: 'accepted' as const,
+      calculationSnapshot: {
+        ...detail.calculationSnapshot,
+        goal: detail.calculationSnapshot.goal
+          ? { ...detail.calculationSnapshot.goal, goalReached: true }
+          : null,
+      },
+    };
+    mocks.useState.mockReturnValue({
+      data: createState('updating', {
+        latestAcceptedCheckIn: accepted,
+        goalActionRequired: 'complete_goal',
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(<AdaptiveCoach />);
+    fireEvent.click(screen.getByRole('button', { name: 'Review completion' }));
+    expect(screen.getByRole('heading', { name: 'Review goal completion' })).toBeInTheDocument();
+    expect(screen.getByText(/accepted nutrition target is already in place/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Review completion evidence'));
+    expect(
+      screen.getByText(/rechecks the trend tolerance and source fingerprint/i),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Move to maintenance' }));
+    await waitFor(() =>
+      expect(mocks.completeGoal).toHaveBeenCalledWith({
+        id: activeGoal.id,
+        input: { checkInId: accepted.id, expectedRevisionId: goalRevision.id },
+      }),
+    );
+    expect(await screen.findByText(/maintenance is now centered/i)).toBeInTheDocument();
+  });
+
+  it('fails stale completion closed and exposes a retry-safe action', async () => {
+    const accepted = {
+      ...detail,
+      goalId: activeGoal.id,
+      goalRevisionId: goalRevision.id,
+      status: 'accepted' as const,
+    };
+    mocks.useState.mockReturnValue({
+      data: createState('updating', {
+        latestAcceptedCheckIn: accepted,
+        goalActionRequired: 'complete_goal',
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    mocks.completeGoal.mockRejectedValueOnce(new ApiError(409, 'stale', 'CHECKIN_STALE'));
+
+    render(<AdaptiveCoach />);
+    fireEvent.click(screen.getByRole('button', { name: 'Review completion' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move to maintenance' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/out of date.*unchanged/i);
+    expect(screen.getByRole('button', { name: 'Refresh Coach state' })).toBeInTheDocument();
   });
 });

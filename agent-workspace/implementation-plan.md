@@ -128,9 +128,9 @@ The authoritative scope, acceptance criteria, and gate evidence are in specifica
 
 ### Milestone 10: Goal detail, history, and completion
 
-- [ ] Add detailed progress, chart text equivalents, revisions, and prior-goal history.
-- [ ] Add reviewed completion-to-maintenance flow and deterministic fixtures.
-- [ ] Pass complete RTL/Playwright, accessibility, responsive, stale, and retry scenarios.
+- [x] Add detailed progress, chart text equivalents, revisions, and prior-goal history.
+- [x] Add reviewed completion-to-maintenance flow and deterministic fixtures.
+- [x] Pass complete RTL/Playwright, accessibility, responsive, stale, and retry scenarios.
 
 **Codex checkpoint:** run complete automated and extensive built-in-browser detail/history/completion/accessibility QA; create/push exactly one Milestone 10 commit, then continue to Milestone 11. Do not deploy or make the PR ready.
 

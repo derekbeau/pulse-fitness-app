@@ -4,10 +4,13 @@ import {
   adaptiveCheckInDetailSchema,
   adaptiveCheckInSummarySchema,
   adaptiveCurrentGoalSchema,
+  adaptiveGoalDetailSchema,
+  adaptiveGoalHistorySummarySchema,
   adaptiveNutritionStateSchema,
   adaptiveProgramSchema,
   apiMetaSchema,
   type AdaptiveAcceptInput,
+  type AdaptiveGoalCompleteInput,
   type AdaptiveGoalEditInput,
   type AdaptiveGoalStartInput,
   type AdaptivePreviewInput,
@@ -66,6 +69,28 @@ const startAdaptiveGoal = (input: AdaptiveGoalStartInput) =>
     method: 'POST',
   }).then((value) => adaptiveCurrentGoalSchema.parse(value));
 
+const completeAdaptiveGoal = ({ id, input }: { id: string; input: AdaptiveGoalCompleteInput }) =>
+  apiRequest<unknown>(`/api/v1/adaptive-nutrition/goals/${id}/complete`, {
+    body: input,
+    method: 'POST',
+  }).then((value) => adaptiveCurrentGoalSchema.parse(value));
+
+const fetchAdaptiveGoalHistory = async (page: number, limit: number, signal?: AbortSignal) => {
+  const response = await apiRequestWithMeta<unknown, unknown>(
+    `/api/v1/adaptive-nutrition/goals?page=${page}&limit=${limit}`,
+    { signal },
+  );
+  return {
+    data: adaptiveGoalHistorySummarySchema.array().parse(response.data),
+    meta: apiMetaSchema.parse(response.meta),
+  };
+};
+
+const fetchAdaptiveGoalDetail = (id: string, signal?: AbortSignal) =>
+  apiRequest<unknown>(`/api/v1/adaptive-nutrition/goals/${id}`, { signal }).then((value) =>
+    adaptiveGoalDetailSchema.parse(value),
+  );
+
 const fetchAdaptiveNutritionHistory = async (page: number, limit: number, signal?: AbortSignal) => {
   const response = await apiRequestWithMeta<unknown, unknown>(
     `/api/v1/adaptive-nutrition/check-ins?page=${page}&limit=${limit}`,
@@ -100,6 +125,19 @@ export const useAdaptiveNutritionCheckIn = (id: string | null, enabled = true) =
     enabled: enabled && id !== null,
     queryKey: adaptiveNutritionQueryKeys.detail(id ?? 'none'),
     queryFn: ({ signal }) => fetchAdaptiveNutritionCheckIn(id ?? '', signal),
+  });
+
+export const useAdaptiveGoalHistory = (page = 1, limit = 20) =>
+  useQuery({
+    queryKey: adaptiveNutritionQueryKeys.goalHistory(page, limit),
+    queryFn: ({ signal }) => fetchAdaptiveGoalHistory(page, limit, signal),
+  });
+
+export const useAdaptiveGoalDetail = (id: string | null, enabled = true) =>
+  useQuery({
+    enabled: enabled && id !== null,
+    queryKey: adaptiveNutritionQueryKeys.goalDetail(id ?? 'none'),
+    queryFn: ({ signal }) => fetchAdaptiveGoalDetail(id ?? '', signal),
   });
 
 export const usePutAdaptiveNutritionProgram = () => {
@@ -175,6 +213,18 @@ export const useStartAdaptiveGoal = () => {
     onSuccess: async () => {
       await invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.adaptiveGoalMutation());
       toast.success('New goal started');
+    },
+  });
+};
+
+export const useCompleteAdaptiveGoal = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: completeAdaptiveGoal,
+    onSuccess: async () => {
+      await invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.adaptiveGoalMutation());
+      toast.success('Goal completed; maintenance started');
     },
   });
 };

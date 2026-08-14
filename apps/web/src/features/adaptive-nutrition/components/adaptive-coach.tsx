@@ -21,7 +21,9 @@ import { AlgorithmStatusCard } from './algorithm-status-card';
 import { CheckInComparison } from './check-in-comparison';
 import { CheckInHistory } from './check-in-history';
 import { GoalCard } from './goal-card';
+import { GoalCompletionDialog } from './goal-completion-dialog';
 import { GoalEditorDialog } from './goal-editor-dialog';
+import { GoalHistory } from './goal-history';
 
 export function AdaptiveCoach() {
   const stateQuery = useAdaptiveNutritionState();
@@ -34,8 +36,10 @@ export function AdaptiveCoach() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [staleCheckInId, setStaleCheckInId] = useState<string | null>(null);
   const [goalEditorMode, setGoalEditorMode] = useState<'edit' | 'new' | null>(null);
+  const [completionOpen, setCompletionOpen] = useState(false);
   const editGoalButtonRef = useRef<HTMLButtonElement>(null);
   const startNewGoalButtonRef = useRef<HTMLButtonElement>(null);
+  const reviewCompletionButtonRef = useRef<HTMLButtonElement>(null);
   const lastGoalTriggerRef = useRef<HTMLButtonElement | null>(null);
   const { confirm, dialog } = useConfirmation();
   const pendingId = stateQuery.data?.pendingCheckIn?.id ?? null;
@@ -210,11 +214,13 @@ export function AdaptiveCoach() {
               lastGoalTriggerRef.current = editGoalButtonRef.current;
               setGoalEditorMode('edit');
             }}
+            onReviewCompletion={() => setCompletionOpen(true)}
             onStartNew={() => {
               lastGoalTriggerRef.current = startNewGoalButtonRef.current;
               setGoalEditorMode('new');
             }}
             progress={state.goalProgress}
+            reviewCompletionButtonRef={reviewCompletionButtonRef}
             startNewButtonRef={startNewGoalButtonRef}
           />
 
@@ -267,28 +273,52 @@ export function AdaptiveCoach() {
             />
           )}
 
+          {state.activeGoal ? <GoalHistory activeGoalId={state.activeGoal.id} /> : null}
+
           <CheckInHistory />
 
           {state.program ? (
-            <GoalEditorDialog
-              activeGoal={state.activeGoal}
-              fallbackGoalType={state.program.goalType}
-              fallbackGoalWeightKg={state.program.targetWeightKg}
-              mode={goalEditorMode ?? 'new'}
-              onOpenChange={(open) => {
-                if (!open) {
-                  setGoalEditorMode(null);
-                  queueMicrotask(() => lastGoalTriggerRef.current?.focus());
-                }
-              }}
-              onSaved={(message) => {
-                setActionError(null);
-                setActionMessage(message);
-              }}
-              open={goalEditorMode !== null}
-              pendingRecommendation={state.pendingCheckIn}
-              progress={state.goalProgress}
-            />
+            <>
+              <GoalEditorDialog
+                activeGoal={state.activeGoal}
+                fallbackGoalType={state.program.goalType}
+                fallbackGoalWeightKg={state.program.targetWeightKg}
+                mode={goalEditorMode ?? 'new'}
+                onOpenChange={(open) => {
+                  if (!open) {
+                    setGoalEditorMode(null);
+                    queueMicrotask(() => lastGoalTriggerRef.current?.focus());
+                  }
+                }}
+                onSaved={(message) => {
+                  setActionError(null);
+                  setActionMessage(message);
+                }}
+                open={goalEditorMode !== null}
+                pendingRecommendation={state.pendingCheckIn}
+                progress={state.goalProgress}
+              />
+              {state.activeGoal ? (
+                <GoalCompletionDialog
+                  checkIn={state.latestAcceptedCheckIn}
+                  goal={state.activeGoal}
+                  onCompleted={(message) => {
+                    setActionError(null);
+                    setActionMessage(message);
+                  }}
+                  onOpenChange={(open) => {
+                    setCompletionOpen(open);
+                  }}
+                  onRefresh={async () => {
+                    await stateQuery.refetch();
+                  }}
+                  open={completionOpen}
+                  progress={state.goalProgress}
+                  revisionId={state.goalProgress?.goalRevisionId ?? null}
+                  triggerRef={reviewCompletionButtonRef}
+                />
+              ) : null}
+            </>
           ) : null}
         </>
       )}

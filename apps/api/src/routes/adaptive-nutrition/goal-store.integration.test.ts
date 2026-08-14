@@ -10,6 +10,7 @@ import {
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
   adaptiveNutritionPrograms,
+  bodyWeight,
   users,
 } from '../../db/schema/index.js';
 import { AdaptiveGoalNotFoundError, createAdaptiveGoalReadStore } from './goal-store.js';
@@ -26,6 +27,34 @@ const setup = () => {
     .values([
       { id: 'user-1', username: 'user-1', passwordHash: 'hash' },
       { id: 'user-2', username: 'user-2', passwordHash: 'hash' },
+    ])
+    .run();
+  db.insert(bodyWeight)
+    .values([
+      {
+        id: 'weight-1',
+        userId: 'user-1',
+        date: '2026-06-01',
+        weight: 82 / 0.45359237,
+        weightKg: 82,
+        unitAtEntry: 'kg',
+      },
+      {
+        id: 'weight-2',
+        userId: 'user-1',
+        date: '2026-06-08',
+        weight: 81 / 0.45359237,
+        weightKg: 81,
+        unitAtEntry: 'kg',
+      },
+      {
+        id: 'weight-3',
+        userId: 'user-1',
+        date: '2026-06-15',
+        weight: 80 / 0.45359237,
+        weightKg: 80,
+        unitAtEntry: 'kg',
+      },
     ])
     .run();
   db.insert(adaptiveNutritionPrograms)
@@ -138,6 +167,11 @@ describe('adaptive goal read store', () => {
       expect(store.getDetail('user-1', 'goal-1')).toMatchObject({
         revisions: [{ id: 'revision-1' }],
         acceptedCheckIns: [{ id: 'check-in-1', goalId: 'goal-1' }],
+        trendPoints: [
+          { date: '2026-06-01', trendWeightKg: 82, scaleWeightKg: 82 },
+          { date: '2026-06-08', scaleWeightKg: 81 },
+          { date: '2026-06-15', scaleWeightKg: 80 },
+        ],
       });
     } finally {
       sqlite.close();

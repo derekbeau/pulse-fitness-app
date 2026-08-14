@@ -40,13 +40,16 @@ function fixtureUsername(fixture: FixtureName) {
   return `adaptive-preview-${fixture}`;
 }
 
-function monitorPage(page: Page) {
+function monitorPage(page: Page, allowedResponseStatuses: number[] = []) {
   const consoleFailures: string[] = [];
   const networkFailures: string[] = [];
   const pageFailures: string[] = [];
   const responseFailures: string[] = [];
   page.on('console', (message) => {
-    if (message.type() === 'error' || message.type() === 'warning') {
+    const isExpectedHttpFailure = allowedResponseStatuses.some((status) =>
+      message.text().includes(`status of ${status}`),
+    );
+    if ((message.type() === 'error' || message.type() === 'warning') && !isExpectedHttpFailure) {
       consoleFailures.push(
         `${message.type()}: ${message.text()} (${message.location().url || 'unknown source'})`,
       );
@@ -59,7 +62,7 @@ function monitorPage(page: Page) {
     );
   });
   page.on('response', (response) => {
-    if (response.status() >= 400) {
+    if (response.status() >= 400 && !allowedResponseStatuses.includes(response.status())) {
       responseFailures.push(
         `${response.status()} ${response.request().method()} ${response.url()}`,
       );
@@ -266,6 +269,97 @@ test.describe.serial('Adaptive TDEE deterministic preview fixtures', () => {
     assertDiagnostics();
   });
 
+  test('audits weekly trend text equivalents, revisions, prior goals, and linked check-ins', async ({
+    page,
+  }) => {
+    const assertDiagnostics = monitorPage(page);
+    await openCoach(page, 'goal-history');
+    await expect(page.getByText('Prior goals')).toBeVisible();
+    await expect(page.getByText('Replaced')).toBeVisible();
+    const detailButtons = page.getByRole('button', { name: 'View goal details' });
+    await expect(detailButtons).toHaveCount(2);
+    await detailButtons.nth(1).click();
+    const priorDialog = page.getByRole('dialog');
+    await expect(priorDialog.getByRole('heading', { name: 'Weekly goal progress' })).toBeVisible();
+    await expect(
+      priorDialog.getByRole('img', { name: /weekly trend-weight chart with [3-9]/i }),
+    ).toBeVisible();
+    await expect(
+      priorDialog.getByRole('table', {
+        name: 'Text equivalent of weekly goal trend and progress chart',
+      }),
+    ).toBeVisible();
+    await expect(
+      priorDialog.getByRole('heading', { name: 'Linked accepted check-ins' }),
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(detailButtons.nth(1)).toBeFocused();
+
+    await openCoach(page, 'goal-edited');
+    await page.getByRole('button', { name: 'View goal details' }).nth(1).click();
+    const editedDialog = page.getByRole('dialog');
+    await expect(editedDialog.getByText('Revision 2').first()).toBeVisible();
+    await expect(editedDialog.getByText('User edit')).toBeVisible();
+
+    assertDiagnostics();
+  });
+
+  test('fails stale completion closed, then survives a lost response with an idempotent retry', async ({
+    page,
+  }) => {
+    const assertDiagnostics = monitorPage(page, [409, 503]);
+    let completionAttempts = 0;
+    await page.route('**/api/v1/adaptive-nutrition/goals/*/complete', async (route) => {
+      completionAttempts += 1;
+      if (completionAttempts === 1) {
+        await route.fulfill({
+          body: JSON.stringify({
+            error: { code: 'CHECKIN_STALE', message: 'Simulated stale completion' },
+          }),
+          contentType: 'application/json',
+          status: 409,
+        });
+        return;
+      }
+      if (completionAttempts === 2) {
+        const response = await route.fetch();
+        expect(response.ok(), 'server completed before the simulated lost response').toBeTruthy();
+        await route.fulfill({
+          body: JSON.stringify({
+            error: { code: 'SIMULATED_LOST_RESPONSE', message: 'Simulated lost response' },
+          }),
+          contentType: 'application/json',
+          status: 503,
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await openCoach(page, 'completion-required');
+    await page.getByRole('button', { name: 'Review completion' }).click();
+    await expect(page.getByRole('heading', { name: 'Review goal completion' })).toBeVisible();
+    await page.getByText('Review completion evidence').click();
+    await expect(
+      page.getByText(/rechecks the trend tolerance and source fingerprint/i),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Move to maintenance' }).click();
+    await expect(page.getByRole('alert')).toContainText('out of date');
+    await expect(page.getByRole('button', { name: 'Move to maintenance' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Refresh Coach state' }).click();
+    await expect(page.getByRole('button', { name: 'Review completion' })).toBeFocused();
+
+    await page.getByRole('button', { name: 'Review completion' }).click();
+    await page.getByRole('button', { name: 'Move to maintenance' }).click();
+    await expect(page.getByRole('alert')).toContainText('Simulated lost response');
+    await page.getByRole('button', { name: 'Retry completion' }).click();
+    await expect(page.getByRole('heading', { level: 2, name: /Maintain around/ })).toBeVisible();
+    await expect(page.getByText(/Goal completed\. Maintenance is now centered/)).toBeVisible();
+    expect(completionAttempts).toBe(3);
+
+    assertDiagnostics();
+  });
+
   test('supports keyboard-only editing and restores focus when dismissed', async ({ page }) => {
     const assertDiagnostics = monitorPage(page);
     await openCoach(page, 'goal-history');
@@ -298,10 +392,22 @@ test.describe.serial('Adaptive TDEE deterministic preview fixtures', () => {
       await page.goto('/nutrition?view=coach');
       await expect(page.getByRole('heading', { level: 2, name: /Maintain around/ })).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
+      const detailAction = page.getByRole('button', { name: 'View goal details' });
+      expect(
+        (await detailAction.boundingBox())?.height ?? 0,
+        `detail action height at ${width}px`,
+      ).toBeGreaterThanOrEqual(44);
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
         `horizontal overflow at ${width}px`,
       ).toBe(true);
+      await detailAction.click();
+      await expect(page.getByRole('heading', { name: 'Weekly goal progress' })).toBeVisible();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+        `goal detail horizontal overflow at ${width}px`,
+      ).toBe(true);
+      await page.keyboard.press('Escape');
     }
 
     assertDiagnostics();

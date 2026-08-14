@@ -160,6 +160,8 @@ const datePlus = (date: string, days: number) => {
   return value.toISOString().slice(0, 10);
 };
 
+const DAY_MS = 86_400_000;
+
 const poundsFromKg = (weightKg: number) => weightKg / 0.45359237;
 
 const programInput = (
@@ -276,6 +278,15 @@ const seedEligibleHistory = (
         unitAtEntry: 'kg',
         updatedAt: timestamp + index,
       })
+      .onConflictDoUpdate({
+        target: [bodyWeight.userId, bodyWeight.date],
+        set: {
+          weight: poundsFromKg(weightKg),
+          weightKg,
+          unitAtEntry: 'kg',
+          updatedAt: timestamp + index,
+        },
+      })
       .run();
   });
 };
@@ -332,6 +343,13 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
     clock += 1000;
     return fixture;
   };
+  const createHistoricalBaseline = (name: AdaptivePreviewFixtureName, input = programInput()) => {
+    const currentClock = clock;
+    clock = currentClock - 21 * DAY_MS;
+    const fixture = createAndAcceptBaseline(name, input);
+    clock = currentClock + 1000;
+    return fixture;
+  };
 
   const baseline = record('baseline');
   store.upsertProgram(baseline.userId, programInput());
@@ -367,7 +385,7 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   store.previewCheckIn(pending.userId, { kind: 'manual', includeToday: false });
   clock += 1000;
 
-  const goal = createAndAcceptBaseline(
+  const goal = createHistoricalBaseline(
     'goal-reached',
     programInput({
       goalType: 'lose',
@@ -378,18 +396,18 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   seedEligibleHistory(db, goal.userId, anchorDate, clock, true);
   store.previewCheckIn(goal.userId, { kind: 'manual', includeToday: false });
 
-  const goalLoss = createAndAcceptBaseline(
+  const goalLoss = createHistoricalBaseline(
     'goal-loss',
     programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
   );
   seedEligibleHistory(db, goalLoss.userId, anchorDate, clock);
   clock += 1000;
 
-  const maintenance = createAndAcceptBaseline('goal-maintenance');
+  const maintenance = createHistoricalBaseline('goal-maintenance');
   seedEligibleHistory(db, maintenance.userId, anchorDate, clock);
   clock += 1000;
 
-  const edited = createAndAcceptBaseline(
+  const edited = createHistoricalBaseline(
     'goal-edited',
     programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
   );
@@ -408,7 +426,7 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   });
   clock += 1000;
 
-  const history = createAndAcceptBaseline(
+  const history = createHistoricalBaseline(
     'goal-history',
     programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
   );
@@ -425,7 +443,7 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   });
   clock += 1000;
 
-  const goalChange = createAndAcceptBaseline(
+  const goalChange = createHistoricalBaseline(
     'goal-change-pending',
     programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
   );
@@ -441,7 +459,7 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   });
   clock += 1000;
 
-  const completion = createAndAcceptBaseline(
+  const completion = createHistoricalBaseline(
     'completion-required',
     programInput({ goalType: 'lose', targetWeightKg: 81.2, goalRatePctPerWeek: -0.5 }),
   );

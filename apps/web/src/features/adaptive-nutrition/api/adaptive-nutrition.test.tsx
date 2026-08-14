@@ -13,9 +13,12 @@ import { createQueryClientWrapper } from '@/test/query-client';
 
 import {
   useAcceptAdaptiveNutritionCheckIn,
+  useAdaptiveGoalDetail,
+  useAdaptiveGoalHistory,
   useAdaptiveNutritionHistory,
   useAdaptiveNutritionState,
   useEditAdaptiveGoal,
+  useCompleteAdaptiveGoal,
   usePreviewAdaptiveNutritionCheckIn,
   usePutAdaptiveNutritionProgram,
   useStartAdaptiveGoal,
@@ -461,6 +464,110 @@ describe('adaptive nutrition api hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: adaptiveNutritionQueryKey });
   });
 
+  it('parses goal history and canonical trend details at response boundaries', async () => {
+    const historySummary = {
+      goal: currentGoal.goal,
+      latestRevision: currentGoal.latestRevision,
+      finalTrendWeightKg: 80,
+      netChangeKg: -2,
+      durationDays: null,
+    };
+    const goalDetail = {
+      goal: currentGoal.goal,
+      revisions: [currentGoal.latestRevision],
+      acceptedCheckIns: [],
+      trendPoints: [
+        { date: '2026-07-01', trendWeightKg: 82, scaleWeightKg: 82.1 },
+        { date: '2026-07-08', trendWeightKg: 81.5, scaleWeightKg: null },
+      ],
+    };
+    mockFetch
+      .mockResolvedValueOnce(createJsonResponse([historySummary], { page: 1, limit: 20, total: 1 }))
+      .mockResolvedValueOnce(createJsonResponse(goalDetail));
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    const historyHook = renderHook(() => useAdaptiveGoalHistory(), { wrapper });
+    const detailHook = renderHook(() => useAdaptiveGoalDetail('goal-1'), { wrapper });
+
+    await waitFor(() => expect(historyHook.result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(detailHook.result.current.isSuccess).toBe(true));
+    expect(historyHook.result.current.data?.data[0]?.netChangeKg).toBe(-2);
+    expect(detailHook.result.current.data?.trendPoints).toHaveLength(2);
+    expect(mockFetch.mock.calls.map((call) => call[0])).toEqual([
+      '/api/v1/adaptive-nutrition/goals?page=1&limit=20',
+      '/api/v1/adaptive-nutrition/goals/goal-1',
+    ]);
+  });
+
+  it('completes a goal with optimistic identifiers and invalidates all adaptive reads', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse({
+        ...currentGoal,
+        goal: {
+          ...currentGoal.goal,
+          id: 'maintenance-goal',
+          type: 'maintain',
+          targetWeightKg: null,
+          maintenanceCenterKg: 75,
+          goalRatePctPerWeek: 0,
+        },
+        latestRevision: {
+          ...currentGoal.latestRevision,
+          id: 'maintenance-revision',
+          goalId: 'maintenance-goal',
+          targetWeightKg: null,
+          maintenanceCenterKg: 75,
+          goalRatePctPerWeek: 0,
+          previousTargetWeightKg: null,
+          previousCenterKg: 75,
+          previousRatePctPerWeek: 0,
+          reason: 'goal_completion',
+        },
+        progress: {
+          kind: 'maintenance',
+          goalId: 'maintenance-goal',
+          goalRevisionId: 'maintenance-revision',
+          revisionSequence: 1,
+          startedLocalDate: '2026-08-13',
+          currentLocalDate: '2026-08-13',
+          currentTrendWeightKg: 75,
+          latestScaleWeightKg: 75,
+          actualRateKgPerWeek: null,
+          trendFreshness: 'fresh',
+          confidence: 'High',
+          provenance: 'valid_trend',
+          type: 'maintain',
+          centerWeightKg: 75,
+          signedDistanceFromCenterKg: 0,
+          rangeRadiusKg: 0.75,
+          rangeLowerKg: 74.25,
+          rangeUpperKg: 75.75,
+          rangeStatus: 'within',
+          daysWithinRange: 1,
+          observedDays: 1,
+          trendDirection: 'flat',
+        },
+      }),
+    );
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const completeHook = renderHook(() => useCompleteAdaptiveGoal(), { wrapper });
+
+    await act(async () => {
+      await completeHook.result.current.mutateAsync({
+        id: 'goal-1',
+        input: { checkInId: 'check-in-1', expectedRevisionId: 'revision-1' },
+      });
+    });
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/v1/adaptive-nutrition/goals/goal-1/complete');
+    expect(JSON.parse(String(mockFetch.mock.calls[0][1]?.body))).toEqual({
+      checkInId: 'check-in-1',
+      expectedRevisionId: 'revision-1',
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: adaptiveNutritionQueryKey });
+  });
+
   it('builds stable hierarchical keys', () => {
     expect(adaptiveNutritionQueryKeys.state()).toEqual(['adaptive-nutrition', 'state']);
     expect(adaptiveNutritionQueryKeys.history(2, 10)).toEqual([
@@ -473,6 +580,17 @@ describe('adaptive nutrition api hooks', () => {
       'check-ins',
       'detail',
       'check-in-1',
+    ]);
+    expect(adaptiveNutritionQueryKeys.goalHistory(2, 10)).toEqual([
+      'adaptive-nutrition',
+      'goals',
+      { limit: 10, page: 2 },
+    ]);
+    expect(adaptiveNutritionQueryKeys.goalDetail('goal-1')).toEqual([
+      'adaptive-nutrition',
+      'goals',
+      'detail',
+      'goal-1',
     ]);
   });
 });
