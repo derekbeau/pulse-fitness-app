@@ -10,7 +10,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import * as schema from '../db/schema/index.js';
-import { adaptiveNutritionPrograms, users } from '../db/schema/index.js';
+import { adaptiveNutritionGoals, adaptiveNutritionPrograms, users } from '../db/schema/index.js';
 import { createAdaptiveNutritionStore } from '../routes/adaptive-nutrition/store.js';
 
 import {
@@ -28,7 +28,7 @@ afterEach(() => {
 });
 
 describe('Adaptive TDEE preview fixtures', () => {
-  it('rebuilds every Coach state deterministically and includes a goal-completion path', () => {
+  it('rebuilds every Coach state and keeps goal completion explicit', () => {
     const directory = mkdtempSync(join(tmpdir(), 'pulse-adaptive-preview-'));
     tempDirectories.push(directory);
     const sqlite = new Database(join(directory, 'preview.db'));
@@ -74,7 +74,14 @@ describe('Adaptive TDEE preview fixtures', () => {
         .from(adaptiveNutritionPrograms)
         .where(eq(adaptiveNutritionPrograms.userId, goal.userId))
         .get(),
-    ).toEqual({ goalType: 'maintain' });
+    ).toEqual({ goalType: 'lose' });
+    expect(
+      db
+        .select({ type: adaptiveNutritionGoals.type, status: adaptiveNutritionGoals.status })
+        .from(adaptiveNutritionGoals)
+        .where(eq(adaptiveNutritionGoals.userId, goal.userId))
+        .get(),
+    ).toEqual({ type: 'lose', status: 'active' });
 
     const second = seedAdaptiveTdeePreviewFixtures(options);
     expect(second).toEqual(first);

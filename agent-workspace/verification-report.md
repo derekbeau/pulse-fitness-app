@@ -736,6 +736,72 @@ Only Hermes/Vector may issue the final readiness verdict after independently rer
 defects return to the same Codex goal for one bounded repair commit and independent Vector re-review. Codex
 must not mark the feature ready, make the PR ready for review, merge, deploy, or modify production.
 
+## Milestone 7: goal domain, migration, and contracts
+
+### Persistence and migration
+
+- Migration `0043_adaptive_goal_strategy.sql` creates authoritative goals and immutable revisions with
+  bounded strategy/lifecycle checks, same-owner composite foreign keys, one-active-goal uniqueness, and
+  guarded deletion. Check-ins gain nullable historical linkage and require complete goal/revision linkage
+  for new rows after migration.
+- Program creation writes the initial goal and revision atomically. New check-ins snapshot V2 goal inputs
+  and persist their exact goal/revision provenance; historical V1 JSON and nutrition targets remain byte-for-byte
+  unchanged. Program goal fields remain compatibility mirrors, while all new goal reads use the goal domain.
+- The startup backfill uses one immediate transaction per user, prefers an eligible canonical trend, falls
+  back to the latest canonical scale weight, preserves a usable maintenance center, and blocks users with no
+  usable weight. Repeated and competing runs converge on one goal/revision; injected per-user failure rolls
+  back only that user.
+- Goal-reached target acceptance no longer silently switches the program to maintenance. Explicit goal
+  completion is intentionally deferred to Milestone 8.
+
+### Isolated snapshot rehearsal
+
+The rehearsal copied the ignored snapshot to a new temporary database and never opened production. A reviewed
+per-user map assigned its one affected user and 19 legacy rows to pounds (map SHA-256
+`05a058c6e06538616a4eb68e7e912791f78fe27b98bc20657e7c17457fe169ec`). Results:
+
+| Check                      | Observed result                                                                     |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| Canonical-weight preflight | `legacy-mapped`; 1 user, 19 rows                                                    |
+| Goal backfill              | 0 created, 0 skipped, 0 blocked; snapshot has no adaptive programs                  |
+| SQLite integrity           | `quick_check: ok`                                                                   |
+| Goal counts                | 0 goals, 0 revisions, 0 active goals, 0 historical unlinked check-ins               |
+| Foreign keys               | 37 baseline violations from issue #101; 37 after; 0 introduced                      |
+| Source `.db` SHA-256       | `fdd3b6657a8bc0937f06d5ee82bb39e225dcb64df8d4d7b5bccf9eebc5aa7cf4` before and after |
+| Source `-wal` SHA-256      | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` before and after |
+| Source `-shm` SHA-256      | `fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb` before and after |
+
+### Contracts, API, and browser acceptance
+
+- Strict shared schemas cover goals, revisions, lifecycle results, V1/V2 snapshot compatibility, current
+  state, pagination, and detail history. OpenAPI exposes authenticated current/history/detail routes, and
+  AgentToken reads preserve full-header semantics.
+- The tracked Gate 0 launcher now advertises its exact reachable web origin to Swagger while retaining the
+  loopback API proxy. This fixed a browser-found hard-coded localhost request failure and has permanent
+  loopback/Tailscale launcher coverage.
+- Built-in-browser QA used the tracked isolated `pnpm dev:gate0 --web-host=100.87.91.127` environment only.
+  The signed-in Coach showed active Adaptive TDEE and check-in history. Swagger authenticated a temporary
+  isolated AgentToken and returned 200 for current goal, paginated goal history, and goal detail/revisions.
+  The app console had no warnings/errors; Swagger emitted only its bundled deep-link deprecation warning.
+  Final server evidence contained no failed product request. The temporary token was deleted, database
+  `quick_check` returned `ok`, and ports 3102/5274 were free after shutdown.
+
+### Automated gates
+
+Focused checks passed 84 API tests (schema, migration, backfill, real two-connection contention, goal store,
+adaptive store/routes, provenance/account deletion), 17 shared schema tests, and 9 startup/isolation tests.
+
+| Command                           | Observed result                                                              |
+| --------------------------------- | ---------------------------------------------------------------------------- |
+| `TURBO_FORCE=true pnpm lint`      | 3/3, 0 cached, zero errors; four pre-existing Fast Refresh warnings          |
+| `TURBO_FORCE=true pnpm typecheck` | 3/3, 0 cached                                                                |
+| `TURBO_FORCE=true pnpm test`      | Startup/isolation 9; shared 404, API 677, web 989; 6/6 Turbo tasks, 0 cached |
+| `TURBO_FORCE=true pnpm build`     | 3/3, 0 cached; Vite transformed 3,843 modules                                |
+| `git diff --check`                | Pass                                                                         |
+
+No progress calculation, goal mutation, goal UI, production access, deployment, merge, or PR-ready promotion
+is included in Milestone 7. PR #100 remains draft. The next authorized work is Milestone 8.
+
 ### Gate 6 backtest repair
 
 Verdict: `AWAITING VECTOR GATE 6 RE-REVIEW`

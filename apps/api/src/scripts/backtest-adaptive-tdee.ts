@@ -113,8 +113,8 @@ const parseCheckIns = (value: unknown): AdaptiveBacktestCheckIn[] =>
       if (typeof item.date !== 'string' || !DATE_PATTERN.test(item.date)) {
         throw new Error(`checkIns[${index}].date must be YYYY-MM-DD`);
       }
-      if (item.kind !== 'manual' && item.kind !== 'weekly') {
-        throw new Error(`checkIns[${index}].kind must be manual or weekly`);
+      if (item.kind !== 'manual' && item.kind !== 'weekly' && item.kind !== 'goal_change') {
+        throw new Error(`checkIns[${index}].kind must be manual, weekly, or goal_change`);
       }
       if (typeof item.includeToday !== 'boolean') {
         throw new Error(`checkIns[${index}].includeToday must be boolean`);

@@ -100,11 +100,11 @@ The authoritative scope, acceptance criteria, and gate evidence are in specifica
 
 ### Milestone 7: Goal domain, migration, and contracts
 
-- [ ] Add first-class goals and immutable revisions with constraints, indexes, and triggers.
-- [ ] Add check-in goal/revision linkage and compatibility mirrors.
-- [ ] Backfill fresh and isolated production-clone databases without changing historical snapshots/targets.
-- [ ] Add shared schemas, OpenAPI contracts, and read-only current/history APIs.
-- [ ] Prove idempotency, rollback, immutability, concurrency, isolation, and no-weight fail-closed behavior.
+- [x] Add first-class goals and immutable revisions with constraints, indexes, and triggers.
+- [x] Add check-in goal/revision linkage and compatibility mirrors.
+- [x] Backfill fresh and isolated production-clone databases without changing historical snapshots/targets.
+- [x] Add shared schemas, OpenAPI contracts, and read-only current/history APIs.
+- [x] Prove idempotency, rollback, immutability, concurrency, isolation, and no-weight fail-closed behavior.
 
 **Codex checkpoint:** run focused plus exact uncached full gates and extensive isolated built-in-browser/API/OpenAPI smoke; create/push exactly one Milestone 7 commit, then continue to Milestone 8. Do not include progress calculations, mutations, or UI in that commit.
 

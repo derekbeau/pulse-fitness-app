@@ -5,6 +5,8 @@ import { eq } from 'drizzle-orm';
 import {
   adaptiveNutritionAccountDeletionScope,
   adaptiveNutritionCheckIns,
+  adaptiveNutritionGoalRevisions,
+  adaptiveNutritionGoals,
   adaptiveNutritionPrograms,
   habits,
   nutritionTargets,
@@ -178,6 +180,10 @@ export const deleteUserAccount = async (userId: string): Promise<boolean> => {
     tx.insert(adaptiveNutritionAccountDeletionScope).values({ userId }).run();
     tx.delete(nutritionTargets).where(eq(nutritionTargets.userId, userId)).run();
     tx.delete(adaptiveNutritionCheckIns).where(eq(adaptiveNutritionCheckIns.userId, userId)).run();
+    tx.delete(adaptiveNutritionGoalRevisions)
+      .where(eq(adaptiveNutritionGoalRevisions.userId, userId))
+      .run();
+    tx.delete(adaptiveNutritionGoals).where(eq(adaptiveNutritionGoals.userId, userId)).run();
     tx.delete(adaptiveNutritionPrograms).where(eq(adaptiveNutritionPrograms.userId, userId)).run();
     const result = tx.delete(users).where(eq(users.id, userId)).run();
     return result.changes === 1;

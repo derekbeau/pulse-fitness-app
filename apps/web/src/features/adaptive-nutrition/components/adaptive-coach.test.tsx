@@ -80,6 +80,8 @@ const target = {
 
 const detail: AdaptiveCheckInDetail = {
   id: 'check-in-1',
+  goalId: null,
+  goalRevisionId: null,
   kind: 'manual',
   status: 'pending',
   calculationState: 'updating',

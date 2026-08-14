@@ -15,7 +15,7 @@ export const adaptiveActivityLevelSchema = z.enum([
   'very_active',
 ]);
 export const adaptiveGoalTypeSchema = z.enum(['lose', 'maintain', 'gain']);
-export const adaptiveCheckInKindSchema = z.enum(['baseline', 'weekly', 'manual']);
+export const adaptiveCheckInKindSchema = z.enum(['baseline', 'weekly', 'manual', 'goal_change']);
 export const adaptiveCheckInStatusSchema = z.enum([
   'pending',
   'accepted',
@@ -530,19 +530,182 @@ export const adaptiveProgramSchema = adaptiveProgramCalculationObjectSchema
   .strict()
   .superRefine(validateAdaptiveProgram);
 
-export const adaptiveCheckInInputSnapshotSchema = z
+export const adaptiveGoalStatusSchema = z.enum(['active', 'completed', 'replaced', 'cancelled']);
+export const adaptiveGoalEndedReasonSchema = z.enum([
+  'completed',
+  'direction_changed',
+  'cancelled',
+]);
+export const adaptiveGoalRevisionReasonSchema = z.enum([
+  'created',
+  'user_edit',
+  'migration',
+  'goal_completion',
+]);
+
+const adaptiveGoalStrategyFieldsSchema = z
   .object({
-    version: z.literal(1),
-    constants: adaptiveTdeeConstantsSchema,
-    program: adaptiveProgramCalculationSchema,
-    priorTdee: adaptivePriorTdeeSchema.nullable(),
-    currentTarget: adaptiveCurrentTargetSchema.nullable(),
-    boundaries: adaptiveDateBoundariesSchema,
-    includeToday: z.boolean(),
-    nutritionDays: z.array(adaptiveNutritionDaySchema),
-    weightEntries: z.array(adaptiveWeightEntrySchema),
+    targetWeightKg: bodyWeightKgSchema.nullable(),
+    maintenanceCenterKg: bodyWeightKgSchema.nullable(),
+    goalRatePctPerWeek: z.number().min(-1).max(0.5).finite(),
   })
   .strict();
+
+const validateGoalStrategy = (
+  strategy: z.infer<typeof adaptiveGoalStrategyFieldsSchema> & { type?: AdaptiveGoalType },
+  context: z.RefinementCtx,
+) => {
+  const type = strategy.type;
+  if (type === 'maintain' || (type === undefined && strategy.goalRatePctPerWeek === 0)) {
+    if (
+      strategy.targetWeightKg !== null ||
+      strategy.maintenanceCenterKg === null ||
+      strategy.goalRatePctPerWeek !== 0
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Maintenance requires a center weight, no target weight, and a zero rate',
+        path: ['maintenanceCenterKg'],
+      });
+    }
+    return;
+  }
+
+  if (strategy.targetWeightKg === null || strategy.maintenanceCenterKg !== null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Weight-change goals require a target weight and no maintenance center',
+      path: ['targetWeightKg'],
+    });
+  }
+  if (
+    (type === 'lose' && strategy.goalRatePctPerWeek > -0.1) ||
+    (type === 'gain' && strategy.goalRatePctPerWeek < 0.1) ||
+    (type === undefined &&
+      !(strategy.goalRatePctPerWeek <= -0.1 || strategy.goalRatePctPerWeek >= 0.1))
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Goal rate must match the strategy direction',
+      path: ['goalRatePctPerWeek'],
+    });
+  }
+};
+
+export const adaptiveGoalSchema = adaptiveGoalStrategyFieldsSchema
+  .extend({
+    id: z.string().min(1),
+    userId: z.string().min(1),
+    programId: z.string().min(1),
+    type: adaptiveGoalTypeSchema,
+    status: adaptiveGoalStatusSchema,
+    startTrendWeightKg: bodyWeightKgSchema,
+    startScaleWeightKg: bodyWeightKgSchema.nullable(),
+    startedLocalDate: dateSchema,
+    endedLocalDate: dateSchema.nullable(),
+    endedReason: adaptiveGoalEndedReasonSchema.nullable(),
+    createdAt: z.number().int(),
+    updatedAt: z.number().int(),
+  })
+  .strict()
+  .superRefine((goal, context) => {
+    validateGoalStrategy(goal, context);
+    const active = goal.status === 'active';
+    const lifecycleFieldsMatch = active
+      ? goal.endedLocalDate === null && goal.endedReason === null
+      : goal.endedLocalDate !== null && goal.endedReason !== null;
+    if (!lifecycleFieldsMatch) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Active and closed goal lifecycle fields must agree',
+        path: ['status'],
+      });
+    }
+    const expectedReason =
+      goal.status === 'completed'
+        ? 'completed'
+        : goal.status === 'replaced'
+          ? 'direction_changed'
+          : goal.status === 'cancelled'
+            ? 'cancelled'
+            : null;
+    if (!active && goal.endedReason !== expectedReason) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Closed goal status must match its end reason',
+        path: ['endedReason'],
+      });
+    }
+  });
+
+export const adaptiveGoalRevisionSchema = adaptiveGoalStrategyFieldsSchema
+  .extend({
+    id: z.string().min(1),
+    goalId: z.string().min(1),
+    userId: z.string().min(1),
+    sequence: z.number().int().positive(),
+    previousTargetWeightKg: bodyWeightKgSchema.nullable(),
+    previousCenterKg: bodyWeightKgSchema.nullable(),
+    previousRatePctPerWeek: z.number().min(-1).max(0.5).finite(),
+    reason: adaptiveGoalRevisionReasonSchema,
+    effectiveLocalDate: dateSchema,
+    createdAt: z.number().int(),
+  })
+  .strict()
+  .superRefine((revision, context) => {
+    validateGoalStrategy(revision, context);
+    validateGoalStrategy(
+      {
+        targetWeightKg: revision.previousTargetWeightKg,
+        maintenanceCenterKg: revision.previousCenterKg,
+        goalRatePctPerWeek: revision.previousRatePctPerWeek,
+      },
+      context,
+    );
+  });
+
+export const adaptiveGoalSnapshotSchema = z
+  .object({
+    id: z.string().min(1),
+    revisionId: z.string().min(1),
+    type: adaptiveGoalTypeSchema,
+    targetWeightKg: bodyWeightKgSchema.nullable(),
+    maintenanceCenterKg: bodyWeightKgSchema.nullable(),
+    goalRatePctPerWeek: z.number().min(-1).max(0.5).finite(),
+  })
+  .strict()
+  .superRefine(validateGoalStrategy);
+
+const adaptiveCheckInInputSnapshotFields = {
+  constants: adaptiveTdeeConstantsSchema,
+  program: adaptiveProgramCalculationSchema,
+  priorTdee: adaptivePriorTdeeSchema.nullable(),
+  currentTarget: adaptiveCurrentTargetSchema.nullable(),
+  boundaries: adaptiveDateBoundariesSchema,
+  includeToday: z.boolean(),
+  nutritionDays: z.array(adaptiveNutritionDaySchema),
+  weightEntries: z.array(adaptiveWeightEntrySchema),
+} as const;
+
+export const adaptiveCheckInInputSnapshotV1Schema = z
+  .object({
+    version: z.literal(1),
+    ...adaptiveCheckInInputSnapshotFields,
+  })
+  .strict();
+
+export const adaptiveCheckInInputSnapshotV2Schema = z
+  .object({
+    version: z.literal(2),
+    ...adaptiveCheckInInputSnapshotFields,
+    goal: adaptiveGoalSnapshotSchema,
+  })
+  .strict();
+
+export const adaptiveCheckInInputSnapshotSchema = z.discriminatedUnion('version', [
+  adaptiveCheckInInputSnapshotV1Schema,
+  adaptiveCheckInInputSnapshotV2Schema,
+]);
 
 export const adaptivePreviewInputSchema = z
   .object({
@@ -574,6 +737,8 @@ export const adaptiveCheckInQuerySchema = z
 export const adaptiveCheckInSummarySchema = z
   .object({
     id: z.string().min(1),
+    goalId: z.string().nullable(),
+    goalRevisionId: z.string().nullable(),
     kind: adaptiveCheckInKindSchema,
     status: adaptiveCheckInStatusSchema,
     calculationState: adaptiveCheckInStateSchema,
@@ -592,6 +757,45 @@ export const adaptiveCheckInSummarySchema = z
     acceptedNutritionTargetId: z.string().nullable(),
     resolvedAt: z.number().int().nullable(),
     createdAt: z.number().int(),
+  })
+  .strict();
+
+export const adaptiveGoalQuerySchema = adaptiveCheckInQuerySchema;
+
+export const adaptiveGoalHistorySummarySchema = z
+  .object({
+    goal: adaptiveGoalSchema,
+    latestRevision: adaptiveGoalRevisionSchema,
+    finalTrendWeightKg: bodyWeightKgSchema.nullable(),
+    netChangeKg: z.number().finite().nullable(),
+    durationDays: z.number().int().nonnegative().nullable(),
+  })
+  .strict();
+
+export const adaptiveGoalDetailSchema = z
+  .object({
+    goal: adaptiveGoalSchema,
+    revisions: z.array(adaptiveGoalRevisionSchema).min(1),
+    acceptedCheckIns: z.array(adaptiveCheckInSummarySchema),
+  })
+  .strict();
+
+export const adaptiveGoalAllowedActionsSchema = z
+  .object({
+    edit: z.boolean(),
+    startNew: z.boolean(),
+    cancel: z.boolean(),
+    complete: z.boolean(),
+  })
+  .strict();
+
+export const adaptiveCurrentGoalSchema = z
+  .object({
+    goal: adaptiveGoalSchema,
+    latestRevision: adaptiveGoalRevisionSchema,
+    progress: z.null(),
+    pendingGoalChange: z.null(),
+    allowedActions: adaptiveGoalAllowedActionsSchema,
   })
   .strict();
 
@@ -652,6 +856,15 @@ export type AdaptiveCheckInState = z.infer<typeof adaptiveCheckInStateSchema>;
 export type AdaptiveConfidenceLabel = z.infer<typeof adaptiveConfidenceLabelSchema>;
 export type AdaptiveCurrentTarget = z.infer<typeof adaptiveCurrentTargetSchema>;
 export type AdaptiveGoalType = z.infer<typeof adaptiveGoalTypeSchema>;
+export type AdaptiveGoalStatus = z.infer<typeof adaptiveGoalStatusSchema>;
+export type AdaptiveGoalEndedReason = z.infer<typeof adaptiveGoalEndedReasonSchema>;
+export type AdaptiveGoalRevisionReason = z.infer<typeof adaptiveGoalRevisionReasonSchema>;
+export type AdaptiveGoal = z.infer<typeof adaptiveGoalSchema>;
+export type AdaptiveGoalRevision = z.infer<typeof adaptiveGoalRevisionSchema>;
+export type AdaptiveGoalSnapshot = z.infer<typeof adaptiveGoalSnapshotSchema>;
+export type AdaptiveCurrentGoal = z.infer<typeof adaptiveCurrentGoalSchema>;
+export type AdaptiveGoalHistorySummary = z.infer<typeof adaptiveGoalHistorySummarySchema>;
+export type AdaptiveGoalDetail = z.infer<typeof adaptiveGoalDetailSchema>;
 export type AdaptiveNutritionDay = z.infer<typeof adaptiveNutritionDaySchema>;
 export type AdaptivePriorTdee = z.infer<typeof adaptivePriorTdeeSchema>;
 export type AdaptiveProgramCalculation = z.infer<typeof adaptiveProgramCalculationSchema>;

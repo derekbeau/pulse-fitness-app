@@ -6,9 +6,16 @@ import {
   adaptiveCheckInStatusSchema,
   adaptiveCheckInStateSchema,
   adaptiveConfidenceLabelSchema,
+  adaptiveCurrentGoalSchema,
+  adaptiveGoalDetailSchema,
+  adaptiveGoalHistorySummarySchema,
+  adaptiveGoalRevisionSchema,
+  adaptiveGoalSchema,
+  adaptiveGoalSnapshotSchema,
   adaptiveGoalTypeSchema,
   adaptiveAcceptInputSchema,
   adaptiveCheckInQuerySchema,
+  adaptiveCheckInInputSnapshotSchema,
   adaptiveNutritionStateSchema,
   adaptiveProgramCalculationSchema,
   adaptiveProgramMutationSchema,
@@ -18,6 +25,7 @@ import {
   adaptiveReasonCodeSchema,
   adaptiveRmrEquationSchema,
 } from './adaptive-nutrition.js';
+import { ADAPTIVE_TDEE_CONSTANTS } from '../utils/adaptive-tdee.js';
 
 const validProgram = {
   status: 'active' as const,
@@ -71,7 +79,12 @@ describe('adaptive TDEE schemas', () => {
       'very_active',
     ]);
     expect(adaptiveGoalTypeSchema.options).toEqual(['lose', 'maintain', 'gain']);
-    expect(adaptiveCheckInKindSchema.options).toEqual(['baseline', 'weekly', 'manual']);
+    expect(adaptiveCheckInKindSchema.options).toEqual([
+      'baseline',
+      'weekly',
+      'manual',
+      'goal_change',
+    ]);
     expect(adaptiveCheckInStatusSchema.options).toEqual([
       'pending',
       'accepted',
@@ -415,5 +428,135 @@ describe('adaptive TDEE schemas', () => {
         eligibility: null,
       }),
     ).toMatchObject({ state: 'setup_required' });
+  });
+
+  it('validates strict goal, revision, history, detail, and current-read boundaries', () => {
+    const goal = {
+      id: 'goal-1',
+      userId: 'user-1',
+      programId: 'program-1',
+      type: 'lose' as const,
+      status: 'active' as const,
+      startTrendWeightKg: 82,
+      startScaleWeightKg: 82.2,
+      targetWeightKg: 75,
+      maintenanceCenterKg: null,
+      goalRatePctPerWeek: -0.5,
+      startedLocalDate: '2026-06-01',
+      endedLocalDate: null,
+      endedReason: null,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const revision = {
+      id: 'revision-1',
+      goalId: 'goal-1',
+      userId: 'user-1',
+      sequence: 1,
+      targetWeightKg: 75,
+      maintenanceCenterKg: null,
+      goalRatePctPerWeek: -0.5,
+      previousTargetWeightKg: 75,
+      previousCenterKg: null,
+      previousRatePctPerWeek: -0.5,
+      reason: 'created' as const,
+      effectiveLocalDate: '2026-06-01',
+      createdAt: 1,
+    };
+    expect(adaptiveGoalSchema.parse(goal)).toEqual(goal);
+    expect(adaptiveGoalRevisionSchema.parse(revision)).toEqual(revision);
+    expect(
+      adaptiveGoalSchema.safeParse({ ...goal, status: 'completed', endedLocalDate: null }).success,
+    ).toBe(false);
+    expect(
+      adaptiveGoalSchema.safeParse({
+        ...goal,
+        status: 'completed',
+        endedLocalDate: null,
+        endedReason: 'completed',
+      }).success,
+    ).toBe(false);
+    expect(
+      adaptiveGoalSchema.safeParse({ ...goal, type: 'maintain', targetWeightKg: null }).success,
+    ).toBe(false);
+    expect(adaptiveGoalSchema.safeParse({ ...goal, unexpected: true }).success).toBe(false);
+    expect(adaptiveGoalRevisionSchema.safeParse({ ...revision, sequence: 0 }).success).toBe(false);
+    expect(
+      adaptiveGoalSnapshotSchema.safeParse({
+        id: goal.id,
+        revisionId: revision.id,
+        type: goal.type,
+        targetWeightKg: 75,
+        maintenanceCenterKg: null,
+        goalRatePctPerWeek: -0.5,
+      }).success,
+    ).toBe(true);
+    expect(
+      adaptiveGoalHistorySummarySchema.safeParse({
+        goal,
+        latestRevision: revision,
+        finalTrendWeightKg: null,
+        netChangeKg: null,
+        durationDays: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      adaptiveGoalDetailSchema.safeParse({ goal, revisions: [revision], acceptedCheckIns: [] })
+        .success,
+    ).toBe(true);
+    expect(
+      adaptiveCurrentGoalSchema.safeParse({
+        goal,
+        latestRevision: revision,
+        progress: null,
+        pendingGoalChange: null,
+        allowedActions: { edit: false, startNew: false, cancel: false, complete: false },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('preserves version-one snapshots and requires goal linkage in version two', () => {
+    const snapshotFields = {
+      constants: ADAPTIVE_TDEE_CONSTANTS,
+      program: validProgram,
+      priorTdee: null,
+      currentTarget: null,
+      boundaries: {
+        previewDate: '2026-06-01',
+        analysisStart: '2026-05-11',
+        analysisEnd: '2026-05-31',
+        warmupStart: '2026-04-20',
+      },
+      includeToday: false,
+      nutritionDays: [],
+      weightEntries: [{ id: 'weight-1', date: '2026-05-31', weightKg: 82, updatedAt: 1 }],
+    };
+    expect(
+      adaptiveCheckInInputSnapshotSchema.safeParse({ version: 1, ...snapshotFields }).success,
+    ).toBe(true);
+    expect(
+      adaptiveCheckInInputSnapshotSchema.safeParse({
+        version: 2,
+        ...snapshotFields,
+        goal: {
+          id: 'goal-1',
+          revisionId: 'revision-1',
+          type: 'lose',
+          targetWeightKg: 75,
+          maintenanceCenterKg: null,
+          goalRatePctPerWeek: -0.5,
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      adaptiveCheckInInputSnapshotSchema.safeParse({ version: 2, ...snapshotFields }).success,
+    ).toBe(false);
+    expect(
+      adaptiveCheckInInputSnapshotSchema.safeParse({
+        version: 1,
+        ...snapshotFields,
+        unexpected: true,
+      }).success,
+    ).toBe(false);
   });
 });

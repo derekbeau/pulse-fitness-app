@@ -433,7 +433,7 @@ describe('adaptive nutrition lifecycle store', () => {
     });
   });
 
-  it('updates a reached goal to maintenance atomically on acceptance', () => {
+  it('does not silently change a reached goal while accepting its target', () => {
     storeA.upsertProgram(
       'user-1',
       programInput({ goalType: 'lose', targetWeightKg: 81.7, goalRatePctPerWeek: -0.5 }),
@@ -452,8 +452,8 @@ describe('adaptive nutrition lifecycle store', () => {
     expect(preview.calculationSnapshot.goal?.goalReached).toBe(true);
     storeA.acceptCheckIn('user-1', preview.id, { replaceSameDateTarget: false });
     expect(storeA.getState('user-1').program).toMatchObject({
-      goalType: 'maintain',
-      goalRatePctPerWeek: 0,
+      goalType: 'lose',
+      goalRatePctPerWeek: -0.5,
       targetWeightKg: 81.7,
     });
   });

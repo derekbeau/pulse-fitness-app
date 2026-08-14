@@ -12,6 +12,9 @@ import {
   adaptiveCheckInQuerySchema,
   adaptiveCheckInSummarySchema,
   adaptiveCurrentTargetSchema,
+  adaptiveGoalRevisionSchema,
+  adaptiveGoalSchema,
+  adaptiveGoalSnapshotSchema,
   adaptiveProgramCalculationSchema,
   adaptiveProgramMutationSchema,
   adaptiveProgramSchema,
@@ -34,6 +37,8 @@ import {
   type AdaptiveCheckInDetail,
   type AdaptiveCheckInInputSnapshot,
   type AdaptiveCheckInSummary,
+  type AdaptiveGoal,
+  type AdaptiveGoalRevision,
   type AdaptiveNutritionDay,
   type AdaptiveNutritionState,
   type AdaptivePreviewInput,
@@ -48,6 +53,8 @@ import {
 import * as schema from '../../db/schema/index.js';
 import {
   adaptiveNutritionCheckIns,
+  adaptiveNutritionGoalRevisions,
+  adaptiveNutritionGoals,
   adaptiveNutritionPrograms,
   bodyWeight,
   mealItems,
@@ -56,6 +63,7 @@ import {
   nutritionTargets,
   users,
 } from '../../db/schema/index.js';
+import { adaptiveGoalRevisionSelection, adaptiveGoalSelection } from './goal-store.js';
 
 type AdaptiveDatabase = BetterSQLite3Database<typeof schema>;
 
@@ -63,6 +71,13 @@ export class AdaptiveProgramNotFoundError extends Error {
   constructor() {
     super('Adaptive nutrition program not found');
     this.name = 'AdaptiveProgramNotFoundError';
+  }
+}
+
+export class AdaptiveActiveGoalRequiredError extends Error {
+  constructor() {
+    super('An active adaptive nutrition goal must be configured before continuing');
+    this.name = 'AdaptiveActiveGoalRequiredError';
   }
 }
 
@@ -184,6 +199,8 @@ const targetSelection = {
 
 const checkInSummarySelection = {
   id: adaptiveNutritionCheckIns.id,
+  goalId: adaptiveNutritionCheckIns.goalId,
+  goalRevisionId: adaptiveNutritionCheckIns.goalRevisionId,
   kind: adaptiveNutritionCheckIns.kind,
   status: adaptiveNutritionCheckIns.status,
   calculationState: adaptiveNutritionCheckIns.calculationState,
@@ -311,6 +328,11 @@ type RecommendationBundle = {
   currentTarget: NutritionTarget | null;
 };
 
+type ActiveGoalContext = {
+  goal: AdaptiveGoal;
+  revision: AdaptiveGoalRevision;
+};
+
 export const createAdaptiveNutritionStore = (options: {
   db: AdaptiveDatabase;
   sqlite: Database.Database;
@@ -330,6 +352,53 @@ export const createAdaptiveNutritionStore = (options: {
       .get();
     return value ? parseProgram(value) : null;
   };
+
+  const findActiveGoal = (userId: string, programId: string): ActiveGoalContext | null => {
+    const goalRow = db
+      .select(adaptiveGoalSelection)
+      .from(adaptiveNutritionGoals)
+      .where(
+        and(
+          eq(adaptiveNutritionGoals.userId, userId),
+          eq(adaptiveNutritionGoals.programId, programId),
+          eq(adaptiveNutritionGoals.status, 'active'),
+        ),
+      )
+      .limit(1)
+      .get();
+    if (!goalRow) return null;
+    const goal = adaptiveGoalSchema.parse(goalRow);
+    const revisionRow = db
+      .select(adaptiveGoalRevisionSelection)
+      .from(adaptiveNutritionGoalRevisions)
+      .where(
+        and(
+          eq(adaptiveNutritionGoalRevisions.userId, userId),
+          eq(adaptiveNutritionGoalRevisions.goalId, goal.id),
+        ),
+      )
+      .orderBy(desc(adaptiveNutritionGoalRevisions.sequence))
+      .limit(1)
+      .get();
+    if (!revisionRow) throw new AdaptiveActiveGoalRequiredError();
+    return { goal, revision: adaptiveGoalRevisionSchema.parse(revisionRow) };
+  };
+
+  const requireActiveGoal = (userId: string, programId: string): ActiveGoalContext => {
+    const context = findActiveGoal(userId, programId);
+    if (!context) throw new AdaptiveActiveGoalRequiredError();
+    return context;
+  };
+
+  const toGoalSnapshot = ({ goal, revision }: ActiveGoalContext) =>
+    adaptiveGoalSnapshotSchema.parse({
+      id: goal.id,
+      revisionId: revision.id,
+      type: goal.type,
+      targetWeightKg: revision.targetWeightKg,
+      maintenanceCenterKg: revision.maintenanceCenterKg,
+      goalRatePctPerWeek: revision.goalRatePctPerWeek,
+    });
 
   const findCurrentTarget = (userId: string, localDate: string): NutritionTarget | null =>
     db
@@ -458,6 +527,7 @@ export const createAdaptiveNutritionStore = (options: {
   const buildRecommendationBundle = (
     userId: string,
     program: AdaptiveProgram,
+    goalContext: ActiveGoalContext,
     input: AdaptivePreviewInput & { localDate: string },
   ): RecommendationBundle => {
     const calculationProgram = toCalculationProgram(program);
@@ -475,7 +545,7 @@ export const createAdaptiveNutritionStore = (options: {
         : { checkInId: accepted.id, tdeeKcal: accepted.proposedTdeeKcal };
     const currentTarget = findCurrentTarget(userId, input.localDate);
     const inputSnapshot = adaptiveCheckInInputSnapshotSchema.parse({
-      version: 1,
+      version: 2,
       constants: ADAPTIVE_TDEE_CONSTANTS,
       program: calculationProgram,
       priorTdee,
@@ -484,6 +554,7 @@ export const createAdaptiveNutritionStore = (options: {
       includeToday: input.includeToday,
       nutritionDays,
       weightEntries,
+      goal: toGoalSnapshot(goalContext),
     });
     let recommendation = adaptiveRecommendationSchema.parse(
       buildAdaptiveRecommendation({
@@ -579,6 +650,7 @@ export const createAdaptiveNutritionStore = (options: {
   const buildBaselineBundle = (
     userId: string,
     program: AdaptiveProgram,
+    goalContext: ActiveGoalContext,
     currentWeight: AdaptiveWeightEntry,
     localDate: string,
   ): RecommendationBundle => {
@@ -586,7 +658,7 @@ export const createAdaptiveNutritionStore = (options: {
     const boundaries = calculateAdaptiveDateBoundaries(localDate, true);
     const currentTarget = findCurrentTarget(userId, localDate);
     const inputSnapshot = adaptiveCheckInInputSnapshotSchema.parse({
-      version: 1,
+      version: 2,
       constants: ADAPTIVE_TDEE_CONSTANTS,
       program: calculationProgram,
       priorTdee: null,
@@ -595,6 +667,7 @@ export const createAdaptiveNutritionStore = (options: {
       includeToday: true,
       nutritionDays: [],
       weightEntries: [currentWeight],
+      goal: toGoalSnapshot(goalContext),
     });
     const inputFingerprint = createAdaptiveInputFingerprint(inputSnapshot);
     const goal = calculateGoalCalories({
@@ -643,6 +716,7 @@ export const createAdaptiveNutritionStore = (options: {
   const insertCheckIn = (
     userId: string,
     programId: string,
+    goalContext: ActiveGoalContext,
     bundle: RecommendationBundle,
     localDate: string,
     timestamp: number,
@@ -667,6 +741,8 @@ export const createAdaptiveNutritionStore = (options: {
         id: randomUUID(),
         userId,
         programId,
+        goalId: goalContext.goal.id,
+        goalRevisionId: goalContext.revision.id,
         kind: recommendation.kind,
         status,
         calculationState: recommendation.state,
@@ -811,11 +887,74 @@ export const createAdaptiveNutritionStore = (options: {
             .get();
       if (!persisted) throw new Error('Failed to persist adaptive nutrition program');
       const program = parseProgram(persisted);
+      let goalContext = findActiveGoal(userId, program.id);
+      if (!goalContext) {
+        const goalId = randomUUID();
+        const revisionId = randomUUID();
+        const maintenanceCenterKg =
+          program.goalType === 'maintain'
+            ? (program.targetWeightKg ?? currentWeight.weightKg)
+            : null;
+        const targetWeightKg = program.goalType === 'maintain' ? null : program.targetWeightKg;
+        const goal = db
+          .insert(adaptiveNutritionGoals)
+          .values({
+            id: goalId,
+            userId,
+            programId: program.id,
+            type: program.goalType,
+            status: 'active',
+            startTrendWeightKg: currentWeight.weightKg,
+            startScaleWeightKg: currentWeight.weightKg,
+            targetWeightKg,
+            maintenanceCenterKg,
+            goalRatePctPerWeek: program.goalRatePctPerWeek,
+            startedLocalDate: localDate,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          })
+          .returning(adaptiveGoalSelection)
+          .get();
+        const revision = db
+          .insert(adaptiveNutritionGoalRevisions)
+          .values({
+            id: revisionId,
+            goalId,
+            userId,
+            sequence: 1,
+            targetWeightKg,
+            maintenanceCenterKg,
+            goalRatePctPerWeek: program.goalRatePctPerWeek,
+            previousTargetWeightKg: targetWeightKg,
+            previousCenterKg: maintenanceCenterKg,
+            previousRatePctPerWeek: program.goalRatePctPerWeek,
+            reason: 'created',
+            effectiveLocalDate: localDate,
+            createdAt: timestamp,
+          })
+          .returning(adaptiveGoalRevisionSelection)
+          .get();
+        if (!goal || !revision) throw new Error('Failed to persist adaptive nutrition goal');
+        goalContext = {
+          goal: adaptiveGoalSchema.parse(goal),
+          revision: adaptiveGoalRevisionSchema.parse(revision),
+        };
+      } else if (
+        goalContext.goal.type !== program.goalType ||
+        (goalContext.goal.type !== 'maintain' &&
+          goalContext.goal.targetWeightKg !== program.targetWeightKg) ||
+        goalContext.goal.goalRatePctPerWeek !== program.goalRatePctPerWeek
+      ) {
+        throw new AdaptiveProgramInvalidError(
+          'Goal strategy changes must use the dedicated goal endpoints',
+        );
+      }
       if (shouldRebaseline) {
         insertCheckIn(
           userId,
           program.id,
-          buildBaselineBundle(userId, program, currentWeight, localDate),
+          goalContext,
+          buildBaselineBundle(userId, program, goalContext, currentWeight, localDate),
           localDate,
           timestamp,
         );
@@ -833,8 +972,12 @@ export const createAdaptiveNutritionStore = (options: {
       const timestamp = now().getTime();
       const program = findProgram(userId);
       if (!program) throw new AdaptiveProgramNotFoundError();
+      const goalContext = requireActiveGoal(userId, program.id);
       const localDate = getDateKeyInTimeZone(new Date(timestamp), program.timeZone);
-      const bundle = buildRecommendationBundle(userId, program, { ...input, localDate });
+      const bundle = buildRecommendationBundle(userId, program, goalContext, {
+        ...input,
+        localDate,
+      });
       const existingPending = db
         .select(checkInDetailSelection)
         .from(adaptiveNutritionCheckIns)
@@ -885,7 +1028,7 @@ export const createAdaptiveNutritionStore = (options: {
           .get();
         if (reusableHeld) return parseCheckInDetail(reusableHeld);
       }
-      return insertCheckIn(userId, program.id, bundle, localDate, timestamp);
+      return insertCheckIn(userId, program.id, goalContext, bundle, localDate, timestamp);
     });
   };
 
@@ -894,6 +1037,13 @@ export const createAdaptiveNutritionStore = (options: {
     program: AdaptiveProgram,
     checkIn: AdaptiveCheckInDetail,
   ): RecommendationBundle => {
+    const goalContext = requireActiveGoal(userId, program.id);
+    if (
+      checkIn.goalId !== goalContext.goal.id ||
+      checkIn.goalRevisionId !== goalContext.revision.id
+    ) {
+      throw new AdaptiveCheckInStaleError();
+    }
     if (checkIn.kind === 'baseline') {
       const snapshot = adaptiveCheckInInputSnapshotSchema.parse(checkIn.inputSnapshot);
       const sourceWeight = snapshot.weightEntries[0];
@@ -910,9 +1060,10 @@ export const createAdaptiveNutritionStore = (options: {
         .limit(1)
         .get();
       if (!currentWeight) throw new AdaptiveCheckInStaleError();
-      return buildBaselineBundle(userId, program, currentWeight, checkIn.localDate);
+      return buildBaselineBundle(userId, program, goalContext, currentWeight, checkIn.localDate);
     }
-    return buildRecommendationBundle(userId, program, {
+    if (checkIn.kind === 'goal_change') throw new AdaptiveCheckInNotAcceptableError();
+    return buildRecommendationBundle(userId, program, goalContext, {
       kind: checkIn.kind,
       includeToday: checkIn.includeToday,
       localDate: checkIn.localDate,
@@ -995,17 +1146,6 @@ export const createAdaptiveNutritionStore = (options: {
             .get();
       if (!target) throw new Error('Failed to persist accepted adaptive target');
 
-      if (checkIn.calculationSnapshot.goal?.goalReached) {
-        db.update(adaptiveNutritionPrograms)
-          .set({ goalType: 'maintain', goalRatePctPerWeek: 0, updatedAt: timestamp })
-          .where(
-            and(
-              eq(adaptiveNutritionPrograms.id, program.id),
-              eq(adaptiveNutritionPrograms.userId, userId),
-            ),
-          )
-          .run();
-      }
       db.update(adaptiveNutritionCheckIns)
         .set({
           status: 'accepted',

@@ -9,6 +9,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 
 import {
   adaptiveNutritionCheckIns,
+  adaptiveNutritionGoalRevisions,
+  adaptiveNutritionGoals,
   adaptiveNutritionPrograms,
   nutritionTargets,
   users,
@@ -63,11 +65,46 @@ const seedProgramAndCheckIn = (
     })
     .run();
   dbModule.db
+    .insert(adaptiveNutritionGoals)
+    .values({
+      id: 'goal-1',
+      userId: 'user-1',
+      programId: 'program-1',
+      type: 'maintain',
+      status: 'active',
+      startTrendWeightKg: 80,
+      startScaleWeightKg: 80,
+      targetWeightKg: null,
+      maintenanceCenterKg: 80,
+      goalRatePctPerWeek: 0,
+      startedLocalDate: '2026-03-09',
+    })
+    .run();
+  dbModule.db
+    .insert(adaptiveNutritionGoalRevisions)
+    .values({
+      id: 'goal-revision-1',
+      goalId: 'goal-1',
+      userId: 'user-1',
+      sequence: 1,
+      targetWeightKg: null,
+      maintenanceCenterKg: 80,
+      goalRatePctPerWeek: 0,
+      previousTargetWeightKg: null,
+      previousCenterKg: 80,
+      previousRatePctPerWeek: 0,
+      reason: 'created',
+      effectiveLocalDate: '2026-03-09',
+    })
+    .run();
+  dbModule.db
     .insert(adaptiveNutritionCheckIns)
     .values({
       id: 'check-in-1',
       userId: 'user-1',
       programId: 'program-1',
+      goalId: 'goal-1',
+      goalRevisionId: 'goal-revision-1',
       kind: 'manual',
       status: 'pending',
       calculationState: 'baseline',
@@ -215,6 +252,8 @@ describe('nutrition target provenance store', () => {
         id: 'check-in-mismatch',
         userId: 'user-1',
         programId: 'program-1',
+        goalId: 'goal-1',
+        goalRevisionId: 'goal-revision-1',
         kind: 'manual',
         status: 'pending',
         calculationState: 'baseline',
@@ -323,6 +362,8 @@ describe('nutrition target provenance store', () => {
           id: 'cross-user-check-in',
           userId: 'user-2',
           programId: 'program-1',
+          goalId: 'goal-1',
+          goalRevisionId: 'goal-revision-1',
           kind: 'manual',
           status: 'held',
           calculationState: 'holding',
@@ -361,6 +402,20 @@ describe('nutrition target provenance store', () => {
         .select({ id: adaptiveNutritionCheckIns.id })
         .from(adaptiveNutritionCheckIns)
         .where(eq(adaptiveNutritionCheckIns.userId, 'user-1'))
+        .all(),
+    ).toEqual([]);
+    expect(
+      dbModule.db
+        .select({ id: adaptiveNutritionGoalRevisions.id })
+        .from(adaptiveNutritionGoalRevisions)
+        .where(eq(adaptiveNutritionGoalRevisions.userId, 'user-1'))
+        .all(),
+    ).toEqual([]);
+    expect(
+      dbModule.db
+        .select({ id: adaptiveNutritionGoals.id })
+        .from(adaptiveNutritionGoals)
+        .where(eq(adaptiveNutritionGoals.userId, 'user-1'))
         .all(),
     ).toEqual([]);
     expect(

@@ -73,6 +73,8 @@ const inputCurrentTarget = {
 
 const checkIn: AdaptiveCheckInDetail = {
   id: 'check-in-1',
+  goalId: null,
+  goalRevisionId: null,
   kind: 'baseline',
   status: 'pending',
   calculationState: 'baseline',
@@ -160,6 +162,8 @@ const checkIn: AdaptiveCheckInDetail = {
 
 const checkInSummary = {
   id: checkIn.id,
+  goalId: checkIn.goalId,
+  goalRevisionId: checkIn.goalRevisionId,
   kind: checkIn.kind,
   status: checkIn.status,
   calculationState: checkIn.calculationState,

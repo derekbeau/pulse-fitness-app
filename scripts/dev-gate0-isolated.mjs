@@ -81,6 +81,7 @@ export const createGate0Environment = (baseEnvironment, config) => ({
   ...baseEnvironment,
   DATABASE_URL: config.databasePath,
   BODY_WEIGHT_LEGACY_UNIT_MAP_PATH: config.weightMapPath,
+  API_URL: `http://${config.webHost}:${config.webPort}`,
   PORT: String(config.apiPort),
   VITE_API_PORT: String(config.proxyPort),
   VITE_API_PROXY_TARGET: `http://127.0.0.1:${config.proxyPort}`,

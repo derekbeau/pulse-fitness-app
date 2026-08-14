@@ -75,6 +75,16 @@ describe('Adaptive TDEE read-only backtest', () => {
     expect(runAdaptiveTdeeBacktest(reversed)).toEqual(runAdaptiveTdeeBacktest(source));
   });
 
+  it('parses and replays goal-change check-ins as strategy-triggered calculations', () => {
+    const source = fixture();
+    const parsed = parseAdaptiveBacktestJson({
+      version: 1,
+      ...source,
+      checkIns: [{ ...source.checkIns[0], kind: 'goal_change' }],
+    });
+    expect(runAdaptiveTdeeBacktest(parsed)[0]?.kind).toBe('goal_change');
+  });
+
   it('lets a later persisted manual target supersede an earlier simulated adaptive target', () => {
     const source = fixture();
     source.currentTargets = [

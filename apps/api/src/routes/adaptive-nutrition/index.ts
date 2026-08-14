@@ -5,6 +5,10 @@ import {
   adaptiveCheckInDetailSchema,
   adaptiveCheckInQuerySchema,
   adaptiveCheckInSummarySchema,
+  adaptiveCurrentGoalSchema,
+  adaptiveGoalDetailSchema,
+  adaptiveGoalHistorySummarySchema,
+  adaptiveGoalQuerySchema,
   adaptiveNutritionStateSchema,
   adaptivePreviewInputSchema,
   adaptiveProgramMutationSchema,
@@ -26,7 +30,15 @@ import {
 } from '../../openapi.js';
 
 import {
+  AdaptiveGoalNotFoundError,
+  getAdaptiveGoal,
+  getCurrentAdaptiveGoal,
+  listAdaptiveGoals,
+} from './goal-store.js';
+
+import {
   acceptAdaptiveNutritionCheckIn,
+  AdaptiveActiveGoalRequiredError,
   AdaptiveAlgorithmVersionMismatchError,
   AdaptiveCalorieFloorError,
   AdaptiveCheckInNotAcceptableError,
@@ -50,6 +62,12 @@ import {
 const conflictResponseSchema = apiErrorResponseSchema;
 
 const sendAdaptiveError = (reply: FastifyReply, error: unknown) => {
+  if (error instanceof AdaptiveGoalNotFoundError) {
+    return sendError(reply, 404, 'ADAPTIVE_GOAL_NOT_FOUND', error.message);
+  }
+  if (error instanceof AdaptiveActiveGoalRequiredError) {
+    return sendError(reply, 409, 'ACTIVE_GOAL_REQUIRED', error.message);
+  }
   if (error instanceof AdaptiveProgramNotFoundError) {
     return sendError(reply, 404, 'ADAPTIVE_PROGRAM_NOT_FOUND', error.message);
   }
@@ -96,6 +114,70 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
+
+  typedApp.get(
+    '/goals/current',
+    {
+      schema: {
+        response: {
+          200: apiDataResponseSchema(adaptiveCurrentGoalSchema),
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Get the current adaptive nutrition goal',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.send({ data: await getCurrentAdaptiveGoal(request.userId) });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
+  );
+
+  typedApp.get(
+    '/goals',
+    {
+      schema: {
+        querystring: adaptiveGoalQuerySchema,
+        response: {
+          200: apiPaginatedResponseSchema(adaptiveGoalHistorySummarySchema),
+          401: apiErrorResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'List adaptive nutrition goal history',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => reply.send(await listAdaptiveGoals(request.userId, request.query)),
+  );
+
+  typedApp.get(
+    '/goals/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(adaptiveGoalDetailSchema),
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Get adaptive nutrition goal details',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.send({ data: await getAdaptiveGoal(request.userId, request.params.id) });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
+  );
 
   typedApp.get(
     '/',

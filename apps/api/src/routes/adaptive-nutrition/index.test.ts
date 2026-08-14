@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
 import { findAgentTokenByHash, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
+import { getAdaptiveGoal, getCurrentAdaptiveGoal, listAdaptiveGoals } from './goal-store.js';
 
 import {
   acceptAdaptiveNutritionCheckIn,
@@ -29,6 +30,16 @@ vi.mock('./store.js', async (importOriginal) => {
     listAdaptiveNutritionCheckIns: vi.fn(),
     previewAdaptiveNutritionCheckIn: vi.fn(),
     putAdaptiveNutritionProgram: vi.fn(),
+  };
+});
+
+vi.mock('./goal-store.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./goal-store.js')>();
+  return {
+    ...actual,
+    getAdaptiveGoal: vi.fn(),
+    getCurrentAdaptiveGoal: vi.fn(),
+    listAdaptiveGoals: vi.fn(),
   };
 });
 
@@ -67,6 +78,40 @@ const program = {
   updatedAt: 1_780_329_600_000,
 };
 
+const goalRecord = {
+  id: 'goal-1',
+  userId: 'jwt-user',
+  programId: 'program-1',
+  type: 'maintain' as const,
+  status: 'active' as const,
+  startTrendWeightKg: 82,
+  startScaleWeightKg: 82,
+  targetWeightKg: null,
+  maintenanceCenterKg: 82,
+  goalRatePctPerWeek: 0,
+  startedLocalDate: '2026-06-01',
+  endedLocalDate: null,
+  endedReason: null,
+  createdAt: 1_780_329_600_000,
+  updatedAt: 1_780_329_600_000,
+};
+
+const goalRevision = {
+  id: 'revision-1',
+  goalId: 'goal-1',
+  userId: 'jwt-user',
+  sequence: 1,
+  targetWeightKg: null,
+  maintenanceCenterKg: 82,
+  goalRatePctPerWeek: 0,
+  previousTargetWeightKg: null,
+  previousCenterKg: 82,
+  previousRatePctPerWeek: 0,
+  reason: 'created' as const,
+  effectiveLocalDate: '2026-06-01',
+  createdAt: 1_780_329_600_000,
+};
+
 const boundaries = {
   previewDate: '2026-06-01',
   analysisStart: '2026-05-11',
@@ -94,6 +139,8 @@ const macros = {
 };
 const checkIn = {
   id: 'check-in-1',
+  goalId: null,
+  goalRevisionId: null,
   kind: 'baseline' as const,
   status: 'pending' as const,
   calculationState: 'baseline' as const,
@@ -201,6 +248,30 @@ describe('adaptive nutrition routes', () => {
       meta: { page: 1, limit: 20, total: 1 },
     });
     vi.mocked(getAdaptiveNutritionCheckIn).mockResolvedValue(checkIn);
+    vi.mocked(getCurrentAdaptiveGoal).mockResolvedValue({
+      goal: goalRecord,
+      latestRevision: goalRevision,
+      progress: null,
+      pendingGoalChange: null,
+      allowedActions: { edit: false, startNew: false, cancel: false, complete: false },
+    });
+    vi.mocked(listAdaptiveGoals).mockResolvedValue({
+      data: [
+        {
+          goal: goalRecord,
+          latestRevision: goalRevision,
+          finalTrendWeightKg: null,
+          netChangeKg: null,
+          durationDays: null,
+        },
+      ],
+      meta: { page: 1, limit: 20, total: 1 },
+    });
+    vi.mocked(getAdaptiveGoal).mockResolvedValue({
+      goal: goalRecord,
+      revisions: [goalRevision],
+      acceptedCheckIns: [],
+    });
   });
 
   afterEach(() => {
@@ -216,7 +287,15 @@ describe('adaptive nutrition routes', () => {
         { sub: 'jwt-user', type: 'session', iss: 'pulse-api' },
         { expiresIn: '7d' },
       );
-      const [stateResponse, previewResponse, historyResponse, detailResponse] = await Promise.all([
+      const [
+        stateResponse,
+        previewResponse,
+        historyResponse,
+        detailResponse,
+        currentGoalResponse,
+        goalHistoryResponse,
+        goalDetailResponse,
+      ] = await Promise.all([
         app.inject({
           method: 'GET',
           url: '/api/v1/adaptive-nutrition',
@@ -238,11 +317,29 @@ describe('adaptive nutrition routes', () => {
           url: '/api/v1/adaptive-nutrition/check-ins/check-in-1',
           headers: { authorization: 'AgentToken plain-agent-token' },
         }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/adaptive-nutrition/goals/current',
+          headers: { authorization: 'AgentToken plain-agent-token' },
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/adaptive-nutrition/goals',
+          headers: { authorization: 'AgentToken plain-agent-token' },
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/adaptive-nutrition/goals/goal-1',
+          headers: { authorization: 'AgentToken plain-agent-token' },
+        }),
       ]);
       expect(stateResponse.statusCode, stateResponse.body).toBe(200);
       expect(previewResponse.statusCode).toBe(200);
       expect(historyResponse.statusCode).toBe(200);
       expect(detailResponse.statusCode).toBe(200);
+      expect(currentGoalResponse.statusCode, currentGoalResponse.body).toBe(200);
+      expect(goalHistoryResponse.statusCode, goalHistoryResponse.body).toBe(200);
+      expect(goalDetailResponse.statusCode, goalDetailResponse.body).toBe(200);
       expect(previewResponse.json()).toEqual({ data: checkIn });
       expect(vi.mocked(findAgentTokenByHash)).toHaveBeenCalledWith(
         createHash('sha256').update('plain-agent-token').digest('hex'),
@@ -359,6 +456,9 @@ describe('adaptive nutrition routes', () => {
       expect(Object.keys(document.paths)).toEqual(
         expect.arrayContaining([
           '/api/v1/adaptive-nutrition/',
+          '/api/v1/adaptive-nutrition/goals/current',
+          '/api/v1/adaptive-nutrition/goals',
+          '/api/v1/adaptive-nutrition/goals/{id}',
           '/api/v1/adaptive-nutrition/program',
           '/api/v1/adaptive-nutrition/check-ins/preview',
           '/api/v1/adaptive-nutrition/check-ins/{id}/accept',
@@ -369,8 +469,10 @@ describe('adaptive nutrition routes', () => {
       );
       const programOperation = document.paths['/api/v1/adaptive-nutrition/program']?.put;
       const previewOperation = document.paths['/api/v1/adaptive-nutrition/check-ins/preview']?.post;
+      const goalOperation = document.paths['/api/v1/adaptive-nutrition/goals/current']?.get;
       expect(programOperation?.security).toEqual([{ bearerAuth: [] }]);
       expect(previewOperation?.security).toEqual([{ bearerAuth: [] }, { agentToken: [] }]);
+      expect(goalOperation?.security).toEqual([{ bearerAuth: [] }, { agentToken: [] }]);
     } finally {
       await app.close();
     }

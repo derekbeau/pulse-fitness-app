@@ -57,6 +57,7 @@ describe('Gate 0 isolated development startup', () => {
       resolve(repoRoot, GATE0_WEIGHT_MAP_RELATIVE_PATH),
     );
     assert.equal(environment.PORT, '3102');
+    assert.equal(environment.API_URL, 'http://127.0.0.1:5274');
     assert.equal(environment.VITE_API_PORT, '3102');
     assert.equal(environment.VITE_API_PROXY_TARGET, 'http://127.0.0.1:3102');
     assert.equal(environment.VITE_PORT, '5274');
@@ -70,6 +71,14 @@ describe('Gate 0 isolated development startup', () => {
     for (const rejectedHost of ['0.0.0.0', '192.168.1.5', '100.63.255.255', '100.128.0.1']) {
       assert.throws(() => validateGate0WebHost(rejectedHost), /Refusing Gate 0 startup/);
     }
+  });
+
+  it('advertises the reachable Tailscale-hosted web origin to Swagger', () => {
+    const { repoRoot } = createFixture();
+    const config = resolveGate0Config(repoRoot, '100.87.91.127');
+    const environment = createGate0Environment({}, config);
+
+    assert.equal(environment.API_URL, 'http://100.87.91.127:5274');
   });
 
   it('rejects default, production, snapshot, and arbitrary database paths', () => {

@@ -131,6 +131,26 @@ and Milestones 7–11. Codex is authorized to implement all five milestones in o
 goal, with exactly one commit and extensive automated/built-in-browser QA per milestone, then stop at
 `AWAITING VECTOR FINAL GOAL-STRATEGY REVIEW`.
 
+### Milestone 7 checkpoint
+
+- Added authoritative `adaptive_nutrition_goals` and immutable goal revisions, strict lifecycle and
+  ownership constraints, check-in goal/revision provenance, and compatibility-mirror writes.
+- Startup runs an idempotent per-user backfill after canonical-weight preflight. Usable trend weight is
+  preferred, latest canonical scale weight is the fallback, and users without either fail closed without
+  partial writes.
+- Added strict shared V1/V2 snapshot contracts and read-only current/history/detail goal APIs for JWT and
+  AgentToken callers. Goal completion remains explicit; accepting a goal-reached nutrition recommendation
+  does not silently change the goal.
+- Isolated snapshot rehearsal mapped 19 reviewed legacy-weight rows, returned `quick_check: ok`, preserved
+  every source SQLite-family hash, and introduced zero foreign-key violations. The 37 pre-existing
+  violations remain tracked in issue #101.
+- Focused verification passed 84 API, 17 shared, and 9 startup/isolation tests. Exact uncached gates passed
+  lint 3/3, typecheck 3/3, startup/isolation 9, shared 404, API 677, web 989, and build 3/3 with zero cached
+  Turbo tasks. Lint retained only four pre-existing Fast Refresh warnings.
+- Built-in-browser QA used only `pnpm dev:gate0`. The signed-in Coach remained healthy, Swagger authenticated
+  with a temporary isolated AgentToken, and current/history/detail requests all returned 200. The token was
+  deleted, SQLite `quick_check` returned `ok`, and ports 3102/5274 were stopped.
+
 ## Next actions
 
 1. Hand off the clean specification commit to the primary Codex chat.
@@ -151,6 +171,6 @@ None.
 
 ## Vector review handoff protocol
 
-PR #100 remains draft. Vector Gate 6 remains approved. Milestones 7–11 are authorized but not implemented;
-Codex owns the five milestone commits and per-milestone evidence, while Vector owns one independent final QA,
+PR #100 remains draft. Vector Gate 6 remains approved. Milestone 7 is implemented and verified; Milestones
+8–11 remain in progress. Codex owns the five milestone commits and per-milestone evidence, while Vector owns one independent final QA,
 the bounded defect list, and final re-review after Codex repairs.

@@ -23,6 +23,8 @@ import type {
 import {
   activities,
   adaptiveNutritionCheckIns,
+  adaptiveNutritionGoalRevisions,
+  adaptiveNutritionGoals,
   adaptiveNutritionPrograms,
   agentTokens,
   bodyWeight,
@@ -687,6 +689,43 @@ describe('adaptive nutrition persistence schema', () => {
     );
   });
 
+  it('defines one active goal per user with owned immutable revisions', () => {
+    expect(getTableName(adaptiveNutritionGoals)).toBe('adaptive_nutrition_goals');
+    const goalConfig = getTableConfig(adaptiveNutritionGoals);
+    expect(goalConfig.foreignKeys).toHaveLength(3);
+    expect(goalConfig.indexes.map((entry) => entry.config.name).sort()).toEqual([
+      'adaptive_nutrition_goals_id_user_id_unique',
+      'adaptive_nutrition_goals_one_active_per_user_unique',
+      'adaptive_nutrition_goals_program_id_idx',
+      'adaptive_nutrition_goals_user_id_idx',
+    ]);
+    expect(goalConfig.checks.map((entry) => entry.name).sort()).toEqual([
+      'adaptive_nutrition_goals_dates_check',
+      'adaptive_nutrition_goals_lifecycle_check',
+      'adaptive_nutrition_goals_status_check',
+      'adaptive_nutrition_goals_strategy_check',
+      'adaptive_nutrition_goals_type_check',
+      'adaptive_nutrition_goals_weight_bounds_check',
+    ]);
+
+    expect(getTableName(adaptiveNutritionGoalRevisions)).toBe('adaptive_nutrition_goal_revisions');
+    const revisionConfig = getTableConfig(adaptiveNutritionGoalRevisions);
+    expect(revisionConfig.foreignKeys).toHaveLength(3);
+    expect(revisionConfig.indexes.map((entry) => entry.config.name).sort()).toEqual([
+      'adaptive_nutrition_goal_revisions_goal_id_idx',
+      'adaptive_nutrition_goal_revisions_goal_sequence_unique',
+      'adaptive_nutrition_goal_revisions_id_goal_user_unique',
+    ]);
+    expect(revisionConfig.checks.map((entry) => entry.name).sort()).toEqual([
+      'adaptive_nutrition_goal_revisions_date_check',
+      'adaptive_nutrition_goal_revisions_previous_strategy_check',
+      'adaptive_nutrition_goal_revisions_reason_check',
+      'adaptive_nutrition_goal_revisions_sequence_check',
+      'adaptive_nutrition_goal_revisions_strategy_check',
+      'adaptive_nutrition_goal_revisions_weights_check',
+    ]);
+  });
+
   it('defines immutable check-in snapshot columns and pending uniqueness', () => {
     expect(getTableName(adaptiveNutritionCheckIns)).toBe('adaptive_nutrition_checkins');
     const columns = getTableColumns(adaptiveNutritionCheckIns);
@@ -697,11 +736,18 @@ describe('adaptive nutrition persistence schema', () => {
         'currentTargets',
         'proposedTargets',
         'acceptedNutritionTargetId',
+        'goalId',
+        'goalRevisionId',
       ]),
     );
     const config = getTableConfig(adaptiveNutritionCheckIns);
-    expect(config.foreignKeys).toHaveLength(3);
-    expect(config.foreignKeys.every((foreignKey) => foreignKey.onDelete === 'cascade')).toBe(true);
+    expect(config.foreignKeys).toHaveLength(6);
+    expect(
+      config.foreignKeys.filter((foreignKey) => foreignKey.onDelete === 'cascade'),
+    ).toHaveLength(3);
+    expect(
+      config.foreignKeys.filter((foreignKey) => foreignKey.onDelete === 'restrict'),
+    ).toHaveLength(3);
     expect(config.foreignKeys.map((foreignKey) => foreignKey.getName())).toContain(
       'adaptive_nutrition_checkins_program_user_fk',
     );

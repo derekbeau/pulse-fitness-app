@@ -276,6 +276,9 @@ const start = async () => {
     sqlite.pragma('foreign_keys = OFF');
     migrate(db, { migrationsFolder });
     sqlite.pragma('foreign_keys = ON');
+    const { backfillAdaptiveNutritionGoals } = await import('./db/adaptive-goal-backfill.js');
+    const goalBackfill = backfillAdaptiveNutritionGoals(sqlite);
+    app.log.info(goalBackfill, 'Adaptive nutrition goal backfill passed');
 
     const shutdown = async () => {
       app.log.info('Shutting down…');
