@@ -1,7 +1,7 @@
 # Vector Gate 2 Re-review Handoff
 
 > Historical independent review record. Its gate instructions are closed and are not current execution
-> authority; see `codex-kickoff.md` for the active final-QA repair.
+> authority; see `current-status.md` for the current review state. `codex-kickoff.md` is archived evidence.
 
 **Frozen handoff commit:** `205cea546929a2bcab5f67dd4a63b4cfd169f483`
 **Final state:** `VECTOR GATE 2 APPROVED`

@@ -743,7 +743,7 @@ This is the polymorphic bridge for cross-entity references such as journal -> wo
 
 ## Relationship Patterns
 
-- `users` has many `agent_tokens`, `habits`, `habit_entries`, `workout_templates`, `workout_sessions`, `foods`, `nutrition_logs`, `body_weight`, `nutrition_targets`, `adaptive_nutrition_checkins`, `scheduled_workouts`, `health_conditions`, `journal_entries`, `activities`, `resources`, `equipment_locations`, and `entity_links`; it has one `adaptive_nutrition_programs` row in v1.
+- `users` has many `agent_tokens`, `habits`, `habit_entries`, `workout_templates`, `workout_sessions`, `foods`, `nutrition_logs`, `body_weight`, `nutrition_targets`, `adaptive_nutrition_checkins`, `adaptive_nutrition_goals`, `adaptive_nutrition_goal_revisions`, `adaptive_nutrition_goal_completions`, `scheduled_workouts`, `health_conditions`, `journal_entries`, `activities`, `resources`, `equipment_locations`, and `entity_links`; it has one `adaptive_nutrition_programs` row in v1.
 - `users` has one `dashboard_config`.
 - `habits` has many `habit_entries`.
 - `workout_templates` has many `template_exercises`.
@@ -751,8 +751,12 @@ This is the polymorphic bridge for cross-entity references such as journal -> wo
 - `session_sets` references both `workout_sessions` and `exercises`.
 - `scheduled_workouts` may point to both a `workout_template` and a realized `workout_session`.
 - `nutrition_logs` has many `meals`; `meals` has many `meal_items`; `meal_items` may reference `foods`.
-- `adaptive_nutrition_programs` has many immutable `adaptive_nutrition_checkins`; an adaptive
-  `nutrition_targets` row restricts deletion of its source check-in.
+- `adaptive_nutrition_programs` has many immutable `adaptive_nutrition_checkins` and many
+  `adaptive_nutrition_goals`; each goal has many immutable `adaptive_nutrition_goal_revisions`.
+- `adaptive_nutrition_checkins` may link one goal/revision pair; an adaptive `nutrition_targets` row restricts
+  deletion of its source check-in.
+- `adaptive_nutrition_goal_completions` immutably relates one accepted completion check-in, one completed
+  loss/gain goal, and one successor maintenance goal under the same user and program.
 - `health_conditions` has many `condition_timeline_events`, `condition_protocols`, and `condition_severity_points`.
 - `equipment_locations` has many `equipment_items`.
 - `entity_links` is polymorphic and enforced in application code rather than SQLite foreign keys.

@@ -229,6 +229,7 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
         body: adaptiveGoalLifecycleInputSchema,
         response: {
           200: apiDataResponseSchema(adaptiveGoalSchema),
+          400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           403: apiErrorResponseSchema,
           404: apiErrorResponseSchema,

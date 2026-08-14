@@ -1,14 +1,21 @@
 # Adaptive TDEE and Nutrition Coaching v1
 
-**Status:** Development-ready specification<br>
+**Status:** Implemented; legacy-history correction awaiting independent re-review<br>
 **Owner:** Pulse<br>
 **Version:** 1.0<br>
 **Algorithm version:** `adaptive-tdee-v1`<br>
-**Last updated:** 2026-08-12
+**Last updated:** 2026-08-14
+
+> **Implementation status:** Adaptive TDEE v1 and the goal-strategy extension are implemented on the feature
+> branch. The bounded legacy closing-trend, completion-transition, and fail-closed cancellation correction is
+> integrated and awaiting independent Vector re-review. Normative requirements and historical design sections
+> below intentionally retain directive or future-tense language where they describe the contract that
+> implementations must satisfy; that wording is not evidence that the feature remains unimplemented and does
+> not authorize duplicate work.
 
 ## 1. Purpose
 
-Pulse will add an adaptive nutrition-coaching feature that:
+Pulse's implemented adaptive nutrition-coaching feature:
 
 1. Produces an initial resting metabolic rate (RMR) and total daily energy expenditure (TDEE) estimate from profile data.
 2. Learns a personalized TDEE from logged calorie intake and body-weight trend.
@@ -748,7 +755,7 @@ Indexes:
 - `(programId, localDate)`
 - Partial unique `(programId, dataFingerprint, algorithmVersion)` where `status = pending`
 
-Snapshots use versioned shared Zod schemas. They are immutable after insert except `status`, `acceptedNutritionTargetId`, and `resolvedAt`. Check-ins are audit records and cannot be individually deleted. Account deletion must delete adaptive nutrition targets before check-ins/programs inside the account-deletion transaction.
+Snapshots use versioned shared Zod schemas. They are immutable after insert except `status`, `acceptedNutritionTargetId`, and `resolvedAt`. Check-ins are audit records and cannot be individually deleted. Account deletion must delete adaptive nutrition targets, goal-completion relations, check-ins, goal revisions, goals, programs, and then the user inside the account-deletion transaction.
 
 ### 14.3 `nutrition_logs` changes
 

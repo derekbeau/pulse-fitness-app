@@ -2,14 +2,14 @@
 
 **Status:** `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`<br>
 **Branch:** `feat/adaptive-tdee-v1`<br>
-**Reviewer:** Vector confirmed the bounded final-QA findings; Codex owns this one repair commit<br>
-**Last verified state:** Milestones 7–11 are implemented; their initial final-review handoff is superseded
+**Reviewer:** Vector owns the independent re-review; the correction is not self-approved<br>
+**Last verified state:** Legacy-history correction integrated with current automated, Chrome, and database evidence
 
 This report must contain observed results, not intended commands or agent self-reports.
 
-All milestone sections below are historical evidence for their original commits. Their counts and gate
-verdicts are not current totals or current execution instructions. Current repair evidence is recorded in
-the final section of this report.
+All milestone sections and the final-QA repair section below are historical evidence for their original
+commits. Their counts and gate verdicts are not current totals or current execution instructions. The current
+legacy-history correction and verification are recorded at the end of this report.
 
 ## Baseline
 
@@ -1089,9 +1089,9 @@ integrity audit, and exact uncached repository gates.
 Production remained untouched. PR #100 remains draft. Vector owns the independent final goal-strategy
 review; no deployment, merge, readiness promotion, or Milestone 12 work was performed.
 
-## Final goal-strategy QA repair
+## Historical final goal-strategy QA repair
 
-Verdict: `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`
+Historical handoff verdict: `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW` (superseded)
 
 ### Implemented findings
 
@@ -1161,4 +1161,41 @@ After browser mutation, the tracked seeder restored deterministic fixtures. The 
 
 Production was not accessed, deployed, restarted, or modified. Nutrition targets changed only in the existing
 explicit acceptance test journeys and were restored by deterministic reseeding. No merge or readiness
-promotion occurred, and PR #100 remains draft. Vector owns the independent re-review.
+promotion occurred, and PR #100 remained draft.
+
+## Legacy-history correction pending independent re-review
+
+Verdict: `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`
+
+Vector's subsequent review confirmed three blockers not resolved by the historical evidence above. The bounded
+correction now:
+
+1. Ordered migration 0045 leaves recorded 0044 unchanged, reconstructs replaced/completed endpoints only when
+   timestamp-matched successor rows have one distinct canonical start-trend value, reconstructs a cancelled
+   endpoint only from one accepted check-in resolved at closure, and aborts migration if any closed goal remains
+   without defensible canonical evidence.
+2. Backfills `adaptive_nutrition_goal_completions` only when one accepted goal-reached check-in and one
+   maintenance successor match; ambiguous relations remain unlinked rather than guessed.
+3. Requires fresh canonical trend evidence for cancellation; stale/missing evidence returns
+   `NO_CURRENT_WEIGHT` without changing the goal or pending recommendation.
+
+### Corrective verification
+
+| Check                                   | Independently observed result                                                                   |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Focused migration/store/API regressions | 3 files, 44/44                                                                                  |
+| `TURBO_FORCE=true pnpm lint`            | 3/3, zero cached, zero errors; four pre-existing Fast Refresh warnings                          |
+| `TURBO_FORCE=true pnpm typecheck`       | 3/3, zero cached                                                                                |
+| `TURBO_FORCE=true pnpm test`            | Startup/isolation 9/9; shared 412/412; API 696/696; web 1005/1005; 6/6 Turbo tasks, zero cached |
+| `TURBO_FORCE=true pnpm build`           | 3/3, zero cached; Vite transformed 3,848 modules                                                |
+| Installed Chrome                        | 11/11 after deterministic reseeding                                                             |
+| Formatting and diff                     | Prettier and `git diff --check` passed                                                          |
+
+The first Chrome attempt stopped when an external Google Fonts asset returned 404. Fixtures were restored before
+the one clean rerun; the accepted run passed 11/11 with no product assertion, console, page, request, or HTTP
+failure. After browser mutation, deterministic reseeding restored the isolated database to 46 migrations,
+13 users, 81 weights, 12 programs, 32 goals, 12 active goals, 0 completion relations, and 3 pending check-ins.
+`quick_check=ok` and `foreign_key_check` returned no rows. Ports 3102 and 5274 were stopped.
+
+Production was not accessed or modified. PR #100 remains draft. The correction is not self-approved; Vector
+owns the independent final re-review.

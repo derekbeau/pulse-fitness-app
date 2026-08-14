@@ -2,9 +2,8 @@
 
 Authoritative contract: [`../docs/specs/adaptive-tdee-v1.md`](../docs/specs/adaptive-tdee-v1.md)
 
-Milestones 0–11 below are the completed historical implementation plan. Their gate wording records the
-process used at the time and is not a current authorization protocol. The active work is the bounded final
-goal-strategy repair at the end of this file.
+Milestones 0–11 and the final goal-strategy repair below are the completed historical implementation plan.
+Their gate wording records the process used at the time and is not a current authorization protocol.
 
 ## Milestone 0: Baseline and development isolation
 
@@ -165,3 +164,17 @@ The authoritative scope, acceptance criteria, and gate evidence are in specifica
 - [x] Pass exact uncached full gates, installed Chrome, built-in browser, and final database integrity checks.
 - [x] Reconcile evidence, create/push exactly one repair commit, update the draft PR body, and stop at
       `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`.
+
+## Legacy-history correction
+
+Vector's subsequent review withdrew approval for three confirmed legacy-history blockers. The bounded
+correction is now complete:
+
+1. [x] Reconstruct legacy final trends only from unique canonical transition evidence and fail migration closed
+       when evidence is missing or ambiguous.
+2. [x] Backfill only uniquely attributable completed-goal/check-in/maintenance-goal relations.
+3. [x] Require fresh canonical trend evidence for cancellation and preserve state on failure.
+4. [x] Add migration rollback, ambiguity, completion replay, store, and API regressions.
+
+The prior repair checklist remains historical evidence. Current stop:
+`AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`. This plan does not authorize repeating either repair.

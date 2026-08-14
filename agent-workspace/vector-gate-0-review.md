@@ -1,7 +1,7 @@
 # Vector Review: Adaptive TDEE Gate 0
 
 > Historical independent review record. Its gate instructions are closed and are not current execution
-> authority; see `codex-kickoff.md` for the active final-QA repair.
+> authority; see `current-status.md` for the current review state. `codex-kickoff.md` is archived evidence.
 
 **Reviewed commit:** `db5ea0d5c776a112f65bdd82b318132d4da3b9c2`<br>
 **Verdict:** `VECTOR GATE 0 APPROVED`<br>

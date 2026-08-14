@@ -4,7 +4,7 @@ Implements Adaptive TDEE v1 end to end: canonical weight storage, nutrition-day 
 provenance, deterministic expenditure calculation, replayable check-ins, responsive Coach UI, immutable
 goal strategy/history, and explicit completion-to-maintenance review.
 
-This final-QA repair closes Vector's confirmed goal-strategy findings:
+The completed final-QA repair addressed the goal-strategy findings known at the time:
 
 - goal target, maintenance center, and rate now change only by inserting exactly one matching immutable next
   revision, which the database atomically applies;
@@ -14,13 +14,30 @@ This final-QA repair closes Vector's confirmed goal-strategy findings:
   net-change calculations;
 - completion stores an immutable accepted-check-in → completed-goal → maintenance-goal relation;
 - goal history loads beyond the first 20 records;
-- specification, API, data-model, handoff, and review copy now describe the implemented ownership and
-  lifecycle accurately.
+- specification, API, and data-model copy were updated for the implemented ownership and lifecycle.
 
 Nutrition targets still change only through explicit recommendation acceptance. Goal edits, replacements,
 and completion do not silently write targets.
 
-## Verification
+## Legacy-history correction
+
+Vector subsequently withdrew approval for three legacy-history defects. The bounded correction now:
+
+1. Adds ordered migration 0045, leaving recorded 0044 unchanged, and reconstructs legacy closing trends only
+   when transition evidence has one distinct canonical endpoint value. It aborts when none exists.
+2. Backfills legacy completion relations only from a unique accepted goal-reached check-in and maintenance
+   successor; ambiguous relations remain unlinked rather than guessed.
+3. Requires a fresh canonical trend for cancellation and preserves the active goal when evidence is stale or
+   absent.
+
+The correction is awaiting independent Vector re-review and must not be treated as approved or ready to merge.
+
+Correction verification: focused migration/store/API regressions 44/44; exact uncached startup/isolation 9/9,
+shared 412/412, API 696/696, web 1005/1005; lint, typecheck, and build passed with zero cached Turbo tasks;
+installed Chrome 11/11 after deterministic reseeding; restored isolated database passed `quick_check` and
+foreign-key validation. One earlier Chrome attempt stopped only on an external Google Fonts 404.
+
+## Historical verification of the prior repair
 
 - Permanent old/fresh migration, direct-SQL, store, API, shared-schema, UI, concurrency, replayability, and
   browser regressions cover the repaired behavior.

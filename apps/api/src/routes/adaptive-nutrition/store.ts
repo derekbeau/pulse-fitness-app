@@ -1214,20 +1214,6 @@ export const createAdaptiveNutritionStore = (options: {
     return currentTrendWeightKg;
   };
 
-  const resolveClosingTrendWeight = (
-    userId: string,
-    goal: AdaptiveGoal,
-    localDate: string,
-  ): number => {
-    const boundaries = calculateAdaptiveDateBoundaries(localDate, false);
-    const eligibility = evaluateEligibility({
-      boundaries,
-      nutritionDays: loadNutritionDays(userId, boundaries.analysisStart, boundaries.analysisEnd),
-      weightEntries: loadWeightEntries(userId, boundaries.warmupStart, boundaries.analysisEnd),
-    });
-    return eligibility.trendPoints.at(-1)?.trendWeightKg ?? goal.startTrendWeightKg;
-  };
-
   const validateGoalTargetDirection = (
     type: AdaptiveGoal['type'],
     targetWeightKg: number | null,
@@ -1474,7 +1460,7 @@ export const createAdaptiveNutritionStore = (options: {
         throw new AdaptiveGoalRevisionConflictError();
       }
       const localDate = getDateKeyInTimeZone(new Date(timestamp), program.timeZone);
-      const finalTrendWeightKg = resolveClosingTrendWeight(userId, current.goal, localDate);
+      const finalTrendWeightKg = requireFreshTrendWeight(userId, program, current, localDate);
       const pending = findPending(userId, program.id);
       if (pending) {
         db.update(adaptiveNutritionCheckIns)

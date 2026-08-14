@@ -1,18 +1,19 @@
-# Codex Desktop Kickoff: Adaptive TDEE Final Goal-Strategy Repair
+# Historical Codex Desktop Kickoff: Adaptive TDEE Final Goal-Strategy Repair
 
-This file supersedes the completed Milestones 7–11 kickoff. Work only in
-`/Users/meridian/Projects/pulse-fitness-app-adaptive-tdee` on `feat/adaptive-tdee-v1`.
+This file preserves the assignment that produced the completed final goal-strategy repair. It is retained as
+historical evidence and must not be followed again as an active assignment.
 
-## Active assignment
+## Completed assignment record
 
-Repair only Vector's confirmed final goal-strategy findings recorded in `current-status.md`. Read
-`AGENTS.md`, the complete Adaptive TDEE specification, and every `agent-workspace/*.md` file first.
+The completed assignment repaired the then-confirmed final goal-strategy findings in the primary feature
+worktree. The steps below describe that past assignment; they do not authorize implementation, commit, push,
+PR edits, deployment, or production access now.
 
 Use only the tracked `pnpm dev:gate0` environment and its regular, non-symlink
 `apps/api/data/pulse-tdee-dev.db`. Never access production, deploy, merge, make PR #100 ready, or alter a
 nutrition target outside the existing explicit recommendation-acceptance flow.
 
-Required completion sequence:
+Historical completion sequence:
 
 1. Add permanent migration, direct-SQL, store, API, shared-schema, UI, concurrency, replayability, and
    browser regressions for every confirmed finding.
@@ -30,5 +31,8 @@ Required completion sequence:
 7. Create and push exactly one Conventional Commit, verify PR #100 remains draft, and stop at
    `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`.
 
-Historical milestone files remain evidence for their original commits, not execution instructions. Vector
-owns the independent re-review; Codex does not self-approve it.
+The subsequent independent review withdrew approval for three legacy-history blockers: unsafe historical
+final-trend backfill, missing backfill of existing completion transitions, and cancellation fallback that could
+fabricate a closing trend. A separately issued bounded correction repaired those findings. The current state is
+`AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`; do not duplicate either completed repair from this archived
+prompt.

@@ -2,15 +2,15 @@
 
 This directory is the durable handoff surface for the Adaptive TDEE implementation. The repository, not any individual chat transcript, is the source of truth.
 
-## Start here
+## Historical handoff index
 
-1. Read `../AGENTS.md`.
-2. Read `../docs/specs/adaptive-tdee-v1.md` completely.
-3. Read `current-status.md`, `implementation-plan.md`, and `decision-log.md`.
-4. Follow the active bounded repair in `codex-kickoff.md`; Milestones 0–11 are historical checkpoints.
-5. Update `current-status.md` after each meaningful work session and milestone commit.
-6. Record genuine design decisions or spec deviations in `decision-log.md` before implementation.
-7. Record final commands and observed results in `verification-report.md`; never claim a check passed without real output.
+The implementation and final goal-strategy repair described in this directory are completed historical work.
+`codex-kickoff.md` and the milestone gates preserve the instructions used for that work; they are evidence, not
+authorization to repeat it.
+
+The bounded legacy-history correction has been integrated and the current review state is
+`AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`. See `current-status.md` for the repaired findings and current
+evidence. This index does not authorize duplicate implementation, commit, or push work.
 
 ## Operating rules
 
@@ -23,8 +23,8 @@ This directory is the durable handoff surface for the Adaptive TDEE implementati
 - Subagents may investigate or review in parallel, but they must not edit this same checkout concurrently.
 - Use separate worktrees for concurrent editors and merge only reviewed commits.
 - Write tests during each milestone, not after the feature is assembled.
-- Commit the current final-QA repair as exactly one Conventional Commit.
-- After complete automated and browser verification, stop at `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`; Vector owns the independent re-review.
+- Do not repeat the completed final-QA repair or its commit/push sequence from these historical artifacts.
+- Vector owns the independent re-review; this workspace does not self-approve the correction.
 
 ## Durable artifacts
 
@@ -32,4 +32,4 @@ This directory is the durable handoff surface for the Adaptive TDEE implementati
 - `current-status.md`: live state, last verified commit, next action, blockers
 - `decision-log.md`: durable decisions and approved spec deviations
 - `verification-report.md`: command output summary and browser acceptance evidence
-- `codex-kickoff.md`: self-contained mission prompt for Codex Desktop
+- `codex-kickoff.md`: historical mission prompt for the completed final-QA repair

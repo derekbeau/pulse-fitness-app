@@ -729,6 +729,56 @@ describe('adaptive nutrition lifecycle store', () => {
     expect(dbA.select().from(nutritionTargets).all()).toEqual(targetRowsBefore);
   });
 
+  it('fails stale-trend cancellation closed and preserves the active goal and pending check-in', () => {
+    storeA.upsertProgram(
+      'user-1',
+      programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+    );
+    const before = storeA.getCurrentGoal('user-1');
+    const pendingBefore = requireValue(
+      storeA.getState('user-1').pendingCheckIn,
+      'Expected baseline',
+    );
+    nowMs = Date.parse('2026-06-10T16:00:00.000Z');
+
+    expect(() =>
+      storeA.cancelGoal('user-1', before.goal.id, {
+        expectedRevisionId: before.latestRevision.id,
+      }),
+    ).toThrow(AdaptiveCurrentWeightRequiredError);
+
+    expect(storeA.getCurrentGoal('user-1')).toMatchObject({
+      goal: before.goal,
+      latestRevision: before.latestRevision,
+    });
+    expect(storeA.getState('user-1').pendingCheckIn).toEqual(pendingBefore);
+  });
+
+  it('fails no-trend cancellation closed and preserves the active goal unchanged', () => {
+    storeA.upsertProgram(
+      'user-1',
+      programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+    );
+    const before = storeA.getCurrentGoal('user-1');
+    dbA.delete(bodyWeight).where(eq(bodyWeight.userId, 'user-1')).run();
+
+    expect(() => storeA.cancelGoal('user-1', before.goal.id, {})).toThrow(
+      AdaptiveCurrentWeightRequiredError,
+    );
+
+    expect(storeA.getCurrentGoal('user-1')).toMatchObject({
+      goal: before.goal,
+      latestRevision: before.latestRevision,
+    });
+    expect(
+      dbA
+        .select()
+        .from(adaptiveNutritionGoals)
+        .where(eq(adaptiveNutritionGoals.id, before.goal.id))
+        .get(),
+    ).toMatchObject({ status: 'active', finalTrendWeightKg: null });
+  });
+
   it('serializes concurrent edits so exactly one revision and recommendation win', async () => {
     storeA.upsertProgram(
       'user-1',

@@ -14,6 +14,7 @@ import { getAdaptiveGoal, listAdaptiveGoals } from './goal-store.js';
 import {
   acceptAdaptiveNutritionCheckIn,
   AdaptiveCheckInStaleError,
+  AdaptiveCurrentWeightRequiredError,
   AdaptivePendingCheckInExistsError,
   cancelAdaptiveGoal,
   completeAdaptiveGoal,
@@ -558,6 +559,29 @@ describe('adaptive nutrition routes', () => {
       });
       expect(acceptResponse).toMatchObject({ statusCode: 409 });
       expect(acceptResponse.json()).toMatchObject({ error: { code: 'CHECKIN_STALE' } });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('maps cancellation without a fresh canonical trend to NO_CURRENT_WEIGHT', async () => {
+    const app = buildServer();
+    vi.mocked(cancelAdaptiveGoal).mockRejectedValue(new AdaptiveCurrentWeightRequiredError());
+    try {
+      await app.ready();
+      const jwt = app.jwt.sign(
+        { sub: 'jwt-user', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/adaptive-nutrition/goals/goal-1/cancel',
+        headers: { authorization: `Bearer ${jwt}` },
+        payload: {},
+      });
+
+      expect(response.statusCode, response.body).toBe(400);
+      expect(response.json()).toMatchObject({ error: { code: 'NO_CURRENT_WEIGHT' } });
     } finally {
       await app.close();
     }
