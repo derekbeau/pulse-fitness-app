@@ -46,7 +46,10 @@ describe('monorepo pipeline configuration', () => {
 
     expect(rootPackage.scripts?.dev).toBe('turbo run dev');
     expect(rootPackage.scripts?.build).toBe('turbo run build');
-    expect(rootPackage.scripts?.test).toBe('pnpm test:gate0-isolation && turbo run test');
+    expect(rootPackage.scripts?.test).toBe('pnpm test:repo-scripts && turbo run test');
+    expect(rootPackage.scripts?.['test:repo-scripts']).toBe(
+      'node --test scripts/dev-gate0-isolated.test.mjs scripts/api-container-entrypoint.test.mjs scripts/runtime-secrets-isolation.test.mjs scripts/init-worktree.test.mjs',
+    );
     expect(rootPackage.scripts?.['test:gate0-isolation']).toBe(
       'node --test scripts/dev-gate0-isolated.test.mjs scripts/api-container-entrypoint.test.mjs scripts/runtime-secrets-isolation.test.mjs',
     );

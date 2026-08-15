@@ -271,11 +271,30 @@ const start = async () => {
       'Canonical body-weight migration preflight passed',
     );
 
+    const { assertDatabaseIntegrity, runWithForeignKeysDisabled } =
+      await import('./db/integrity.js');
+    const preMigrationIntegrity = assertDatabaseIntegrity(sqlite, 'migration preflight');
+    app.log.info(
+      {
+        foreignKeyViolationCount: preMigrationIntegrity.foreignKeyViolationCount,
+        ownershipViolationCount: preMigrationIntegrity.ownershipViolationCount,
+        quickCheck: preMigrationIntegrity.quickCheck,
+      },
+      'Database migration integrity preflight passed',
+    );
+
     // Disable FK checks for migrations — PRAGMA foreign_keys doesn't work
     // inside transactions, and Drizzle wraps each migration in one.
-    sqlite.pragma('foreign_keys = OFF');
-    migrate(db, { migrationsFolder });
-    sqlite.pragma('foreign_keys = ON');
+    runWithForeignKeysDisabled(sqlite, () => migrate(db, { migrationsFolder }));
+    const postMigrationIntegrity = assertDatabaseIntegrity(sqlite, 'migration postflight');
+    app.log.info(
+      {
+        foreignKeyViolationCount: postMigrationIntegrity.foreignKeyViolationCount,
+        ownershipViolationCount: postMigrationIntegrity.ownershipViolationCount,
+        quickCheck: postMigrationIntegrity.quickCheck,
+      },
+      'Database migration integrity postflight passed',
+    );
     const { backfillAdaptiveNutritionGoals } = await import('./db/adaptive-goal-backfill.js');
     const goalBackfill = backfillAdaptiveNutritionGoals(sqlite);
     app.log.info(goalBackfill, 'Adaptive nutrition goal backfill passed');

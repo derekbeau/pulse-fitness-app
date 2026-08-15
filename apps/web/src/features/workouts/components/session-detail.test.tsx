@@ -532,6 +532,13 @@ describe('SessionDetail', () => {
 
     expect(await screen.findByText('Incline Dumbbell Press')).toBeInTheDocument();
     expect(screen.getByText('Archived')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Open Incline Dumbbell Press history' }),
+    ).toBeDisabled();
+    expect(vi.mocked(globalThis.fetch)).not.toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/exercises/incline-dumbbell-press/history'),
+      expect.anything(),
+    );
   });
 
   it('formats receipt duration from seconds', async () => {

@@ -463,5 +463,6 @@ describe('trash routes', () => {
     ).toEqual({
       exerciseId: null,
     });
+    expect(context.sqlite.prepare('pragma foreign_key_check').all()).toEqual([]);
   });
 });

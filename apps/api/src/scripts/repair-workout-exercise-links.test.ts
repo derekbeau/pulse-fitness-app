@@ -1,377 +1,443 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { eq } from 'drizzle-orm';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import Database from 'better-sqlite3';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  exercises,
-  sessionSets,
-  templateExercises,
-  users,
-  workoutSessions,
-  workoutTemplates,
-} from '../db/schema/index.js';
+  parseRepairWorkoutExerciseLinksCliArgs,
+  repairWorkoutExerciseLinks,
+  type WorkoutExerciseLinkRepairMap,
+} from './repair-workout-exercise-links.js';
 
-type DatabaseModule = typeof import('../db/index.js');
+const tempDirs: string[] = [];
+let sqlite: Database.Database;
 
-type TestContext = {
-  db: DatabaseModule['db'];
-  sqlite: DatabaseModule['sqlite'];
-  tempDir: string;
+const createRepairMap = (
+  entries: WorkoutExerciseLinkRepairMap['entries'],
+): WorkoutExerciseLinkRepairMap => ({
+  entries,
+  recoveredAt: '2026-08-14T22:00:00.000Z',
+  version: 1,
+});
+
+const getTotalChanges = (): number =>
+  sqlite.prepare('select total_changes()').pluck().get() as number;
+
+const seedLegacyOrphan = ({
+  exerciseId,
+  ownerUserId = 'user-1',
+  rowId,
+  source,
+}: {
+  exerciseId: string;
+  ownerUserId?: string;
+  rowId: string;
+  source: 'session_sets' | 'template_exercises';
+}) => {
+  sqlite.pragma('foreign_keys = OFF');
+  if (source === 'session_sets') {
+    sqlite
+      .prepare(`insert into session_sets (id, session_id, exercise_id) values (?, ?, ?)`)
+      .run(rowId, ownerUserId === 'user-1' ? 'session-1' : 'session-2', exerciseId);
+  } else {
+    sqlite
+      .prepare(`insert into template_exercises (id, template_id, exercise_id) values (?, ?, ?)`)
+      .run(rowId, ownerUserId === 'user-1' ? 'template-1' : 'template-2', exerciseId);
+  }
+  sqlite.pragma('foreign_keys = ON');
 };
 
-let context: TestContext;
-let repairWorkoutExerciseLinks: typeof import('./repair-workout-exercise-links.js').repairWorkoutExerciseLinks;
-
-describe('repair-workout-exercise-links script', () => {
-  beforeAll(async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-repair-workout-links-'));
-    process.env.DATABASE_URL = join(tempDir, 'test.db');
-    vi.resetModules();
-
-    const [dbModule, scriptModule] = await Promise.all([
-      import('../db/index.js'),
-      import('./repair-workout-exercise-links.js'),
-    ]);
-
-    migrate(dbModule.db, {
-      migrationsFolder: fileURLToPath(new URL('../../drizzle', import.meta.url)),
-    });
-
-    context = {
-      db: dbModule.db,
-      sqlite: dbModule.sqlite,
-      tempDir,
-    };
-    repairWorkoutExerciseLinks = scriptModule.repairWorkoutExerciseLinks;
-  });
-
-  afterAll(() => {
-    if (context) {
-      context.sqlite.close();
-      rmSync(context.tempDir, { recursive: true, force: true });
-    }
-
-    delete process.env.DATABASE_URL;
-    vi.resetModules();
-  });
-
+describe('repair-workout-exercise-links', () => {
   beforeEach(() => {
-    context.db.delete(sessionSets).run();
-    context.db.delete(workoutSessions).run();
-    context.db.delete(templateExercises).run();
-    context.db.delete(workoutTemplates).run();
-    context.db.delete(exercises).run();
-    context.db.delete(users).run();
-
-    context.db
-      .insert(users)
-      .values({
-        id: 'user-1',
-        username: 'derek',
-        name: 'Derek',
-        passwordHash: 'test',
-      })
-      .run();
-    context.db
-      .insert(users)
-      .values({
-        id: 'user-2',
-        username: 'alex',
-        name: 'Alex',
-        passwordHash: 'test',
-      })
-      .run();
-
-    context.db
-      .insert(workoutSessions)
-      .values({
-        id: 'session-1',
-        userId: 'user-1',
-        templateId: null,
-        name: 'Upper',
-        date: '2026-03-13',
-        status: 'completed',
-        startedAt: 1_700_000_000_000,
-        completedAt: 1_700_000_005_000,
-        duration: 300,
-        feedback: null,
-        notes: null,
-      })
-      .run();
-
-    context.db
-      .insert(workoutTemplates)
-      .values({
-        id: 'template-1',
-        userId: 'user-1',
-        name: 'Template',
-        description: null,
-        tags: [],
-      })
-      .run();
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-workout-link-repair-'));
+    tempDirs.push(tempDir);
+    sqlite = new Database(join(tempDir, 'repair.db'));
+    sqlite.pragma('foreign_keys = ON');
+    sqlite.exec(`
+      create table users (id text primary key not null);
+      create table exercises (
+        id text primary key not null,
+        user_id text,
+        name text not null,
+        muscle_groups text not null,
+        equipment text not null,
+        category text not null,
+        tracking_type text not null,
+        tags text not null,
+        form_cues text not null,
+        instructions text,
+        coaching_notes text,
+        related_exercise_ids text not null,
+        deleted_at text,
+        created_at integer not null,
+        updated_at integer not null,
+        foreign key (user_id) references users(id)
+      );
+      create table workout_sessions (
+        id text primary key not null,
+        user_id text not null,
+        foreign key (user_id) references users(id)
+      );
+      create table workout_templates (
+        id text primary key not null,
+        user_id text not null,
+        foreign key (user_id) references users(id)
+      );
+      create table session_sets (
+        id text primary key not null,
+        session_id text not null,
+        exercise_id text,
+        foreign key (session_id) references workout_sessions(id),
+        foreign key (exercise_id) references exercises(id) on delete set null
+      );
+      create table template_exercises (
+        id text primary key not null,
+        template_id text not null,
+        exercise_id text not null,
+        foreign key (template_id) references workout_templates(id),
+        foreign key (exercise_id) references exercises(id) on delete restrict
+      );
+      insert into users (id) values ('user-1'), ('user-2');
+      insert into workout_sessions (id, user_id)
+      values ('session-1', 'user-1'), ('session-2', 'user-2');
+      insert into workout_templates (id, user_id)
+      values ('template-1', 'user-1'), ('template-2', 'user-2');
+      insert into exercises (
+        id, user_id, name, muscle_groups, equipment, category, tracking_type,
+        tags, form_cues, instructions, coaching_notes, related_exercise_ids,
+        deleted_at, created_at, updated_at
+      ) values (
+        'known-source', 'user-1', 'Known Movement', '["core"]', 'bodyweight',
+        'mobility', 'reps_only', '["rehab"]', '["slow"]', 'Instructions',
+        'Coaching', '[]', null, 100, 100
+      );
+    `);
   });
 
-  it('detects orphan links and repairs by restoring, relinking, or creating placeholders', async () => {
-    context.db
-      .insert(exercises)
-      .values({
-        id: 'deleted-owned',
-        userId: 'user-1',
-        name: 'Old Bench',
-        muscleGroups: ['chest'],
-        equipment: 'barbell',
-        category: 'compound',
-        trackingType: 'weight_reps',
-        tags: [],
-        formCues: [],
-        instructions: null,
-        deletedAt: '2026-03-01T00:00:00.000Z',
-      })
-      .run();
-    context.db
-      .insert(exercises)
-      .values({
-        id: 'ghost-press-match',
-        userId: 'user-1',
-        name: 'Ghost Press',
-        muscleGroups: ['chest'],
-        equipment: 'machine',
-        category: 'compound',
-        trackingType: 'weight_reps',
-        tags: [],
-        formCues: [],
-        instructions: null,
-      })
-      .run();
-
-    context.sqlite.pragma('foreign_keys = OFF');
-    context.sqlite
-      .prepare(
-        `
-        insert into session_sets (
-          id, session_id, exercise_id, order_index, set_number, weight, reps, completed, skipped, section, notes
-        ) values
-          ('set-restore', 'session-1', 'deleted-owned', 0, 1, null, 8, 0, 0, 'main', null),
-          ('set-placeholder', 'session-1', 'unknown-link', 1, 1, null, 10, 0, 0, 'main', null)
-        `,
-      )
-      .run();
-    context.sqlite
-      .prepare(
-        `
-        insert into template_exercises (
-          id, template_id, exercise_id, order_index, sets, reps_min, reps_max, tempo, rest_seconds, superset_group, section, notes, cues
-        ) values (
-          'template-relink', 'template-1', 'ghost-press', 0, 3, null, null, null, null, null, 'main', null, null
-        )
-        `,
-      )
-      .run();
-    context.sqlite.pragma('foreign_keys = ON');
-
-    const result = await repairWorkoutExerciseLinks({
-      userId: 'user-1',
-      dryRun: false,
-    });
-
-    expect(result.orphanCount).toBe(3);
-    expect(result.manualReviewCount).toBe(0);
-    expect(result.repairedCount).toBe(3);
-    expect(result.results.map((entry) => entry.action).sort()).toEqual([
-      'created-placeholder',
-      'relinked-by-name',
-      'restored-soft-deleted',
-    ]);
-
-    const restoredExercise = context.db
-      .select({ deletedAt: exercises.deletedAt })
-      .from(exercises)
-      .where(eq(exercises.id, 'deleted-owned'))
-      .get();
-    expect(restoredExercise).toEqual({ deletedAt: null });
-
-    const relinkedTemplateExercise = context.db
-      .select({ exerciseId: templateExercises.exerciseId })
-      .from(templateExercises)
-      .where(eq(templateExercises.id, 'template-relink'))
-      .get();
-    expect(relinkedTemplateExercise).toEqual({ exerciseId: 'ghost-press-match' });
-
-    const placeholderSessionSet = context.db
-      .select({ exerciseId: sessionSets.exerciseId })
-      .from(sessionSets)
-      .where(eq(sessionSets.id, 'set-placeholder'))
-      .get();
-    expect(placeholderSessionSet?.exerciseId).not.toBe('unknown-link');
-    expect(placeholderSessionSet?.exerciseId).toBeTruthy();
-
-    const placeholderExercise = context.db
-      .select({
-        userId: exercises.userId,
-        name: exercises.name,
-      })
-      .from(exercises)
-      .where(eq(exercises.id, placeholderSessionSet?.exerciseId ?? ''))
-      .get();
-    expect(placeholderExercise).toEqual({
-      userId: 'user-1',
-      name: 'Unknown Link',
-    });
-  });
-
-  it('supports dry-run mode without persisting repairs', async () => {
-    context.sqlite.pragma('foreign_keys = OFF');
-    context.sqlite
-      .prepare(
-        `
-        insert into session_sets (
-          id, session_id, exercise_id, order_index, set_number, weight, reps, completed, skipped, section, notes
-        ) values ('set-dry', 'session-1', 'dry-run-link', 0, 1, null, 5, 0, 0, 'main', null)
-        `,
-      )
-      .run();
-    context.sqlite.pragma('foreign_keys = ON');
-
-    const dryRunResult = await repairWorkoutExerciseLinks({
-      userId: 'user-1',
-      dryRun: true,
-    });
-
-    expect(dryRunResult.orphanCount).toBe(1);
-    expect(dryRunResult.repairedCount).toBe(1);
-
-    const persisted = context.db
-      .select({ exerciseId: sessionSets.exerciseId })
-      .from(sessionSets)
-      .where(eq(sessionSets.id, 'set-dry'))
-      .get();
-    expect(persisted).toEqual({ exerciseId: 'dry-run-link' });
-  });
-
-  it('cleans up placeholder exercises when relink fails after placeholder creation', async () => {
-    context.sqlite.pragma('foreign_keys = OFF');
-    context.sqlite
-      .prepare(
-        `
-        insert into session_sets (
-          id, session_id, exercise_id, order_index, set_number, weight, reps, completed, skipped, section, notes
-        ) values ('set-fail', 'session-1', 'broken-link', 0, 1, null, 5, 0, 0, 'main', null)
-        `,
-      )
-      .run();
-    context.sqlite.pragma('foreign_keys = ON');
-
-    context.sqlite
-      .prepare(
-        `
-        create trigger if not exists fail_relink_on_set_fail
-        before update of exercise_id on session_sets
-        when old.id = 'set-fail'
-        begin
-          select raise(fail, 'forced relink failure');
-        end
-        `,
-      )
-      .run();
-
-    try {
-      const result = await repairWorkoutExerciseLinks({
-        userId: 'user-1',
-        dryRun: false,
-      });
-
-      expect(result.orphanCount).toBe(1);
-      expect(result.repairedCount).toBe(0);
-      expect(result.manualReviewCount).toBe(1);
-      expect(result.results[0]?.action).toBe('manual-review');
-      expect(result.results[0]?.note).toContain('Placeholder relink failed');
-
-      const placeholderExercises = context.db
-        .select({ id: exercises.id })
-        .from(exercises)
-        .where(eq(exercises.name, 'Broken Link'))
-        .all();
-      expect(placeholderExercises).toHaveLength(0);
-    } finally {
-      context.sqlite.prepare('drop trigger if exists fail_relink_on_set_fail').run();
+  afterEach(() => {
+    sqlite.close();
+    while (tempDirs.length > 0) {
+      const tempDir = tempDirs.pop();
+      if (tempDir) {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
     }
   });
 
-  it('annotates cross-user references when relinking by name', async () => {
-    context.db
-      .insert(exercises)
-      .values({
-        id: 'cross-user-source',
-        userId: 'user-2',
-        name: 'Shared Name Curl',
-        muscleGroups: ['biceps'],
-        equipment: 'dumbbell',
-        category: 'isolation',
-        trackingType: 'weight_reps',
-        tags: [],
-        formCues: [],
-        instructions: null,
-      })
-      .run();
-    context.db
-      .insert(exercises)
-      .values({
-        id: 'owner-candidate',
-        userId: 'user-1',
-        name: 'Shared Name Curl',
-        muscleGroups: ['biceps'],
-        equipment: 'dumbbell',
-        category: 'isolation',
-        trackingType: 'weight_reps',
-        tags: [],
-        formCues: [],
-        instructions: null,
-      })
-      .run();
-
-    context.db
-      .insert(sessionSets)
-      .values({
-        id: 'set-cross-user',
-        sessionId: 'session-1',
-        exerciseId: 'cross-user-source',
-        orderIndex: 0,
-        setNumber: 1,
-        weight: 30,
-        reps: 10,
-        completed: false,
-        skipped: false,
-        section: 'main',
-        notes: null,
-      })
-      .run();
-
-    const result = await repairWorkoutExerciseLinks({
-      userId: 'user-1',
-      dryRun: false,
-    });
-
-    expect(result.orphanCount).toBe(1);
-    expect(result.repairedCount).toBe(1);
-    expect(result.results[0]).toMatchObject({
+  it('performs a read-only dry run and logs only aggregate evidence', () => {
+    seedLegacyOrphan({
+      exerciseId: 'missing-clone',
+      rowId: 'set-1',
       source: 'session_sets',
-      rowId: 'set-cross-user',
-      action: 'relinked-by-name',
-      previousExerciseId: 'cross-user-source',
-      nextExerciseId: 'owner-candidate',
     });
-    expect(result.results[0]?.note).toContain('Cross-user reference detected');
+    seedLegacyOrphan({
+      exerciseId: 'missing-placeholder',
+      rowId: 'template-row-1',
+      source: 'template_exercises',
+    });
+    const map = createRepairMap([
+      {
+        exerciseId: 'missing-clone',
+        ownerUserId: 'user-1',
+        sourceExerciseId: 'known-source',
+        strategy: 'clone',
+      },
+      {
+        exerciseId: 'missing-placeholder',
+        name: 'Recovered deleted exercise',
+        ownerUserId: 'user-1',
+        strategy: 'placeholder',
+      },
+    ]);
+    const logger = { info: vi.fn() };
+    const changesBefore = getTotalChanges();
 
-    const repaired = context.db
-      .select({ exerciseId: sessionSets.exerciseId })
-      .from(sessionSets)
-      .where(eq(sessionSets.id, 'set-cross-user'))
-      .get();
-    expect(repaired).toEqual({ exerciseId: 'owner-candidate' });
+    const result = repairWorkoutExerciseLinks(
+      sqlite,
+      { dryRun: true, map, mapSha256: 'safe-map-sha' },
+      logger,
+    );
+
+    expect(result).toMatchObject({
+      dryRun: true,
+      foreignKeyViolationCountBefore: 2,
+      missingExerciseCount: 2,
+      orphanLinkCount: 2,
+      proposedRepairCount: 2,
+      remainingForeignKeyViolationCount: 2,
+      sessionSetOrphanCount: 1,
+      templateExerciseOrphanCount: 1,
+      unresolvedExerciseCount: 0,
+    });
+    expect(getTotalChanges()).toBe(changesBefore);
+    expect(
+      sqlite.prepare(`select count(*) from exercises where id like 'missing-%'`).pluck().get(),
+    ).toBe(0);
+
+    const logged = JSON.stringify(logger.info.mock.calls);
+    expect(logged).toContain('safe-map-sha');
+    expect(logged).not.toContain('missing-clone');
+    expect(logged).not.toContain('missing-placeholder');
+    expect(logged).not.toContain('user-1');
+    expect(logged).not.toContain('Recovered deleted exercise');
+  });
+
+  it('restores original parent IDs transactionally without rewriting child links', () => {
+    seedLegacyOrphan({
+      exerciseId: 'missing-clone',
+      rowId: 'set-1',
+      source: 'session_sets',
+    });
+    seedLegacyOrphan({
+      exerciseId: 'missing-placeholder',
+      rowId: 'template-row-1',
+      source: 'template_exercises',
+    });
+    const map = createRepairMap([
+      {
+        exerciseId: 'missing-clone',
+        ownerUserId: 'user-1',
+        sourceExerciseId: 'known-source',
+        strategy: 'clone',
+      },
+      {
+        exerciseId: 'missing-placeholder',
+        name: 'Recovered deleted exercise',
+        ownerUserId: 'user-1',
+        strategy: 'placeholder',
+      },
+    ]);
+
+    const result = repairWorkoutExerciseLinks(sqlite, { dryRun: false, map });
+
+    expect(result.remainingForeignKeyViolationCount).toBe(0);
+    expect(sqlite.prepare('pragma quick_check').pluck().get()).toBe('ok');
+    expect(sqlite.prepare('pragma foreign_key_check').all()).toEqual([]);
+    expect(
+      sqlite.prepare(`select exercise_id from session_sets where id = 'set-1'`).pluck().get(),
+    ).toBe('missing-clone');
+    expect(
+      sqlite
+        .prepare(`select exercise_id from template_exercises where id = 'template-row-1'`)
+        .pluck()
+        .get(),
+    ).toBe('missing-placeholder');
+    expect(
+      sqlite
+        .prepare(
+          `select user_id as userId, name, muscle_groups as muscleGroups, deleted_at as deletedAt
+           from exercises where id = 'missing-clone'`,
+        )
+        .get(),
+    ).toEqual({
+      deletedAt: '2026-08-14T22:00:00.000Z',
+      muscleGroups: '["core"]',
+      name: 'Known Movement',
+      userId: 'user-1',
+    });
+    expect(
+      sqlite
+        .prepare(
+          `select user_id as userId, name, deleted_at as deletedAt
+           from exercises where id = 'missing-placeholder'`,
+        )
+        .get(),
+    ).toEqual({
+      deletedAt: '2026-08-14T22:00:00.000Z',
+      name: 'Recovered deleted exercise',
+      userId: 'user-1',
+    });
+  });
+
+  it('is replayable and makes no changes after the map has already been applied', () => {
+    seedLegacyOrphan({
+      exerciseId: 'missing-placeholder',
+      rowId: 'set-1',
+      source: 'session_sets',
+    });
+    const map = createRepairMap([
+      {
+        exerciseId: 'missing-placeholder',
+        name: 'Recovered deleted exercise',
+        ownerUserId: 'user-1',
+        strategy: 'placeholder',
+      },
+    ]);
+    repairWorkoutExerciseLinks(sqlite, { dryRun: false, map });
+    const changesBeforeReplay = getTotalChanges();
+
+    const replay = repairWorkoutExerciseLinks(sqlite, { dryRun: false, map });
+
+    expect(replay).toMatchObject({
+      alreadyAppliedCount: 1,
+      foreignKeyViolationCountBefore: 0,
+      missingExerciseCount: 0,
+      orphanLinkCount: 0,
+      proposedRepairCount: 0,
+      remainingForeignKeyViolationCount: 0,
+      unresolvedExerciseCount: 0,
+    });
+    expect(getTotalChanges()).toBe(changesBeforeReplay);
+  });
+
+  it('relinks an exact canonical match while preserving the template row', () => {
+    seedLegacyOrphan({
+      exerciseId: 'missing-template-exercise',
+      rowId: 'template-row-1',
+      source: 'template_exercises',
+    });
+    const map = createRepairMap([
+      {
+        exerciseId: 'missing-template-exercise',
+        ownerUserId: 'user-1',
+        sourceExerciseId: 'known-source',
+        strategy: 'relink',
+      },
+    ]);
+
+    const result = repairWorkoutExerciseLinks(sqlite, { dryRun: false, map });
+
+    expect(result).toMatchObject({
+      proposedRepairCount: 1,
+      remainingForeignKeyViolationCount: 0,
+    });
+    expect(
+      sqlite
+        .prepare(
+          `select id, template_id as templateId, exercise_id as exerciseId
+           from template_exercises where id = 'template-row-1'`,
+        )
+        .get(),
+    ).toEqual({
+      exerciseId: 'known-source',
+      id: 'template-row-1',
+      templateId: 'template-1',
+    });
+    expect(
+      sqlite
+        .prepare(`select count(*) from exercises where id = 'missing-template-exercise'`)
+        .pluck()
+        .get(),
+    ).toBe(0);
+
+    const replay = repairWorkoutExerciseLinks(sqlite, { dryRun: false, map });
+    expect(replay).toMatchObject({
+      alreadyAppliedCount: 1,
+      proposedRepairCount: 0,
+      remainingForeignKeyViolationCount: 0,
+    });
+  });
+
+  it('rolls back every parent restore if any insert fails', () => {
+    seedLegacyOrphan({
+      exerciseId: 'missing-one',
+      rowId: 'set-1',
+      source: 'session_sets',
+    });
+    seedLegacyOrphan({
+      exerciseId: 'missing-two',
+      rowId: 'template-row-1',
+      source: 'template_exercises',
+    });
+    sqlite.exec(`
+      create trigger fail_second_restore
+      before insert on exercises
+      when new.id = 'missing-two'
+      begin
+        select raise(abort, 'forced restore failure');
+      end;
+    `);
+    const map = createRepairMap([
+      {
+        exerciseId: 'missing-one',
+        name: 'Recovered one',
+        ownerUserId: 'user-1',
+        strategy: 'placeholder',
+      },
+      {
+        exerciseId: 'missing-two',
+        name: 'Recovered two',
+        ownerUserId: 'user-1',
+        strategy: 'placeholder',
+      },
+    ]);
+
+    expect(() => repairWorkoutExerciseLinks(sqlite, { dryRun: false, map })).toThrow(
+      'forced restore failure',
+    );
+    expect(
+      sqlite.prepare(`select count(*) from exercises where id like 'missing-%'`).pluck().get(),
+    ).toBe(0);
+    expect(sqlite.prepare('pragma foreign_key_check').all()).toHaveLength(2);
+  });
+
+  it('refuses ambiguous ownership, incomplete maps, and unrelated violations', () => {
+    seedLegacyOrphan({
+      exerciseId: 'shared-missing',
+      rowId: 'set-1',
+      source: 'session_sets',
+    });
+    seedLegacyOrphan({
+      exerciseId: 'shared-missing',
+      ownerUserId: 'user-2',
+      rowId: 'template-row-2',
+      source: 'template_exercises',
+    });
+    const ambiguousMap = createRepairMap([
+      {
+        exerciseId: 'shared-missing',
+        name: 'Recovered',
+        ownerUserId: 'user-1',
+        strategy: 'placeholder',
+      },
+    ]);
+
+    const dryRun = repairWorkoutExerciseLinks(sqlite, {
+      dryRun: true,
+      map: ambiguousMap,
+    });
+    expect(dryRun.unresolvedExerciseCount).toBe(1);
+    expect(() => repairWorkoutExerciseLinks(sqlite, { dryRun: false, map: ambiguousMap })).toThrow(
+      'explicit map does not resolve every missing exercise',
+    );
+
+    sqlite.pragma('foreign_keys = OFF');
+    sqlite.exec(`
+      create table unrelated_child (
+        id text primary key,
+        user_id text not null references users(id)
+      );
+      insert into unrelated_child (id, user_id) values ('bad', 'missing-user');
+    `);
+    sqlite.pragma('foreign_keys = ON');
+
+    expect(() => repairWorkoutExerciseLinks(sqlite, { dryRun: true, map: ambiguousMap })).toThrow(
+      'unrelated or unclassified foreign-key violations',
+    );
+  });
+
+  it('requires a map and accepts explicit dry-run or apply CLI modes', () => {
+    expect(parseRepairWorkoutExerciseLinksCliArgs(['--map', '/tmp/map.json'])).toEqual({
+      apply: false,
+      mapPath: '/tmp/map.json',
+      userId: null,
+    });
+    expect(
+      parseRepairWorkoutExerciseLinksCliArgs([
+        '--apply',
+        '--map',
+        '/tmp/map.json',
+        '--user',
+        'user-1',
+      ]),
+    ).toEqual({ apply: true, mapPath: '/tmp/map.json', userId: 'user-1' });
+    expect(() => parseRepairWorkoutExerciseLinksCliArgs([])).toThrow(
+      'explicit repair map is required',
+    );
+    expect(() =>
+      parseRepairWorkoutExerciseLinksCliArgs(['--dry-run', '--apply', '--map', '/tmp/map.json']),
+    ).toThrow('Choose exactly one mode');
   });
 });

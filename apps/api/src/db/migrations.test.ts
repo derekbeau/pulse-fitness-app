@@ -18,6 +18,87 @@ const runSqlStatements = (db: Database.Database, sqlContent: string) => {
   }
 };
 
+describe('migration 0046_workout_exercise_link_integrity', () => {
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('enforces exercise existence and ownership even when foreign keys are disabled', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0046-'));
+    tempDirs.push(tempDir);
+    const db = new Database(join(tempDir, 'migration.db'));
+
+    try {
+      db.exec(`
+        create table users (id text primary key not null);
+        create table exercises (id text primary key not null, user_id text);
+        create table workout_sessions (id text primary key not null, user_id text not null);
+        create table workout_templates (id text primary key not null, user_id text not null);
+        create table session_sets (
+          id text primary key not null,
+          session_id text not null,
+          exercise_id text
+        );
+        create table template_exercises (
+          id text primary key not null,
+          template_id text not null,
+          exercise_id text not null
+        );
+        insert into users (id) values ('user-1'), ('user-2');
+        insert into exercises (id, user_id)
+        values ('owned', 'user-1'), ('other-owned', 'user-2'), ('global', null);
+        insert into workout_sessions (id, user_id) values ('session-1', 'user-1');
+        insert into workout_templates (id, user_id) values ('template-1', 'user-1');
+      `);
+
+      const migrationSql = readFileSync(
+        join(process.cwd(), 'drizzle/0046_workout_exercise_link_integrity.sql'),
+        'utf8',
+      );
+      runSqlStatements(db, migrationSql);
+      db.pragma('foreign_keys = OFF');
+
+      expect(() =>
+        db.exec(`
+          insert into session_sets (id, session_id, exercise_id)
+          values ('missing-set', 'session-1', 'missing');
+        `),
+      ).toThrow('invalid session_sets exercise link');
+      expect(() =>
+        db.exec(`
+          insert into template_exercises (id, template_id, exercise_id)
+          values ('cross-user-template', 'template-1', 'other-owned');
+        `),
+      ).toThrow('invalid template_exercises exercise link');
+
+      db.exec(`
+        insert into session_sets (id, session_id, exercise_id)
+        values ('valid-owned-set', 'session-1', 'owned');
+        insert into session_sets (id, session_id, exercise_id)
+        values ('valid-null-set', 'session-1', null);
+        insert into template_exercises (id, template_id, exercise_id)
+        values ('valid-global-template', 'template-1', 'global');
+      `);
+
+      expect(() =>
+        db.exec(`update session_sets set exercise_id = 'other-owned' where id = 'valid-owned-set'`),
+      ).toThrow('invalid session_sets exercise link');
+      expect(() =>
+        db.exec(
+          `update template_exercises set exercise_id = 'missing' where id = 'valid-global-template'`,
+        ),
+      ).toThrow('invalid template_exercises exercise link');
+    } finally {
+      db.close();
+    }
+  });
+});
+
 describe('migration 0013_bitter_bloodaxe', () => {
   afterEach(() => {
     while (tempDirs.length > 0) {

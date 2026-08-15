@@ -1,476 +1,628 @@
-import { randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-import { and, eq, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
+import Database from 'better-sqlite3';
+import { z } from 'zod';
 
-import { db, sqlite } from '../db/index.js';
-import {
-  exercises,
-  sessionSets,
-  templateExercises,
-  workoutSessions,
-  workoutTemplates,
-} from '../db/schema/index.js';
-
-type Logger = Pick<Console, 'info' | 'warn' | 'error'>;
-
+type Logger = Pick<Console, 'info'>;
 type LinkSource = 'session_sets' | 'template_exercises';
 
-type OrphanLinkRow = {
-  source: LinkSource;
-  rowId: string;
-  ownerId: string;
+const cloneMappingEntrySchema = z.object({
+  exerciseId: z.string().trim().min(1),
+  ownerUserId: z.string().trim().min(1),
+  sourceExerciseId: z.string().trim().min(1),
+  strategy: z.literal('clone'),
+});
+
+const relinkMappingEntrySchema = z.object({
+  exerciseId: z.string().trim().min(1),
+  ownerUserId: z.string().trim().min(1),
+  sourceExerciseId: z.string().trim().min(1),
+  strategy: z.literal('relink'),
+});
+
+const placeholderMappingEntrySchema = z.object({
+  category: z.enum(['compound', 'isolation', 'cardio', 'cardio_flow', 'mobility']).optional(),
+  equipment: z.string().trim().min(1).max(120).optional(),
+  exerciseId: z.string().trim().min(1),
+  muscleGroups: z.array(z.string().trim().min(1)).optional(),
+  name: z.string().trim().min(1).max(120),
+  ownerUserId: z.string().trim().min(1),
+  strategy: z.literal('placeholder'),
+  trackingType: z
+    .enum([
+      'weight_reps',
+      'weight_seconds',
+      'bodyweight_reps',
+      'reps_only',
+      'reps_seconds',
+      'seconds_only',
+      'duration',
+      'distance',
+      'cardio',
+    ])
+    .optional(),
+});
+
+export const workoutExerciseLinkRepairMapSchema = z
+  .object({
+    entries: z.array(
+      z.discriminatedUnion('strategy', [
+        cloneMappingEntrySchema,
+        relinkMappingEntrySchema,
+        placeholderMappingEntrySchema,
+      ]),
+    ),
+    recoveredAt: z.string().datetime({ offset: true }),
+    version: z.literal(1),
+  })
+  .superRefine((value, context) => {
+    const seenExerciseIds = new Set<string>();
+    for (const [index, entry] of value.entries.entries()) {
+      if (seenExerciseIds.has(entry.exerciseId)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Duplicate exerciseId in repair map',
+          path: ['entries', index, 'exerciseId'],
+        });
+      }
+      seenExerciseIds.add(entry.exerciseId);
+    }
+  });
+
+export type WorkoutExerciseLinkRepairMap = z.infer<typeof workoutExerciseLinkRepairMapSchema>;
+
+type MissingLinkRow = {
+  exerciseId: string;
   ownerUserId: string;
-  exerciseId: string | null;
-  exerciseUserId: string | null;
-  exerciseDeletedAt: string | null;
-  exerciseName: string | null;
+  source: LinkSource;
 };
 
-type RepairAction = 'restored-soft-deleted' | 'relinked-by-name' | 'created-placeholder' | 'manual-review';
-
-type RepairResultRow = {
-  source: LinkSource;
-  rowId: string;
-  ownerUserId: string;
-  previousExerciseId: string;
-  nextExerciseId: string;
-  action: RepairAction;
-  note: string;
+type MissingExercise = {
+  exerciseId: string;
+  linkCount: number;
+  ownerUserIds: Set<string>;
+  sessionSetCount: number;
+  templateExerciseCount: number;
 };
 
-const stringifyExerciseId = (exerciseId: string | null) => exerciseId ?? 'null';
+type ResolvedRepair = {
+  entry: WorkoutExerciseLinkRepairMap['entries'][number];
+  missing: MissingExercise;
+};
 
 export type RepairWorkoutExerciseLinksOptions = {
-  userId: string | null;
   dryRun: boolean;
+  map: WorkoutExerciseLinkRepairMap | null;
+  mapSha256?: string | null;
+  userId?: string | null;
 };
 
 export type RepairWorkoutExerciseLinksResult = {
+  alreadyAppliedCount: number;
   dryRun: boolean;
-  orphanCount: number;
-  repairedCount: number;
-  manualReviewCount: number;
-  results: RepairResultRow[];
+  foreignKeyViolationCountBefore: number;
+  mapSha256: string | null;
+  missingExerciseCount: number;
+  orphanLinkCount: number;
+  proposedRepairCount: number;
+  remainingForeignKeyViolationCount: number;
+  sessionSetOrphanCount: number;
+  templateExerciseOrphanCount: number;
+  unresolvedExerciseCount: number;
 };
+
+class RepairPreflightError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RepairPreflightError';
+  }
+}
 
 const usage =
-  'Usage: npx tsx src/scripts/repair-workout-exercise-links.ts [--user <userId>] [--dry-run]';
+  'Usage: pnpm --filter @pulse/api db:repair:workout-exercise-links -- [--dry-run|--apply] --map <path> [--user <userId>]';
 
-const toTitleCase = (value: string): string =>
-  value
-    .split(' ')
-    .filter((part) => part.length > 0)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
+const sha256 = (value: string): string => createHash('sha256').update(value).digest('hex');
 
-const deriveExerciseNameFromId = (exerciseId: string): string => {
-  const normalized = exerciseId
-    .trim()
-    .replace(/[-_]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (normalized.length === 0) {
-    return 'Recovered Exercise';
-  }
-
-  return toTitleCase(normalized);
+export const loadWorkoutExerciseLinkRepairMap = (
+  mapPath: string,
+): { map: WorkoutExerciseLinkRepairMap; sha256: string } => {
+  const rawMap = readFileSync(mapPath, 'utf8');
+  return {
+    map: workoutExerciseLinkRepairMapSchema.parse(JSON.parse(rawMap)),
+    sha256: sha256(rawMap),
+  };
 };
 
-const normalizedName = (name: string) => name.trim().toLowerCase();
+const listMissingLinkRows = (sqlite: Database.Database, userId: string | null): MissingLinkRow[] =>
+  sqlite
+    .prepare(
+      `
+        select
+          'session_sets' as source,
+          ss.exercise_id as exerciseId,
+          ws.user_id as ownerUserId
+        from session_sets ss
+        join workout_sessions ws on ws.id = ss.session_id
+        left join exercises e on e.id = ss.exercise_id
+        where ss.exercise_id is not null
+          and e.id is null
+          and (? is null or ws.user_id = ?)
 
-const parseCliArgs = (args: string[]): RepairWorkoutExerciseLinksOptions => {
-  let userId: string | null = null;
-  let dryRun = false;
+        union all
 
-  for (let index = 0; index < args.length; index += 1) {
-    const current = args[index];
+        select
+          'template_exercises' as source,
+          te.exercise_id as exerciseId,
+          wt.user_id as ownerUserId
+        from template_exercises te
+        join workout_templates wt on wt.id = te.template_id
+        left join exercises e on e.id = te.exercise_id
+        where e.id is null
+          and (? is null or wt.user_id = ?)
+      `,
+    )
+    .all(userId, userId, userId, userId) as MissingLinkRow[];
 
-    if (current === '--dry-run') {
-      dryRun = true;
+const groupMissingExercises = (rows: MissingLinkRow[]): MissingExercise[] => {
+  const grouped = new Map<string, MissingExercise>();
+
+  for (const row of rows) {
+    const missing = grouped.get(row.exerciseId) ?? {
+      exerciseId: row.exerciseId,
+      linkCount: 0,
+      ownerUserIds: new Set<string>(),
+      sessionSetCount: 0,
+      templateExerciseCount: 0,
+    };
+    missing.linkCount += 1;
+    missing.ownerUserIds.add(row.ownerUserId);
+    if (row.source === 'session_sets') {
+      missing.sessionSetCount += 1;
+    } else {
+      missing.templateExerciseCount += 1;
+    }
+    grouped.set(row.exerciseId, missing);
+  }
+
+  return [...grouped.values()];
+};
+
+const countForeignKeyViolations = (sqlite: Database.Database): number =>
+  (sqlite.prepare('pragma foreign_key_check').all() as unknown[]).length;
+
+const assertQuickCheck = (sqlite: Database.Database): void => {
+  const rows = sqlite.prepare('pragma quick_check').all() as Array<{
+    quick_check: string;
+  }>;
+  if (rows.length !== 1 || rows[0]?.quick_check !== 'ok') {
+    throw new RepairPreflightError('Refusing workout-link repair because quick_check failed');
+  }
+};
+
+const assertOnlyTargetViolations = (
+  sqlite: Database.Database,
+  expectedWorkoutLinkCount: number,
+): number => {
+  const rows = sqlite.prepare('pragma foreign_key_check').all() as Array<{
+    parent: string;
+    table: string;
+  }>;
+  const unexpectedCount = rows.filter(
+    (row) =>
+      row.parent !== 'exercises' ||
+      (row.table !== 'session_sets' && row.table !== 'template_exercises'),
+  ).length;
+
+  if (unexpectedCount > 0 || rows.length !== expectedWorkoutLinkCount) {
+    throw new RepairPreflightError(
+      'Refusing workout-link repair because unrelated or unclassified foreign-key violations exist',
+    );
+  }
+
+  return rows.length;
+};
+
+type ExerciseOwnerRow = {
+  deletedAt: string | null;
+  userId: string | null;
+};
+
+const getExerciseOwner = (
+  sqlite: Database.Database,
+  exerciseId: string,
+): ExerciseOwnerRow | undefined =>
+  sqlite
+    .prepare(`select user_id as userId, deleted_at as deletedAt from exercises where id = ?`)
+    .get(exerciseId) as ExerciseOwnerRow | undefined;
+
+const resolveRepairPlan = ({
+  map,
+  missingExercises,
+  sqlite,
+}: {
+  map: WorkoutExerciseLinkRepairMap | null;
+  missingExercises: MissingExercise[];
+  sqlite: Database.Database;
+}): {
+  alreadyAppliedCount: number;
+  repairs: ResolvedRepair[];
+  unresolvedExerciseCount: number;
+} => {
+  const mapEntries = new Map(map?.entries.map((entry) => [entry.exerciseId, entry]) ?? []);
+  const repairs: ResolvedRepair[] = [];
+  let unresolvedExerciseCount = 0;
+
+  for (const missing of missingExercises) {
+    const entry = mapEntries.get(missing.exerciseId);
+    if (!entry || missing.ownerUserIds.size !== 1 || !missing.ownerUserIds.has(entry.ownerUserId)) {
+      unresolvedExerciseCount += 1;
       continue;
     }
 
-    if (current === '--user') {
-      const next = args[index + 1];
-      if (!next || next.startsWith('--')) {
-        throw new Error(`Missing value for --user. ${usage}`);
+    if (entry.strategy === 'clone' || entry.strategy === 'relink') {
+      const source = getExerciseOwner(sqlite, entry.sourceExerciseId);
+      if (
+        !source ||
+        (source.userId !== null && source.userId !== entry.ownerUserId) ||
+        (entry.strategy === 'relink' && source.deletedAt !== null)
+      ) {
+        unresolvedExerciseCount += 1;
+        continue;
+      }
+    }
+
+    repairs.push({ entry, missing });
+  }
+
+  let alreadyAppliedCount = 0;
+  for (const entry of map?.entries ?? []) {
+    if (missingExercises.some((missing) => missing.exerciseId === entry.exerciseId)) {
+      continue;
+    }
+
+    const existing = getExerciseOwner(sqlite, entry.exerciseId);
+    const relinkSource =
+      entry.strategy === 'relink' ? getExerciseOwner(sqlite, entry.sourceExerciseId) : undefined;
+    if (
+      (entry.strategy === 'relink' &&
+        !existing &&
+        relinkSource &&
+        relinkSource.deletedAt === null &&
+        (relinkSource.userId === null || relinkSource.userId === entry.ownerUserId)) ||
+      (entry.strategy !== 'relink' &&
+        existing?.userId === entry.ownerUserId &&
+        existing.deletedAt !== null)
+    ) {
+      alreadyAppliedCount += 1;
+      continue;
+    }
+
+    unresolvedExerciseCount += 1;
+  }
+
+  return { alreadyAppliedCount, repairs, unresolvedExerciseCount };
+};
+
+const insertClonedExercise = ({
+  entry,
+  recoveredAt,
+  sqlite,
+}: {
+  entry: z.infer<typeof cloneMappingEntrySchema>;
+  recoveredAt: string;
+  sqlite: Database.Database;
+}): void => {
+  const recoveredAtMs = Date.parse(recoveredAt);
+  const result = sqlite
+    .prepare(
+      `
+        insert into exercises (
+          id, user_id, name, muscle_groups, equipment, category, tracking_type,
+          tags, form_cues, instructions, coaching_notes, related_exercise_ids,
+          deleted_at, created_at, updated_at
+        )
+        select
+          ?, ?, name, muscle_groups, equipment, category, tracking_type,
+          tags, form_cues, instructions, coaching_notes, json('[]'),
+          ?, ?, ?
+        from exercises
+        where id = ?
+          and (user_id is null or user_id = ?)
+      `,
+    )
+    .run(
+      entry.exerciseId,
+      entry.ownerUserId,
+      recoveredAt,
+      recoveredAtMs,
+      recoveredAtMs,
+      entry.sourceExerciseId,
+      entry.ownerUserId,
+    );
+
+  if (result.changes !== 1) {
+    throw new RepairPreflightError('A clone repair source became unavailable during apply');
+  }
+};
+
+const insertPlaceholderExercise = ({
+  entry,
+  recoveredAt,
+  sqlite,
+}: {
+  entry: z.infer<typeof placeholderMappingEntrySchema>;
+  recoveredAt: string;
+  sqlite: Database.Database;
+}): void => {
+  const recoveredAtMs = Date.parse(recoveredAt);
+  sqlite
+    .prepare(
+      `
+        insert into exercises (
+          id, user_id, name, muscle_groups, equipment, category, tracking_type,
+          tags, form_cues, instructions, coaching_notes, related_exercise_ids,
+          deleted_at, created_at, updated_at
+        ) values (
+          ?, ?, ?, ?, ?, ?, ?,
+          json('[]'), json('[]'), ?, null, json('[]'), ?, ?, ?
+        )
+      `,
+    )
+    .run(
+      entry.exerciseId,
+      entry.ownerUserId,
+      entry.name,
+      JSON.stringify(entry.muscleGroups ?? []),
+      entry.equipment ?? 'unknown',
+      entry.category ?? 'compound',
+      entry.trackingType ?? 'weight_reps',
+      'Recovered from an orphaned workout reference; original exercise metadata was unavailable.',
+      recoveredAt,
+      recoveredAtMs,
+      recoveredAtMs,
+    );
+};
+
+const relinkExerciseReferences = ({
+  entry,
+  expectedLinkCount,
+  sqlite,
+}: {
+  entry: z.infer<typeof relinkMappingEntrySchema>;
+  expectedLinkCount: number;
+  sqlite: Database.Database;
+}): void => {
+  const sessionResult = sqlite
+    .prepare(
+      `
+        update session_sets
+        set exercise_id = ?
+        where exercise_id = ?
+          and exists (
+            select 1
+            from workout_sessions ws
+            where ws.id = session_sets.session_id
+              and ws.user_id = ?
+          )
+      `,
+    )
+    .run(entry.sourceExerciseId, entry.exerciseId, entry.ownerUserId);
+  const templateResult = sqlite
+    .prepare(
+      `
+        update template_exercises
+        set exercise_id = ?
+        where exercise_id = ?
+          and exists (
+            select 1
+            from workout_templates wt
+            where wt.id = template_exercises.template_id
+              and wt.user_id = ?
+          )
+      `,
+    )
+    .run(entry.sourceExerciseId, entry.exerciseId, entry.ownerUserId);
+
+  if (sessionResult.changes + templateResult.changes !== expectedLinkCount) {
+    throw new RepairPreflightError('A relink repair target changed during apply');
+  }
+};
+
+export const repairWorkoutExerciseLinks = (
+  sqlite: Database.Database,
+  options: RepairWorkoutExerciseLinksOptions,
+  logger: Logger = console,
+): RepairWorkoutExerciseLinksResult => {
+  const userId = options.userId ?? null;
+  const parsedMap = options.map ? workoutExerciseLinkRepairMapSchema.parse(options.map) : null;
+  const mapSha256 = parsedMap ? (options.mapSha256 ?? sha256(JSON.stringify(parsedMap))) : null;
+
+  assertQuickCheck(sqlite);
+  if (sqlite.pragma('foreign_keys', { simple: true }) !== 1) {
+    throw new RepairPreflightError(
+      'Refusing workout-link repair while foreign-key enforcement is disabled',
+    );
+  }
+
+  const missingRows = listMissingLinkRows(sqlite, userId);
+  const missingExercises = groupMissingExercises(missingRows);
+  const foreignKeyViolationCountBefore = assertOnlyTargetViolations(sqlite, missingRows.length);
+  const { alreadyAppliedCount, repairs, unresolvedExerciseCount } = resolveRepairPlan({
+    map: parsedMap,
+    missingExercises,
+    sqlite,
+  });
+
+  if (!options.dryRun && unresolvedExerciseCount > 0) {
+    throw new RepairPreflightError(
+      'Refusing workout-link repair because the explicit map does not resolve every missing exercise',
+    );
+  }
+
+  let remainingForeignKeyViolationCount = foreignKeyViolationCountBefore;
+  if (!options.dryRun && repairs.length > 0) {
+    if (!parsedMap) {
+      throw new RepairPreflightError('Applying workout-link repair requires an explicit map');
+    }
+
+    sqlite.transaction(() => {
+      for (const repair of repairs) {
+        if (repair.entry.strategy === 'clone') {
+          insertClonedExercise({
+            entry: repair.entry,
+            recoveredAt: parsedMap.recoveredAt,
+            sqlite,
+          });
+        } else if (repair.entry.strategy === 'relink') {
+          relinkExerciseReferences({
+            entry: repair.entry,
+            expectedLinkCount: repair.missing.linkCount,
+            sqlite,
+          });
+        } else {
+          insertPlaceholderExercise({
+            entry: repair.entry,
+            recoveredAt: parsedMap.recoveredAt,
+            sqlite,
+          });
+        }
       }
 
-      userId = next;
+      remainingForeignKeyViolationCount = countForeignKeyViolations(sqlite);
+      if (remainingForeignKeyViolationCount !== 0) {
+        throw new RepairPreflightError(
+          'Workout-link repair did not clear every foreign-key violation; transaction rolled back',
+        );
+      }
+    })();
+  } else if (!options.dryRun) {
+    remainingForeignKeyViolationCount = countForeignKeyViolations(sqlite);
+  }
+
+  const result: RepairWorkoutExerciseLinksResult = {
+    alreadyAppliedCount,
+    dryRun: options.dryRun,
+    foreignKeyViolationCountBefore,
+    mapSha256,
+    missingExerciseCount: missingExercises.length,
+    orphanLinkCount: missingRows.length,
+    proposedRepairCount: repairs.length,
+    remainingForeignKeyViolationCount,
+    sessionSetOrphanCount: missingRows.filter((row) => row.source === 'session_sets').length,
+    templateExerciseOrphanCount: missingRows.filter((row) => row.source === 'template_exercises')
+      .length,
+    unresolvedExerciseCount,
+  };
+
+  logger.info(
+    {
+      alreadyAppliedCount: result.alreadyAppliedCount,
+      dryRun: result.dryRun,
+      foreignKeyViolationCountBefore: result.foreignKeyViolationCountBefore,
+      mapSha256: result.mapSha256,
+      missingExerciseCount: result.missingExerciseCount,
+      orphanLinkCount: result.orphanLinkCount,
+      proposedRepairCount: result.proposedRepairCount,
+      remainingForeignKeyViolationCount: result.remainingForeignKeyViolationCount,
+      sessionSetOrphanCount: result.sessionSetOrphanCount,
+      templateExerciseOrphanCount: result.templateExerciseOrphanCount,
+      unresolvedExerciseCount: result.unresolvedExerciseCount,
+    },
+    'Workout exercise link repair preflight complete',
+  );
+
+  return result;
+};
+
+type CliOptions = {
+  apply: boolean;
+  mapPath: string | null;
+  userId: string | null;
+};
+
+export const parseRepairWorkoutExerciseLinksCliArgs = (args: string[]): CliOptions => {
+  let apply = false;
+  let modeSeen = false;
+  let mapPath: string | null = null;
+  let userId: string | null = null;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const current = args[index];
+    if (current === '--apply' || current === '--dry-run') {
+      if (modeSeen) {
+        throw new Error(`Choose exactly one mode. ${usage}`);
+      }
+      apply = current === '--apply';
+      modeSeen = true;
+      continue;
+    }
+
+    if (current === '--map' || current === '--user') {
+      const next = args[index + 1];
+      if (!next || next.startsWith('--')) {
+        throw new Error(`Missing value for ${current}. ${usage}`);
+      }
+      if (current === '--map') {
+        mapPath = next;
+      } else {
+        userId = next;
+      }
       index += 1;
       continue;
     }
 
-    throw new Error(`Unknown argument: ${current}. ${usage}`);
+    throw new Error(`Unknown argument. ${usage}`);
   }
 
-  return {
-    userId,
-    dryRun,
-  };
-};
-
-const listOrphanRows = (userId: string | null): OrphanLinkRow[] => {
-  const sessionSetOrphans = db
-    .select({
-      source: sql<LinkSource>`'session_sets'`.as('source'),
-      row_id: sessionSets.id,
-      owner_id: sessionSets.sessionId,
-      owner_user_id: workoutSessions.userId,
-      exercise_id: sessionSets.exerciseId,
-      exercise_user_id: exercises.userId,
-      exercise_deleted_at: exercises.deletedAt,
-      exercise_name: exercises.name,
-    })
-    .from(sessionSets)
-    .innerJoin(workoutSessions, eq(workoutSessions.id, sessionSets.sessionId))
-    .leftJoin(exercises, eq(exercises.id, sessionSets.exerciseId))
-    .where(
-      and(
-        userId ? eq(workoutSessions.userId, userId) : undefined,
-        or(
-          isNull(exercises.id),
-          isNotNull(exercises.deletedAt),
-          and(isNotNull(exercises.userId), ne(exercises.userId, workoutSessions.userId)),
-        ),
-      ),
-    );
-
-  const templateExerciseOrphans = db
-    .select({
-      source: sql<LinkSource>`'template_exercises'`.as('source'),
-      row_id: templateExercises.id,
-      owner_id: templateExercises.templateId,
-      owner_user_id: workoutTemplates.userId,
-      exercise_id: templateExercises.exerciseId,
-      exercise_user_id: exercises.userId,
-      exercise_deleted_at: exercises.deletedAt,
-      exercise_name: exercises.name,
-    })
-    .from(templateExercises)
-    .innerJoin(workoutTemplates, eq(workoutTemplates.id, templateExercises.templateId))
-    .leftJoin(exercises, eq(exercises.id, templateExercises.exerciseId))
-    .where(
-      and(
-        userId ? eq(workoutTemplates.userId, userId) : undefined,
-        or(
-          isNull(exercises.id),
-          isNotNull(exercises.deletedAt),
-          and(isNotNull(exercises.userId), ne(exercises.userId, workoutTemplates.userId)),
-        ),
-      ),
-    );
-
-  const rows = sessionSetOrphans.unionAll(templateExerciseOrphans).all();
-
-  return rows.map((row) => ({
-    source: row.source,
-    rowId: row.row_id,
-    ownerId: row.owner_id,
-    ownerUserId: row.owner_user_id,
-    exerciseId: row.exercise_id,
-    exerciseUserId: row.exercise_user_id,
-    exerciseDeletedAt: row.exercise_deleted_at,
-    exerciseName: row.exercise_name,
-  }));
-};
-
-const restoreExercise = (exerciseId: string) => {
-  sqlite
-    .prepare(
-      `
-      update exercises
-      set deleted_at = null
-      where id = ?
-      `,
-    )
-    .run(exerciseId);
-};
-
-const relinkRow = ({ source, rowId, nextExerciseId }: { source: LinkSource; rowId: string; nextExerciseId: string }) => {
-  if (source === 'session_sets') {
-    sqlite
-      .prepare(
-        `
-        update session_sets
-        set exercise_id = ?
-        where id = ?
-        `,
-      )
-      .run(nextExerciseId, rowId);
-    return;
+  if (!mapPath) {
+    throw new Error(`An explicit repair map is required. ${usage}`);
   }
 
-  sqlite
-    .prepare(
-      `
-      update template_exercises
-      set exercise_id = ?
-      where id = ?
-      `,
-    )
-    .run(nextExerciseId, rowId);
+  return { apply, mapPath, userId };
 };
 
-const findCandidateByName = ({
-  name,
-  ownerUserId,
-}: {
-  name: string;
-  ownerUserId: string;
-}): { id: string; deletedAt: string | null } | undefined => {
-  const candidate = sqlite
-    .prepare(
-      `
-      select id, deleted_at
-      from exercises
-      where lower(trim(name)) = ?
-        and (user_id is null or user_id = ?)
-      order by
-        case when user_id = ? then 0 else 1 end,
-        case when deleted_at is null then 0 else 1 end
-      limit 1
-      `,
-    )
-    .get(normalizedName(name), ownerUserId, ownerUserId) as
-    | {
-        id: string;
-        deleted_at: string | null;
-      }
-    | undefined;
-
-  if (!candidate) {
-    return undefined;
+const runCli = async (): Promise<void> => {
+  const cli = parseRepairWorkoutExerciseLinksCliArgs(process.argv.slice(2));
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL must explicitly identify the database to inspect or repair');
   }
 
-  return {
-    id: candidate.id,
-    deletedAt: candidate.deleted_at,
-  };
-};
-
-const createPlaceholderExercise = ({
-  ownerUserId,
-  exerciseName,
-}: {
-  ownerUserId: string;
-  exerciseName: string;
-}): string => {
-  const id = randomUUID();
-
-  sqlite
-    .prepare(
-      `
-      insert into exercises (
-        id,
-        user_id,
-        name,
-        muscle_groups,
-        equipment,
-        category,
-        tracking_type,
-        tags,
-        form_cues,
-        instructions
-      ) values (?, ?, ?, json('[]'), 'unknown', 'compound', 'weight_reps', json('[]'), json('[]'), null)
-      `,
-    )
-    // Use 'compound' as a neutral fallback for unknown legacy exercises.
-    .run(id, ownerUserId, exerciseName);
-
-  return id;
-};
-
-export const repairWorkoutExerciseLinks = async (
-  options: RepairWorkoutExerciseLinksOptions,
-  logger: Logger = console,
-): Promise<RepairWorkoutExerciseLinksResult> => {
-  if (options.dryRun) {
-    sqlite.exec('BEGIN');
-  }
-
-  const results: RepairResultRow[] = [];
+  const loadedMap = loadWorkoutExerciseLinkRepairMap(cli.mapPath ?? '');
+  const sqlite = new Database(databaseUrl, {
+    fileMustExist: true,
+    readonly: !cli.apply,
+  });
+  sqlite.pragma('foreign_keys = ON');
 
   try {
-    const orphanRows = listOrphanRows(options.userId);
-
-    for (const row of orphanRows) {
-      const crossUserReference =
-        row.exerciseUserId !== null && row.exerciseUserId !== row.ownerUserId;
-      const canRestoreOriginal =
-        row.exerciseDeletedAt !== null &&
-        (row.exerciseUserId === null || row.exerciseUserId === row.ownerUserId);
-
-      if (canRestoreOriginal) {
-        if (row.exerciseId === null) {
-          results.push({
-            source: row.source,
-            rowId: row.rowId,
-            ownerUserId: row.ownerUserId,
-            previousExerciseId: stringifyExerciseId(row.exerciseId),
-            nextExerciseId: stringifyExerciseId(row.exerciseId),
-            action: 'manual-review',
-            note: 'Encountered null exercise_id with restore metadata; requires manual review.',
-          });
-          continue;
-        }
-
-        restoreExercise(row.exerciseId);
-        results.push({
-          source: row.source,
-          rowId: row.rowId,
-          ownerUserId: row.ownerUserId,
-          previousExerciseId: stringifyExerciseId(row.exerciseId),
-          nextExerciseId: stringifyExerciseId(row.exerciseId),
-          action: 'restored-soft-deleted',
-          note: 'Restored soft-deleted exercise referenced by workout row.',
-        });
-        continue;
-      }
-
-      const nameHint =
-        row.exerciseName && row.exerciseName.trim().length > 0
-          ? row.exerciseName
-          : row.exerciseId
-            ? deriveExerciseNameFromId(row.exerciseId)
-            : 'Recovered Exercise';
-      const candidate = findCandidateByName({
-        name: nameHint,
-        ownerUserId: row.ownerUserId,
-      });
-
-      if (candidate) {
-        if (candidate.deletedAt !== null) {
-          restoreExercise(candidate.id);
-        }
-
-        try {
-          relinkRow({
-            source: row.source,
-            rowId: row.rowId,
-            nextExerciseId: candidate.id,
-          });
-          results.push({
-            source: row.source,
-            rowId: row.rowId,
-            ownerUserId: row.ownerUserId,
-            previousExerciseId: stringifyExerciseId(row.exerciseId),
-            nextExerciseId: candidate.id,
-            action: 'relinked-by-name',
-            note: crossUserReference
-              ? 'Cross-user reference detected; relinked by exercise name match for owner scope.'
-              : 'Relinked by exercise name match.',
-          });
-        } catch (error) {
-          results.push({
-            source: row.source,
-            rowId: row.rowId,
-            ownerUserId: row.ownerUserId,
-            previousExerciseId: stringifyExerciseId(row.exerciseId),
-            nextExerciseId: stringifyExerciseId(row.exerciseId),
-            action: 'manual-review',
-            note: `Relink failed and requires manual review: ${String(error)}`,
-          });
-        }
-        continue;
-      }
-
-      const placeholderId = createPlaceholderExercise({
-        ownerUserId: row.ownerUserId,
-        exerciseName: nameHint,
-      });
-
-      try {
-        relinkRow({
-          source: row.source,
-          rowId: row.rowId,
-          nextExerciseId: placeholderId,
-        });
-        results.push({
-          source: row.source,
-          rowId: row.rowId,
-          ownerUserId: row.ownerUserId,
-          previousExerciseId: stringifyExerciseId(row.exerciseId),
-          nextExerciseId: placeholderId,
-          action: 'created-placeholder',
-          note: crossUserReference
-            ? 'Cross-user reference detected; created owner-scoped placeholder and relinked orphan row.'
-            : 'Created placeholder exercise and relinked orphan row.',
-        });
-      } catch (error) {
-        // Best effort cleanup: don't leave a newly created placeholder orphaned
-        // when the follow-up relink fails.
-        sqlite
-          .prepare(
-            `
-            delete from exercises
-            where id = ?
-            `,
-          )
-          .run(placeholderId);
-        results.push({
-          source: row.source,
-          rowId: row.rowId,
-          ownerUserId: row.ownerUserId,
-          previousExerciseId: stringifyExerciseId(row.exerciseId),
-          nextExerciseId: stringifyExerciseId(row.exerciseId),
-          action: 'manual-review',
-          note: `Placeholder relink failed and requires manual review: ${String(error)}`,
-        });
-      }
-    }
-
-    if (options.dryRun) {
-      sqlite.exec('ROLLBACK');
-    }
-
-    const summary = {
-      dryRun: options.dryRun,
-      orphanCount: orphanRows.length,
-      repairedCount: results.filter((result) => result.action !== 'manual-review').length,
-      manualReviewCount: results.filter((result) => result.action === 'manual-review').length,
-      results,
-    };
-
-    logger.info(
-      `Workout exercise link repair complete: ${summary.orphanCount} orphan rows, ${summary.repairedCount} repaired, ${summary.manualReviewCount} manual review.`,
+    const result = repairWorkoutExerciseLinks(
+      sqlite,
+      {
+        dryRun: !cli.apply,
+        map: loadedMap.map,
+        mapSha256: loadedMap.sha256,
+        userId: cli.userId,
+      },
+      console,
     );
 
-    return summary;
-  } catch (error) {
-    if (options.dryRun) {
-      sqlite.exec('ROLLBACK');
+    if (result.unresolvedExerciseCount > 0) {
+      process.exitCode = 2;
     }
-    throw error;
+  } finally {
+    sqlite.close();
   }
 };
 
-const runCli = async () => {
-  const options = parseCliArgs(process.argv.slice(2));
-  const result = await repairWorkoutExerciseLinks(options, console);
-
-  if (result.results.length > 0) {
-    for (const row of result.results) {
-      console.info(
-        `[${row.source}] row=${row.rowId} user=${row.ownerUserId} ${row.previousExerciseId} -> ${row.nextExerciseId} (${row.action})`,
-      );
-    }
-  }
-};
-
-const isMainModule = () => {
-  if (!process.argv[1]) {
-    return false;
-  }
-
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
-};
+const isMainModule = (): boolean =>
+  Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1] ?? '').href;
 
 if (isMainModule()) {
-  runCli().catch((error) => {
-    console.error(error);
+  runCli().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : 'Workout exercise link repair failed');
     process.exitCode = 1;
   });
 }

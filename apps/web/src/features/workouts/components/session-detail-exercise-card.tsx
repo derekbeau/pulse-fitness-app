@@ -131,7 +131,7 @@ export function SessionDetailExerciseCard({
         <Button
           aria-label={`Open ${exercise.cardExercise.name} history`}
           className="h-9 self-start px-3 text-xs"
-          disabled={!exercise.exerciseId}
+          disabled={!exercise.exerciseId || exercise.archived}
           onClick={() => onOpenDetails(exercise.exerciseId)}
           type="button"
           variant="outline"
@@ -141,8 +141,12 @@ export function SessionDetailExerciseCard({
         </Button>
       }
       mode="readonly-completed"
-      onOpenDetails={exercise.exerciseId ? () => onOpenDetails(exercise.exerciseId) : undefined}
-      showLastPerformance={Boolean(exercise.exerciseId)}
+      onOpenDetails={
+        exercise.exerciseId && !exercise.archived
+          ? () => onOpenDetails(exercise.exerciseId)
+          : undefined
+      }
+      showLastPerformance={Boolean(exercise.exerciseId) && !exercise.archived}
       showSetList={!isEditing}
       weightUnit={weightUnit}
     />
