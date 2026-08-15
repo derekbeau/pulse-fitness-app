@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      host: true,
+      host: env.VITE_HOST ?? true,
       port: Number(env.VITE_PORT ?? 5173),
       strictPort: true,
       proxy: {

@@ -62,6 +62,19 @@ pnpm install
 pnpm dev        # Start web + api in parallel
 ```
 
+For feature work, create a fully initialized worktree from the primary checkout. The initializer
+creates the branch and worktree, assigns isolated ports, takes a consistent copy of the live OrbStack
+database, installs dependencies, and proves both servers start successfully:
+
+```bash
+pnpm worktree:init -- codex/my-feature
+cd ../pulse-fitness-app-codex-my-feature
+pnpm dev
+```
+
+See [Working with worktrees](docs/worktrees.md) for options, security boundaries, cleanup, and
+troubleshooting.
+
 ### Adaptive TDEE acceptance tools
 
 The Adaptive TDEE replay is read-only and accepts either a versioned JSON export or a migrated SQLite
