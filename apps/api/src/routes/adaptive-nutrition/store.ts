@@ -29,6 +29,7 @@ import {
   allocateMacros,
   buildAdaptiveRecommendation,
   calculateAdaptiveDateBoundaries,
+  calculateAdaptiveSetupProjection,
   calculateBaselineTdee,
   calculateGoalCalories,
   calculateAdaptiveGoalProgress,
@@ -873,20 +874,20 @@ export const createAdaptiveNutritionStore = (options: {
       goal: toGoalSnapshot(goalContext),
     });
     const inputFingerprint = createAdaptiveInputFingerprint(inputSnapshot);
-    const goal = calculateGoalCalories({
-      goalType: calculationProgram.goalType,
+    const setupProjection = calculateAdaptiveSetupProjection({
+      baselineTdeeKcal: calculationProgram.baselineTdeeKcal,
+      calculationLocalDate: localDate,
+      currentWeightKg: currentWeight.weightKg,
+      estimatedRmrKcal: calculationProgram.estimatedRmrKcal,
+      fatAllocationPct: calculationProgram.fatAllocationPct,
       goalRatePctPerWeek: calculationProgram.goalRatePctPerWeek,
-      targetWeightKg: calculationProgram.targetWeightKg,
-      latestTrendWeightKg: currentWeight.weightKg,
-      adaptiveTdeeKcal: calculationProgram.baselineTdeeKcal,
+      goalType: calculationProgram.goalType,
+      proteinGrams: calculationProgram.proteinGrams,
       systemCalorieFloorKcal: calculationProgram.systemCalorieFloorKcal,
+      targetWeightKg: calculationProgram.targetWeightKg,
       userCalorieFloorKcal: calculationProgram.userCalorieFloorKcal,
     });
-    const macros = allocateMacros({
-      goalCalories: goal.goalCalories,
-      proteinGrams: calculationProgram.proteinGrams,
-      fatAllocationPct: calculationProgram.fatAllocationPct,
-    });
+    const { goal, macros } = setupProjection;
     const reasonCodes = findTargetForDate(userId, localDate)
       ? (['SAME_DATE_TARGET_EXISTS'] as const)
       : [];

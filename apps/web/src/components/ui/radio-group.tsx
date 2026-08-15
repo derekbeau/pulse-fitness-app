@@ -85,7 +85,7 @@ const RadioGroupItem = React.forwardRef<HTMLInputElement, RadioGroupItemProps>(
         <input
           ref={ref}
           checked={isChecked}
-          className="peer sr-only"
+          className="peer absolute inset-0 size-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
           data-slot="radio-group-item"
           disabled={disabled}
           id={inputId}
@@ -100,7 +100,7 @@ const RadioGroupItem = React.forwardRef<HTMLInputElement, RadioGroupItemProps>(
         <span
           aria-hidden="true"
           className={cn(
-            'flex size-4 items-center justify-center rounded-full border border-border bg-background transition-colors peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50',
+            'pointer-events-none flex size-4 items-center justify-center rounded-full border border-border bg-background transition-colors peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50',
             isChecked ? 'border-primary' : '',
           )}
         >

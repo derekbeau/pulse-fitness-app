@@ -155,21 +155,49 @@ Required fields:
 | Activity level         | four labeled options                            | Default `low_active`                                                                        |
 | Goal type              | `lose`, `maintain`, `gain`                      | Required                                                                                    |
 | Target weight          | preferred display unit                          | Required for lose/gain; optional for maintain; persist kg                                   |
-| Goal rate              | percent body weight/week                        | Defaults: lose `0.5%`, gain `0.25%`, maintain `0%`                                          |
-| Protein                | grams/day                                       | Default to current nutrition target protein; otherwise `1.8 g/kg`, rounded to 5 g           |
-| Fat allocation         | percent of calories                             | Default 30%; allowed 20–40%                                                                 |
-| Calorie floor          | kcal/day                                        | Default defined in section 12; user may raise it                                            |
+| Goal rate              | coached presets plus custom percent/week        | Defaults: lose `0.5%`, gain `0.25%`, maintain `0%`; see recommendation bands below          |
+| Protein                | Moderate, Recommended, High, or Custom          | Preserve current target; otherwise `1.8 g/kg`, rounded to 5 g                               |
+| Fat allocation         | Higher carb, Balanced, Higher fat, or Custom    | Presets 25%, 30%, 35%; custom allowed 20–40%                                                |
+| Calorie floor          | advanced loss-only kcal/day                     | Blank uses section 12 system floor; user may raise but never lower it                       |
 | Time zone              | IANA identifier                                 | Default browser time zone; required                                                         |
 | Starting TDEE override | kcal/day                                        | Optional for equation modes; required for `manual_tdee`                                     |
 
-Setup preview displays:
+Setup is a non-mutating live calculator. Editing any setup field writes no program, check-in, or
+nutrition target. A persistent **Your projected plan** summary displays:
 
-- Estimated RMR, unless manual TDEE mode
-- Activity multiplier
-- Starting TDEE
-- Initial goal calories
-- Initial protein, carbohydrate, and fat targets
-- Warning that personalization generally requires multiple weeks of complete nutrition and weight data
+- starting-weight value and source, target, and total change;
+- goal-rate label, recommended range, selected percent/week, starting and ending absolute rate,
+  and approximate monthly rate;
+- compounded duration and completion local date for directional goals;
+- estimated RMR when applicable, baseline TDEE, requested calorie adjustment, and constrained
+  starting calorie target;
+- protein grams/day, grams/kg, and grams/lb plus fat and carbohydrate grams and calorie percentages;
+- explicit cautions for outside-recommended rates, calorie-floor or maximum-deficit constraints,
+  an already-reached goal, or an infeasible macro allocation; and
+- a note that accepted later check-ins adapt the plan as expenditure and body weight change.
+
+Directional duration uses canonical kilograms and the selected rate magnitude
+`r = abs(goalRatePctPerWeek) / 100`:
+
+```text
+gainWeeks = ln(targetWeightKg / startWeightKg) / ln(1 + r)
+lossWeeks = ln(targetWeightKg / startWeightKg) / ln(1 - r)
+```
+
+The displayed duration is `ceil(fractionalWeeks)`. The completion date adds
+`ceil(fractionalWeeks × 7)` local calendar days to the setup date in the selected IANA time zone.
+Maintenance has no fabricated duration or completion date.
+
+Goal-rate guidance is distinct from the unchanged hard validation limits:
+
+| Goal     | Recommended     | Default | Allowed    | Presets                                          |
+| -------- | --------------- | ------- | ---------- | ------------------------------------------------ |
+| Gain     | 0.10–0.35%/week | 0.25%   | 0.10–0.50% | Conservative 0.10%, Standard 0.25%, Faster 0.35% |
+| Loss     | 0.25–0.75%/week | 0.50%   | 0.10–1.00% | Gradual 0.25%, Standard 0.50%, Faster 0.75%      |
+| Maintain | 0%              | 0%      | 0%         | Maintenance                                      |
+
+Allowed values outside a recommended band remain selectable and produce a textual caution. Faster
+gain copy never implies guaranteed muscle gain.
 
 Submitting setup:
 
@@ -644,17 +672,27 @@ v1 maintenance calories are exactly Adaptive TDEE. Dynamic calorie bands and cor
 
 Protein is a program preference and remains fixed between check-ins unless the user changes it. The Coach page displays g/kg based on current trend weight.
 
-The default is:
+The coached presets, calculated from canonical starting weight and rounded to the nearest 5 g, are:
 
 ```text
-proteinGrams = roundToNearest5(currentTargetProtein ?? 1.8 × currentWeightKg)
+Moderate = roundToNearest5(1.6 × currentWeightKg)
+Recommended = roundToNearest5(1.8 × currentWeightKg)
+High = roundToNearest5(2.2 × currentWeightKg)
 ```
+
+An existing nutrition-target protein value is preserved and mapped to a matching rounded preset;
+otherwise it is shown as Custom. Without an existing target, Recommended remains the default. Setup
+always shows the selected grams/day plus equivalent grams/kg and grams/lb. High-protein guidance
+describes diminishing returns and calorie tradeoffs rather than labeling the choice unsafe.
 
 Validation: 40–400 g/day.
 
 The ISSN position stand reports 1.4–2.0 g/kg/day as sufficient for most exercising individuals.[7] Pulse does not automatically diagnose or enforce an “optimal” value.
 
 ### 13.2 Fat and carbohydrates
+
+Setup offers Higher carb (25% fat), Balanced (30%, recommended), Higher fat (35%), and Custom
+(20–40%). These preferences feed the same allocation below; they do not create a second formula.
 
 ```text
 proteinKcal = proteinGrams × 4

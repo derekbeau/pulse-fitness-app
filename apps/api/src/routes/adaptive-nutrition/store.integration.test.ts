@@ -9,7 +9,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import type { AdaptiveProgramMutation } from '@pulse/shared';
+import { calculateAdaptiveSetupProjection, type AdaptiveProgramMutation } from '@pulse/shared';
 
 import * as schema from '../../db/schema/index.js';
 import {
@@ -250,6 +250,43 @@ describe('adaptive nutrition lifecycle store', () => {
       }),
     ).toEqual(accepted);
     expect(storeA.getState('user-1').state).toBe('learning');
+  });
+
+  it('builds the authoritative baseline recommendation through the shared setup projection', () => {
+    const program = storeA.upsertProgram(
+      'user-1',
+      programInput({
+        fatAllocationPct: 35,
+        goalRatePctPerWeek: 0.25,
+        goalType: 'gain',
+        proteinGrams: 175,
+        targetWeightKg: 84,
+      }),
+    );
+    const pending = requireValue(
+      storeA.getState('user-1').pendingCheckIn,
+      'Expected pending baseline check-in',
+    );
+    const detail = requireValue(
+      storeA.findCheckInDetail('user-1', pending.id),
+      'Expected baseline detail',
+    );
+    const sharedProjection = calculateAdaptiveSetupProjection({
+      baselineTdeeKcal: program.baselineTdeeKcal,
+      calculationLocalDate: detail.localDate,
+      currentWeightKg: 82,
+      estimatedRmrKcal: program.estimatedRmrKcal,
+      fatAllocationPct: program.fatAllocationPct,
+      goalRatePctPerWeek: program.goalRatePctPerWeek,
+      goalType: program.goalType,
+      proteinGrams: program.proteinGrams,
+      systemCalorieFloorKcal: program.systemCalorieFloorKcal,
+      targetWeightKg: program.targetWeightKg,
+      userCalorieFloorKcal: program.userCalorieFloorKcal,
+    });
+
+    expect(detail.calculationSnapshot.goal).toEqual(sharedProjection.goal);
+    expect(detail.calculationSnapshot.macros).toEqual(sharedProjection.macros);
   });
 
   it('uses a qualifying saved weight, rejects missing or old weight, and rolls back failed setup', () => {

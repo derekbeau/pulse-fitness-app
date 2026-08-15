@@ -90,6 +90,19 @@ async function acceptWithSameDateConfirmation(page: Page) {
   }
 }
 
+async function fillManualSetup(page: Page, tdee: number, weightLbs: number) {
+  await page.getByLabel('Starting equation').selectOption('manual_tdee');
+  await page.getByLabel('Starting TDEE (kcal/day)').fill(String(tdee));
+  await page.getByLabel('Current weight (lbs)').fill(String(weightLbs));
+}
+
+async function selectSetupChoice(page: Page, groupName: string, choiceName: RegExp) {
+  await page
+    .getByRole('radiogroup', { name: groupName })
+    .getByRole('radio', { name: choiceName })
+    .check();
+}
+
 test.describe.serial('Adaptive TDEE deterministic preview fixtures', () => {
   test.beforeAll(async () => {
     apiContext = await request.newContext({ baseURL: apiBaseURL });
@@ -142,6 +155,96 @@ test.describe.serial('Adaptive TDEE deterministic preview fixtures', () => {
       }),
     ).toBeVisible();
     await expect(page.getByText('Why Pulse is holding')).toBeVisible();
+
+    assertDiagnostics();
+  });
+
+  test('coaches recommended and outside-band gain rates without writing during edits', async ({
+    page,
+  }) => {
+    const assertDiagnostics = monitorPage(page);
+    const writeRequests: string[] = [];
+    page.on('request', (request) => {
+      if (request.method() !== 'GET') writeRequests.push(`${request.method()} ${request.url()}`);
+    });
+    await openCoach(page, 'setup');
+    await fillManualSetup(page, 2450, 177.2);
+    await selectSetupChoice(page, 'Goal direction', /Gain weight/);
+    await page.getByLabel('Target weight (lbs)').fill('185');
+    await selectSetupChoice(page, 'Weekly goal rate', /Faster/);
+
+    const projection = page.getByTestId('setup-projection');
+    await expect(projection).toContainText('About 13 weeks');
+    await expect(projection).toContainText('0.62 lb/wk');
+    await expect(projection).toContainText('0.65 lb/wk');
+    await expect(projection).toContainText('Faster · Recommended');
+    expect(writeRequests, 'writes while editing recommended setup').toEqual([]);
+
+    await selectSetupChoice(page, 'Weekly goal rate', /Custom/);
+    await page.getByLabel('Custom rate (% body weight/week)').fill('0.45');
+    await expect(projection).toContainText(/outside Pulse’s recommended gain range/i);
+    await expect(page.getByRole('img', { name: /Recommended 0.10 to 0.35 percent/ })).toBeVisible();
+    expect(writeRequests, 'writes while editing outside-band setup').toEqual([]);
+
+    assertDiagnostics();
+  });
+
+  test('explains loss guardrails, maintenance, and live macro preferences', async ({ page }) => {
+    const assertDiagnostics = monitorPage(page);
+    await openCoach(page, 'setup');
+    await fillManualSetup(page, 2000, 220.46);
+    await page.getByLabel('Target weight (lbs)').fill('176.37');
+    await selectSetupChoice(page, 'Weekly goal rate', /Custom/);
+    await page.getByLabel('Custom rate (% body weight/week)').fill('1');
+    await page.getByText('Advanced calorie floor').click();
+    await page.getByLabel('Optional calorie floor (kcal/day)').fill('1200');
+
+    const projection = page.getByTestId('setup-projection');
+    await expect(projection).toContainText(/calorie floor limits this starting target/i);
+    await expect(projection).toContainText(/maximum-deficit guardrail/i);
+    await expect(projection).toContainText('1,500');
+
+    await selectSetupChoice(page, 'Goal direction', /Maintain/);
+    await expect(projection).toContainText(/Maintain around 220.5 lbs/);
+    await expect(projection).toContainText(/no artificial finish date/i);
+    await expect(projection).not.toContainText(/About \d+ weeks/);
+
+    await selectSetupChoice(page, 'Goal direction', /Gain weight/);
+    await page.getByLabel('Target weight (lbs)').fill('230');
+    await selectSetupChoice(page, 'Protein target', /High/);
+    await selectSetupChoice(page, 'Fat and carbohydrate preference', /Higher fat/);
+    await expect(projection).toContainText(/Protein220 g · 2\.20 g\/kg · 1\.00 g\/lb/);
+    await expect(projection).toContainText(/Fat\d+ g/);
+    await expect(projection).toContainText(/Carbohydrate\d+ g/);
+
+    assertDiagnostics();
+  });
+
+  test('keeps the coached setup readable and operable at every required issue width', async ({
+    page,
+  }) => {
+    const assertDiagnostics = monitorPage(page);
+    await authenticateFixture(page, 'setup');
+
+    for (const width of [320, 390, 430, 1280]) {
+      await page.setViewportSize({ width, height: width < 768 ? 812 : 900 });
+      await page.goto('/nutrition?view=coach');
+      await fillManualSetup(page, 2450, 177.2);
+      await selectSetupChoice(page, 'Goal direction', /Gain weight/);
+      await page.getByLabel('Target weight (lbs)').fill('185');
+      await selectSetupChoice(page, 'Weekly goal rate', /Faster/);
+      await expect(page.getByTestId('setup-projection')).toContainText('About 13 weeks');
+      await page.evaluate(() => document.fonts.ready);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+        `coached setup horizontal overflow at ${width}px`,
+      ).toBe(true);
+      const preview = page.getByRole('button', { name: 'Preview starting targets' });
+      expect(
+        (await preview.boundingBox())?.height ?? 0,
+        `preview height at ${width}px`,
+      ).toBeGreaterThanOrEqual(44);
+    }
 
     assertDiagnostics();
   });
