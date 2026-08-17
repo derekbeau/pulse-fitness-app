@@ -111,7 +111,13 @@ describe('TrendSparkline', () => {
     expect(screen.getByRole('img', { name: 'Weight Trend sparkline' })).toBeInTheDocument();
     expect(screen.getByTestId('responsive-container')).toHaveAttribute('data-initial-height', '48');
     expect(screen.getByTestId('responsive-container')).toHaveAttribute('data-initial-width', '320');
-    expect(container.querySelector('.recharts-line .recharts-curve')).toBeInTheDocument();
+    const rawLinePath = container.querySelector('.recharts-line .recharts-curve');
+    expect(rawLinePath).toBeInTheDocument();
+    const pathCommands = rawLinePath?.getAttribute('d')?.matchAll(/[MLC][^,]*,([\d.]+)/g);
+    const yCoordinates = Array.from(pathCommands ?? [], (match) => Number(match[1]));
+    expect(Math.max(...(yCoordinates ?? [])) - Math.min(...(yCoordinates ?? []))).toBeGreaterThan(
+      10,
+    );
     expect(container.querySelector('.recharts-cartesian-axis')).not.toBeInTheDocument();
     expect(container.querySelector('.recharts-legend-wrapper')).not.toBeInTheDocument();
   });

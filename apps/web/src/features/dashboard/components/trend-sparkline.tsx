@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
-import { Line, LineChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { Line, LineChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts';
 import { Link } from 'react-router';
 import { computeEWMA, type DashboardTrendMetric } from '@pulse/shared';
 
@@ -126,6 +126,19 @@ const getChangeDirection = (changePercent: number): ChangeDirection => {
 
 const LOOKBACK_LABEL = '7d avg';
 
+const resolveSparklineDomain = ([dataMin, dataMax]: readonly [number, number]): [
+  number,
+  number,
+] => {
+  if (dataMin === dataMax) {
+    const padding = Math.abs(dataMin) * 0.01 || 1;
+    return [dataMin - padding, dataMax + padding];
+  }
+
+  const padding = (dataMax - dataMin) * 0.1;
+  return [dataMin - padding, dataMax + padding];
+};
+
 const resolveTrendRange = (endDate?: string) => {
   const resolvedEndDate = endDate ?? toDateKey(new Date());
   const startDate = toDateKey(addDays(parseDateInput(resolvedEndDate), -(TREND_DAYS - 1)));
@@ -216,6 +229,7 @@ export function TrendSparkline({
             width="100%"
           >
             <LineChart data={plottedData} margin={{ top: 6, right: 0, bottom: 2, left: 0 }}>
+              <YAxis domain={resolveSparklineDomain} hide type="number" />
               <Tooltip
                 content={({ active, payload }) => {
                   if (!active || !payload?.[0]) return null;
