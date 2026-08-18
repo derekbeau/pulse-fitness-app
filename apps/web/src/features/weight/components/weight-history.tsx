@@ -367,8 +367,7 @@ export function WeightHistory() {
             <div className="space-y-1">
               <h2 className="text-lg font-semibold text-foreground">Trend chart</h2>
               <p className="text-sm text-muted">
-                Logged weigh-ins with the dashboard&apos;s EWMA smoothing across your selected
-                range.
+                Logged weigh-ins with EWMA smoothing across your selected range.
               </p>
             </div>
             <div

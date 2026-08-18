@@ -132,6 +132,8 @@ const getWorkoutStatusBadge = (status: DashboardWorkoutSnapshot['status']) => {
 
 export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
   const hasWeight = !!snapshot?.weight;
+  const weightLabel =
+    snapshot?.weight && snapshot.weight.trendValue === null ? 'Latest Weight' : 'Trend Weight';
   const hasCaloriesTarget = (snapshot?.macros.target.calories ?? 0) > 0;
   const hasProteinTarget = (snapshot?.macros.target.protein ?? 0) > 0;
   const hasHabits = (snapshot?.habits.total ?? 0) > 0;
@@ -262,7 +264,7 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
           )}
           density="compact"
           data-stagger="0"
-          label="Trend Weight"
+          label={weightLabel}
           value={weightValue}
           valueClassName={getSnapshotValueClassName(weightValue)}
           valueTitle={weightValue}

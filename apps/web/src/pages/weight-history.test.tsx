@@ -677,7 +677,7 @@ describe('WeightHistoryPage', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'The dashboard trend line uses an exponentially weighted moving average (EWMA).',
+        'The dashboard computes its EWMA from the trailing 30 calendar days. With fewer than two measurements in that window, it shows your latest weight instead.',
       ),
     ).toBeInTheDocument();
     expect(

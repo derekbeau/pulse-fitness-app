@@ -574,7 +574,7 @@ describe('DashboardPage', () => {
     );
 
     const bodyWeightCard = screen
-      .getAllByText('Trend Weight')[0]
+      .getAllByText('Latest Weight')[0]
       .closest('[data-slot="stat-card"]');
     expect(bodyWeightCard).toBeInTheDocument();
     expect(
@@ -744,7 +744,7 @@ describe('DashboardPage', () => {
     });
 
     const { wrapper } = createQueryClientWrapper();
-    render(
+    const { container } = render(
       <MemoryRouter>
         <DashboardPage />
       </MemoryRouter>,
@@ -765,7 +765,9 @@ describe('DashboardPage', () => {
 
     await vi.runAllTimersAsync();
     await Promise.resolve();
-    expect(screen.getAllByText('Trend Weight')[0]).toBeInTheDocument();
+    const snapshotPanel = container.querySelector('[data-slot="dashboard-snapshot-panel"]');
+    expect(snapshotPanel).toBeInTheDocument();
+    expect(within(snapshotPanel as HTMLElement).getByText('Latest Weight')).toBeInTheDocument();
   });
 
   it('updates snapshot when a new calendar day is selected via the date popover', async () => {
@@ -818,7 +820,7 @@ describe('DashboardPage', () => {
     await Promise.resolve();
 
     const initialBodyWeightCard = screen
-      .getAllByText('Trend Weight')[0]
+      .getAllByText('Latest Weight')[0]
       .closest('[data-slot="stat-card"]') as HTMLElement;
 
     expect(within(initialBodyWeightCard).getByText(formatWeight(181.4))).toBeInTheDocument();
@@ -832,7 +834,7 @@ describe('DashboardPage', () => {
 
     expect(screen.queryByLabelText('Weight (lbs)')).not.toBeInTheDocument();
     const refreshedBodyWeightCard = screen
-      .getAllByText('Trend Weight')[0]
+      .getAllByText('Latest Weight')[0]
       .closest('[data-slot="stat-card"]') as HTMLElement;
 
     expect(within(refreshedBodyWeightCard).getByText('175.5 lbs')).toBeInTheDocument();

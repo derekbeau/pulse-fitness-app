@@ -118,7 +118,7 @@ describe('dashboard store', () => {
       date: '2026-03-09',
       weight: {
         value: 178.4,
-        trendValue: 178.4,
+        trendValue: null,
         date: '2026-03-08',
         unit: 'lbs',
       },
@@ -199,6 +199,33 @@ describe('dashboard store', () => {
       completed: 2,
       percentage: 66.7,
     });
+  });
+
+  it('queries trend inputs from the inclusive 30-day window ending on the requested date', async () => {
+    testState.selectGetResults.push(
+      { valueKg: 80, date: '2026-03-11', unit: 'kg' },
+      undefined,
+      undefined,
+      undefined,
+    );
+    testState.selectAllResults.push(
+      [
+        { date: '2026-02-10', weightKg: 80 },
+        { date: '2026-03-11', weightKg: 82 },
+      ],
+      [],
+      [],
+    );
+
+    const { getDashboardSnapshot } = await import('./dashboard-store.js');
+    const snapshot = await getDashboardSnapshot('user-1', '2026-03-11');
+
+    const trendWhereClause = testState.whereCalls[1];
+    const query = new SQLiteSyncDialect().sqlToQuery(trendWhereClause as never);
+
+    expect(query.sql).toContain('"body_weight"."date" between ? and ?');
+    expect(query.params).toEqual(['user-1', '2026-02-10', '2026-03-11']);
+    expect(snapshot.weight?.trendValue).toBe(80.2);
   });
 
   it('scopes dashboard workout snapshot lookup by local workout date', async () => {

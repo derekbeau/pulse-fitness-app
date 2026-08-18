@@ -14,7 +14,8 @@ export function WeightHistoryPage() {
             </p>
             <ul className="list-disc space-y-1 pl-5">
               <li>
-                The dashboard trend line uses an exponentially weighted moving average (EWMA).
+                The dashboard computes its EWMA from the trailing 30 calendar days. With fewer than
+                two measurements in that window, it shows your latest weight instead.
               </li>
               <li>
                 Use the range selector to zoom from the last 30 days out to your full history.

@@ -9,14 +9,16 @@ import {
   SnapshotCards,
 } from './snapshot-cards';
 
+const weightFixture: NonNullable<DashboardSnapshot['weight']> = {
+  date: '2026-03-06',
+  unit: 'lbs',
+  value: 181.4,
+  trendValue: 180.9,
+};
+
 const snapshotFixture: DashboardSnapshot = {
   date: '2026-03-06',
-  weight: {
-    date: '2026-03-06',
-    unit: 'lbs',
-    value: 181.4,
-    trendValue: null,
-  },
+  weight: weightFixture,
   macros: {
     actual: {
       calories: 1900,
@@ -84,7 +86,7 @@ describe('SnapshotCards', () => {
       expect(card).toHaveAttribute('data-density', 'compact');
     });
 
-    expect(screen.getByText('181.4 lbs')).toBeInTheDocument();
+    expect(screen.getByText('180.9 lbs')).toBeInTheDocument();
     expect(screen.getByText('1900 / 2300')).toBeInTheDocument();
     expect(screen.getByText('170g / 190g')).toBeInTheDocument();
     expect(screen.getByText('3/4')).toBeInTheDocument();
@@ -142,6 +144,49 @@ describe('SnapshotCards', () => {
     expect(within(habitsCard as HTMLElement).getByLabelText('trend neutral')).toBeInTheDocument();
     expect(within(habitsCard as HTMLElement).getByText('75%')).toBeInTheDocument();
     expect(screen.getByText('Completed')).toBeInTheDocument();
+  });
+
+  it('labels the scale fallback as Latest Weight when there is not enough data for a trend', () => {
+    render(
+      <MemoryRouter>
+        <SnapshotCards
+          snapshot={{
+            ...snapshotFixture,
+            weight: {
+              ...weightFixture,
+              trendValue: null,
+            },
+          }}
+        />
+      </MemoryRouter>,
+    );
+
+    const weightCard = screen.getByText('Latest Weight').closest('[data-slot="stat-card"]');
+
+    expect(weightCard).toBeInTheDocument();
+    expect(within(weightCard as HTMLElement).getByText('181.4 lbs')).toBeInTheDocument();
+    expect(screen.queryByText('Trend Weight')).not.toBeInTheDocument();
+  });
+
+  it('shows the computed trend instead of the latest scale value when both exist', () => {
+    render(
+      <MemoryRouter>
+        <SnapshotCards
+          snapshot={{
+            ...snapshotFixture,
+            weight: {
+              ...weightFixture,
+              trendValue: 177,
+            },
+          }}
+        />
+      </MemoryRouter>,
+    );
+
+    const weightCard = screen.getByText('Trend Weight').closest('[data-slot="stat-card"]');
+
+    expect(within(weightCard as HTMLElement).getByText('177 lbs')).toBeInTheDocument();
+    expect(within(weightCard as HTMLElement).queryByText('181.4 lbs')).not.toBeInTheDocument();
   });
 
   it('renders placeholders for loading and null weight/workout states', () => {

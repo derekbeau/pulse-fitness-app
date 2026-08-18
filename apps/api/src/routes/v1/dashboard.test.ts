@@ -64,7 +64,7 @@ describe('dashboard routes', () => {
       date: '2026-03-09',
       weight: {
         value: 178.4,
-        trendValue: 178.4,
+        trendValue: null,
         date: '2026-03-08',
         unit: 'lbs',
       },
@@ -117,7 +117,7 @@ describe('dashboard routes', () => {
           date: '2026-03-09',
           weight: {
             value: 178.4,
-            trendValue: 178.4,
+            trendValue: null,
             date: '2026-03-08',
             unit: 'lbs',
           },

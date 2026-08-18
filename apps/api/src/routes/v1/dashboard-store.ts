@@ -29,7 +29,10 @@ import {
   workoutSessions,
   workoutTemplates,
 } from '../../db/schema/index.js';
-import { getDatesInRange } from './dashboard-utils.js';
+import { addUtcDays, getDatesInRange } from './dashboard-utils.js';
+
+const DASHBOARD_TREND_WINDOW_DAYS = 30;
+const MIN_DASHBOARD_TREND_ENTRIES = 2;
 
 const weightSelection = {
   valueKg: bodyWeight.weightKg,
@@ -406,18 +409,20 @@ export const getDashboardSnapshot = async (
       .limit(1)
       .get() ?? null;
 
-  // Compute EWMA trend weight from recent entries (up to 60 days)
+  // Bound trend inputs by elapsed calendar time, not by entry count. With fewer
+  // than two measurements in the window, the response leaves trendValue null so
+  // the dashboard can fall back to the latest scale weight.
   let trendWeight: number | null = null;
   if (weight) {
+    const trendWindowStart = addUtcDays(date, -(DASHBOARD_TREND_WINDOW_DAYS - 1));
     const recentWeights = db
       .select({ date: bodyWeight.date, weightKg: bodyWeight.weightKg })
       .from(bodyWeight)
-      .where(and(eq(bodyWeight.userId, userId), lte(bodyWeight.date, date)))
+      .where(and(eq(bodyWeight.userId, userId), between(bodyWeight.date, trendWindowStart, date)))
       .orderBy(asc(bodyWeight.date))
-      .all()
-      .slice(-60);
+      .all();
 
-    if (recentWeights.length > 0) {
+    if (recentWeights.length >= MIN_DASHBOARD_TREND_ENTRIES) {
       const ewmaResults = computeEWMA(
         recentWeights.map((w) => ({ date: w.date, weight: Number(w.weightKg) })),
       );
