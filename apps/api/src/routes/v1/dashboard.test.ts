@@ -85,6 +85,7 @@ describe('dashboard routes', () => {
       workout: {
         name: 'Upper Push A',
         status: 'completed',
+        scheduledWorkoutId: 'scheduled-upper-push-a',
         templateId: 'template-upper-push-a',
         sessionId: 'session-upper-push-a',
         duration: 64,
@@ -137,6 +138,7 @@ describe('dashboard routes', () => {
           workout: {
             name: 'Upper Push A',
             status: 'completed',
+            scheduledWorkoutId: 'scheduled-upper-push-a',
             templateId: 'template-upper-push-a',
             sessionId: 'session-upper-push-a',
             duration: 64,

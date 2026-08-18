@@ -139,6 +139,7 @@ describe('dashboard store', () => {
       workout: {
         name: 'Upper Push A',
         status: 'completed',
+        scheduledWorkoutId: 'scheduled-upper-push-a',
         templateId: 'template-upper-push-a',
         sessionId: 'session-upper-push-a',
         duration: 64,
@@ -268,9 +269,47 @@ describe('dashboard store', () => {
     expect(snapshot.workout).toEqual({
       name: 'In Progress Session',
       status: 'in_progress',
+      scheduledWorkoutId: null,
       templateId: 'template-in-progress',
       sessionId: 'session-in-progress',
       duration: 22,
+    });
+  });
+
+  it('returns the schedule identity when an unlinked scheduled workout wins selection', async () => {
+    testState.selectGetResults.push(undefined, undefined, undefined, {
+      total: 0,
+      completed: 0,
+    });
+    testState.selectAllResults.push(
+      [
+        {
+          scheduledWorkoutId: 'scheduled-unlinked',
+          scheduledTemplateId: null,
+          linkedSessionId: null,
+          scheduledTemplateName: null,
+          scheduledCreatedAt: 20,
+          linkedSessionName: null,
+          linkedSessionStatus: null,
+          linkedSessionDuration: null,
+          linkedSessionTemplateId: null,
+          linkedSessionStartedAt: null,
+          linkedSessionCompletedAt: null,
+        },
+      ],
+      [],
+    );
+
+    const { getDashboardSnapshot } = await import('./dashboard-store.js');
+    const snapshot = await getDashboardSnapshot('user-1', '2026-03-11');
+
+    expect(snapshot.workout).toEqual({
+      name: 'Workout unavailable',
+      status: 'scheduled',
+      scheduledWorkoutId: 'scheduled-unlinked',
+      templateId: null,
+      sessionId: null,
+      duration: null,
     });
   });
 
@@ -304,6 +343,7 @@ describe('dashboard store', () => {
     expect(snapshot.workout).toEqual({
       name: 'Scheduled Session',
       status: 'scheduled',
+      scheduledWorkoutId: 'scheduled-1',
       templateId: 'template-scheduled',
       sessionId: null,
       duration: null,

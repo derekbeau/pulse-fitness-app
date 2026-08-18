@@ -13,6 +13,7 @@ import {
   dashboardSnapshotSchema,
   dashboardTrendQuerySchema,
   dashboardWeightTrendSchema,
+  dashboardWorkoutSnapshotSchema,
 } from './dashboard';
 
 describe('dashboardSnapshotQuerySchema', () => {
@@ -96,6 +97,7 @@ describe('dashboardSnapshotSchema', () => {
       workout: {
         name: 'Upper Push A',
         status: 'completed',
+        scheduledWorkoutId: 'scheduled-upper-push-a',
         templateId: 'template-upper-push-a',
         sessionId: 'session-upper-push-a',
         duration: 64,
@@ -170,38 +172,39 @@ describe('dashboardSnapshotSchema', () => {
   });
 
   it('accepts scheduled and in_progress workout states', () => {
-    expect(
-      dashboardSnapshotSchema.parse({
-        date: '2026-03-09',
-        weight: null,
-        macros: {
-          actual: {
-            calories: 0,
-            protein: 0,
-            carbs: 0,
-            fat: 0,
-          },
-          target: {
-            calories: 0,
-            protein: 0,
-            carbs: 0,
-            fat: 0,
-          },
+    const scheduledSnapshot = dashboardSnapshotSchema.parse({
+      date: '2026-03-09',
+      weight: null,
+      macros: {
+        actual: {
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
         },
-        workout: {
-          name: 'Lower Strength',
-          status: 'scheduled',
-          templateId: 'template-lower-strength',
-          sessionId: null,
-          duration: null,
+        target: {
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
         },
-        habits: {
-          total: 0,
-          completed: 0,
-          percentage: 0,
-        },
-      }),
-    ).toBeTruthy();
+      },
+      workout: {
+        name: 'Lower Strength',
+        status: 'scheduled',
+        scheduledWorkoutId: 'scheduled-lower-strength',
+        templateId: 'template-lower-strength',
+        sessionId: null,
+        duration: null,
+      },
+      habits: {
+        total: 0,
+        completed: 0,
+        percentage: 0,
+      },
+    });
+
+    expect(scheduledSnapshot.workout?.scheduledWorkoutId).toBe('scheduled-lower-strength');
 
     expect(
       dashboardSnapshotSchema.parse({
@@ -224,6 +227,7 @@ describe('dashboardSnapshotSchema', () => {
         workout: {
           name: 'Upper Push A',
           status: 'in_progress',
+          scheduledWorkoutId: null,
           templateId: 'template-upper-push',
           sessionId: 'session-upper-push',
           duration: 25,
@@ -235,6 +239,22 @@ describe('dashboardSnapshotSchema', () => {
         },
       }),
     ).toBeTruthy();
+  });
+
+  it('requires an explicit nullable scheduled workout identity', () => {
+    const workout = {
+      name: 'Lower Strength',
+      status: 'scheduled',
+      templateId: 'template-lower-strength',
+      sessionId: null,
+      duration: null,
+    };
+
+    expect(() => dashboardWorkoutSnapshotSchema.parse(workout)).toThrow();
+    expect(dashboardWorkoutSnapshotSchema.parse({ ...workout, scheduledWorkoutId: null })).toEqual({
+      ...workout,
+      scheduledWorkoutId: null,
+    });
   });
 });
 

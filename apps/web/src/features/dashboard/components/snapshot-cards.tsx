@@ -71,7 +71,13 @@ const getWorkoutHref = (workout: DashboardWorkoutSnapshot | null | undefined): s
   }
 
   if (workout.status === 'scheduled') {
-    return workout.templateId ? `/workouts/templates/${workout.templateId}` : null;
+    if (workout.scheduledWorkoutId) {
+      return `/workouts/scheduled/${encodeURIComponent(workout.scheduledWorkoutId)}`;
+    }
+
+    return workout.templateId
+      ? `/workouts/templates/${encodeURIComponent(workout.templateId)}`
+      : null;
   }
 
   if (!workout.sessionId) {
@@ -83,6 +89,19 @@ const getWorkoutHref = (workout: DashboardWorkoutSnapshot | null | undefined): s
   }
 
   return `/workouts/sessions/${workout.sessionId}`;
+};
+
+const getWorkoutLinkLabel = (workout: DashboardWorkoutSnapshot): string => {
+  switch (workout.status) {
+    case 'scheduled':
+      return workout.scheduledWorkoutId
+        ? `Open today's scheduled workout: ${workout.name}`
+        : `Open template for today's scheduled workout: ${workout.name}`;
+    case 'in_progress':
+      return `Resume today's workout: ${workout.name}`;
+    case 'completed':
+      return `View today's completed workout: ${workout.name}`;
+  }
 };
 
 const getWorkoutStatusBadge = (status: DashboardWorkoutSnapshot['status']) => {
@@ -190,6 +209,7 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
       ? 'Rest Day'
       : '--';
   const workoutHref = getWorkoutHref(snapshot?.workout);
+  const workoutLinkLabel = snapshot?.workout ? getWorkoutLinkLabel(snapshot.workout) : undefined;
   const workoutStatusBadge = snapshot?.workout
     ? getWorkoutStatusBadge(snapshot.workout.status)
     : null;
@@ -335,7 +355,7 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
 
       {workoutHref ? (
         <Link
-          aria-label={`Open today's workout: ${snapshot?.workout?.name ?? 'workout'}`}
+          aria-label={workoutLinkLabel}
           className="group/drilldown relative col-span-2 block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           to={workoutHref}
         >

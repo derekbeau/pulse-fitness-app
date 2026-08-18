@@ -63,6 +63,7 @@ export const dashboardMacroSnapshotSchema = z.object({
 export const dashboardWorkoutSnapshotSchema = z.object({
   name: z.string(),
   status: z.enum(['scheduled', 'in_progress', 'completed']),
+  scheduledWorkoutId: z.string().nullable(),
   templateId: z.string().nullable(),
   sessionId: z.string().nullable(),
   duration: z.number().int().nonnegative().nullable(),

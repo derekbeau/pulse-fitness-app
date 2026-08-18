@@ -71,6 +71,48 @@ async function fetchScheduledWorkouts(apiContext: APIRequestContext, from: strin
   return payload.data;
 }
 
+async function fetchWorkoutSessions(apiContext: APIRequestContext, from: string, to: string) {
+  const response = await apiContext.get(`/api/v1/workout-sessions?from=${from}&to=${to}`);
+  expect(response.ok()).toBeTruthy();
+  const payload = (await response.json()) as {
+    data: Array<{
+      id: string;
+      templateId: string | null;
+    }>;
+  };
+
+  return payload.data;
+}
+
+async function fetchScheduledWorkout(apiContext: APIRequestContext, id: string) {
+  const response = await apiContext.get(`/api/v1/scheduled-workouts/${id}`);
+  expect(response.ok()).toBeTruthy();
+  const payload = (await response.json()) as {
+    data: {
+      id: string;
+      sessionId: string | null;
+    };
+  };
+
+  return payload.data;
+}
+
+async function fetchDashboardWorkout(apiContext: APIRequestContext, date: string) {
+  const response = await apiContext.get(`/api/v1/dashboard/snapshot?date=${date}`);
+  expect(response.ok()).toBeTruthy();
+  const payload = (await response.json()) as {
+    data: {
+      workout: {
+        scheduledWorkoutId: string | null;
+        sessionId: string | null;
+        status: 'completed' | 'in_progress' | 'scheduled';
+      } | null;
+    };
+  };
+
+  return payload.data.workout;
+}
+
 async function pickDayInDialog(page: Page, dateKey: string) {
   await page.locator(`[role="dialog"] [data-day="${dateKey}"]`).first().click();
 }
@@ -257,7 +299,9 @@ test.describe.serial('workout scheduling flow', () => {
     }
   });
 
-  test('starts a scheduled workout and removes it from the schedule list', async ({ page }) => {
+  test("starts today's scheduled workout from the dashboard without creating a duplicate", async ({
+    page,
+  }) => {
     test.setTimeout(90_000);
 
     const today = toDateKey(new Date());
@@ -268,22 +312,110 @@ test.describe.serial('workout scheduling flow', () => {
 
     await openTemplatesAndSchedule(page, today);
 
-    await page.getByRole('button', { exact: true, name: 'List' }).click();
-    const startCard = getScheduledCard(page);
-    await expect(startCard).toBeVisible();
-    await startCard.getByRole('button', { name: 'Start' }).click();
-    await expect(page).toHaveURL(/\/workouts\/active\?/);
-
-    const sessionId = new URL(page.url()).searchParams.get('sessionId');
-    expect(sessionId).toBeTruthy();
-
     const apiContext = await createAuthorizedApiContext();
     try {
+      await expect
+        .poll(
+          async () => {
+            const scheduledRows = await fetchScheduledWorkouts(apiContext, range.from, range.to);
+            return scheduledRows.some(
+              (row) => row.templateId === seededTemplateId && row.date === today,
+            );
+          },
+          { timeout: 15_000 },
+        )
+        .toBeTruthy();
+
+      const scheduledRows = await fetchScheduledWorkouts(apiContext, range.from, range.to);
+      const scheduledWorkout = scheduledRows.find(
+        (row) => row.templateId === seededTemplateId && row.date === today,
+      );
+      expect(scheduledWorkout).toBeDefined();
+      if (!scheduledWorkout) {
+        throw new Error('The scheduled workout was not returned after creation.');
+      }
+      const scheduledWorkoutId = scheduledWorkout.id;
+      const sessionsBeforeStart = await fetchWorkoutSessions(apiContext, today, today);
+      const sessionIdsBeforeStart = new Set(sessionsBeforeStart.map((session) => session.id));
+
+      const dashboardWorkout = await fetchDashboardWorkout(apiContext, today);
+      expect(dashboardWorkout).toEqual(
+        expect.objectContaining({
+          scheduledWorkoutId,
+          sessionId: null,
+          status: 'scheduled',
+        }),
+      );
+
+      await page.goto('/');
+      const dashboardWorkoutLink = page.getByRole('link', {
+        name: `Open today's scheduled workout: ${seededTemplate.name}`,
+      });
+      await expect(dashboardWorkoutLink).toHaveAttribute(
+        'href',
+        `/workouts/scheduled/${scheduledWorkoutId}`,
+      );
+      await dashboardWorkoutLink.click();
+      await expect(page).toHaveURL(`/workouts/scheduled/${scheduledWorkoutId}`);
+      await expect(page.getByRole('heading', { name: seededTemplate.name })).toBeVisible();
+      await expect(page.getByText('This day already has a workout')).toHaveCount(0);
+      await expect(page.getByText('Create another anyway')).toHaveCount(0);
+
+      const startRequestBodies: unknown[] = [];
+      page.on('request', (request) => {
+        const requestUrl = new URL(request.url());
+        if (request.method() === 'POST' && requestUrl.pathname === '/api/v1/workout-sessions') {
+          startRequestBodies.push(request.postDataJSON());
+        }
+      });
+
+      await page.getByRole('button', { name: 'Start workout' }).click();
+      await expect(page).toHaveURL(/\/workouts\/active\?/);
+      await expect(page.getByText('This day already has a workout')).toHaveCount(0);
+      await expect(page.getByText('Create another anyway')).toHaveCount(0);
+
+      const sessionId = new URL(page.url()).searchParams.get('sessionId');
+      expect(sessionId).toBeTruthy();
+      expect(startRequestBodies).toHaveLength(1);
+      expect(startRequestBodies[0]).toEqual(
+        expect.objectContaining({
+          scheduledWorkoutId,
+        }),
+      );
+      expect(startRequestBodies[0]).not.toEqual(
+        expect.objectContaining({
+          templateId: seededTemplateId,
+        }),
+      );
+
+      const consumedSchedule = await fetchScheduledWorkout(apiContext, scheduledWorkoutId);
+      expect(consumedSchedule.sessionId).toBe(sessionId);
+
+      const sessionsAfterStart = await fetchWorkoutSessions(apiContext, today, today);
+      const newSessions = sessionsAfterStart.filter(
+        (session) => !sessionIdsBeforeStart.has(session.id),
+      );
+      expect(newSessions).toEqual([
+        expect.objectContaining({
+          id: sessionId,
+          templateId: seededTemplateId,
+        }),
+      ]);
+
       const postStartRows = await fetchScheduledWorkouts(apiContext, range.from, range.to);
       const linkedRow = postStartRows.find(
         (row) => row.templateId === seededTemplateId && row.date === today,
       );
       expect(linkedRow).toBeUndefined();
+
+      await page.goto('/');
+      const inProgressLink = page.getByRole('link', {
+        name: `Resume today's workout: ${seededTemplate.name}`,
+      });
+      await expect(inProgressLink).toHaveAttribute(
+        'href',
+        `/workouts/active?sessionId=${sessionId}`,
+      );
     } finally {
       await apiContext.dispose();
     }

@@ -157,6 +157,7 @@ const toWorkoutSnapshot = (
     | {
         name: string;
         status: DashboardWorkoutSnapshot['status'];
+        scheduledWorkoutId: string | null;
         templateId: string | null;
         sessionId: string | null;
         duration: number | null;
@@ -171,6 +172,7 @@ const toWorkoutSnapshot = (
   return {
     name: value.name,
     status: value.status,
+    scheduledWorkoutId: value.scheduledWorkoutId,
     templateId: value.templateId,
     sessionId: value.sessionId,
     duration: value.duration === null ? null : Number(value.duration),
@@ -214,6 +216,7 @@ const toMacroTrendPoint = (
 type DashboardWorkoutCandidate = {
   name: string;
   status: DashboardWorkoutSnapshot['status'];
+  scheduledWorkoutId: string | null;
   templateId: string | null;
   sessionId: string | null;
   duration: number | null;
@@ -285,6 +288,7 @@ const selectTodayWorkoutCandidate = (
             scheduledWorkout.scheduledTemplateName ??
             'Workout unavailable',
           status: workoutStatusToDashboardState(linkedStatus),
+          scheduledWorkoutId: scheduledWorkout.scheduledWorkoutId,
           templateId:
             scheduledWorkout.linkedSessionTemplateId ??
             scheduledWorkout.scheduledTemplateId ??
@@ -302,6 +306,7 @@ const selectTodayWorkoutCandidate = (
         candidates.push({
           name: scheduledWorkout.scheduledTemplateName ?? 'Workout unavailable',
           status: 'scheduled',
+          scheduledWorkoutId: scheduledWorkout.scheduledWorkoutId,
           templateId: scheduledWorkout.scheduledTemplateId,
           sessionId: null,
           duration: null,
@@ -315,6 +320,7 @@ const selectTodayWorkoutCandidate = (
     candidates.push({
       name: scheduledWorkout.scheduledTemplateName ?? 'Workout unavailable',
       status: 'scheduled',
+      scheduledWorkoutId: scheduledWorkout.scheduledWorkoutId,
       templateId: scheduledWorkout.scheduledTemplateId,
       sessionId: null,
       duration: null,
@@ -330,6 +336,7 @@ const selectTodayWorkoutCandidate = (
     candidates.push({
       name: session.sessionName,
       status: workoutStatusToDashboardState(session.sessionStatus),
+      scheduledWorkoutId: null,
       templateId: session.sessionTemplateId,
       sessionId: session.sessionId,
       duration: session.sessionDuration,

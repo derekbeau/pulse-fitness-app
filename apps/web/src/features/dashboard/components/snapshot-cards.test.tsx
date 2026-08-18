@@ -34,6 +34,7 @@ const snapshotFixture: DashboardSnapshot = {
   workout: {
     name: 'Upper Push A',
     status: 'completed',
+    scheduledWorkoutId: 'scheduled-upper-push-a',
     templateId: 'template-upper-push-a',
     sessionId: 'session-upper-push-a',
     duration: 62,
@@ -104,7 +105,7 @@ describe('SnapshotCards', () => {
       'href',
       '/habits',
     );
-    expect(screen.getByRole('link', { name: /open today's workout/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /view today's completed workout/i })).toHaveAttribute(
       'href',
       '/workouts/sessions/session-upper-push-a',
     );
@@ -205,14 +206,14 @@ describe('SnapshotCards', () => {
     expect(within(habitsCard).getByText('No habits')).toBeInTheDocument();
     expect(within(habitsCard).queryByLabelText(/trend/i)).not.toBeInTheDocument();
     expect(within(workoutCard).getByText('Rest Day')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /open today's workout/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /today's.*workout/i })).not.toBeInTheDocument();
     expect(weightCard).toHaveClass('border-dashed');
     expect(caloriesCard).toHaveClass('border-dashed');
     expect(proteinCard).toHaveClass('border-dashed');
     expect(habitsCard).toHaveClass('border-dashed');
   });
 
-  it('links scheduled workouts to template preview', () => {
+  it('links scheduled workouts to their scheduled-workout detail', () => {
     render(
       <MemoryRouter>
         <SnapshotCards
@@ -221,7 +222,8 @@ describe('SnapshotCards', () => {
             workout: {
               name: 'Lower Strength',
               status: 'scheduled',
-              templateId: 'template-lower-strength',
+              scheduledWorkoutId: 'scheduled-lower-strength',
+              templateId: null,
               sessionId: null,
               duration: null,
             },
@@ -230,11 +232,60 @@ describe('SnapshotCards', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: /open today's workout/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /open today's scheduled workout/i })).toHaveAttribute(
       'href',
-      '/workouts/templates/template-lower-strength',
+      '/workouts/scheduled/scheduled-lower-strength',
     );
     expect(screen.getByText('Scheduled')).toBeInTheDocument();
+  });
+
+  it('falls back to template preview when a scheduled snapshot has no schedule identity', () => {
+    render(
+      <MemoryRouter>
+        <SnapshotCards
+          snapshot={{
+            ...snapshotFixture,
+            workout: {
+              name: 'Legacy Lower Strength',
+              status: 'scheduled',
+              scheduledWorkoutId: null,
+              templateId: 'template-legacy-lower',
+              sessionId: null,
+              duration: null,
+            },
+          }}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole('link', { name: /open template for today's scheduled workout/i }),
+    ).toHaveAttribute('href', '/workouts/templates/template-legacy-lower');
+  });
+
+  it('renders a scheduled workout without either identity as a non-link card', () => {
+    render(
+      <MemoryRouter>
+        <SnapshotCards
+          snapshot={{
+            ...snapshotFixture,
+            workout: {
+              name: 'Unavailable Schedule',
+              status: 'scheduled',
+              scheduledWorkoutId: null,
+              templateId: null,
+              sessionId: null,
+              duration: null,
+            },
+          }}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Unavailable Schedule (Scheduled)')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /today's scheduled workout/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('links in-progress workouts to active session', () => {
@@ -246,6 +297,7 @@ describe('SnapshotCards', () => {
             workout: {
               name: 'Upper Pull',
               status: 'in_progress',
+              scheduledWorkoutId: 'scheduled-upper-pull',
               templateId: 'template-upper-pull',
               sessionId: 'session-upper-pull',
               duration: 24,
@@ -255,7 +307,7 @@ describe('SnapshotCards', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: /open today's workout/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /resume today's workout/i })).toHaveAttribute(
       'href',
       '/workouts/active?sessionId=session-upper-pull',
     );
