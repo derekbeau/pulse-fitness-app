@@ -15,6 +15,8 @@ import {
   adaptiveGoalSchema,
   adaptiveGoalStartInputSchema,
   adaptiveNutritionStateSchema,
+  energyBalanceAnalyticsQuerySchema,
+  energyBalanceAnalyticsSchema,
   adaptivePreviewInputSchema,
   adaptiveProgramMutationSchema,
   adaptiveProgramSchema,
@@ -35,6 +37,11 @@ import {
 } from '../../openapi.js';
 
 import { AdaptiveGoalNotFoundError, getAdaptiveGoal, listAdaptiveGoals } from './goal-store.js';
+import {
+  AdaptiveAnalyticsFutureEndError,
+  AdaptiveAnalyticsPreProgramEndError,
+  getAdaptiveEnergyBalanceAnalytics,
+} from './analytics-store.js';
 
 import {
   acceptAdaptiveNutritionCheckIn,
@@ -70,6 +77,12 @@ import {
 const conflictResponseSchema = apiErrorResponseSchema;
 
 const sendAdaptiveError = (reply: FastifyReply, error: unknown) => {
+  if (error instanceof AdaptiveAnalyticsFutureEndError) {
+    return sendError(reply, 400, 'ADAPTIVE_ANALYTICS_FUTURE_END', error.message);
+  }
+  if (error instanceof AdaptiveAnalyticsPreProgramEndError) {
+    return sendError(reply, 400, 'ADAPTIVE_ANALYTICS_PRE_PROGRAM_END', error.message);
+  }
   if (error instanceof AdaptiveGoalNotFoundError) {
     return sendError(reply, 404, 'ADAPTIVE_GOAL_NOT_FOUND', error.message);
   }
@@ -131,6 +144,35 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
+
+  typedApp.get(
+    '/analytics',
+    {
+      schema: {
+        querystring: energyBalanceAnalyticsQuerySchema,
+        response: {
+          200: apiDataResponseSchema(energyBalanceAnalyticsSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Explain energy balance and adaptive expenditure history',
+        description:
+          'Returns a read-only, program-time-zone projection over immutable check-ins and effective-dated nutrition evidence. Partial, unknown, missing, and current incomplete-day data are visible but never modeled as zero.',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.send({
+          data: await getAdaptiveEnergyBalanceAnalytics(request.userId, request.query),
+        });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
+  );
 
   typedApp.get(
     '/goals/current',

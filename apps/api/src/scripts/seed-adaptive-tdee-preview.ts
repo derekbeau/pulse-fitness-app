@@ -40,7 +40,9 @@ export type AdaptivePreviewFixtureName =
   | 'goal-edited'
   | 'goal-history'
   | 'goal-change-pending'
-  | 'completion-required';
+  | 'completion-required'
+  | 'analytics-pending'
+  | 'analytics-goal-loss';
 
 export type AdaptivePreviewFixtureRecord = {
   fixture: AdaptivePreviewFixtureName;
@@ -152,6 +154,22 @@ const FIXTURES: Array<
     name: 'Adaptive Preview · Completion Required',
     expectedState: 'updating',
     note: 'A reached loss target has been accepted and still requires the explicit maintenance transition.',
+  },
+  {
+    fixture: 'analytics-pending',
+    usernameSuffix: 'eb-pending',
+    idSuffix: '0014',
+    name: 'Adaptive Preview · Energy Balance Pending',
+    expectedState: 'pending_recommendation',
+    note: 'A dedicated pending recommendation keeps Energy Balance browser tests isolated.',
+  },
+  {
+    fixture: 'analytics-goal-loss',
+    usernameSuffix: 'eb-loss',
+    idSuffix: '0015',
+    name: 'Adaptive Preview · Energy Balance Loss Goal',
+    expectedState: 'updating',
+    note: 'A dedicated loss goal keeps Energy Balance browser tests isolated.',
   },
 ];
 
@@ -417,6 +435,24 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
     programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
   );
   seedEligibleHistory(db, goalLoss.userId, anchorDate, clock);
+  clock += 1000;
+
+  const analyticsPending = createAndAcceptBaseline('analytics-pending');
+  seedEligibleHistory(db, analyticsPending.userId, anchorDate, clock);
+  const analyticsDeclined = store.previewCheckIn(analyticsPending.userId, {
+    kind: 'manual',
+    includeToday: false,
+  });
+  store.declineCheckIn(analyticsPending.userId, analyticsDeclined.id);
+  clock += 1000;
+  store.previewCheckIn(analyticsPending.userId, { kind: 'manual', includeToday: false });
+  clock += 1000;
+
+  const analyticsGoalLoss = createHistoricalBaseline(
+    'analytics-goal-loss',
+    programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+  );
+  seedEligibleHistory(db, analyticsGoalLoss.userId, anchorDate, clock);
   clock += 1000;
 
   const maintenance = createHistoricalBaseline('goal-maintenance');

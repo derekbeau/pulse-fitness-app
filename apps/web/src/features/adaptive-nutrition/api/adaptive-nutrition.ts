@@ -1,4 +1,10 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import {
   adaptiveAcceptResultSchema,
   adaptiveCheckInDetailSchema,
@@ -7,6 +13,7 @@ import {
   adaptiveGoalDetailSchema,
   adaptiveGoalHistorySummarySchema,
   adaptiveNutritionStateSchema,
+  energyBalanceAnalyticsSchema,
   adaptiveProgramSchema,
   apiMetaSchema,
   type AdaptiveAcceptInput,
@@ -15,6 +22,7 @@ import {
   type AdaptiveGoalStartInput,
   type AdaptivePreviewInput,
   type AdaptiveProgramMutation,
+  type EnergyBalanceAnalyticsQuery,
 } from '@pulse/shared';
 import { toast } from 'sonner';
 
@@ -27,6 +35,14 @@ const fetchAdaptiveNutritionState = (signal?: AbortSignal) =>
   apiRequest<unknown>('/api/v1/adaptive-nutrition', { signal }).then((value) =>
     adaptiveNutritionStateSchema.parse(value),
   );
+
+const fetchAdaptiveEnergyBalance = (query: EnergyBalanceAnalyticsQuery, signal?: AbortSignal) => {
+  const params = new URLSearchParams({ aggregation: query.aggregation, range: query.range });
+  if (query.end) params.set('end', query.end);
+  return apiRequest<unknown>(`/api/v1/adaptive-nutrition/analytics?${params.toString()}`, {
+    signal,
+  }).then((value) => energyBalanceAnalyticsSchema.parse(value));
+};
 
 const putAdaptiveNutritionProgram = (input: AdaptiveProgramMutation) =>
   apiRequest<unknown>('/api/v1/adaptive-nutrition/program', {
@@ -112,6 +128,13 @@ export const useAdaptiveNutritionState = () =>
   useQuery({
     queryKey: adaptiveNutritionQueryKeys.state(),
     queryFn: ({ signal }) => fetchAdaptiveNutritionState(signal),
+  });
+
+export const useAdaptiveEnergyBalance = (query: EnergyBalanceAnalyticsQuery) =>
+  useQuery({
+    queryKey: adaptiveNutritionQueryKeys.analytics(query.range, query.end, query.aggregation),
+    queryFn: ({ signal }) => fetchAdaptiveEnergyBalance(query, signal),
+    placeholderData: keepPreviousData,
   });
 
 export const useAdaptiveNutritionHistory = (page = 1, limit = 20) =>

@@ -3,6 +3,7 @@ import { Activity, CalendarClock, Scale, Utensils } from 'lucide-react';
 import { useId } from 'react';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProgressBar } from '@/components/ui/progress-bar';
 
@@ -122,6 +123,10 @@ export function AlgorithmStatusCard({ state }: AlgorithmStatusCardProps) {
               </ul>
             </section>
           ) : null}
+
+          <Button asChild className="w-full sm:w-auto" variant="outline">
+            <a href="/nutrition/energy-balance">Explore energy balance</a>
+          </Button>
         </CardContent>
       ) : null}
     </Card>

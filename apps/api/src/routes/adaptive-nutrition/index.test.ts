@@ -10,6 +10,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildServer } from '../../index.js';
 import { findAgentTokenByHash, updateAgentTokenLastUsedAt } from '../../middleware/store.js';
 import { getAdaptiveGoal, listAdaptiveGoals } from './goal-store.js';
+import {
+  AdaptiveAnalyticsFutureEndError,
+  AdaptiveAnalyticsPreProgramEndError,
+  getAdaptiveEnergyBalanceAnalytics,
+} from './analytics-store.js';
 
 import {
   acceptAdaptiveNutritionCheckIn,
@@ -54,6 +59,14 @@ vi.mock('./goal-store.js', async (importOriginal) => {
     ...actual,
     getAdaptiveGoal: vi.fn(),
     listAdaptiveGoals: vi.fn(),
+  };
+});
+
+vi.mock('./analytics-store.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./analytics-store.js')>();
+  return {
+    ...actual,
+    getAdaptiveEnergyBalanceAnalytics: vi.fn(),
   };
 });
 
@@ -146,6 +159,84 @@ const boundaries = {
 };
 
 const fingerprint = 'a'.repeat(64);
+const energyBalanceAnalytics = {
+  algorithmVersion: 'adaptive-tdee-v1' as const,
+  timeZone: 'America/Detroit',
+  range: {
+    preset: '1m' as const,
+    startDate: '2026-05-03',
+    endDate: '2026-06-01',
+    aggregation: 'daily' as const,
+    calendarDays: 30,
+  },
+  isHistorical: false,
+  current: {
+    state: 'learning' as const,
+    calculationState: 'baseline' as const,
+    adaptiveTdeeKcal: 2500,
+    calorieTargetKcal: 2400,
+    goalType: 'maintain' as const,
+    confidenceLabel: null,
+    confidenceScore: null,
+    readiness: {
+      eligible: false,
+      completeNutritionDaysLogged: 0,
+      completeNutritionDaysUsable: 0,
+      completeNutritionDaysBeforeWeightTrend: 0,
+      completeNutritionDaysAwaitingWeightTrend: 0,
+      completeNutritionDaysPendingCutoff: 0,
+      requiredCompleteNutritionDays: 12,
+      weighInsLogged: 1,
+      weighInsUsable: 0,
+      weighInsPendingCutoff: 1,
+      requiredWeighIns: 3,
+      weightSpanDays: 0,
+      requiredWeightSpanDays: 14,
+      latestUsableWeightAgeDays: null,
+      analysisEndDate: '2026-05-31',
+      pendingCutoffDate: '2026-06-01',
+      timeZone: 'America/Detroit',
+      noteCodes: ['WEIGH_INS_PENDING_COMPLETED_DAY_CUTOFF' as const],
+      reasonCodes: ['INSUFFICIENT_WEIGHT' as const, 'INSUFFICIENT_NUTRITION' as const],
+    },
+    reasonCodes: ['INSUFFICIENT_WEIGHT' as const, 'INSUFFICIENT_NUTRITION' as const],
+    expenditureSourceCheckInId: 'check-in-1',
+    expenditureSourceInputFingerprint: fingerprint,
+    stateSourceCheckInId: 'check-in-1',
+    stateSourceInputFingerprint: fingerprint,
+  },
+  summary: {
+    averageIntakeKcal: null,
+    averageExpenditureKcal: null,
+    averageTargetKcal: null,
+    averageIntakeMinusTargetKcal: null,
+    intakeTargetComparableDays: 0,
+    averageIntakeMinusExpenditureKcal: null,
+    intakeExpenditureComparableDays: 0,
+    completeNutritionDays: 0,
+    excludedNutritionDays: 30,
+    coverageRatio: 0,
+    predictedWeightChangeKg: null,
+    predictedModeledDays: 0,
+    observedTrendWeightChangeKg: null,
+    observedTrendStartDate: null,
+    observedTrendEndDate: null,
+    reconciliationComparable: false,
+    reasonCodes: [
+      'NO_COMPLETE_NUTRITION' as const,
+      'NO_TARGET_DATA' as const,
+      'NO_EXPENDITURE_DATA' as const,
+      'INSUFFICIENT_TREND_DATA' as const,
+    ],
+  },
+  points: [],
+  markers: [],
+  explanation: {
+    headline: 'Complete nutrition days will unlock your energy balance',
+    detail: 'Incomplete days are visible but excluded.',
+    reasonCodes: ['LEARNING_ESTIMATE' as const, 'NO_COMPLETE_NUTRITION' as const],
+  },
+};
 const goal = {
   rawGoalCalories: 2500,
   goalCalories: 2500,
@@ -271,6 +362,7 @@ describe('adaptive nutrition routes', () => {
       pendingGoalChange: null,
       goalActionRequired: null,
     });
+    vi.mocked(getAdaptiveEnergyBalanceAnalytics).mockResolvedValue(energyBalanceAnalytics);
     vi.mocked(previewAdaptiveNutritionCheckIn).mockResolvedValue(checkIn);
     vi.mocked(putAdaptiveNutritionProgram).mockResolvedValue(program);
     vi.mocked(listAdaptiveNutritionCheckIns).mockResolvedValue({
@@ -356,6 +448,10 @@ describe('adaptive nutrition routes', () => {
   it('allows JWT and AgentToken reads and previews with response-schema validation', async () => {
     const app = buildServer();
     vi.mocked(findAgentTokenByHash).mockResolvedValue({ id: 'agent-1', userId: 'agent-user' });
+    vi.mocked(getAdaptiveEnergyBalanceAnalytics).mockResolvedValue({
+      ...energyBalanceAnalytics,
+      isHistorical: true,
+    });
     try {
       await app.ready();
       const jwt = app.jwt.sign(
@@ -364,6 +460,8 @@ describe('adaptive nutrition routes', () => {
       );
       const [
         stateResponse,
+        analyticsJwtResponse,
+        analyticsAgentResponse,
         previewResponse,
         historyResponse,
         detailResponse,
@@ -375,6 +473,16 @@ describe('adaptive nutrition routes', () => {
           method: 'GET',
           url: '/api/v1/adaptive-nutrition',
           headers: { authorization: `Bearer ${jwt}` },
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/adaptive-nutrition/analytics?range=1m&aggregation=auto&end=2026-06-01',
+          headers: { authorization: `Bearer ${jwt}` },
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/adaptive-nutrition/analytics?range=1m&aggregation=auto&end=2026-06-01',
+          headers: { authorization: 'AgentToken plain-agent-token' },
         }),
         app.inject({
           method: 'POST',
@@ -409,6 +517,20 @@ describe('adaptive nutrition routes', () => {
         }),
       ]);
       expect(stateResponse.statusCode, stateResponse.body).toBe(200);
+      expect(analyticsJwtResponse.statusCode, analyticsJwtResponse.body).toBe(200);
+      expect(analyticsAgentResponse.statusCode, analyticsAgentResponse.body).toBe(200);
+      expect(analyticsAgentResponse.json()).toEqual(analyticsJwtResponse.json());
+      expect(analyticsJwtResponse.json().data.isHistorical).toBe(true);
+      expect(vi.mocked(getAdaptiveEnergyBalanceAnalytics)).toHaveBeenCalledWith('jwt-user', {
+        range: '1m',
+        aggregation: 'auto',
+        end: '2026-06-01',
+      });
+      expect(vi.mocked(getAdaptiveEnergyBalanceAnalytics)).toHaveBeenCalledWith('agent-user', {
+        range: '1m',
+        aggregation: 'auto',
+        end: '2026-06-01',
+      });
       expect(previewResponse.statusCode).toBe(200);
       expect(historyResponse.statusCode).toBe(200);
       expect(detailResponse.statusCode).toBe(200);
@@ -490,6 +612,62 @@ describe('adaptive nutrition routes', () => {
         });
         expect(response.statusCode).toBe(403);
       }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('validates analytics queries before the store and documents both read auth schemes', async () => {
+    const app = buildServer();
+    try {
+      await app.ready();
+      const jwt = app.jwt.sign(
+        { sub: 'jwt-user', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const invalid = await app.inject({
+        method: 'GET',
+        url: '/api/v1/adaptive-nutrition/analytics?range=2m&extra=true',
+        headers: { authorization: `Bearer ${jwt}` },
+      });
+      const unauthenticated = await app.inject({
+        method: 'GET',
+        url: '/api/v1/adaptive-nutrition/analytics',
+      });
+      const openApi = await app.inject({ method: 'GET', url: '/api/docs/json' });
+
+      expect(invalid.statusCode).toBe(400);
+      expect(unauthenticated.statusCode).toBe(401);
+      expect(getAdaptiveEnergyBalanceAnalytics).not.toHaveBeenCalled();
+      vi.mocked(getAdaptiveEnergyBalanceAnalytics).mockRejectedValueOnce(
+        new AdaptiveAnalyticsFutureEndError(),
+      );
+      const future = await app.inject({
+        method: 'GET',
+        url: '/api/v1/adaptive-nutrition/analytics?end=2099-01-01',
+        headers: { authorization: `Bearer ${jwt}` },
+      });
+      expect(future.statusCode).toBe(400);
+      expect(future.json()).toMatchObject({
+        error: { code: 'ADAPTIVE_ANALYTICS_FUTURE_END' },
+      });
+      vi.mocked(getAdaptiveEnergyBalanceAnalytics).mockRejectedValueOnce(
+        new AdaptiveAnalyticsPreProgramEndError(),
+      );
+      const beforeProgram = await app.inject({
+        method: 'GET',
+        url: '/api/v1/adaptive-nutrition/analytics?end=2000-01-01',
+        headers: { authorization: `Bearer ${jwt}` },
+      });
+      expect(beforeProgram.statusCode).toBe(400);
+      expect(beforeProgram.json()).toMatchObject({
+        error: { code: 'ADAPTIVE_ANALYTICS_PRE_PROGRAM_END' },
+      });
+      expect(openApi.statusCode).toBe(200);
+      expect(openApi.json().paths['/api/v1/adaptive-nutrition/analytics'].get.security).toEqual([
+        { bearerAuth: [] },
+        { agentToken: [] },
+      ]);
     } finally {
       await app.close();
     }

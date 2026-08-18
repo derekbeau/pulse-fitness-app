@@ -25,6 +25,7 @@ const protectedRoutes = [
   { heading: 'Upper Push', path: `/workouts/session/${sessionId}` },
   { heading: 'Upper Push', path: '/workouts/template/upper-push' },
   { heading: 'Nutrition', path: '/nutrition' },
+  { heading: 'Energy Balance & Expenditure', path: '/nutrition/energy-balance' },
   { heading: 'Habits', path: '/habits' },
   { heading: 'Activity', path: '/activity' },
   { heading: 'Nutrition', path: '/foods' },

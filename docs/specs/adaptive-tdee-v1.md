@@ -501,6 +501,8 @@ Sign behavior:
 
 The 7,700 kcal/kg coefficient is a transparent short-window approximation, not a universal long-term rule. The NIH Body Weight Planner uses a dynamic model because expenditure and body composition adapt over time.[8] Weekly re-estimation partly captures those changes, but this limitation must appear in engineering docs and About/help copy.
 
+Energy Balance reconciliation uses the date-only half-open interval `[firstTrendDate, lastTrendDate)`. A Trend Weight change from August 11 to August 17 spans six elapsed daily intervals, so only complete, expenditure-matched intake from August 11 through August 16 contributes to the prediction. Intake on the ending Trend Weight observation date occurs after that ending observation and is excluded. Missing any required interval makes the comparison non-comparable; Pulse reports the actual modeled interval count and never fills or scales missing days.
+
 ### 11.2 Observed-TDEE plausibility
 
 If estimated RMR exists, hold with `IMPLAUSIBLE_EXPENDITURE` when:
@@ -743,7 +745,7 @@ Implement in `apps/api/src/db/schema/adaptive-nutrition.ts` and export through t
 
 ### 14.1 `adaptive_nutrition_programs`
 
-One mutable lifetime program row per user in v1. Pausing preserves configuration and history; resuming updates the same row. Archiving/recreating multiple programs is deferred.
+One lifetime program row per user is the materialized current configuration. Pausing, resuming, time-zone edits, and explicit rebaselines update that row, while every calculation-affecting change appends an immutable `adaptive_nutrition_program_revisions` snapshot in the same transaction. Explicit historical calculations resolve the highest causal revision whose monotonic activation date is on or before the requested date; they must never infer prior configuration from the materialized current row. A live request without an explicit `end` deliberately uses the latest revision and its current local date immediately. Archiving/recreating multiple programs is deferred.
 
 The goal fields on this row are compatibility mirrors for the original six-milestone release. After Milestone 7, `adaptive_nutrition_goals` is authoritative. Program goal mirrors must be updated in the same transaction and removed only in a separately approved cleanup migration after every reader has moved to the goal domain.
 
@@ -774,6 +776,27 @@ The goal fields on this row are compatibility mirrors for the original six-miles
 | `updatedAt`                  | integer ms    | Audit                                                               |
 
 Do not store these fields in untyped `users.preferences`.
+
+#### 14.1.1 `adaptive_nutrition_program_revisions`
+
+The append-only revision ledger stores the complete `AdaptiveProgramCalculation` snapshot, a per-program causal sequence, the UTC effective timestamp, source, and audit timestamp. UTC `effectiveAt` values must be nondecreasing within a program. Equal timestamps are allowed; the contiguous sequence is the explicit deterministic tie-breaker for same-millisecond edits. SQLite guards reject sequence gaps, timestamps earlier than the program's existing maximum, updates, and deletes outside account-deletion scope. Runtime appends occur inside the same immediate transaction as the materialized program update, so a rejected ledger append rolls the entire mutation back.
+
+Historical calendar activation is folded in sequence order rather than formatting every revision only in its new time zone:
+
+```text
+activation[0] = localDate(effectiveAt[0], timeZone[0])
+activation[i] = max(
+  activation[i - 1],
+  localDate(effectiveAt[i], timeZone[i - 1]),
+  localDate(effectiveAt[i], timeZone[i])
+)
+```
+
+This freezes every date that was already historical in either side of a time-zone transition and prevents an east-to-west edit from moving onto the prior calendar day. West-to-east changes, DST gaps/folds, equal timestamps, and multiple same-day revisions remain deterministic. An explicit `end` uses this frozen activation axis. A request without `end` is the live-view exception: it uses the latest revision, derives today and the completed-day cutoff in the latest time zone, and reports `isHistorical: false`; earlier chart dates still use the frozen historical axis.
+
+Migration `0048_adaptive_program_revision_causal_guard` repairs ledgers created by the original `0047` backfill before installing the timestamp guard. It clamps only a regressed `effectiveAt` to the running per-program maximum in sequence order; `createdAt` retains the original source timestamp, snapshots and sequence are unchanged, and all rows are immutable again before the migration completes. This is necessary because the original backfill could append the materialized current snapshot after a later check-in snapshot while retaining the program row's older `updatedAt`.
+
+The first revision's deterministic `baselineTdeeKcal` is the program's starting expenditure from the program start date; dates before that remain empty. It carries no accepted-check-in ID or fingerprint. Later program revisions, including a rebaseline, preserve historical configuration but do not move expenditure by themselves. Only a recommendation that the user explicitly accepts replaces the starting/last accepted expenditure, beginning on the recommendation's effective date. Pending, held, declined, superseded, and future-effective recommendations never change the line.
 
 ### 14.2 `adaptive_nutrition_checkins`
 

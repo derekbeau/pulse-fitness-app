@@ -72,6 +72,7 @@ import {
   adaptiveNutritionGoalCompletions,
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
+  adaptiveNutritionProgramRevisions,
   adaptiveNutritionPrograms,
   bodyWeight,
   mealItems,
@@ -393,6 +394,44 @@ export const createAdaptiveNutritionStore = (options: {
       .limit(1)
       .get();
     return value ? parseProgram(value) : null;
+  };
+
+  const appendProgramRevision = (
+    userId: string,
+    program: AdaptiveProgram,
+    effectiveAt: number,
+    source: 'program_created' | 'program_updated' | 'goal_updated',
+  ) => {
+    const snapshot = toCalculationProgram(program);
+    const previous = db
+      .select({
+        sequence: adaptiveNutritionProgramRevisions.sequence,
+        snapshot: adaptiveNutritionProgramRevisions.snapshot,
+      })
+      .from(adaptiveNutritionProgramRevisions)
+      .where(
+        and(
+          eq(adaptiveNutritionProgramRevisions.userId, userId),
+          eq(adaptiveNutritionProgramRevisions.programId, program.id),
+        ),
+      )
+      .orderBy(desc(adaptiveNutritionProgramRevisions.sequence))
+      .limit(1)
+      .get();
+    if (previous && JSON.stringify(previous.snapshot) === JSON.stringify(snapshot)) return;
+
+    db.insert(adaptiveNutritionProgramRevisions)
+      .values({
+        id: randomUUID(),
+        programId: program.id,
+        userId,
+        sequence: (previous?.sequence ?? 0) + 1,
+        effectiveAt,
+        snapshot,
+        source,
+        createdAt: effectiveAt,
+      })
+      .run();
   };
 
   const findActiveGoal = (userId: string, programId: string): ActiveGoalContext | null => {
@@ -1092,6 +1131,14 @@ export const createAdaptiveNutritionStore = (options: {
             .get();
       if (!persisted) throw new Error('Failed to persist adaptive nutrition program');
       const program = parseProgram(persisted);
+      if (!existing || calculationAffecting) {
+        appendProgramRevision(
+          userId,
+          program,
+          timestamp,
+          existing ? 'program_updated' : 'program_created',
+        );
+      }
       let goalContext = findActiveGoal(userId, program.id);
       if (!goalContext) {
         const goalId = randomUUID();
@@ -1320,17 +1367,13 @@ export const createAdaptiveNutritionStore = (options: {
         .returning(programSelection)
         .get();
       if (!programRow) throw new Error('Failed to update adaptive program goal mirror');
+      const updatedProgram = parseProgram(programRow);
+      appendProgramRevision(userId, updatedProgram, timestamp, 'goal_updated');
       const updatedContext = {
         goal: adaptiveGoalSchema.parse(updatedRow),
         revision: adaptiveGoalRevisionSchema.parse(revisionRow),
       };
-      persistGoalChangeRecommendation(
-        userId,
-        parseProgram(programRow),
-        updatedContext,
-        localDate,
-        timestamp,
-      );
+      persistGoalChangeRecommendation(userId, updatedProgram, updatedContext, localDate, timestamp);
       return getCurrentGoal(userId);
     });
   };
@@ -1431,17 +1474,13 @@ export const createAdaptiveNutritionStore = (options: {
       if (!goalRow || !revisionRow || !programRow) {
         throw new Error('Failed to start adaptive goal');
       }
+      const updatedProgram = parseProgram(programRow);
+      appendProgramRevision(userId, updatedProgram, timestamp, 'goal_updated');
       const context = {
         goal: adaptiveGoalSchema.parse(goalRow),
         revision: adaptiveGoalRevisionSchema.parse(revisionRow),
       };
-      persistGoalChangeRecommendation(
-        userId,
-        parseProgram(programRow),
-        context,
-        localDate,
-        timestamp,
-      );
+      persistGoalChangeRecommendation(userId, updatedProgram, context, localDate, timestamp);
       return getCurrentGoal(userId);
     });
   };
@@ -1636,7 +1675,8 @@ export const createAdaptiveNutritionStore = (options: {
         })
         .returning(adaptiveGoalRevisionSelection)
         .get();
-      db.update(adaptiveNutritionPrograms)
+      const programRow = db
+        .update(adaptiveNutritionPrograms)
         .set({
           goalType: 'maintain',
           targetWeightKg: null,
@@ -1649,8 +1689,12 @@ export const createAdaptiveNutritionStore = (options: {
             eq(adaptiveNutritionPrograms.userId, userId),
           ),
         )
-        .run();
-      if (!goalRow || !revisionRow) throw new Error('Failed to create maintenance goal');
+        .returning(programSelection)
+        .get();
+      if (!goalRow || !revisionRow || !programRow) {
+        throw new Error('Failed to create maintenance goal');
+      }
+      appendProgramRevision(userId, parseProgram(programRow), timestamp, 'goal_updated');
       db.insert(adaptiveNutritionGoalCompletions)
         .values({
           checkInId: checkIn.id,

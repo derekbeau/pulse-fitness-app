@@ -211,6 +211,7 @@ test('dashboard shows the latest scale weight when the trend window has only one
     ),
     'dashboard should not overflow horizontally',
   ).toBe(true);
+  await page.waitForLoadState('networkidle');
 
   const weightHistoryLink = weightCard
     .locator('..')

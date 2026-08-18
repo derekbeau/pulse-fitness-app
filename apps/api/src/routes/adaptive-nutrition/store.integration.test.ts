@@ -17,6 +17,7 @@ import {
   adaptiveNutritionGoalCompletions,
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
+  adaptiveNutritionProgramRevisions,
   bodyWeight,
   mealItems,
   meals,
@@ -511,6 +512,144 @@ describe('adaptive nutrition lifecycle store', () => {
     );
     expect(rebaselined.baselineTdeeKcal).toBe(3000);
     expect(storeA.getState('user-1').pendingCheckIn?.kind).toBe('baseline');
+  });
+
+  it('appends causal immutable program snapshots only when configuration changes', () => {
+    storeA.upsertProgram('user-1', programInput());
+    const baselineId = requireValue(
+      storeA.getState('user-1').pendingCheckIn,
+      'Expected baseline check-in',
+    ).id;
+    storeA.acceptCheckIn('user-1', baselineId, { replaceSameDateTarget: false });
+
+    nowMs += 1;
+    storeA.upsertProgram('user-1', programInput({ currentWeight: null }));
+    nowMs += 1;
+    storeA.upsertProgram(
+      'user-1',
+      programInput({ status: 'paused', timeZone: 'America/Los_Angeles', currentWeight: null }),
+    );
+    storeA.upsertProgram(
+      'user-1',
+      programInput({
+        status: 'active',
+        timeZone: 'Asia/Tokyo',
+        manualBaselineTdeeKcal: 3000,
+        rebaseline: true,
+        supersedePending: true,
+      }),
+    );
+    storeA.upsertProgram('user-2', programInput());
+
+    const userOneRevisions = dbA
+      .select()
+      .from(adaptiveNutritionProgramRevisions)
+      .where(eq(adaptiveNutritionProgramRevisions.userId, 'user-1'))
+      .orderBy(adaptiveNutritionProgramRevisions.sequence)
+      .all();
+    expect(userOneRevisions).toHaveLength(3);
+    expect(userOneRevisions.map((revision) => revision.sequence)).toEqual([1, 2, 3]);
+    expect(userOneRevisions.map((revision) => revision.snapshot)).toEqual([
+      expect.objectContaining({
+        status: 'active',
+        timeZone: 'America/Detroit',
+        baselineTdeeKcal: 2500,
+      }),
+      expect.objectContaining({
+        status: 'paused',
+        timeZone: 'America/Los_Angeles',
+        baselineTdeeKcal: 2500,
+      }),
+      expect.objectContaining({
+        status: 'active',
+        timeZone: 'Asia/Tokyo',
+        baselineTdeeKcal: 3000,
+      }),
+    ]);
+    expect(
+      dbA
+        .select()
+        .from(adaptiveNutritionProgramRevisions)
+        .where(eq(adaptiveNutritionProgramRevisions.userId, 'user-2'))
+        .all(),
+    ).toHaveLength(1);
+  });
+
+  it('uses sequence for equal-time edits and rolls back a regressed clock atomically', () => {
+    storeA.upsertProgram('user-1', programInput());
+    const baseline = requireValue(
+      storeA.getState('user-1').pendingCheckIn,
+      'Expected baseline check-in',
+    );
+    storeA.acceptCheckIn('user-1', baseline.id, { replaceSameDateTarget: false });
+
+    nowMs += 1;
+    storeA.upsertProgram(
+      'user-1',
+      programInput({
+        status: 'paused',
+        timeZone: 'America/Los_Angeles',
+        currentWeight: null,
+      }),
+    );
+    storeA.upsertProgram(
+      'user-1',
+      programInput({
+        status: 'active',
+        timeZone: 'Asia/Tokyo',
+        currentWeight: null,
+      }),
+    );
+
+    const beforeProgram = dbA
+      .select()
+      .from(schema.adaptiveNutritionPrograms)
+      .where(eq(schema.adaptiveNutritionPrograms.userId, 'user-1'))
+      .get();
+    const beforeRevisions = dbA
+      .select()
+      .from(adaptiveNutritionProgramRevisions)
+      .where(eq(adaptiveNutritionProgramRevisions.userId, 'user-1'))
+      .orderBy(adaptiveNutritionProgramRevisions.sequence)
+      .all();
+    expect(beforeRevisions.map(({ sequence, effectiveAt }) => ({ sequence, effectiveAt }))).toEqual(
+      [
+        { sequence: 1, effectiveAt: Date.parse('2026-06-01T16:00:00.000Z') },
+        { sequence: 2, effectiveAt: nowMs },
+        { sequence: 3, effectiveAt: nowMs },
+      ],
+    );
+    expect(beforeRevisions.at(-1)?.snapshot).toMatchObject({
+      status: 'active',
+      timeZone: 'Asia/Tokyo',
+    });
+
+    nowMs -= 1;
+    expect(() =>
+      storeA.upsertProgram(
+        'user-1',
+        programInput({
+          status: 'paused',
+          timeZone: 'America/Detroit',
+          currentWeight: null,
+        }),
+      ),
+    ).toThrow('nondecreasing effective_at');
+    expect(
+      dbA
+        .select()
+        .from(schema.adaptiveNutritionPrograms)
+        .where(eq(schema.adaptiveNutritionPrograms.userId, 'user-1'))
+        .get(),
+    ).toEqual(beforeProgram);
+    expect(
+      dbA
+        .select()
+        .from(adaptiveNutritionProgramRevisions)
+        .where(eq(adaptiveNutritionProgramRevisions.userId, 'user-1'))
+        .orderBy(adaptiveNutritionProgramRevisions.sequence)
+        .all(),
+    ).toEqual(beforeRevisions);
   });
 
   it('reports a paused accepted program as holding without creating a check-in on reads', () => {

@@ -85,6 +85,8 @@ describe('Adaptive TDEE preview fixtures', () => {
       'goal-history': 'updating',
       'goal-change-pending': 'pending_recommendation',
       'completion-required': 'updating',
+      'analytics-pending': 'pending_recommendation',
+      'analytics-goal-loss': 'updating',
     });
     for (const fixture of first) {
       expect(store.getState(fixture.userId).state).toBe(fixture.expectedState);
@@ -186,6 +188,12 @@ describe('Adaptive TDEE preview fixtures', () => {
     );
     expect(second.find((fixture) => fixture.fixture === 'completion-required')?.username).toBe(
       'adaptive-preview-completion',
+    );
+    expect(second.find((fixture) => fixture.fixture === 'analytics-pending')?.username).toBe(
+      'adaptive-preview-eb-pending',
+    );
+    expect(second.find((fixture) => fixture.fixture === 'analytics-goal-loss')?.username).toBe(
+      'adaptive-preview-eb-loss',
     );
     expect(
       db

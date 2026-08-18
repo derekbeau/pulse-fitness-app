@@ -71,6 +71,11 @@ const NutritionPage = lazy(async () => {
   return { default: module.NutritionPage };
 });
 
+const EnergyBalancePage = lazy(async () => {
+  const module = await import('./pages/energy-balance');
+  return { default: module.EnergyBalancePage };
+});
+
 const ProfilePage = lazy(async () => {
   const module = await import('./pages/profile');
   return { default: module.ProfilePage };
@@ -177,6 +182,10 @@ function AppRoutes() {
           path="workouts/templates/:templateId"
         />
         <Route element={renderWithPageFallback(<NutritionPage />)} path="nutrition" />
+        <Route
+          element={renderWithPageFallback(<EnergyBalancePage />)}
+          path="nutrition/energy-balance"
+        />
         <Route element={renderWithPageFallback(<HabitsPage />)} path="habits" />
         <Route element={renderWithPageFallback(<ActivityPage />)} path="activity" />
         <Route element={<Navigate replace to="/nutrition?view=foods" />} path="foods" />

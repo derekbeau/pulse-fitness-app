@@ -26,6 +26,7 @@ import {
   adaptiveNutritionGoalCompletions,
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
+  adaptiveNutritionProgramRevisions,
   adaptiveNutritionPrograms,
   agentTokens,
   bodyWeight,
@@ -688,6 +689,30 @@ describe('adaptive nutrition persistence schema', () => {
     expect(config.checks.map((entry) => entry.name)).toContain(
       'adaptive_nutrition_programs_calorie_floor_check',
     );
+  });
+
+  it('defines causal owned program revision snapshots', () => {
+    expect(getTableName(adaptiveNutritionProgramRevisions)).toBe(
+      'adaptive_nutrition_program_revisions',
+    );
+    const config = getTableConfig(adaptiveNutritionProgramRevisions);
+    expect(config.foreignKeys).toHaveLength(3);
+    expect(config.foreignKeys.every((foreignKey) => foreignKey.onDelete === 'cascade')).toBe(true);
+    expect(config.foreignKeys.map((foreignKey) => foreignKey.getName())).toContain(
+      'adaptive_nutrition_program_revisions_program_user_fk',
+    );
+    expect(config.indexes.map((entry) => entry.config.name).sort()).toEqual([
+      'adaptive_nutrition_program_revisions_id_user_unique',
+      'adaptive_nutrition_program_revisions_program_effective_idx',
+      'adaptive_nutrition_program_revisions_program_sequence_unique',
+      'adaptive_nutrition_program_revisions_user_id_idx',
+    ]);
+    expect(config.checks.map((entry) => entry.name).sort()).toEqual([
+      'adaptive_nutrition_program_revisions_effective_at_check',
+      'adaptive_nutrition_program_revisions_sequence_check',
+      'adaptive_nutrition_program_revisions_snapshot_check',
+      'adaptive_nutrition_program_revisions_source_check',
+    ]);
   });
 
   it('defines one active goal per user with owned immutable revisions', () => {

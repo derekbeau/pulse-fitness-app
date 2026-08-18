@@ -111,6 +111,23 @@ export interface TrendWeightPoint extends InterpolatedWeightPoint {
   trendWeightKg: number;
 }
 
+/** Canonical Adaptive TDEE trend-weight pipeline. */
+export function calculateAdaptiveTrendPoints(
+  entries: readonly AdaptiveWeightEntry[],
+  constants: Readonly<AdaptiveTdeeConstants> = ADAPTIVE_TDEE_CONSTANTS,
+): TrendWeightPoint[] {
+  const interpolated = interpolateDailyWeights(entries);
+  const smoothed = calculateEwma(
+    interpolated.map((point) => point.weightKg),
+    constants.ewmaHalfLifeDays,
+  );
+
+  return interpolated.map((point, index) => ({
+    ...point,
+    trendWeightKg: valueAt(smoothed, index, 'smoothed weight'),
+  }));
+}
+
 export interface AdaptiveEligibilityResult {
   eligible: boolean;
   holdReasons: AdaptiveReasonCode[];
@@ -605,17 +622,7 @@ export function evaluateEligibility(input: {
     holdReasons.push('SUSPECT_WEIGHT_DATA');
   }
 
-  const interpolated = interpolateDailyWeights(actualWeights);
-  const smoothed = calculateEwma(
-    interpolated.map((point) => point.weightKg),
-    constants.ewmaHalfLifeDays,
-  );
-  const allTrendPoints = interpolated.map(
-    (point, index): TrendWeightPoint => ({
-      ...point,
-      trendWeightKg: valueAt(smoothed, index, 'smoothed weight'),
-    }),
-  );
+  const allTrendPoints = calculateAdaptiveTrendPoints(actualWeights, constants);
   const trendPoints = allTrendPoints.filter(
     (point) =>
       point.date >= input.boundaries.analysisStart && point.date <= input.boundaries.analysisEnd,

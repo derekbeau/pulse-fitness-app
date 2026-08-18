@@ -5,6 +5,8 @@ const normalizeHistoryFilters = (page: number, limit: number) => ({ limit, page 
 export const adaptiveNutritionQueryKeys = {
   all: adaptiveNutritionQueryKey,
   state: () => [...adaptiveNutritionQueryKey, 'state'] as const,
+  analytics: (range: string, end: string | undefined, aggregation: string) =>
+    [...adaptiveNutritionQueryKey, 'analytics', { aggregation, end, range }] as const,
   checkIns: () => [...adaptiveNutritionQueryKey, 'check-ins'] as const,
   history: (page: number, limit: number) =>
     [...adaptiveNutritionQueryKey, 'check-ins', normalizeHistoryFilters(page, limit)] as const,

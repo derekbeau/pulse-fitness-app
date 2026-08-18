@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import type { NutritionTarget } from '@pulse/shared';
+import type { AdaptiveProgramCalculation, NutritionTarget } from '@pulse/shared';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -94,6 +94,59 @@ export const adaptiveNutritionPrograms = sqliteTable(
     check(
       'adaptive_nutrition_programs_calorie_floor_check',
       sql`${table.systemCalorieFloorKcal} >= 1200 and ${table.userCalorieFloorKcal} >= ${table.systemCalorieFloorKcal}`,
+    ),
+  ],
+);
+
+export const adaptiveNutritionProgramRevisions = sqliteTable(
+  'adaptive_nutrition_program_revisions',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    programId: text('program_id')
+      .notNull()
+      .references(() => adaptiveNutritionPrograms.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    sequence: integer('sequence').notNull(),
+    effectiveAt: integer('effective_at', { mode: 'number' }).notNull(),
+    snapshot: text('snapshot', { mode: 'json' }).$type<AdaptiveProgramCalculation>().notNull(),
+    source: text('source')
+      .$type<'program_created' | 'program_updated' | 'goal_updated' | 'migration'>()
+      .notNull(),
+    createdAt: integer('created_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`)
+      .$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    index('adaptive_nutrition_program_revisions_program_effective_idx').on(
+      table.programId,
+      table.effectiveAt,
+      table.sequence,
+    ),
+    index('adaptive_nutrition_program_revisions_user_id_idx').on(table.userId),
+    uniqueIndex('adaptive_nutrition_program_revisions_program_sequence_unique').on(
+      table.programId,
+      table.sequence,
+    ),
+    uniqueIndex('adaptive_nutrition_program_revisions_id_user_unique').on(table.id, table.userId),
+    foreignKey({
+      columns: [table.programId, table.userId],
+      foreignColumns: [adaptiveNutritionPrograms.id, adaptiveNutritionPrograms.userId],
+      name: 'adaptive_nutrition_program_revisions_program_user_fk',
+    }).onDelete('cascade'),
+    check(
+      'adaptive_nutrition_program_revisions_source_check',
+      sql`${table.source} in ('program_created', 'program_updated', 'goal_updated', 'migration')`,
+    ),
+    check('adaptive_nutrition_program_revisions_sequence_check', sql`${table.sequence} >= 1`),
+    check('adaptive_nutrition_program_revisions_effective_at_check', sql`${table.effectiveAt} > 0`),
+    check(
+      'adaptive_nutrition_program_revisions_snapshot_check',
+      sql`json_valid(${table.snapshot}) and json_type(${table.snapshot}) = 'object'`,
     ),
   ],
 );
