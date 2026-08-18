@@ -16,6 +16,7 @@ import {
   type AdaptiveNutritionDay,
   type AdaptivePriorTdee,
   type AdaptiveProgramCalculation,
+  type AdaptiveReadinessNoteCode,
   type AdaptiveReasonCode,
   type AdaptiveRmrEquation,
   type AdaptiveTdeeConstants,
@@ -123,6 +124,18 @@ export interface AdaptiveEligibilityResult {
   averageDailyIntakeKcal: number | null;
   actualWeightSpanDays: number;
   latestWeightAgeDays: number | null;
+}
+
+export interface AdaptiveReadinessEvidenceSummary {
+  completeNutritionDaysLogged: number;
+  completeNutritionDaysUsable: number;
+  completeNutritionDaysBeforeWeightTrend: number;
+  completeNutritionDaysAwaitingWeightTrend: number;
+  completeNutritionDaysPendingCutoff: number;
+  weighInsLogged: number;
+  weighInsUsable: number;
+  weighInsPendingCutoff: number;
+  noteCodes: AdaptiveReadinessNoteCode[];
 }
 
 export interface AdaptiveConfidenceResult {
@@ -383,6 +396,15 @@ function selectLatestNutritionDayByDate(
   return [...latestByDate.values()].sort(compareDateAndId);
 }
 
+function isCompleteNutritionEvidence(day: AdaptiveNutritionDay): boolean {
+  return (
+    day.status === 'complete' &&
+    day.itemCount > 0 &&
+    day.calories > 0 &&
+    Number.isFinite(day.calories)
+  );
+}
+
 export function interpolateDailyWeights(
   entries: readonly AdaptiveWeightEntry[],
 ): InterpolatedWeightPoint[] {
@@ -620,10 +642,7 @@ export function evaluateEligibility(input: {
         lastTrendDate !== null &&
         day.date >= firstTrendDate &&
         day.date <= lastTrendDate &&
-        day.status === 'complete' &&
-        day.itemCount > 0 &&
-        day.calories > 0 &&
-        Number.isFinite(day.calories),
+        isCompleteNutritionEvidence(day),
     )
     .sort(compareDateAndId);
   const usableNutritionIds = new Set(usableNutritionDays.map((day) => day.id));
@@ -672,6 +691,79 @@ export function evaluateEligibility(input: {
           usableNutritionDays.length,
     actualWeightSpanDays,
     latestWeightAgeDays,
+  };
+}
+
+export function summarizeAdaptiveReadinessEvidence(input: {
+  boundaries: AdaptiveDateBoundaries;
+  nutritionDays: readonly AdaptiveNutritionDay[];
+  weightEntries: readonly AdaptiveWeightEntry[];
+  eligibility: AdaptiveEligibilityResult;
+}): AdaptiveReadinessEvidenceSummary {
+  const completeNutritionDaysLogged = selectLatestNutritionDayByDate(
+    input.nutritionDays.filter(
+      (day) =>
+        day.date >= input.boundaries.analysisStart &&
+        day.date <= input.boundaries.previewDate &&
+        isCompleteNutritionEvidence(day),
+    ),
+  );
+  const completeNutritionDaysPendingCutoff = completeNutritionDaysLogged.filter(
+    (day) => day.date > input.boundaries.analysisEnd,
+  ).length;
+  const completedCompleteNutritionDays = completeNutritionDaysLogged.filter(
+    (day) => day.date <= input.boundaries.analysisEnd,
+  );
+  const loggedWeights = input.weightEntries
+    .filter(
+      (entry) =>
+        entry.date >= input.boundaries.warmupStart && entry.date <= input.boundaries.previewDate,
+    )
+    .sort(compareDateAndId);
+  const pendingWeights = loggedWeights.filter((entry) => entry.date > input.boundaries.analysisEnd);
+  const prospectiveTrendPoints = interpolateDailyWeights([
+    ...input.eligibility.actualWeights,
+    ...pendingWeights,
+  ]).filter(
+    (point) =>
+      point.date >= input.boundaries.analysisStart && point.date <= input.boundaries.previewDate,
+  );
+  const firstWeightTrendDate =
+    input.eligibility.trendPoints[0]?.date ?? prospectiveTrendPoints[0]?.date ?? null;
+  const usableNutritionIds = new Set(input.eligibility.usableNutritionDays.map((day) => day.id));
+  const completeNutritionDaysBeforeWeightTrend = completedCompleteNutritionDays.filter(
+    (day) => firstWeightTrendDate !== null && day.date < firstWeightTrendDate,
+  ).length;
+  const completeNutritionDaysAwaitingWeightTrend = completedCompleteNutritionDays.filter(
+    (day) =>
+      !usableNutritionIds.has(day.id) &&
+      (firstWeightTrendDate === null || day.date >= firstWeightTrendDate),
+  ).length;
+  const weighInsPendingCutoff = pendingWeights.length;
+  const noteCodes: AdaptiveReadinessNoteCode[] = [];
+  if (completeNutritionDaysPendingCutoff > 0) {
+    noteCodes.push('COMPLETE_NUTRITION_PENDING_COMPLETED_DAY_CUTOFF');
+  }
+  if (weighInsPendingCutoff > 0) {
+    noteCodes.push('WEIGH_INS_PENDING_COMPLETED_DAY_CUTOFF');
+  }
+  if (completeNutritionDaysBeforeWeightTrend > 0) {
+    noteCodes.push('COMPLETE_NUTRITION_BEFORE_WEIGHT_TREND');
+  }
+  if (completeNutritionDaysAwaitingWeightTrend > 0) {
+    noteCodes.push('COMPLETE_NUTRITION_AWAITING_WEIGHT_TREND');
+  }
+
+  return {
+    completeNutritionDaysLogged: completeNutritionDaysLogged.length,
+    completeNutritionDaysUsable: input.eligibility.usableNutritionDays.length,
+    completeNutritionDaysBeforeWeightTrend,
+    completeNutritionDaysAwaitingWeightTrend,
+    completeNutritionDaysPendingCutoff,
+    weighInsLogged: loggedWeights.length,
+    weighInsUsable: input.eligibility.actualWeights.length,
+    weighInsPendingCutoff,
+    noteCodes,
   };
 }
 

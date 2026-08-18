@@ -89,6 +89,24 @@ describe('Adaptive TDEE preview fixtures', () => {
     for (const fixture of first) {
       expect(store.getState(fixture.userId).state).toBe(fixture.expectedState);
     }
+    const learning = first.find((fixture) => fixture.fixture === 'learning');
+    if (!learning) throw new Error('Learning fixture missing');
+    const firstLearningEligibility = store.getState(learning.userId).eligibility;
+    expect(firstLearningEligibility).toMatchObject({
+      completeNutritionDaysLogged: 3,
+      completeNutritionDaysUsable: 0,
+      completeNutritionDaysBeforeWeightTrend: 2,
+      completeNutritionDaysPendingCutoff: 1,
+      weighInsLogged: 1,
+      weighInsUsable: 0,
+      weighInsPendingCutoff: 1,
+      timeZone: 'America/Detroit',
+      noteCodes: [
+        'COMPLETE_NUTRITION_PENDING_COMPLETED_DAY_CUTOFF',
+        'WEIGH_INS_PENDING_COMPLETED_DAY_CUTOFF',
+        'COMPLETE_NUTRITION_BEFORE_WEIGHT_TREND',
+      ],
+    });
     const goal = first.find((fixture) => fixture.fixture === 'goal-reached');
     if (!goal) throw new Error('Goal fixture missing');
     const goalPending = store.getState(goal.userId).pendingCheckIn;
@@ -179,6 +197,7 @@ describe('Adaptive TDEE preview fixtures', () => {
     for (const fixture of second) {
       expect(store.getState(fixture.userId).state).toBe(fixture.expectedState);
     }
+    expect(store.getState(learning.userId).eligibility).toEqual(firstLearningEligibility);
     expect(db.select({ total: count() }).from(adaptiveNutritionGoalCompletions).get()).toEqual({
       total: 0,
     });

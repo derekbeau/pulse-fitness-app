@@ -40,6 +40,7 @@ import {
   convertWeightToKg,
   createAdaptiveInputFingerprint,
   evaluateEligibility,
+  summarizeAdaptiveReadinessEvidence,
   type AdaptiveAcceptInput,
   type AdaptiveAcceptResult,
   type AdaptiveCheckInDetail,
@@ -1935,10 +1936,18 @@ export const createAdaptiveNutritionStore = (options: {
     const latestAcceptedCheckIn = findLatestAccepted(userId, program.id);
     const currentTarget = findCurrentTarget(userId, localDate);
     const boundaries = calculateAdaptiveDateBoundaries(localDate, false);
+    const nutritionDays = loadNutritionDays(userId, boundaries.analysisStart, localDate);
+    const weightEntries = loadWeightEntries(userId, boundaries.warmupStart, localDate);
     const eligibilityResult = evaluateEligibility({
       boundaries,
-      nutritionDays: loadNutritionDays(userId, boundaries.analysisStart, boundaries.analysisEnd),
-      weightEntries: loadWeightEntries(userId, boundaries.warmupStart, boundaries.analysisEnd),
+      nutritionDays,
+      weightEntries,
+    });
+    const readinessEvidence = summarizeAdaptiveReadinessEvidence({
+      boundaries,
+      nutritionDays,
+      weightEntries,
+      eligibility: eligibilityResult,
     });
     const lastWeekly = db
       .select({ localDate: adaptiveNutritionCheckIns.localDate })
@@ -1976,13 +1985,15 @@ export const createAdaptiveNutritionStore = (options: {
       nextCheckInDate,
       eligibility: {
         eligible: eligibilityResult.eligible,
-        completeNutritionDays: eligibilityResult.usableNutritionDays.length,
+        ...readinessEvidence,
         requiredCompleteNutritionDays: ADAPTIVE_TDEE_CONSTANTS.minimumCompleteNutritionDays,
-        weighIns: eligibilityResult.actualWeights.length,
         requiredWeighIns: ADAPTIVE_TDEE_CONSTANTS.minimumActualWeights,
         weightSpanDays: eligibilityResult.actualWeightSpanDays,
         requiredWeightSpanDays: ADAPTIVE_TDEE_CONSTANTS.minimumWeightSpanDays,
-        latestWeightAgeDays: eligibilityResult.latestWeightAgeDays,
+        latestUsableWeightAgeDays: eligibilityResult.latestWeightAgeDays,
+        analysisEndDate: boundaries.analysisEnd,
+        pendingCutoffDate: localDate,
+        timeZone: program.timeZone,
         reasonCodes: eligibilityResult.holdReasons,
       },
       activeGoal: currentGoal?.goal ?? null,

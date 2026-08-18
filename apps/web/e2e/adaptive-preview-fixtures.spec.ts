@@ -80,6 +80,7 @@ async function openCoach(page: Page, fixture: FixtureName) {
   await authenticateFixture(page, fixture);
   await page.goto('/nutrition?view=coach');
   await expect(page.getByRole('heading', { level: 1, name: 'Nutrition' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
 }
 
 async function acceptWithSameDateConfirmation(page: Page) {
@@ -140,12 +141,52 @@ test.describe.serial('Adaptive TDEE deterministic preview fixtures', () => {
     await expect(
       page.getByRole('heading', { level: 2, name: 'A stronger estimate is taking shape' }),
     ).toBeVisible();
+    const learningReadiness = page.getByRole('region', { name: 'Data readiness' });
+    await expect(learningReadiness.getByText('3 logged')).toBeVisible();
+    await expect(learningReadiness.getByText('1 logged')).toBeVisible();
+    const learningNutritionProgress = learningReadiness.getByRole('progressbar', {
+      name: 'Complete nutrition: Usable with weight trend',
+    });
+    await expect(learningNutritionProgress).toContainText('0 / 12');
+    await expect(learningNutritionProgress).toHaveAttribute('aria-valuenow', '0');
+    await expect(learningNutritionProgress).toHaveAttribute(
+      'aria-valuetext',
+      '0 usable nutrition days; 12 required',
+    );
+    const learningWeightProgress = learningReadiness.getByRole('progressbar', {
+      name: 'Scale weigh-ins: Usable after daily cutoff',
+    });
+    await expect(learningWeightProgress).toContainText('0 / 3');
+    await expect(learningWeightProgress).toHaveAttribute('aria-valuenow', '0');
+    await expect(
+      learningReadiness.getByText(
+        /1 complete nutrition day is saved for .+ It will enter coaching analysis after that local day ends in America\/Detroit\./,
+      ),
+    ).toBeVisible();
+    await expect(
+      learningReadiness.getByText(
+        /1 weigh-in is saved for .+ It will enter coaching analysis after that local day ends in America\/Detroit\./,
+      ),
+    ).toBeVisible();
+    await expect(
+      learningReadiness.getByText(
+        '2 complete nutrition days were logged before your weight trend began. They stay in your history but do not count toward this coaching window.',
+      ),
+    ).toBeVisible();
 
     await openCoach(page, 'updating');
     await expect(
       page.getByRole('heading', { level: 2, name: 'Your Adaptive TDEE is active' }),
     ).toBeVisible();
-    await expect(page.getByText('12 / 12')).toBeVisible();
+    const updatingNutritionProgress = page.getByRole('progressbar', {
+      name: 'Complete nutrition: Usable with weight trend',
+    });
+    await expect(updatingNutritionProgress).toContainText('21 / 12');
+    await expect(updatingNutritionProgress).toHaveAttribute('aria-valuenow', '12');
+    await expect(updatingNutritionProgress).toHaveAttribute(
+      'aria-valuetext',
+      '21 usable nutrition days; 12 required',
+    );
 
     await openCoach(page, 'holding');
     await expect(

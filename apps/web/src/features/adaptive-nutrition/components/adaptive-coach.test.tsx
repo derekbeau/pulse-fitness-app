@@ -317,6 +317,8 @@ function createState(
   state: AdaptiveNutritionState['state'],
   overrides: Partial<AdaptiveNutritionState> = {},
 ): AdaptiveNutritionState {
+  const eligible = state === 'updating' || state === 'pending_recommendation';
+
   return {
     state,
     program,
@@ -326,15 +328,29 @@ function createState(
     checkInDue: false,
     nextCheckInDate: '2026-08-20',
     eligibility: {
-      eligible: state === 'updating' || state === 'pending_recommendation',
-      completeNutritionDays: 8,
+      eligible,
+      completeNutritionDaysLogged: eligible ? 12 : 8,
+      completeNutritionDaysUsable: eligible ? 12 : 8,
+      completeNutritionDaysBeforeWeightTrend: 0,
+      completeNutritionDaysAwaitingWeightTrend: 0,
+      completeNutritionDaysPendingCutoff: 0,
       requiredCompleteNutritionDays: 12,
-      weighIns: 2,
+      weighInsLogged: eligible ? 3 : 2,
+      weighInsUsable: eligible ? 3 : 2,
+      weighInsPendingCutoff: 0,
       requiredWeighIns: 3,
-      weightSpanDays: 9,
+      weightSpanDays: eligible ? 14 : 9,
       requiredWeightSpanDays: 14,
-      latestWeightAgeDays: 3,
-      reasonCodes: state === 'holding' ? ['STALE_WEIGHT'] : ['INSUFFICIENT_NUTRITION'],
+      latestUsableWeightAgeDays: 3,
+      analysisEndDate: '2026-08-12',
+      pendingCutoffDate: '2026-08-13',
+      timeZone: 'America/Detroit',
+      noteCodes: [],
+      reasonCodes: eligible
+        ? []
+        : state === 'holding'
+          ? ['STALE_WEIGHT']
+          : ['INSUFFICIENT_NUTRITION'],
     },
     activeGoal,
     goalProgress: lossProgress,
@@ -677,8 +693,177 @@ describe('AdaptiveCoach', () => {
     expect(screen.getByText('2 / 3')).toBeInTheDocument();
     expect(screen.getByText('9 / 14')).toBeInTheDocument();
     expect(
-      screen.getByText('Log a current weight before requesting another check-in.'),
+      screen.getByText(
+        'Log a current weight; a same-day entry joins coaching after its local day closes.',
+      ),
     ).toBeInTheDocument();
+  });
+
+  it('acknowledges logged records while explaining zero usable evidence and the local cutoff', () => {
+    mocks.useState.mockReturnValue({
+      data: createState('learning', {
+        eligibility: {
+          eligible: false,
+          completeNutritionDaysLogged: 3,
+          completeNutritionDaysUsable: 0,
+          completeNutritionDaysBeforeWeightTrend: 2,
+          completeNutritionDaysAwaitingWeightTrend: 0,
+          completeNutritionDaysPendingCutoff: 1,
+          requiredCompleteNutritionDays: 12,
+          weighInsLogged: 1,
+          weighInsUsable: 0,
+          weighInsPendingCutoff: 1,
+          requiredWeighIns: 3,
+          weightSpanDays: 0,
+          requiredWeightSpanDays: 14,
+          latestUsableWeightAgeDays: null,
+          analysisEndDate: '2026-08-13',
+          pendingCutoffDate: '2026-08-14',
+          timeZone: 'America/Detroit',
+          noteCodes: [
+            'COMPLETE_NUTRITION_PENDING_COMPLETED_DAY_CUTOFF',
+            'WEIGH_INS_PENDING_COMPLETED_DAY_CUTOFF',
+            'COMPLETE_NUTRITION_BEFORE_WEIGHT_TREND',
+          ],
+          reasonCodes: [
+            'INSUFFICIENT_WEIGHT',
+            'INSUFFICIENT_TREND_POINTS',
+            'INSUFFICIENT_NUTRITION',
+            'NO_OVERLAPPING_DATA',
+          ],
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(<AdaptiveCoach />);
+
+    expect(screen.getByText('3 logged')).toBeInTheDocument();
+    expect(screen.getByText('1 logged')).toBeInTheDocument();
+    const nutritionProgress = screen.getByRole('progressbar', {
+      name: 'Complete nutrition: Usable with weight trend',
+    });
+    expect(nutritionProgress).toHaveAttribute('aria-valuenow', '0');
+    expect(
+      nutritionProgress
+        .getAttribute('aria-describedby')
+        ?.split(' ')
+        .map((id) => document.getElementById(id)?.textContent)
+        .join(' '),
+    ).toContain('Complete nutrition 3 logged');
+    expect(
+      screen.getByRole('progressbar', {
+        name: 'Scale weigh-ins: Usable after daily cutoff',
+      }),
+    ).toHaveAttribute('aria-valuenow', '0');
+    expect(
+      screen.getByText(
+        '1 complete nutrition day is saved for Aug 14, 2026. It will enter coaching analysis after that local day ends in America/Detroit.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '1 weigh-in is saved for Aug 14, 2026. It will enter coaching analysis after that local day ends in America/Detroit.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '2 complete nutrition days were logged before your weight trend began. They stay in your history but do not count toward this coaching window.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Most recent usable weigh-in: none in the completed-day window yet/),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps stale and suspect weight blockers visible while learning', () => {
+    const learningState = createState('learning');
+    if (!learningState.eligibility) throw new Error('Expected learning eligibility');
+    mocks.useState.mockReturnValue({
+      data: createState('learning', {
+        eligibility: {
+          ...learningState.eligibility,
+          reasonCodes: ['STALE_WEIGHT', 'SUSPECT_WEIGHT_DATA'],
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(<AdaptiveCoach />);
+
+    expect(
+      screen.getByRole('heading', { name: 'What Pulse needs you to review' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Recent weight is missing')).toBeInTheDocument();
+    expect(screen.getByText('A weight entry may be an outlier')).toBeInTheDocument();
+    expect(
+      screen.getByText('Review recent entries in Weight History and correct any entry mistakes.'),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps actual over-threshold readiness counts aligned for sighted and screen-reader users', () => {
+    const updatingState = createState('updating');
+    if (!updatingState.eligibility) throw new Error('Expected updating eligibility');
+    mocks.useState.mockReturnValue({
+      data: createState('updating', {
+        eligibility: {
+          ...updatingState.eligibility,
+          completeNutritionDaysLogged: 21,
+          completeNutritionDaysUsable: 21,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(<AdaptiveCoach />);
+
+    const progress = screen.getByRole('progressbar', {
+      name: 'Complete nutrition: Usable with weight trend',
+    });
+    expect(screen.getByText('21 / 12')).toBeInTheDocument();
+    expect(progress).toHaveAttribute('aria-valuenow', '12');
+    expect(progress).toHaveAttribute('aria-valuetext', '21 usable nutrition days; 12 required');
+  });
+
+  it('uses singular accessible readiness units for one usable record', () => {
+    const learningState = createState('learning');
+    if (!learningState.eligibility) throw new Error('Expected learning eligibility');
+    mocks.useState.mockReturnValue({
+      data: createState('learning', {
+        eligibility: {
+          ...learningState.eligibility,
+          completeNutritionDaysUsable: 1,
+          weighInsUsable: 1,
+          weightSpanDays: 1,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(<AdaptiveCoach />);
+
+    expect(
+      screen.getByRole('progressbar', {
+        name: 'Complete nutrition: Usable with weight trend',
+      }),
+    ).toHaveAttribute('aria-valuetext', '1 usable nutrition day; 12 required');
+    expect(
+      screen.getByRole('progressbar', {
+        name: 'Scale weigh-ins: Usable after daily cutoff',
+      }),
+    ).toHaveAttribute('aria-valuetext', '1 usable weigh-in; 3 required');
+    expect(screen.getByRole('progressbar', { name: 'Weight trend: Span in days' })).toHaveAttribute(
+      'aria-valuetext',
+      '1 span day; 14 required',
+    );
   });
 
   it('explains a paused holding state even when data eligibility is healthy', () => {
@@ -687,13 +872,23 @@ describe('AdaptiveCoach', () => {
         program: { ...program, status: 'paused' },
         eligibility: {
           eligible: true,
-          completeNutritionDays: 12,
+          completeNutritionDaysLogged: 12,
+          completeNutritionDaysUsable: 12,
+          completeNutritionDaysBeforeWeightTrend: 0,
+          completeNutritionDaysAwaitingWeightTrend: 0,
+          completeNutritionDaysPendingCutoff: 0,
           requiredCompleteNutritionDays: 12,
-          weighIns: 3,
+          weighInsLogged: 3,
+          weighInsUsable: 3,
+          weighInsPendingCutoff: 0,
           requiredWeighIns: 3,
           weightSpanDays: 14,
           requiredWeightSpanDays: 14,
-          latestWeightAgeDays: 1,
+          latestUsableWeightAgeDays: 1,
+          analysisEndDate: '2026-08-12',
+          pendingCutoffDate: '2026-08-13',
+          timeZone: 'America/Detroit',
+          noteCodes: [],
           reasonCodes: [],
         },
       }),

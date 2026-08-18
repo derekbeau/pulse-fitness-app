@@ -7,6 +7,7 @@ import {
   adaptiveCheckInStateSchema,
   adaptiveConfidenceLabelSchema,
   adaptiveCurrentGoalSchema,
+  adaptiveEligibilityProgressSchema,
   adaptiveGoalDetailSchema,
   adaptiveGoalCompletionSchema,
   adaptiveGoalEditInputSchema,
@@ -73,6 +74,54 @@ const validProgramMutation = {
 };
 
 describe('adaptive TDEE schemas', () => {
+  it('requires explicit logged, usable, pending, and cutoff readiness semantics', () => {
+    const readiness = {
+      eligible: false,
+      completeNutritionDaysLogged: 2,
+      completeNutritionDaysUsable: 0,
+      completeNutritionDaysBeforeWeightTrend: 2,
+      completeNutritionDaysAwaitingWeightTrend: 0,
+      completeNutritionDaysPendingCutoff: 1,
+      requiredCompleteNutritionDays: 12,
+      weighInsLogged: 1,
+      weighInsUsable: 0,
+      weighInsPendingCutoff: 1,
+      requiredWeighIns: 3,
+      weightSpanDays: 0,
+      requiredWeightSpanDays: 14,
+      latestUsableWeightAgeDays: null,
+      analysisEndDate: '2026-08-13',
+      pendingCutoffDate: '2026-08-14',
+      timeZone: 'America/Detroit',
+      noteCodes: [
+        'COMPLETE_NUTRITION_PENDING_COMPLETED_DAY_CUTOFF',
+        'WEIGH_INS_PENDING_COMPLETED_DAY_CUTOFF',
+        'COMPLETE_NUTRITION_BEFORE_WEIGHT_TREND',
+      ],
+      reasonCodes: ['INSUFFICIENT_WEIGHT', 'NO_OVERLAPPING_DATA'],
+    };
+
+    expect(adaptiveEligibilityProgressSchema.safeParse(readiness).success).toBe(true);
+    expect(
+      adaptiveEligibilityProgressSchema.safeParse({
+        ...readiness,
+        completeNutritionDays: 0,
+      }).success,
+    ).toBe(false);
+    const missingWeightPendingCount = Object.fromEntries(
+      Object.entries(readiness).filter(([key]) => key !== 'weighInsPendingCutoff'),
+    );
+    expect(adaptiveEligibilityProgressSchema.safeParse(missingWeightPendingCount).success).toBe(
+      false,
+    );
+    const missingNutritionPendingCount = Object.fromEntries(
+      Object.entries(readiness).filter(([key]) => key !== 'completeNutritionDaysPendingCutoff'),
+    );
+    expect(adaptiveEligibilityProgressSchema.safeParse(missingNutritionPendingCount).success).toBe(
+      false,
+    );
+  });
+
   it('exposes every closed calculation enum', () => {
     expect(adaptiveRmrEquationSchema.options).toEqual([
       'mifflin_male',

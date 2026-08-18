@@ -30,6 +30,7 @@ import {
   evaluateEligibility,
   interpolateDailyWeights,
   sha256Hex,
+  summarizeAdaptiveReadinessEvidence,
 } from './adaptive-tdee.js';
 import { convertWeightFromKg, convertWeightToKg } from './weight-unit.js';
 
@@ -282,6 +283,300 @@ describe('weight trend and observed expenditure', () => {
 });
 
 describe('eligibility, confidence, and holds', () => {
+  it('separates logged, cutoff-pending, pre-trend, and usable readiness evidence', () => {
+    const nutritionDays: AdaptiveNutritionDay[] = [
+      {
+        id: 'partial',
+        date: '2026-08-11',
+        status: 'partial',
+        calories: 500,
+        itemCount: 1,
+        updatedAt: 1,
+      },
+      ...['2026-08-12', '2026-08-13', '2026-08-14'].map((date, index) => ({
+        id: `nutrition-${date}`,
+        date,
+        status: 'complete' as const,
+        calories: 2400,
+        itemCount: 8,
+        updatedAt: index + 2,
+      })),
+    ];
+    const weightEntries: AdaptiveWeightEntry[] = [
+      { id: 'weight-today', date: '2026-08-14', weightKg: 80.4, updatedAt: 4 },
+    ];
+    const todayBoundaries = calculateAdaptiveDateBoundaries('2026-08-14', false);
+    const todayEligibility = evaluateEligibility({
+      boundaries: todayBoundaries,
+      nutritionDays,
+      weightEntries,
+    });
+
+    expect(
+      summarizeAdaptiveReadinessEvidence({
+        boundaries: todayBoundaries,
+        nutritionDays,
+        weightEntries,
+        eligibility: todayEligibility,
+      }),
+    ).toEqual({
+      completeNutritionDaysLogged: 3,
+      completeNutritionDaysUsable: 0,
+      completeNutritionDaysBeforeWeightTrend: 2,
+      completeNutritionDaysAwaitingWeightTrend: 0,
+      completeNutritionDaysPendingCutoff: 1,
+      weighInsLogged: 1,
+      weighInsUsable: 0,
+      weighInsPendingCutoff: 1,
+      noteCodes: [
+        'COMPLETE_NUTRITION_PENDING_COMPLETED_DAY_CUTOFF',
+        'WEIGH_INS_PENDING_COMPLETED_DAY_CUTOFF',
+        'COMPLETE_NUTRITION_BEFORE_WEIGHT_TREND',
+      ],
+    });
+
+    const tomorrowBoundaries = calculateAdaptiveDateBoundaries('2026-08-15', false);
+    const tomorrowEligibility = evaluateEligibility({
+      boundaries: tomorrowBoundaries,
+      nutritionDays,
+      weightEntries,
+    });
+    expect(
+      summarizeAdaptiveReadinessEvidence({
+        boundaries: tomorrowBoundaries,
+        nutritionDays,
+        weightEntries,
+        eligibility: tomorrowEligibility,
+      }),
+    ).toMatchObject({
+      completeNutritionDaysLogged: 3,
+      completeNutritionDaysUsable: 1,
+      completeNutritionDaysBeforeWeightTrend: 2,
+      completeNutritionDaysPendingCutoff: 0,
+      weighInsLogged: 1,
+      weighInsUsable: 1,
+      weighInsPendingCutoff: 0,
+      noteCodes: ['COMPLETE_NUTRITION_BEFORE_WEIGHT_TREND'],
+    });
+  });
+
+  it.each([
+    { name: 'partial', status: 'partial' as const, calories: 2400, itemCount: 8 },
+    { name: 'unknown', status: 'unknown' as const, calories: 2400, itemCount: 8 },
+    { name: 'empty complete', status: 'complete' as const, calories: 2400, itemCount: 0 },
+    { name: 'zero-calorie complete', status: 'complete' as const, calories: 0, itemCount: 8 },
+  ])(
+    'never counts a $name current-day nutrition log before or after the cutoff',
+    ({ calories, itemCount, name, status }) => {
+      const nutritionDays: AdaptiveNutritionDay[] = [
+        ...['2026-08-12', '2026-08-13'].map((date, index) => ({
+          id: `complete-${date}`,
+          date,
+          status: 'complete' as const,
+          calories: 2400,
+          itemCount: 8,
+          updatedAt: index + 1,
+        })),
+        {
+          id: `current-${name}`,
+          date: '2026-08-14',
+          status,
+          calories,
+          itemCount,
+          updatedAt: 3,
+        },
+      ];
+
+      for (const localDate of ['2026-08-14', '2026-08-15']) {
+        const boundaries = calculateAdaptiveDateBoundaries(localDate, false);
+        const eligibility = evaluateEligibility({ boundaries, nutritionDays, weightEntries: [] });
+        const summary = summarizeAdaptiveReadinessEvidence({
+          boundaries,
+          nutritionDays,
+          weightEntries: [],
+          eligibility,
+        });
+
+        expect(summary.completeNutritionDaysLogged).toBe(2);
+        expect(summary.completeNutritionDaysUsable).toBe(0);
+        expect(summary.completeNutritionDaysPendingCutoff).toBe(0);
+        expect(summary.noteCodes).not.toContain('COMPLETE_NUTRITION_PENDING_COMPLETED_DAY_CUTOFF');
+      }
+    },
+  );
+
+  it('distinguishes complete nutrition awaiting trend coverage from pre-trend days', () => {
+    const boundaries = calculateAdaptiveDateBoundaries('2026-08-14', false);
+    const nutritionDays = makeNutritionDays(1, 2400, '2026-08-13');
+    const weightEntries: AdaptiveWeightEntry[] = [
+      { id: 'weight-1', date: '2026-08-12', weightKg: 80.4, updatedAt: 1 },
+    ];
+    const eligibility = evaluateEligibility({ boundaries, nutritionDays, weightEntries });
+
+    expect(
+      summarizeAdaptiveReadinessEvidence({
+        boundaries,
+        nutritionDays,
+        weightEntries,
+        eligibility,
+      }),
+    ).toMatchObject({
+      completeNutritionDaysLogged: 1,
+      completeNutritionDaysUsable: 0,
+      completeNutritionDaysBeforeWeightTrend: 0,
+      completeNutritionDaysAwaitingWeightTrend: 1,
+      completeNutritionDaysPendingCutoff: 0,
+      noteCodes: ['COMPLETE_NUTRITION_AWAITING_WEIGHT_TREND'],
+    });
+  });
+
+  it('does not permanently exclude nutrition that a pending weight will connect to warmup data', () => {
+    const nutritionDays = ['2026-08-01', '2026-08-10', '2026-08-13'].map((date) => ({
+      id: `nutrition-${date}`,
+      date,
+      status: 'complete' as const,
+      calories: 2400,
+      itemCount: 8,
+      updatedAt: 1,
+    }));
+    const weightEntries: AdaptiveWeightEntry[] = [
+      { id: 'warmup', date: '2026-07-10', weightKg: 81, updatedAt: 1 },
+      { id: 'pending', date: '2026-08-14', weightKg: 80, updatedAt: 2 },
+    ];
+    const todayBoundaries = calculateAdaptiveDateBoundaries('2026-08-14', false);
+    const todayEligibility = evaluateEligibility({
+      boundaries: todayBoundaries,
+      nutritionDays,
+      weightEntries,
+    });
+    const todaySummary = summarizeAdaptiveReadinessEvidence({
+      boundaries: todayBoundaries,
+      nutritionDays,
+      weightEntries,
+      eligibility: todayEligibility,
+    });
+
+    expect(todayEligibility.usableNutritionDays).toHaveLength(0);
+    expect(todaySummary).toMatchObject({
+      completeNutritionDaysBeforeWeightTrend: 0,
+      completeNutritionDaysAwaitingWeightTrend: 3,
+      completeNutritionDaysPendingCutoff: 0,
+      weighInsUsable: 1,
+      weighInsPendingCutoff: 1,
+      noteCodes: [
+        'WEIGH_INS_PENDING_COMPLETED_DAY_CUTOFF',
+        'COMPLETE_NUTRITION_AWAITING_WEIGHT_TREND',
+      ],
+    });
+
+    const tomorrowBoundaries = calculateAdaptiveDateBoundaries('2026-08-15', false);
+    const tomorrowEligibility = evaluateEligibility({
+      boundaries: tomorrowBoundaries,
+      nutritionDays,
+      weightEntries,
+    });
+    expect(tomorrowEligibility.usableNutritionDays).toHaveLength(3);
+    expect(
+      summarizeAdaptiveReadinessEvidence({
+        boundaries: tomorrowBoundaries,
+        nutritionDays,
+        weightEntries,
+        eligibility: tomorrowEligibility,
+      }),
+    ).toMatchObject({
+      completeNutritionDaysUsable: 3,
+      completeNutritionDaysBeforeWeightTrend: 0,
+      completeNutritionDaysAwaitingWeightTrend: 0,
+      completeNutritionDaysPendingCutoff: 0,
+      weighInsUsable: 2,
+      weighInsPendingCutoff: 0,
+      noteCodes: [],
+    });
+  });
+
+  it.each([
+    {
+      name: 'three weights across too short a span',
+      nutritionDays: makeNutritionDays(12),
+      weightEntries: [
+        { id: 'short-1', date: '2026-06-10', weightKg: 82, updatedAt: 1 },
+        { id: 'short-2', date: '2026-06-15', weightKg: 82, updatedAt: 2 },
+        { id: 'short-3', date: '2026-06-20', weightKg: 82, updatedAt: 3 },
+      ],
+      expectedReason: 'INSUFFICIENT_WEIGHT_SPAN' as const,
+      expectedSummary: {
+        completeNutritionDaysLogged: 12,
+        completeNutritionDaysUsable: 3,
+        weighInsLogged: 3,
+        weighInsUsable: 3,
+      },
+    },
+    {
+      name: 'stale weight coverage',
+      nutritionDays: makeNutritionDays(21),
+      weightEntries: makeDailyWeights(
+        BOUNDARIES.warmupStart,
+        addCalendarDays(BOUNDARIES.analysisEnd, -8),
+      ),
+      expectedReason: 'STALE_WEIGHT' as const,
+      expectedSummary: {
+        completeNutritionDaysLogged: 21,
+        completeNutritionDaysUsable: 13,
+        weighInsLogged: 34,
+        weighInsUsable: 34,
+      },
+    },
+    {
+      name: 'suspect weight coverage',
+      nutritionDays: makeNutritionDays(21),
+      weightEntries: makeDailyWeights().map((entry) =>
+        entry.date === '2026-06-10' ? { ...entry, weightKg: 87 } : entry,
+      ),
+      expectedReason: 'SUSPECT_WEIGHT_DATA' as const,
+      expectedSummary: {
+        completeNutritionDaysLogged: 21,
+        completeNutritionDaysUsable: 21,
+        weighInsLogged: 42,
+        weighInsUsable: 42,
+      },
+    },
+    {
+      name: 'fully eligible evidence',
+      nutritionDays: makeNutritionDays(12),
+      weightEntries: [
+        { id: 'eligible-1', date: '2026-05-31', weightKg: 82, updatedAt: 1 },
+        { id: 'eligible-2', date: '2026-06-07', weightKg: 82, updatedAt: 2 },
+        { id: 'eligible-3', date: '2026-06-14', weightKg: 82, updatedAt: 3 },
+      ],
+      expectedReason: null,
+      expectedSummary: {
+        completeNutritionDaysLogged: 12,
+        completeNutritionDaysUsable: 12,
+        weighInsLogged: 3,
+        weighInsUsable: 3,
+      },
+    },
+  ])('summarizes $name without changing its eligibility decision', (scenario) => {
+    const eligibility = evaluateEligibility({
+      boundaries: BOUNDARIES,
+      nutritionDays: scenario.nutritionDays,
+      weightEntries: scenario.weightEntries,
+    });
+    const summary = summarizeAdaptiveReadinessEvidence({
+      boundaries: BOUNDARIES,
+      nutritionDays: scenario.nutritionDays,
+      weightEntries: scenario.weightEntries,
+      eligibility,
+    });
+
+    if (scenario.expectedReason === null) {
+      expect(eligibility.eligible).toBe(true);
+    } else {
+      expect(eligibility.holdReasons).toContain(scenario.expectedReason);
+    }
+    expect(summary).toMatchObject(scenario.expectedSummary);
+  });
+
   it('accepts all exact eligibility boundaries', () => {
     const weightEntries = [
       { id: 'w1', date: '2026-05-31', weightKg: 82, updatedAt: 1 },

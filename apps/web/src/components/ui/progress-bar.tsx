@@ -11,6 +11,7 @@ export type ProgressBarProps = Omit<React.ComponentProps<'div'>, 'children'> & {
   label?: string;
   color?: string;
   showValue?: boolean;
+  valueLabel?: React.ReactNode;
 };
 
 export function ProgressBar({
@@ -19,17 +20,19 @@ export function ProgressBar({
   label,
   color = 'var(--color-primary)',
   showValue = false,
+  valueLabel,
   className,
   ...props
 }: ProgressBarProps) {
   const safeMax = max > 0 ? max : 0;
   const safeValue = safeMax > 0 ? clamp(value, 0, safeMax) : 0;
   const percentage = safeMax > 0 ? (safeValue / safeMax) * 100 : 0;
-  const valueText = `${Math.round(safeValue)} / ${Math.round(safeMax)}`;
+  const defaultValueLabel = `${Math.round(safeValue)} / ${Math.round(safeMax)}`;
 
   return (
     <div
       role="progressbar"
+      aria-label={label}
       aria-valuemin={0}
       aria-valuemax={safeMax}
       aria-valuenow={Math.round(safeValue)}
@@ -40,7 +43,9 @@ export function ProgressBar({
       {(label || showValue) && (
         <div className="flex items-center justify-between gap-2 text-sm">
           <span className="text-muted">{label}</span>
-          {showValue ? <span className="font-medium text-foreground">{valueText}</span> : null}
+          {showValue ? (
+            <span className="font-medium text-foreground">{valueLabel ?? defaultValueLabel}</span>
+          ) : null}
         </div>
       )}
       <div

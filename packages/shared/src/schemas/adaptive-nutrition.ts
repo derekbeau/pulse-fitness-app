@@ -978,16 +978,33 @@ export const adaptiveCheckInDetailSchema = adaptiveCheckInSummarySchema
   })
   .strict();
 
+export const adaptiveReadinessNoteCodeSchema = z.enum([
+  'COMPLETE_NUTRITION_PENDING_COMPLETED_DAY_CUTOFF',
+  'WEIGH_INS_PENDING_COMPLETED_DAY_CUTOFF',
+  'COMPLETE_NUTRITION_BEFORE_WEIGHT_TREND',
+  'COMPLETE_NUTRITION_AWAITING_WEIGHT_TREND',
+]);
+
 export const adaptiveEligibilityProgressSchema = z
   .object({
     eligible: z.boolean(),
-    completeNutritionDays: z.number().int().nonnegative(),
+    completeNutritionDaysLogged: z.number().int().nonnegative(),
+    completeNutritionDaysUsable: z.number().int().nonnegative(),
+    completeNutritionDaysBeforeWeightTrend: z.number().int().nonnegative(),
+    completeNutritionDaysAwaitingWeightTrend: z.number().int().nonnegative(),
+    completeNutritionDaysPendingCutoff: z.number().int().nonnegative(),
     requiredCompleteNutritionDays: z.number().int().positive(),
-    weighIns: z.number().int().nonnegative(),
+    weighInsLogged: z.number().int().nonnegative(),
+    weighInsUsable: z.number().int().nonnegative(),
+    weighInsPendingCutoff: z.number().int().nonnegative(),
     requiredWeighIns: z.number().int().positive(),
     weightSpanDays: z.number().int().nonnegative(),
     requiredWeightSpanDays: z.number().int().positive(),
-    latestWeightAgeDays: z.number().int().nonnegative().nullable(),
+    latestUsableWeightAgeDays: z.number().int().nonnegative().nullable(),
+    analysisEndDate: dateSchema,
+    pendingCutoffDate: dateSchema,
+    timeZone: z.string().trim().min(1),
+    noteCodes: z.array(adaptiveReadinessNoteCodeSchema),
     reasonCodes: z.array(adaptiveReasonCodeSchema),
   })
   .strict();
@@ -1060,6 +1077,7 @@ export type AdaptiveRecommendation = z.infer<typeof adaptiveRecommendationSchema
 export type AdaptiveCheckInInputSnapshot = z.infer<typeof adaptiveCheckInInputSnapshotSchema>;
 export type AdaptiveCheckInSummary = z.infer<typeof adaptiveCheckInSummarySchema>;
 export type AdaptiveCheckInDetail = z.infer<typeof adaptiveCheckInDetailSchema>;
+export type AdaptiveReadinessNoteCode = z.infer<typeof adaptiveReadinessNoteCodeSchema>;
 export type AdaptiveEligibilityProgress = z.infer<typeof adaptiveEligibilityProgressSchema>;
 export type AdaptiveNutritionReadState = z.infer<typeof adaptiveNutritionReadStateSchema>;
 export type AdaptiveNutritionState = z.infer<typeof adaptiveNutritionStateSchema>;

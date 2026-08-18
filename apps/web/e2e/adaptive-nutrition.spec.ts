@@ -120,7 +120,10 @@ test.describe.serial('Adaptive TDEE Coach', () => {
     await page.getByLabel('Starting equation').selectOption('manual_tdee');
     await page.getByLabel('Starting TDEE (kcal/day)').fill('2450');
     await page.getByLabel('Current weight (lbs)').fill('180');
-    await page.getByLabel('Goal', { exact: true }).selectOption('maintain');
+    await page
+      .getByRole('radiogroup', { name: 'Goal direction' })
+      .getByRole('radio', { name: /Maintain/ })
+      .check();
     await page.getByRole('button', { name: 'Preview starting targets' }).click();
 
     await expect(
@@ -156,7 +159,10 @@ test.describe.serial('Adaptive TDEE Coach', () => {
     await page.getByLabel('Birth date').fill('1990-02-28');
     await page.getByLabel('Starting activity level').selectOption('active');
     await page.getByLabel('Current weight (lbs)').fill('180');
-    await page.getByLabel('Goal', { exact: true }).selectOption('maintain');
+    await page
+      .getByRole('radiogroup', { name: 'Goal direction' })
+      .getByRole('radio', { name: /Maintain/ })
+      .check();
     await page.getByRole('button', { name: 'Preview starting targets' }).click();
 
     await expect(page.getByRole('button', { name: 'Use these targets' })).toBeVisible();
@@ -194,7 +200,15 @@ test.describe.serial('Adaptive TDEE Coach', () => {
     await expect(
       page.getByRole('heading', { level: 2, name: 'Your Adaptive TDEE is active' }),
     ).toBeVisible();
-    await expect(page.getByText('12 / 12')).toBeVisible();
+    const nutritionProgress = page.getByRole('progressbar', {
+      name: 'Complete nutrition: Usable with weight trend',
+    });
+    await expect(nutritionProgress).toContainText('21 / 12');
+    await expect(nutritionProgress).toHaveAttribute('aria-valuenow', '12');
+    await expect(nutritionProgress).toHaveAttribute(
+      'aria-valuetext',
+      '21 usable nutrition days; 12 required',
+    );
     await page.getByRole('button', { name: 'Check in now' }).click();
     await expect(
       page.getByRole('heading', { level: 2, name: 'Current and proposed targets' }),
@@ -281,8 +295,10 @@ test.describe.serial('Adaptive TDEE Coach', () => {
     await expect(page.getByLabel('Starting TDEE (kcal/day)')).toBeVisible();
     await page.getByLabel('Starting TDEE (kcal/day)').type('2450');
     await page.getByLabel('Current weight (lbs)').type('180');
-    await page.getByLabel('Goal', { exact: true }).focus();
-    await page.keyboard.type('Maintain weight');
+    const goalDirection = page.getByRole('radiogroup', { name: 'Goal direction' });
+    await goalDirection.getByRole('radio', { name: /Lose weight/ }).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(goalDirection.getByRole('radio', { name: /Maintain/ })).toBeChecked();
     await page.getByRole('button', { name: 'Preview starting targets' }).press('Enter');
     await expect(page.getByRole('button', { name: 'Use these targets' })).toBeVisible();
     await page.getByRole('button', { name: 'Use these targets' }).press('Enter');

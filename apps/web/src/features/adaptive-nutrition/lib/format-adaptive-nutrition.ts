@@ -66,7 +66,7 @@ export const adaptiveReasonCopy: Record<AdaptiveReasonCode, { action: string; la
   },
   INSUFFICIENT_WEIGHT: {
     label: 'Not enough weigh-ins',
-    action: 'Add at least three scale weights in the analysis window.',
+    action: 'Keep logging scale weights; each entry joins coaching after its local day closes.',
   },
   INSUFFICIENT_WEIGHT_SPAN: {
     label: 'Weight history is too short',
@@ -74,7 +74,7 @@ export const adaptiveReasonCopy: Record<AdaptiveReasonCode, { action: string; la
   },
   STALE_WEIGHT: {
     label: 'Recent weight is missing',
-    action: 'Log a current weight before requesting another check-in.',
+    action: 'Log a current weight; a same-day entry joins coaching after its local day closes.',
   },
   INSUFFICIENT_TREND_POINTS: {
     label: 'Weight trend is not established',
@@ -82,11 +82,12 @@ export const adaptiveReasonCopy: Record<AdaptiveReasonCode, { action: string; la
   },
   NO_OVERLAPPING_DATA: {
     label: 'Nutrition and weight dates do not overlap',
-    action: 'Log both nutrition and weight during the same recent weeks.',
+    action:
+      'Complete nutrition and usable weight-trend dates must overlap in the same recent weeks.',
   },
   SUSPECT_WEIGHT_DATA: {
     label: 'A weight entry may be an outlier',
-    action: 'Review the highlighted weigh-ins and correct any entry mistakes.',
+    action: 'Review recent entries in Weight History and correct any entry mistakes.',
   },
   IMPLAUSIBLE_EXPENDITURE: {
     label: 'Observed expenditure is outside the safe range',

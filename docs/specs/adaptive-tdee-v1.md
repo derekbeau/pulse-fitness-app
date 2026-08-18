@@ -225,11 +225,27 @@ A program exists but no personalized estimate has been accepted. Show starting T
 Some recent data exist but minimum requirements are not met. Show exact progress:
 
 ```text
-Complete nutrition days: 8 / 12 minimum
-Weigh-ins: 2 / 3 minimum
+Complete nutrition: 10 logged; 8 / 12 usable with weight trend
+Scale weigh-ins: 3 logged; 2 / 3 usable after the completed-day cutoff
 Weight span: 9 / 14 days minimum
-Recent weigh-in: 3 days ago
+Most recent usable weigh-in: 3 days before the cutoff
 ```
+
+Readiness is a presentation of two different facts and must never collapse them into one ambiguous
+count:
+
+- **Logged** means a qualifying record exists in the program-local analysis/warmup window, including
+  current-day complete nutrition and weights that are saved but not yet inside the completed-day
+  analysis. Partial, unknown, empty, or zero-calorie nutrition never counts as logged.
+- **Usable** means the record is inside the completed-day cutoff and, for nutrition, overlaps the
+  current weight-trend interval.
+
+The read state reports current-day complete nutrition and weights pending the cutoff, complete
+nutrition before the first current or pending trend point, and complete nutrition awaiting later
+trend coverage as explicit note codes.
+Cutoff copy uses the program's IANA time zone and the server-derived local date; clients must not
+recompute it from browser or UTC dates. Eligibility thresholds and calculation boundaries are
+unchanged.
 
 #### `updating`
 
@@ -872,13 +888,27 @@ Returns current state without creating a check-in:
     "nextCheckInDate": "2026-08-19",
     "eligibility": {
       "eligible": false,
-      "completeNutritionDays": 1,
+      "completeNutritionDaysLogged": 3,
+      "completeNutritionDaysUsable": 0,
+      "completeNutritionDaysBeforeWeightTrend": 2,
+      "completeNutritionDaysAwaitingWeightTrend": 0,
+      "completeNutritionDaysPendingCutoff": 1,
       "requiredCompleteNutritionDays": 12,
-      "weighIns": 0,
+      "weighInsLogged": 1,
+      "weighInsUsable": 0,
+      "weighInsPendingCutoff": 1,
       "requiredWeighIns": 3,
       "weightSpanDays": 0,
       "requiredWeightSpanDays": 14,
-      "latestWeightAgeDays": null,
+      "latestUsableWeightAgeDays": null,
+      "analysisEndDate": "2026-08-13",
+      "pendingCutoffDate": "2026-08-14",
+      "timeZone": "America/Detroit",
+      "noteCodes": [
+        "COMPLETE_NUTRITION_PENDING_COMPLETED_DAY_CUTOFF",
+        "WEIGH_INS_PENDING_COMPLETED_DAY_CUTOFF",
+        "COMPLETE_NUTRITION_BEFORE_WEIGHT_TREND"
+      ],
       "reasonCodes": ["INSUFFICIENT_NUTRITION", "INSUFFICIENT_WEIGHT"]
     }
   }

@@ -234,12 +234,20 @@ test.describe.serial('workout session flow', () => {
     await ensureAllExercisePanelsExpanded(page);
 
     await expect(page.getByRole('heading', { level: 3 }).first()).toBeVisible();
+    const warmupSection = page
+      .getByLabel('Warmup elapsed time')
+      .locator('xpath=ancestor::section[1]');
+    await warmupSection.getByRole('button', { exact: true, name: 'Start' }).click();
+    await expect(warmupSection.getByLabel('Warmup timer is live')).toBeVisible();
 
-    const elapsedTimeText = page.getByText(/^\d{2}:\d{2}$/).first();
+    const elapsedTimeText = warmupSection.getByLabel('Warmup elapsed time');
     const elapsedStart = await elapsedTimeText.innerText();
-    await page.waitForTimeout(1200);
-    const elapsedNext = await elapsedTimeText.innerText();
-    expect(toElapsedSeconds(elapsedNext)).toBeGreaterThan(toElapsedSeconds(elapsedStart));
+    await expect
+      .poll(async () => toElapsedSeconds(await elapsedTimeText.innerText()), {
+        message: 'the live workout timer to advance',
+        timeout: 5_000,
+      })
+      .toBeGreaterThan(toElapsedSeconds(elapsedStart));
 
     await ensureAllExercisePanelsExpanded(page);
     const feedbackHeading = page.getByRole('heading', { name: 'How did this session feel?' });
@@ -304,7 +312,7 @@ test.describe.serial('workout session flow', () => {
     expect(sessionId).toBeTruthy();
 
     await page.getByRole('button', { name: 'Done' }).click();
-    await expect(page).toHaveURL('/workouts');
+    await expect(page).toHaveURL('/workouts?view=calendar');
 
     const apiContext = await request.newContext({
       baseURL: apiBaseURL,

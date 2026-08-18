@@ -12,11 +12,21 @@ describe('ProgressBar', () => {
   });
 
   it('clamps percentage and fill width when value is greater than max', () => {
-    render(<ProgressBar max={200} value={240} />);
+    render(
+      <ProgressBar
+        aria-valuetext="240 completed; 200 required"
+        max={200}
+        showValue
+        value={240}
+        valueLabel="240 / 200"
+      />,
+    );
 
     const progress = screen.getByRole('progressbar');
     expect(progress).toHaveAttribute('aria-valuemax', '200');
     expect(progress).toHaveAttribute('aria-valuenow', '200');
+    expect(progress).toHaveAttribute('aria-valuetext', '240 completed; 200 required');
+    expect(screen.getByText('240 / 200')).toBeInTheDocument();
 
     const fill = document.querySelector('[data-slot="progress-bar-fill"]');
     expect(fill).toHaveStyle({ width: '100%' });

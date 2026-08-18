@@ -128,6 +128,38 @@ const seedWeight = (
     .run();
 };
 
+const seedNutritionDay = (
+  userId: string,
+  date: string,
+  status: 'complete' | 'partial' | 'unknown' = 'complete',
+  options: { calories?: number; includeItem?: boolean } = {},
+) => {
+  const { calories = 2400, includeItem = true } = options;
+  const logId = `${userId}-log-${date}`;
+  const mealId = `${userId}-meal-${date}`;
+  dbA
+    .insert(nutritionLogs)
+    .values({ id: logId, userId, date, status, statusUpdatedAt: nowMs, updatedAt: nowMs })
+    .run();
+  dbA.insert(meals).values({ id: mealId, nutritionLogId: logId, name: 'Daily total' }).run();
+  if (includeItem) {
+    dbA
+      .insert(mealItems)
+      .values({
+        id: `${userId}-item-${date}`,
+        mealId,
+        name: 'Food',
+        amount: 1,
+        unit: 'serving',
+        calories,
+        protein: 180,
+        carbs: 250,
+        fat: 75,
+      })
+      .run();
+  }
+};
+
 const seedEligibleHistory = (userId: string, start = '2026-06-01') => {
   for (let offset = 0; offset < 21; offset += 1) {
     const date = datePlus(start, offset);
@@ -220,6 +252,142 @@ beforeEach(() => {
 });
 
 describe('adaptive nutrition lifecycle store', () => {
+  it.each([
+    { goalType: 'maintain' as const, goalRatePctPerWeek: 0, targetWeightKg: null },
+    { goalType: 'lose' as const, goalRatePctPerWeek: -0.5, targetWeightKg: 75 },
+    { goalType: 'gain' as const, goalRatePctPerWeek: 0.25, targetWeightKg: 86 },
+  ])(
+    'reports logged and completed-day evidence for $goalType programs across the local cutoff',
+    ({ goalType, goalRatePctPerWeek, targetWeightKg }) => {
+      nowMs = Date.parse('2026-08-15T02:00:00.000Z');
+      storeA = createAdaptiveNutritionStore({
+        db: dbA,
+        sqlite: sqliteA,
+        now: () => new Date(nowMs),
+      });
+      storeA.upsertProgram(
+        'user-1',
+        programInput({ goalType, goalRatePctPerWeek, targetWeightKg }),
+      );
+      seedNutritionDay('user-1', '2026-08-11', 'partial');
+      seedNutritionDay('user-1', '2026-08-12');
+      seedNutritionDay('user-1', '2026-08-13');
+      seedNutritionDay('user-1', '2026-08-14');
+
+      const beforeMidnight = requireValue(
+        storeA.getState('user-1').eligibility,
+        'Expected readiness state',
+      );
+      expect(beforeMidnight).toMatchObject({
+        completeNutritionDaysLogged: 3,
+        completeNutritionDaysUsable: 0,
+        completeNutritionDaysBeforeWeightTrend: 2,
+        completeNutritionDaysAwaitingWeightTrend: 0,
+        completeNutritionDaysPendingCutoff: 1,
+        weighInsLogged: 1,
+        weighInsUsable: 0,
+        weighInsPendingCutoff: 1,
+        latestUsableWeightAgeDays: null,
+        analysisEndDate: '2026-08-13',
+        pendingCutoffDate: '2026-08-14',
+        timeZone: 'America/Detroit',
+        noteCodes: [
+          'COMPLETE_NUTRITION_PENDING_COMPLETED_DAY_CUTOFF',
+          'WEIGH_INS_PENDING_COMPLETED_DAY_CUTOFF',
+          'COMPLETE_NUTRITION_BEFORE_WEIGHT_TREND',
+        ],
+      });
+
+      nowMs = Date.parse('2026-08-15T04:01:00.000Z');
+      const afterMidnight = requireValue(
+        storeA.getState('user-1').eligibility,
+        'Expected readiness state after cutoff',
+      );
+      expect(afterMidnight).toMatchObject({
+        completeNutritionDaysLogged: 3,
+        completeNutritionDaysUsable: 1,
+        completeNutritionDaysBeforeWeightTrend: 2,
+        completeNutritionDaysPendingCutoff: 0,
+        weighInsLogged: 1,
+        weighInsUsable: 1,
+        weighInsPendingCutoff: 0,
+        latestUsableWeightAgeDays: 0,
+        analysisEndDate: '2026-08-14',
+        pendingCutoffDate: '2026-08-15',
+        timeZone: 'America/Detroit',
+        noteCodes: ['COMPLETE_NUTRITION_BEFORE_WEIGHT_TREND'],
+      });
+    },
+  );
+
+  it.each([
+    {
+      name: 'partial',
+      status: 'partial' as const,
+      options: { calories: 2400, includeItem: true },
+    },
+    {
+      name: 'unknown',
+      status: 'unknown' as const,
+      options: { calories: 2400, includeItem: true },
+    },
+    {
+      name: 'empty complete',
+      status: 'complete' as const,
+      options: { includeItem: false },
+    },
+    {
+      name: 'zero-calorie complete',
+      status: 'complete' as const,
+      options: { calories: 0, includeItem: true },
+    },
+  ])(
+    'does not count $name current-day nutrition on either side of America/Detroit midnight',
+    ({ options, status }) => {
+      nowMs = Date.parse('2026-08-15T02:00:00.000Z');
+      storeA = createAdaptiveNutritionStore({
+        db: dbA,
+        sqlite: sqliteA,
+        now: () => new Date(nowMs),
+      });
+      storeA.upsertProgram('user-1', programInput());
+      seedNutritionDay('user-1', '2026-08-12');
+      seedNutritionDay('user-1', '2026-08-13');
+      seedNutritionDay('user-1', '2026-08-14', status, options);
+
+      const beforeMidnight = requireValue(
+        storeA.getState('user-1').eligibility,
+        'Expected readiness before cutoff',
+      );
+      expect(beforeMidnight).toMatchObject({
+        completeNutritionDaysLogged: 2,
+        completeNutritionDaysUsable: 0,
+        completeNutritionDaysPendingCutoff: 0,
+        analysisEndDate: '2026-08-13',
+        pendingCutoffDate: '2026-08-14',
+      });
+      expect(beforeMidnight.noteCodes).not.toContain(
+        'COMPLETE_NUTRITION_PENDING_COMPLETED_DAY_CUTOFF',
+      );
+
+      nowMs = Date.parse('2026-08-15T04:01:00.000Z');
+      const afterMidnight = requireValue(
+        storeA.getState('user-1').eligibility,
+        'Expected readiness after cutoff',
+      );
+      expect(afterMidnight).toMatchObject({
+        completeNutritionDaysLogged: 2,
+        completeNutritionDaysUsable: 0,
+        completeNutritionDaysPendingCutoff: 0,
+        analysisEndDate: '2026-08-14',
+        pendingCutoffDate: '2026-08-15',
+      });
+      expect(afterMidnight.noteCodes).not.toContain(
+        'COMPLETE_NUTRITION_PENDING_COMPLETED_DAY_CUTOFF',
+      );
+    },
+  );
+
   it('creates one lifetime program with an entered canonical weight and accepts its baseline', () => {
     const program = storeA.upsertProgram('user-1', programInput());
     const state = storeA.getState('user-1');

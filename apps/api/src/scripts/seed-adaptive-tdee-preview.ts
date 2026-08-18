@@ -78,7 +78,7 @@ const FIXTURES: Array<
     idSuffix: '0003',
     name: 'Adaptive Preview · Learning',
     expectedState: 'learning',
-    note: 'The baseline is accepted but recent complete-day coverage is insufficient.',
+    note: "Two prior complete days plus today's complete nutrition and weigh-in are logged, while the completed-day coaching window still has zero usable records.",
   },
   {
     fixture: 'updating',
@@ -165,6 +165,42 @@ const DAY_MS = 86_400_000;
 
 const poundsFromKg = (weightKg: number) => weightKg / 0.45359237;
 
+const seedCompleteNutritionDay = (
+  db: AdaptiveDatabase,
+  userId: string,
+  date: string,
+  timestamp: number,
+) => {
+  const logId = `${userId}-log-${date}`;
+  const mealId = `${userId}-meal-${date}`;
+  db.insert(nutritionLogs)
+    .values({
+      id: logId,
+      userId,
+      date,
+      status: 'complete',
+      statusUpdatedAt: timestamp,
+      updatedAt: timestamp,
+    })
+    .run();
+  db.insert(meals)
+    .values({ id: mealId, nutritionLogId: logId, name: 'Deterministic daily total' })
+    .run();
+  db.insert(mealItems)
+    .values({
+      id: `${userId}-item-${date}`,
+      mealId,
+      name: 'Fixture total',
+      amount: 1,
+      unit: 'day',
+      calories: 2400,
+      protein: 160,
+      carbs: 260,
+      fat: 80,
+    })
+    .run();
+};
+
 const programInput = (
   overrides: Partial<AdaptiveProgramMutation> = {},
 ): AdaptiveProgramMutation => ({
@@ -237,34 +273,7 @@ const seedEligibleHistory = (
 ) => {
   for (let offset = -21; offset <= -1; offset += 1) {
     const date = datePlus(anchorDate, offset);
-    const logId = `${userId}-log-${date}`;
-    const mealId = `${userId}-meal-${date}`;
-    db.insert(nutritionLogs)
-      .values({
-        id: logId,
-        userId,
-        date,
-        status: 'complete',
-        statusUpdatedAt: timestamp + offset,
-        updatedAt: timestamp + offset,
-      })
-      .run();
-    db.insert(meals)
-      .values({ id: mealId, nutritionLogId: logId, name: 'Deterministic daily total' })
-      .run();
-    db.insert(mealItems)
-      .values({
-        id: `${userId}-item-${date}`,
-        mealId,
-        name: 'Fixture total',
-        amount: 1,
-        unit: 'day',
-        calories: 2400,
-        protein: 160,
-        carbs: 260,
-        fat: 80,
-      })
-      .run();
+    seedCompleteNutritionDay(db, userId, date, timestamp + offset);
   }
   const weights = goalWeight
     ? [81.25, 81.24, 81.23, 81.22, 81.21, 81.2, 81.2, 81.2]
@@ -360,7 +369,10 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   store.declineCheckIn(baseline.userId, requirePendingId(store, baseline.userId));
   clock += 1000;
 
-  createAndAcceptBaseline('learning');
+  const learning = createAndAcceptBaseline('learning');
+  [-2, -1, 0].forEach((offset) => {
+    seedCompleteNutritionDay(db, learning.userId, datePlus(anchorDate, offset), clock + offset);
+  });
 
   const updating = createAndAcceptBaseline('updating');
   seedEligibleHistory(db, updating.userId, anchorDate, clock);
