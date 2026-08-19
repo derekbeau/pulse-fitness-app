@@ -2269,6 +2269,52 @@ Codex receives this specification and the repository handoff commit. It must:
 11. After Milestone 11, stop at `AWAITING VECTOR FINAL GOAL-STRATEGY REVIEW` and report all five commit SHAs plus complete automated, migration, browser, and production-isolation evidence.
 12. If Vector returns confirmed final-QA defects, resume the same goal only for that bounded list, create one final-QA repair commit after all affected gates pass, and stop at `AWAITING VECTOR FINAL GOAL-STRATEGY RE-REVIEW`.
 
+## 39. Agentic Weekly Decision Reviews
+
+Weekly reviews are deterministic, persisted decision records layered over the canonical check-in,
+goal, Trend Weight, readiness, and Energy Balance contracts. They do not call a model and do not
+change a nutrition target merely by being generated or read.
+
+- The immutable review snapshot records fixed local bounds, program time zone, preferred weight
+  unit, source fingerprint, confidence, bounded context records, and ordered modules. Module order
+  is always Data quality, Outcome, Energy, Training and recovery, Recommendation; Data quality,
+  Energy, and Training are omitted when their facts are not relevant. A clean eligible week is
+  exactly Outcome plus Recommendation.
+- Logged, usable, excluded, pending-cutoff, and missing evidence remain distinct. A low complete
+  day can request clarification without changing canonical eligibility. A current-day complete log
+  or weigh-in is visible as pending cutoff and is never represented as missing or zero.
+- Context records are bounded to owned dates/ranges or first-class nutrition, weight, workout, and
+  check-in subjects. Entity context participates only while that owned entity falls inside the
+  fixed review window. The server stamps `upcoming_check_in` context with the next due local review
+  date (or today's local date when already due), so it is consumed by exactly that generated cycle.
+  Context retains actor provenance and revision history, can explain a fact or suppress a redundant
+  question, and cannot override quantities, status, exclusion, readiness, or calculations.
+- Reviews keep original evidence and proposals immutable. Accept, edit, defer, decline, ask, answer,
+  and supersede events form a contiguous append-only action ledger. Source corrections make a
+  material decision stale; refresh creates a new fingerprinted snapshot and supersedes the old one.
+- Causal adjustment fields are algebraic: `appliedAdjustmentKcal` is final proposed expenditure
+  minus prior expenditure, while `smoothingOrCapKcal` is final proposed expenditure minus observed
+  expenditure. Together they disclose confidence smoothing, step limits, caps, rounding, and the
+  deadband without pretending the pre-rounding limited change was actually applied.
+- Accept is the only action that can apply targets. A keep acceptance records consent without
+  creating a target or accepted-expenditure event. Edit records a bounded calorie proposal,
+  preserves protein and fat, reconciles the delta through carbohydrates, and does not apply it;
+  the final applied proposal is retained in the immutable accept action. Defer changes no plan and
+  resurfaces the same review as actionable only at its future program-local date. A genuinely new,
+  completed evidence condition instead marks the old review for explicit refresh so the next
+  decision uses a fresh immutable snapshot. Decline validates freshness, changes no target, and suppresses the
+  identical cycle from reappearing.
+- Nonterminal pending/detail/history reads project source freshness. Any correction to quantitative,
+  context, goal/program-revision, or embedded Energy Balance facts returns `stale` with no material
+  actions until an explicit refresh creates a new immutable review.
+- JWT and AgentToken callers receive the same pending/detail/history facts. AgentToken callers may
+  create or revise their own bounded context and ask/answer review questions. Accept, edit, defer,
+  and decline are JWT-only decisions.
+- `adaptive_nutrition_reviews` and `adaptive_nutrition_review_actions` are immutable outside the
+  explicit account-deletion scope. `adaptive_nutrition_review_contexts` permits only contiguous
+  revision updates and soft deletion; identity and provenance fields remain immutable. Composite
+  ownership foreign keys prevent cross-user references.
+
 ## Sources
 
 [1] https://help.macrofactorapp.com/en/articles/20-expenditure — MacroFactor: Expenditure

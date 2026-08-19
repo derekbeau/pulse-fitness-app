@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
-import type { AdaptiveProgramCalculation, NutritionTarget } from '@pulse/shared';
+import type {
+  AdaptiveProgramCalculation,
+  AdaptiveReviewActionInput,
+  AdaptiveReviewContextSubject,
+  AdaptiveWeeklyReviewSnapshot,
+  NutritionTarget,
+} from '@pulse/shared';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -450,5 +456,203 @@ export const adaptiveNutritionGoalCompletions = sqliteTable(
       'adaptive_nutrition_goal_completions_distinct_goals_check',
       sql`${table.completedGoalId} <> ${table.maintenanceGoalId}`,
     ),
+  ],
+);
+
+export const adaptiveNutritionReviewContexts = sqliteTable(
+  'adaptive_nutrition_review_contexts',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    programId: text('program_id')
+      .notNull()
+      .references(() => adaptiveNutritionPrograms.id, { onDelete: 'cascade' }),
+    subjectType: text('subject_type').$type<AdaptiveReviewContextSubject['kind']>().notNull(),
+    subject: text('subject', { mode: 'json' }).$type<AdaptiveReviewContextSubject>().notNull(),
+    category: text('category')
+      .$type<
+        | 'illness'
+        | 'recovery'
+        | 'pain_injury'
+        | 'travel'
+        | 'nutrition_exception'
+        | 'training_change'
+        | 'schedule_change'
+        | 'clarification'
+        | 'other'
+      >()
+      .notNull(),
+    note: text('note').notNull(),
+    resolution: text('resolution'),
+    createdBy: text('created_by').$type<'user' | 'agent_token'>().notNull(),
+    agentTokenId: text('agent_token_id'),
+    actorLabel: text('actor_label').notNull(),
+    revision: integer('revision').notNull().default(1),
+    createdAt: integer('created_at', { mode: 'number' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'number' }).notNull(),
+    deletedAt: integer('deleted_at', { mode: 'number' }),
+  },
+  (table) => [
+    index('adaptive_nutrition_review_contexts_user_updated_idx').on(table.userId, table.updatedAt),
+    index('adaptive_nutrition_review_contexts_program_active_idx').on(
+      table.programId,
+      table.deletedAt,
+    ),
+    uniqueIndex('adaptive_nutrition_review_contexts_id_user_unique').on(table.id, table.userId),
+    foreignKey({
+      columns: [table.programId, table.userId],
+      foreignColumns: [adaptiveNutritionPrograms.id, adaptiveNutritionPrograms.userId],
+      name: 'adaptive_nutrition_review_contexts_program_user_fk',
+    }).onDelete('cascade'),
+    check(
+      'adaptive_nutrition_review_contexts_subject_type_check',
+      sql`${table.subjectType} in ('date', 'date_range', 'nutrition_log', 'weigh_in', 'scheduled_workout', 'workout_session', 'check_in', 'upcoming_check_in')`,
+    ),
+    check(
+      'adaptive_nutrition_review_contexts_subject_json_check',
+      sql`json_valid(${table.subject}) and json_type(${table.subject}) = 'object' and json_extract(${table.subject}, '$.kind') = ${table.subjectType}`,
+    ),
+    check(
+      'adaptive_nutrition_review_contexts_category_check',
+      sql`${table.category} in ('illness', 'recovery', 'pain_injury', 'travel', 'nutrition_exception', 'training_change', 'schedule_change', 'clarification', 'other')`,
+    ),
+    check(
+      'adaptive_nutrition_review_contexts_note_check',
+      sql`length(trim(${table.note})) between 1 and 4000`,
+    ),
+    check(
+      'adaptive_nutrition_review_contexts_resolution_check',
+      sql`${table.resolution} is null or length(trim(${table.resolution})) between 1 and 4000`,
+    ),
+    check(
+      'adaptive_nutrition_review_contexts_actor_check',
+      sql`(${table.createdBy} = 'user' and ${table.agentTokenId} is null) or (${table.createdBy} = 'agent_token' and ${table.agentTokenId} is not null)`,
+    ),
+    check('adaptive_nutrition_review_contexts_revision_check', sql`${table.revision} >= 1`),
+    check(
+      'adaptive_nutrition_review_contexts_timestamps_check',
+      sql`${table.createdAt} > 0 and ${table.updatedAt} >= ${table.createdAt} and (${table.deletedAt} is null or ${table.deletedAt} >= ${table.createdAt})`,
+    ),
+  ],
+);
+
+export const adaptiveNutritionReviews = sqliteTable(
+  'adaptive_nutrition_reviews',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    programId: text('program_id')
+      .notNull()
+      .references(() => adaptiveNutritionPrograms.id, { onDelete: 'cascade' }),
+    checkInId: text('check_in_id')
+      .notNull()
+      .references(() => adaptiveNutritionCheckIns.id, { onDelete: 'restrict' }),
+    kind: text('kind').$type<'weekly' | 'manual'>().notNull(),
+    reviewVersion: integer('review_version').notNull().default(1),
+    sourceFingerprint: text('source_fingerprint').notNull(),
+    reviewLocalDate: text('review_local_date').notNull(),
+    analysisStart: text('analysis_start').notNull(),
+    analysisEnd: text('analysis_end').notNull(),
+    timeZone: text('time_zone').notNull(),
+    snapshot: text('snapshot', { mode: 'json' }).$type<AdaptiveWeeklyReviewSnapshot>().notNull(),
+    createdAt: integer('created_at', { mode: 'number' }).notNull(),
+  },
+  (table) => [
+    index('adaptive_nutrition_reviews_user_created_idx').on(table.userId, table.createdAt),
+    index('adaptive_nutrition_reviews_program_date_idx').on(table.programId, table.reviewLocalDate),
+    uniqueIndex('adaptive_nutrition_reviews_generation_unique').on(
+      table.programId,
+      table.kind,
+      table.analysisEnd,
+      table.sourceFingerprint,
+      table.reviewVersion,
+    ),
+    uniqueIndex('adaptive_nutrition_reviews_id_user_unique').on(table.id, table.userId),
+    foreignKey({
+      columns: [table.programId, table.userId],
+      foreignColumns: [adaptiveNutritionPrograms.id, adaptiveNutritionPrograms.userId],
+      name: 'adaptive_nutrition_reviews_program_user_fk',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.checkInId, table.userId],
+      foreignColumns: [adaptiveNutritionCheckIns.id, adaptiveNutritionCheckIns.userId],
+      name: 'adaptive_nutrition_reviews_check_in_user_fk',
+    }).onDelete('restrict'),
+    check('adaptive_nutrition_reviews_kind_check', sql`${table.kind} in ('weekly', 'manual')`),
+    check('adaptive_nutrition_reviews_version_check', sql`${table.reviewVersion} = 1`),
+    check(
+      'adaptive_nutrition_reviews_fingerprint_check',
+      sql`length(${table.sourceFingerprint}) = 64 and ${table.sourceFingerprint} not glob '*[^0-9a-f]*'`,
+    ),
+    check(
+      'adaptive_nutrition_reviews_dates_check',
+      sql`${table.reviewLocalDate} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' and ${table.analysisStart} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' and ${table.analysisEnd} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' and ${table.analysisStart} <= ${table.analysisEnd}`,
+    ),
+    check(
+      'adaptive_nutrition_reviews_snapshot_check',
+      sql`json_valid(${table.snapshot}) and json_type(${table.snapshot}) = 'object'`,
+    ),
+    check('adaptive_nutrition_reviews_created_at_check', sql`${table.createdAt} > 0`),
+  ],
+);
+
+export const adaptiveNutritionReviewActions = sqliteTable(
+  'adaptive_nutrition_review_actions',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    reviewId: text('review_id')
+      .notNull()
+      .references(() => adaptiveNutritionReviews.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    sequence: integer('sequence').notNull(),
+    type: text('type')
+      .$type<'accept' | 'edit' | 'defer' | 'decline' | 'ask_agent' | 'answer' | 'supersede'>()
+      .notNull(),
+    payload: text('payload', { mode: 'json' })
+      .$type<AdaptiveReviewActionInput | JsonRecord>()
+      .notNull(),
+    actorType: text('actor_type').$type<'user' | 'agent_token' | 'system'>().notNull(),
+    agentTokenId: text('agent_token_id'),
+    actorLabel: text('actor_label').notNull(),
+    createdAt: integer('created_at', { mode: 'number' }).notNull(),
+  },
+  (table) => [
+    index('adaptive_nutrition_review_actions_user_created_idx').on(table.userId, table.createdAt),
+    uniqueIndex('adaptive_nutrition_review_actions_review_sequence_unique').on(
+      table.reviewId,
+      table.sequence,
+    ),
+    uniqueIndex('adaptive_nutrition_review_actions_id_user_unique').on(table.id, table.userId),
+    foreignKey({
+      columns: [table.reviewId, table.userId],
+      foreignColumns: [adaptiveNutritionReviews.id, adaptiveNutritionReviews.userId],
+      name: 'adaptive_nutrition_review_actions_review_user_fk',
+    }).onDelete('cascade'),
+    check('adaptive_nutrition_review_actions_sequence_check', sql`${table.sequence} >= 1`),
+    check(
+      'adaptive_nutrition_review_actions_type_check',
+      sql`${table.type} in ('accept', 'edit', 'defer', 'decline', 'ask_agent', 'answer', 'supersede')`,
+    ),
+    check(
+      'adaptive_nutrition_review_actions_payload_check',
+      sql`json_valid(${table.payload}) and json_type(${table.payload}) = 'object'`,
+    ),
+    check(
+      'adaptive_nutrition_review_actions_actor_check',
+      sql`(${table.actorType} in ('user', 'system') and ${table.agentTokenId} is null) or (${table.actorType} = 'agent_token' and ${table.agentTokenId} is not null)`,
+    ),
+    check('adaptive_nutrition_review_actions_created_at_check', sql`${table.createdAt} > 0`),
   ],
 );

@@ -17,10 +17,12 @@ import {
   users,
 } from '../db/schema/index.js';
 import { createAdaptiveNutritionStore } from '../routes/adaptive-nutrition/store.js';
+import { createAdaptiveWeeklyReviewStore } from '../routes/adaptive-nutrition/review-store.js';
 import { createAdaptiveGoalReadStore } from '../routes/adaptive-nutrition/goal-store.js';
 
 import {
   ADAPTIVE_PREVIEW_USERNAME_PREFIX,
+  resolveAdaptivePreviewSeedNow,
   seedAdaptiveTdeePreviewFixtures,
 } from './seed-adaptive-tdee-preview.js';
 
@@ -34,6 +36,18 @@ afterEach(() => {
 });
 
 describe('Adaptive TDEE preview fixtures', () => {
+  it('never seeds a same-local-day revision in the future of the running preview', () => {
+    const current = new Date('2026-08-19T05:30:00.000Z');
+    expect(resolveAdaptivePreviewSeedNow('2026-08-19', current).toISOString()).toBe(
+      '2026-08-19T05:29:00.000Z',
+    );
+    const midnight = new Date('2026-08-19T04:00:30.000Z');
+    expect(resolveAdaptivePreviewSeedNow('2026-08-19', midnight)).toBe(midnight);
+    expect(resolveAdaptivePreviewSeedNow('2026-08-18', current).toISOString()).toBe(
+      '2026-08-18T16:00:00.000Z',
+    );
+  });
+
   it('rebuilds every Coach state and keeps goal completion explicit', () => {
     const directory = mkdtempSync(join(tmpdir(), 'pulse-adaptive-preview-'));
     tempDirectories.push(directory);
@@ -87,10 +101,71 @@ describe('Adaptive TDEE preview fixtures', () => {
       'completion-required': 'updating',
       'analytics-pending': 'pending_recommendation',
       'analytics-goal-loss': 'updating',
+      'review-clean-loss': 'pending_recommendation',
+      'review-clean-gain': 'pending_recommendation',
+      'review-clean-maintain': 'pending_recommendation',
+      'review-low-day': 'pending_recommendation',
+      'review-cutoff': 'pending_recommendation',
+      'review-illness': 'pending_recommendation',
+      'review-holding': 'learning',
+      'review-stale': 'pending_recommendation',
+      'review-decline': 'pending_recommendation',
+      'review-defer': 'pending_recommendation',
+      'review-maximal': 'learning',
+      'review-adjust': 'pending_recommendation',
     });
     for (const fixture of first) {
       expect(store.getState(fixture.userId).state).toBe(fixture.expectedState);
     }
+    const reviewStore = createAdaptiveWeeklyReviewStore({
+      db,
+      sqlite,
+      now: () => new Date('2026-08-13T16:30:00.000Z'),
+    });
+    const reviewFixture = (name: (typeof first)[number]['fixture']) => {
+      const fixture = first.find((candidate) => candidate.fixture === name);
+      if (!fixture) throw new Error(`Missing ${name} review fixture`);
+      const review = reviewStore.getPending(fixture.userId);
+      if (!review) throw new Error(`Missing ${name} pending review`);
+      return review;
+    };
+    expect(
+      reviewFixture('review-clean-loss').snapshot.modules.map((module) => module.kind),
+    ).toEqual(['outcome', 'recommendation']);
+    expect(reviewFixture('review-clean-loss').snapshot.modules[0]).toMatchObject({
+      goalType: 'lose',
+    });
+    expect(reviewFixture('review-clean-gain').snapshot.modules[0]).toMatchObject({
+      goalType: 'gain',
+    });
+    expect(reviewFixture('review-clean-maintain').snapshot.modules[0]).toMatchObject({
+      goalType: 'maintain',
+    });
+    expect(reviewFixture('review-low-day').snapshot.modules[0]).toMatchObject({
+      kind: 'data_quality',
+      requiresClarification: true,
+    });
+    expect(reviewFixture('review-cutoff').snapshot.modules[0]).toMatchObject({
+      kind: 'data_quality',
+      evidence: expect.arrayContaining([
+        expect.objectContaining({ state: 'pending_cutoff', localDate: '2026-08-13' }),
+      ]),
+    });
+    expect(reviewFixture('review-illness').snapshot.modules.map((module) => module.kind)).toContain(
+      'training_recovery',
+    );
+    expect(reviewFixture('review-maximal').snapshot.modules.map((module) => module.kind)).toEqual([
+      'data_quality',
+      'outcome',
+      'energy',
+      'training_recovery',
+      'recommendation',
+    ]);
+    expect(reviewFixture('review-adjust').snapshot.modules.at(-1)).toMatchObject({
+      kind: 'recommendation',
+      outcome: 'adjust',
+      proposedTarget: expect.any(Object),
+    });
     const learning = first.find((fixture) => fixture.fixture === 'learning');
     if (!learning) throw new Error('Learning fixture missing');
     const firstLearningEligibility = store.getState(learning.userId).eligibility;

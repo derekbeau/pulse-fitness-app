@@ -9,6 +9,9 @@ import {
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
   adaptiveNutritionPrograms,
+  adaptiveNutritionReviewActions,
+  adaptiveNutritionReviewContexts,
+  adaptiveNutritionReviews,
   habits,
   nutritionTargets,
   users,
@@ -179,6 +182,13 @@ export const deleteUserAccount = async (userId: string): Promise<boolean> => {
     // The scope row exists only inside this write transaction. SQLite's single-writer lock prevents
     // another account deletion from borrowing it, and rollback restores every ordered deletion.
     tx.insert(adaptiveNutritionAccountDeletionScope).values({ userId }).run();
+    tx.delete(adaptiveNutritionReviewActions)
+      .where(eq(adaptiveNutritionReviewActions.userId, userId))
+      .run();
+    tx.delete(adaptiveNutritionReviews).where(eq(adaptiveNutritionReviews.userId, userId)).run();
+    tx.delete(adaptiveNutritionReviewContexts)
+      .where(eq(adaptiveNutritionReviewContexts.userId, userId))
+      .run();
     tx.delete(nutritionTargets).where(eq(nutritionTargets.userId, userId)).run();
     tx.delete(adaptiveNutritionGoalCompletions)
       .where(eq(adaptiveNutritionGoalCompletions.userId, userId))

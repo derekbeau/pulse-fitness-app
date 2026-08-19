@@ -42,6 +42,10 @@ The `/api/v1/adaptive-nutrition` plugin uses shared strict schemas and standard 
   paginated lifecycle history, immutable revisions, linked accepted check-ins, and canonical weekly trend
   points. `trendWeightKg` is authoritative; `scaleWeightKg` is nullable and separately labeled.
 - `POST /check-ins/preview`: JWT or AgentToken mutation that persists a proposal or held attempt but never changes targets.
+- `GET /reviews/pending`, `GET /reviews`, and `GET /reviews/:id`: JWT or AgentToken reads of the same immutable weekly decision facts and action history.
+- `POST /reviews/preview` and `POST /reviews/:id/refresh`: JWT or AgentToken deterministic snapshot generation; neither applies a plan change.
+- `POST /review-context` plus context PATCH/DELETE: JWT or AgentToken bounded annotations. AgentToken callers may edit/delete only context created by that same token.
+- `POST /reviews/:id/actions`: ask/answer accepts either auth mode; accept/edit/defer/decline is JWT-only and stale source fingerprints return `409 ADAPTIVE_REVIEW_STALE` with zero plan writes.
 - `PUT /program`, `POST /check-ins/:id/accept`, and `POST /check-ins/:id/decline`: JWT-only account/coaching decisions.
 - `PATCH /goals/:id`, `POST /goals`, `POST /goals/:id/cancel`, and
   `POST /goals/:id/complete`: JWT-only goal decisions with optimistic revision/fingerprint conflicts.

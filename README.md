@@ -125,7 +125,7 @@ pnpm format     # Format with Prettier
 - Agent-specific conveniences such as name resolution, auto-create behavior, and enriched hints activate automatically for AgentToken callers on `/api/v1/*`.
 - Sensitive auth-management routes, including agent token CRUD, remain JWT-only.
 - Meal summaries can be explicitly updated via meal PATCH routes (`PATCH /api/v1/meals/:id` and `PATCH /api/v1/nutrition/:date/meals/:mealId`) by sending `summary` as text or `null`.
-- `/api/v1/adaptive-nutrition` exposes program/check-in state plus current goal, goal history, and canonical trend-detail reads to JWT and AgentToken callers. Program and goal lifecycle decisions are JWT-only. Goal changes create reviewable recommendations; previews and goal mutations never apply nutrition targets automatically, and completion is a separate reviewed transition after target acceptance.
+- `/api/v1/adaptive-nutrition` exposes program/check-in state, immutable agentic weekly decision reviews, current goal, goal history, and canonical trend-detail reads to JWT and AgentToken callers. Weekly review reads are identical for both auth modes; bounded context and questions are agent-compatible, while accept/edit/defer/decline, program, target, and goal lifecycle decisions are JWT-only. Previews and review reads never apply nutrition targets automatically.
 
 ### Response Format
 

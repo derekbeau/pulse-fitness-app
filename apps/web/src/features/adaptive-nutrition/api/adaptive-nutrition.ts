@@ -15,6 +15,8 @@ import {
   adaptiveNutritionStateSchema,
   energyBalanceAnalyticsSchema,
   adaptiveProgramSchema,
+  adaptiveWeeklyReviewPendingSchema,
+  adaptiveWeeklyReviewSchema,
   apiMetaSchema,
   type AdaptiveAcceptInput,
   type AdaptiveGoalCompleteInput,
@@ -22,6 +24,8 @@ import {
   type AdaptiveGoalStartInput,
   type AdaptivePreviewInput,
   type AdaptiveProgramMutation,
+  type AdaptiveReviewActionInput,
+  type AdaptiveWeeklyReviewPreviewInput,
   type EnergyBalanceAnalyticsQuery,
 } from '@pulse/shared';
 import { toast } from 'sonner';
@@ -43,6 +47,54 @@ const fetchAdaptiveEnergyBalance = (query: EnergyBalanceAnalyticsQuery, signal?:
     signal,
   }).then((value) => energyBalanceAnalyticsSchema.parse(value));
 };
+
+const fetchPendingAdaptiveWeeklyReview = (signal?: AbortSignal) =>
+  apiRequest<unknown>('/api/v1/adaptive-nutrition/reviews/pending', { signal }).then((value) =>
+    adaptiveWeeklyReviewPendingSchema.parse(value),
+  );
+
+const fetchAdaptiveWeeklyReview = (id: string, signal?: AbortSignal) =>
+  apiRequest<unknown>(`/api/v1/adaptive-nutrition/reviews/${id}`, { signal }).then((value) =>
+    adaptiveWeeklyReviewSchema.parse(value),
+  );
+
+const fetchAdaptiveWeeklyReviewHistory = async (
+  page: number,
+  limit: number,
+  signal?: AbortSignal,
+) => {
+  const response = await apiRequestWithMeta<unknown, unknown>(
+    `/api/v1/adaptive-nutrition/reviews?page=${page}&limit=${limit}`,
+    { signal },
+  );
+  return {
+    data: adaptiveWeeklyReviewSchema.array().parse(response.data),
+    meta: apiMetaSchema.parse(response.meta),
+  };
+};
+
+const previewAdaptiveWeeklyReview = (input: AdaptiveWeeklyReviewPreviewInput) =>
+  apiRequest<unknown>('/api/v1/adaptive-nutrition/reviews/preview', {
+    body: input,
+    method: 'POST',
+  }).then((value) => adaptiveWeeklyReviewSchema.parse(value));
+
+const refreshAdaptiveWeeklyReview = (id: string) =>
+  apiRequest<unknown>(`/api/v1/adaptive-nutrition/reviews/${id}/refresh`, {
+    method: 'POST',
+  }).then((value) => adaptiveWeeklyReviewSchema.parse(value));
+
+const actOnAdaptiveWeeklyReview = ({
+  id,
+  input,
+}: {
+  id: string;
+  input: AdaptiveReviewActionInput;
+}) =>
+  apiRequest<unknown>(`/api/v1/adaptive-nutrition/reviews/${id}/actions`, {
+    body: input,
+    method: 'POST',
+  }).then((value) => adaptiveWeeklyReviewSchema.parse(value));
 
 const putAdaptiveNutritionProgram = (input: AdaptiveProgramMutation) =>
   apiRequest<unknown>('/api/v1/adaptive-nutrition/program', {
@@ -137,6 +189,25 @@ export const useAdaptiveEnergyBalance = (query: EnergyBalanceAnalyticsQuery) =>
     placeholderData: keepPreviousData,
   });
 
+export const usePendingAdaptiveWeeklyReview = () =>
+  useQuery({
+    queryKey: adaptiveNutritionQueryKeys.pendingReview(),
+    queryFn: ({ signal }) => fetchPendingAdaptiveWeeklyReview(signal),
+  });
+
+export const useAdaptiveWeeklyReview = (id: string | null, enabled = true) =>
+  useQuery({
+    enabled: enabled && id !== null,
+    queryKey: adaptiveNutritionQueryKeys.reviewDetail(id ?? 'none'),
+    queryFn: ({ signal }) => fetchAdaptiveWeeklyReview(id ?? '', signal),
+  });
+
+export const useAdaptiveWeeklyReviewHistory = (page = 1, limit = 20) =>
+  useQuery({
+    queryKey: adaptiveNutritionQueryKeys.reviewHistory(page, limit),
+    queryFn: ({ signal }) => fetchAdaptiveWeeklyReviewHistory(page, limit, signal),
+  });
+
 export const useAdaptiveNutritionHistory = (page = 1, limit = 20) =>
   useQuery({
     queryKey: adaptiveNutritionQueryKeys.history(page, limit),
@@ -193,6 +264,54 @@ export const usePreviewAdaptiveNutritionCheckIn = () => {
     mutationFn: previewAdaptiveNutritionCheckIn,
     onSuccess: async () => {
       await invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.adaptivePreviewMutation());
+    },
+  });
+};
+
+export const usePreviewAdaptiveWeeklyReview = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: previewAdaptiveWeeklyReview,
+    onSuccess: async () => {
+      await invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.adaptivePreviewMutation());
+      toast.success('Weekly decision review prepared');
+    },
+  });
+};
+
+export const useRefreshAdaptiveWeeklyReview = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: refreshAdaptiveWeeklyReview,
+    onSuccess: async () => {
+      await invalidateQueryKeys(queryClient, [adaptiveNutritionQueryKeys.all]);
+      toast.success('Weekly review refreshed');
+    },
+  });
+};
+
+export const useAdaptiveWeeklyReviewAction = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: actOnAdaptiveWeeklyReview,
+    onSuccess: async (_review, variables) => {
+      await invalidateQueryKeys(
+        queryClient,
+        ['accept', 'edit'].includes(variables.input.type)
+          ? crossFeatureInvalidationMap.adaptiveResolutionMutation()
+          : [adaptiveNutritionQueryKeys.all],
+      );
+      const message =
+        variables.input.type === 'accept'
+          ? 'Weekly decision applied'
+          : variables.input.type === 'decline'
+            ? 'Current plan kept'
+            : variables.input.type === 'defer'
+              ? 'Review deferred'
+              : variables.input.type === 'edit'
+                ? 'Edited proposal saved for review'
+                : 'Question saved for your connected agent';
+      toast.success(message);
     },
   });
 };

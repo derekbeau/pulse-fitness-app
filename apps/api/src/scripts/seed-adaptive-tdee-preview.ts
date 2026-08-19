@@ -3,7 +3,7 @@ import { isAbsolute, resolve } from 'node:path';
 
 import bcrypt from 'bcryptjs';
 import type Database from 'better-sqlite3';
-import { and, eq, gte, like, or } from 'drizzle-orm';
+import { and, eq, gte, like, lte, or } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 import type { AdaptiveNutritionReadState, AdaptiveProgramMutation } from '@pulse/shared';
@@ -14,6 +14,9 @@ import {
   adaptiveNutritionCheckIns,
   adaptiveNutritionGoalCompletions,
   adaptiveNutritionPrograms,
+  adaptiveNutritionReviewActions,
+  adaptiveNutritionReviewContexts,
+  adaptiveNutritionReviews,
   bodyWeight,
   mealItems,
   meals,
@@ -22,6 +25,7 @@ import {
   users,
 } from '../db/schema/index.js';
 import { createAdaptiveNutritionStore } from '../routes/adaptive-nutrition/store.js';
+import { createAdaptiveWeeklyReviewStore } from '../routes/adaptive-nutrition/review-store.js';
 
 export const ADAPTIVE_PREVIEW_USERNAME_PREFIX = 'adaptive-preview-';
 export const ADAPTIVE_PREVIEW_USER_ID_PREFIX = 'f17e0000-0000-4000-8000-';
@@ -42,7 +46,19 @@ export type AdaptivePreviewFixtureName =
   | 'goal-change-pending'
   | 'completion-required'
   | 'analytics-pending'
-  | 'analytics-goal-loss';
+  | 'analytics-goal-loss'
+  | 'review-clean-loss'
+  | 'review-clean-gain'
+  | 'review-clean-maintain'
+  | 'review-low-day'
+  | 'review-cutoff'
+  | 'review-illness'
+  | 'review-holding'
+  | 'review-stale'
+  | 'review-decline'
+  | 'review-defer'
+  | 'review-maximal'
+  | 'review-adjust';
 
 export type AdaptivePreviewFixtureRecord = {
   fixture: AdaptivePreviewFixtureName;
@@ -171,6 +187,102 @@ const FIXTURES: Array<
     expectedState: 'updating',
     note: 'A dedicated loss goal keeps Energy Balance browser tests isolated.',
   },
+  {
+    fixture: 'review-clean-loss',
+    usernameSuffix: 'wr-loss',
+    idSuffix: '0016',
+    name: 'Adaptive Review · Clean Loss',
+    expectedState: 'pending_recommendation',
+    note: 'A clean loss review with only Outcome and Recommendation.',
+  },
+  {
+    fixture: 'review-clean-gain',
+    usernameSuffix: 'wr-gain',
+    idSuffix: '0017',
+    name: 'Adaptive Review · Clean Gain',
+    expectedState: 'pending_recommendation',
+    note: 'A clean gain review with deterministic goal-direction copy.',
+  },
+  {
+    fixture: 'review-clean-maintain',
+    usernameSuffix: 'wr-maintain',
+    idSuffix: '0018',
+    name: 'Adaptive Review · Clean Maintenance',
+    expectedState: 'pending_recommendation',
+    note: 'A clean maintenance review with deterministic neutral copy.',
+  },
+  {
+    fixture: 'review-low-day',
+    usernameSuffix: 'wr-low',
+    idSuffix: '0019',
+    name: 'Adaptive Review · Low Complete Day',
+    expectedState: 'pending_recommendation',
+    note: 'One complete day is unusually low and requires clarification.',
+  },
+  {
+    fixture: 'review-cutoff',
+    usernameSuffix: 'wr-cutoff',
+    idSuffix: '0020',
+    name: 'Adaptive Review · Current-day Cutoff',
+    expectedState: 'pending_recommendation',
+    note: 'Current-day complete nutrition and weight are logged but pending cutoff.',
+  },
+  {
+    fixture: 'review-illness',
+    usernameSuffix: 'wr-illness',
+    idSuffix: '0021',
+    name: 'Adaptive Review · Illness Context',
+    expectedState: 'pending_recommendation',
+    note: 'Bounded illness context explains recovery without changing nutrition math.',
+  },
+  {
+    fixture: 'review-holding',
+    usernameSuffix: 'wr-hold',
+    idSuffix: '0022',
+    name: 'Adaptive Review · Logging Hold',
+    expectedState: 'learning',
+    note: 'A logging break keeps the plan unchanged and shows missing evidence.',
+  },
+  {
+    fixture: 'review-stale',
+    usernameSuffix: 'wr-stale',
+    idSuffix: '0023',
+    name: 'Adaptive Review · Stale Correction',
+    expectedState: 'pending_recommendation',
+    note: 'A dedicated review may be corrected and refreshed without cross-test mutation.',
+  },
+  {
+    fixture: 'review-decline',
+    usernameSuffix: 'wr-decline',
+    idSuffix: '0024',
+    name: 'Adaptive Review · Decline',
+    expectedState: 'pending_recommendation',
+    note: 'A dedicated review verifies decline audit and no-repeat behavior.',
+  },
+  {
+    fixture: 'review-defer',
+    usernameSuffix: 'wr-defer',
+    idSuffix: '0025',
+    name: 'Adaptive Review · Defer',
+    expectedState: 'pending_recommendation',
+    note: 'A dedicated review verifies defer conditions and no duplicate rows.',
+  },
+  {
+    fixture: 'review-maximal',
+    usernameSuffix: 'wr-full',
+    idSuffix: '0026',
+    name: 'Adaptive Review · Full Evidence',
+    expectedState: 'learning',
+    note: 'Cutoff, missing, energy, training, and recommendation evidence exercise the full layout.',
+  },
+  {
+    fixture: 'review-adjust',
+    usernameSuffix: 'wr-adjust',
+    idSuffix: '0027',
+    name: 'Adaptive Review · Editable Adjustment',
+    expectedState: 'pending_recommendation',
+    note: 'A dedicated bounded adjustment supports edit-then-accept browser consent coverage.',
+  },
 ];
 
 const datePlus = (date: string, days: number) => {
@@ -219,6 +331,30 @@ const seedCompleteNutritionDay = (
     .run();
 };
 
+const seedWeightDay = (
+  db: AdaptiveDatabase,
+  userId: string,
+  date: string,
+  weightKg: number,
+  timestamp: number,
+) =>
+  db
+    .insert(bodyWeight)
+    .values({
+      id: `${userId}-weight-${date}`,
+      userId,
+      date,
+      weight: poundsFromKg(weightKg),
+      weightKg,
+      unitAtEntry: 'kg',
+      updatedAt: timestamp,
+    })
+    .onConflictDoUpdate({
+      target: [bodyWeight.userId, bodyWeight.date],
+      set: { weight: poundsFromKg(weightKg), weightKg, unitAtEntry: 'kg', updatedAt: timestamp },
+    })
+    .run();
+
 const programInput = (
   overrides: Partial<AdaptiveProgramMutation> = {},
 ): AdaptiveProgramMutation => ({
@@ -266,6 +402,15 @@ const cleanupExistingFixtures = (db: AdaptiveDatabase) => {
       tx.insert(adaptiveNutritionAccountDeletionScope)
         .values({ userId: fixtureUser.id })
         .onConflictDoNothing()
+        .run();
+      tx.delete(adaptiveNutritionReviewActions)
+        .where(eq(adaptiveNutritionReviewActions.userId, fixtureUser.id))
+        .run();
+      tx.delete(adaptiveNutritionReviews)
+        .where(eq(adaptiveNutritionReviews.userId, fixtureUser.id))
+        .run();
+      tx.delete(adaptiveNutritionReviewContexts)
+        .where(eq(adaptiveNutritionReviewContexts.userId, fixtureUser.id))
         .run();
       tx.delete(nutritionTargets).where(eq(nutritionTargets.userId, fixtureUser.id)).run();
       tx.delete(adaptiveNutritionGoalCompletions)
@@ -336,6 +481,7 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   cleanupExistingFixtures(db);
   let clock = options.now.getTime();
   const store = createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(clock) });
+  const reviewStore = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(clock) });
   const records = FIXTURES.map((fixture) => ({
     fixture: fixture.fixture,
     name: fixture.name,
@@ -536,6 +682,108 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   });
   store.acceptCheckIn(completion.userId, completionPreview.id, { replaceSameDateTarget: true });
 
+  const seedReviewReady = (
+    name: AdaptivePreviewFixtureName,
+    input: AdaptiveProgramMutation = programInput(),
+  ) => {
+    const fixture = createHistoricalBaseline(name, input);
+    seedEligibleHistory(db, fixture.userId, anchorDate, clock);
+    clock += 1000;
+    return fixture;
+  };
+
+  const cleanLoss = seedReviewReady(
+    'review-clean-loss',
+    programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+  );
+  reviewStore.preview(cleanLoss.userId, { kind: 'weekly' });
+
+  const cleanGain = seedReviewReady(
+    'review-clean-gain',
+    programInput({ goalType: 'gain', targetWeightKg: 88, goalRatePctPerWeek: 0.25 }),
+  );
+  reviewStore.preview(cleanGain.userId, { kind: 'weekly' });
+
+  const cleanMaintain = seedReviewReady('review-clean-maintain');
+  reviewStore.preview(cleanMaintain.userId, { kind: 'weekly' });
+
+  const lowDay = seedReviewReady('review-low-day');
+  db.update(mealItems)
+    .set({ calories: 550 })
+    .where(eq(mealItems.id, `${lowDay.userId}-item-${datePlus(anchorDate, -3)}`))
+    .run();
+  reviewStore.preview(lowDay.userId, { kind: 'weekly' });
+
+  const cutoff = seedReviewReady('review-cutoff');
+  seedCompleteNutritionDay(db, cutoff.userId, anchorDate, clock);
+  seedWeightDay(db, cutoff.userId, anchorDate, 81.6, clock);
+  reviewStore.preview(cutoff.userId, { kind: 'weekly' });
+
+  const illness = seedReviewReady('review-illness');
+  reviewStore.createContext(
+    illness.userId,
+    {
+      subject: { kind: 'date', localDate: datePlus(anchorDate, -2) },
+      category: 'illness',
+      note: 'Flu symptoms; intentionally rested and reduced training.',
+      resolution: 'Context recorded; no redundant clarification needed.',
+    },
+    { type: 'agent_token', agentTokenId: 'preview-agent', label: 'Preview Coach' },
+  );
+  reviewStore.preview(illness.userId, { kind: 'weekly' });
+
+  const loggingHold = seedReviewReady('review-holding');
+  db.delete(nutritionLogs)
+    .where(
+      and(
+        eq(nutritionLogs.userId, loggingHold.userId),
+        gte(nutritionLogs.date, datePlus(anchorDate, -21)),
+        lte(nutritionLogs.date, datePlus(anchorDate, -12)),
+      ),
+    )
+    .run();
+  reviewStore.preview(loggingHold.userId, { kind: 'weekly' });
+
+  const stale = seedReviewReady('review-stale');
+  reviewStore.preview(stale.userId, { kind: 'weekly' });
+
+  const declineReview = seedReviewReady('review-decline');
+  reviewStore.preview(declineReview.userId, { kind: 'weekly' });
+
+  const deferReview = seedReviewReady('review-defer');
+  reviewStore.preview(deferReview.userId, { kind: 'weekly' });
+
+  const maximal = seedReviewReady('review-maximal');
+  db.delete(nutritionLogs)
+    .where(
+      and(
+        eq(nutritionLogs.userId, maximal.userId),
+        gte(nutritionLogs.date, datePlus(anchorDate, -21)),
+        lte(nutritionLogs.date, datePlus(anchorDate, -12)),
+      ),
+    )
+    .run();
+  seedCompleteNutritionDay(db, maximal.userId, anchorDate, clock);
+  seedWeightDay(db, maximal.userId, anchorDate, 81.6, clock);
+  reviewStore.createContext(
+    maximal.userId,
+    {
+      subject: { kind: 'date_range', startDate: datePlus(anchorDate, -3), endDate: anchorDate },
+      category: 'recovery',
+      note: 'Recovery was intentionally reduced during an illness window.',
+      resolution: 'Use as context only; quantitative records remain authoritative.',
+    },
+    { type: 'agent_token', agentTokenId: 'preview-agent', label: 'Preview Coach' },
+  );
+  reviewStore.preview(maximal.userId, { kind: 'weekly' });
+
+  const adjustReview = seedReviewReady('review-adjust');
+  db.update(mealItems)
+    .set({ calories: 3000 })
+    .where(like(mealItems.id, `${adjustReview.userId}-item-%`))
+    .run();
+  reviewStore.preview(adjustReview.userId, { kind: 'weekly' });
+
   for (const fixture of records) {
     const state = store.getState(fixture.userId);
     if (state.state !== fixture.expectedState) {
@@ -561,6 +809,14 @@ const dateKeyInDetroit = (date: Date) => {
   const value = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((part) => part.type === type)?.value;
   return `${value('year')}-${value('month')}-${value('day')}`;
+};
+
+export const resolveAdaptivePreviewSeedNow = (anchorDate: string, current: Date) => {
+  if (anchorDate !== dateKeyInDetroit(current)) {
+    return new Date(`${anchorDate}T16:00:00.000Z`);
+  }
+  const buffered = new Date(current.getTime() - 60_000);
+  return dateKeyInDetroit(buffered) === anchorDate ? buffered : current;
 };
 
 const parseArguments = (args: string[]) => {
@@ -603,7 +859,7 @@ export async function runAdaptiveTdeePreviewSeedCli(args: string[]) {
   const records = seedAdaptiveTdeePreviewFixtures({
     anchorDate: parsed.anchorDate,
     db,
-    now: new Date(`${parsed.anchorDate}T16:00:00.000Z`),
+    now: resolveAdaptivePreviewSeedNow(parsed.anchorDate, new Date()),
     passwordHash,
     sqlite,
   });

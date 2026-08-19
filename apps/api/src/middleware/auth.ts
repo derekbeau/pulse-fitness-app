@@ -21,6 +21,7 @@ type AuthContext =
   | {
       authType: 'agent-token';
       agentTokenId: string;
+      agentTokenName?: string;
       userId: string;
     };
 
@@ -51,6 +52,7 @@ const setRequestAuthContext = (request: FastifyRequest, context: AuthContext) =>
   request.authType = context.authType;
   request.userId = context.userId;
   request.agentTokenId = context.authType === 'agent-token' ? context.agentTokenId : undefined;
+  request.agentTokenName = context.authType === 'agent-token' ? context.agentTokenName : undefined;
 
   return context.userId;
 };
@@ -145,6 +147,7 @@ const verifyAgentToken = async (request: FastifyRequest): Promise<AuthContext | 
   return {
     authType: 'agent-token',
     agentTokenId: agentToken.id,
+    agentTokenName: agentToken.name,
     userId: verifiedUserId,
   };
 };

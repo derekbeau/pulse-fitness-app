@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import {
   ADAPTIVE_TDEE_CONSTANTS,
   adaptiveCheckInSummarySchema,
+  adaptiveWeeklyReviewSchema,
   calculateAdaptiveGoalProgress,
 } from '@pulse/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -33,6 +34,14 @@ import {
   putAdaptiveNutritionProgram,
   startAdaptiveGoal,
 } from './store.js';
+import {
+  actOnAdaptiveWeeklyReview,
+  getAdaptiveWeeklyReview,
+  getPendingAdaptiveWeeklyReview,
+  listAdaptiveWeeklyReviews,
+  previewAdaptiveWeeklyReview,
+  refreshAdaptiveWeeklyReview,
+} from './review-store.js';
 
 vi.mock('./store.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./store.js')>();
@@ -67,6 +76,22 @@ vi.mock('./analytics-store.js', async (importOriginal) => {
   return {
     ...actual,
     getAdaptiveEnergyBalanceAnalytics: vi.fn(),
+  };
+});
+
+vi.mock('./review-store.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./review-store.js')>();
+  return {
+    ...actual,
+    actOnAdaptiveWeeklyReview: vi.fn(),
+    createAdaptiveReviewContext: vi.fn(),
+    deleteAdaptiveReviewContext: vi.fn(),
+    getAdaptiveWeeklyReview: vi.fn(),
+    getPendingAdaptiveWeeklyReview: vi.fn(),
+    listAdaptiveWeeklyReviews: vi.fn(),
+    previewAdaptiveWeeklyReview: vi.fn(),
+    refreshAdaptiveWeeklyReview: vi.fn(),
+    updateAdaptiveReviewContext: vi.fn(),
   };
 });
 
@@ -159,6 +184,7 @@ const boundaries = {
 };
 
 const fingerprint = 'a'.repeat(64);
+const reviewFingerprint = 'b'.repeat(64);
 const energyBalanceAnalytics = {
   algorithmVersion: 'adaptive-tdee-v1' as const,
   timeZone: 'America/Detroit',
@@ -327,6 +353,88 @@ const checkInSummary = adaptiveCheckInSummarySchema.parse(
   ),
 );
 
+const weeklyReview = adaptiveWeeklyReviewSchema.parse({
+  id: 'review-1',
+  checkInId: 'check-in-1',
+  sourceFingerprint: reviewFingerprint,
+  snapshot: {
+    version: 1 as const,
+    reviewLocalDate: '2026-06-01',
+    analysisStart: '2026-05-11',
+    analysisEnd: '2026-05-31',
+    timeZone: 'America/Detroit',
+    weightUnit: 'lbs',
+    programId: 'program-1',
+    checkInId: 'check-in-1',
+    goalId: 'goal-1',
+    goalRevisionId: 'revision-1',
+    algorithmVersion: 'adaptive-tdee-v1',
+    sourceFingerprint: reviewFingerprint,
+    headline: 'Keep the current targets',
+    summary: 'The available evidence does not support a material change.',
+    confidenceLabel: 'High' as const,
+    confidenceScore: 0.9,
+    modules: [
+      {
+        kind: 'outcome' as const,
+        title: 'Outcome' as const,
+        goalType: 'maintain' as const,
+        scaleWeightKg: 82,
+        trendWeightKg: 82,
+        trendChangeKg: 0,
+        actualRateKgPerWeek: 0,
+        desiredRateKgPerWeek: 0,
+        etaStartDate: null,
+        etaEndDate: null,
+        summary: 'Trend Weight is stable.',
+        scaleNoiseExplanation: 'Daily scale noise is smoothed before decisions.',
+      },
+      {
+        kind: 'recommendation' as const,
+        title: 'Recommendation' as const,
+        outcome: 'keep' as const,
+        headline: 'Keep the current targets',
+        explanation: 'No material target change is supported.',
+        currentTarget: {
+          calories: 2500,
+          protein: 180,
+          carbs: 265,
+          fat: 80,
+          effectiveDate: '2026-06-01',
+        },
+        proposedTarget: null,
+        causalBreakdown: {
+          priorExpenditureKcal: 2500,
+          observedExpenditureKcal: 2500,
+          proposedExpenditureKcal: 2500,
+          observedTrendContributionKcal: 0,
+          goalRateContributionKcal: 0,
+          requestedAdjustmentKcal: 0,
+          appliedAdjustmentKcal: 0,
+          smoothingOrCapKcal: 0,
+          safetyFloorKcal: 1500,
+          deficitLimitKcal: 1000,
+          includedNutritionDates: ['2026-05-31'],
+          excludedNutrition: [],
+          includedWeightDates: ['2026-05-31'],
+          excludedWeight: [],
+          confidenceLabel: 'High' as const,
+          confidenceScore: 0.9,
+          readinessReasonCodes: [],
+        },
+      },
+    ],
+    contexts: [],
+  },
+  state: 'pending' as const,
+  actionSequence: 0,
+  actions: [],
+  effectiveProposal: null,
+  deferCondition: null,
+  availableActions: ['accept', 'edit', 'defer', 'decline', 'ask_agent'],
+  createdAt: 1_780_329_600_000,
+});
+
 const programPayload = {
   status: 'active',
   timeZone: 'America/Detroit',
@@ -363,6 +471,15 @@ describe('adaptive nutrition routes', () => {
       goalActionRequired: null,
     });
     vi.mocked(getAdaptiveEnergyBalanceAnalytics).mockResolvedValue(energyBalanceAnalytics);
+    vi.mocked(getPendingAdaptiveWeeklyReview).mockResolvedValue(weeklyReview);
+    vi.mocked(refreshAdaptiveWeeklyReview).mockResolvedValue(weeklyReview);
+    vi.mocked(getAdaptiveWeeklyReview).mockResolvedValue(weeklyReview);
+    vi.mocked(previewAdaptiveWeeklyReview).mockResolvedValue(weeklyReview);
+    vi.mocked(actOnAdaptiveWeeklyReview).mockResolvedValue(weeklyReview);
+    vi.mocked(listAdaptiveWeeklyReviews).mockResolvedValue({
+      data: [weeklyReview],
+      meta: { page: 1, limit: 20, total: 1 },
+    });
     vi.mocked(previewAdaptiveNutritionCheckIn).mockResolvedValue(checkIn);
     vi.mocked(putAdaptiveNutritionProgram).mockResolvedValue(program);
     vi.mocked(listAdaptiveNutritionCheckIns).mockResolvedValue({
@@ -791,6 +908,161 @@ describe('adaptive nutrition routes', () => {
     }
   });
 
+  it('returns identical immutable pending-review truth to JWT and AgentToken callers', async () => {
+    const app = buildServer();
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({ id: 'agent-1', userId: 'agent-user' });
+    try {
+      await app.ready();
+      const jwt = app.jwt.sign(
+        { sub: 'jwt-user', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const [jwtResponse, agentResponse] = await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/adaptive-nutrition/reviews/pending',
+          headers: { authorization: `Bearer ${jwt}` },
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/adaptive-nutrition/reviews/pending',
+          headers: { authorization: 'AgentToken plain-agent-token' },
+        }),
+      ]);
+
+      expect(jwtResponse.statusCode, jwtResponse.body).toBe(200);
+      expect(agentResponse.statusCode, agentResponse.body).toBe(200);
+      expect(agentResponse.json()).toEqual(jwtResponse.json());
+      expect(vi.mocked(getPendingAdaptiveWeeklyReview)).toHaveBeenNthCalledWith(1, 'jwt-user');
+      expect(vi.mocked(getPendingAdaptiveWeeklyReview)).toHaveBeenNthCalledWith(2, 'agent-user');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('allows JWT and AgentToken callers to refresh stale evidence without a plan decision', async () => {
+    const app = buildServer();
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({ id: 'agent-1', userId: 'agent-user' });
+    try {
+      await app.ready();
+      const jwt = app.jwt.sign(
+        { sub: 'jwt-user', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const [jwtResponse, agentResponse] = await Promise.all([
+        app.inject({
+          method: 'POST',
+          url: '/api/v1/adaptive-nutrition/reviews/review-1/refresh',
+          headers: { authorization: `Bearer ${jwt}` },
+        }),
+        app.inject({
+          method: 'POST',
+          url: '/api/v1/adaptive-nutrition/reviews/review-1/refresh',
+          headers: { authorization: 'AgentToken plain-agent-token' },
+        }),
+      ]);
+      expect(jwtResponse.statusCode, jwtResponse.body).toBe(200);
+      expect(agentResponse.statusCode, agentResponse.body).toBe(200);
+      expect(agentResponse.json()).toEqual(jwtResponse.json());
+      expect(vi.mocked(refreshAdaptiveWeeklyReview)).toHaveBeenNthCalledWith(
+        1,
+        'jwt-user',
+        'review-1',
+      );
+      expect(vi.mocked(refreshAdaptiveWeeklyReview)).toHaveBeenNthCalledWith(
+        2,
+        'agent-user',
+        'review-1',
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it.each(['accept', 'edit', 'defer', 'decline'] as const)(
+    'rejects AgentToken material review action %s without calling the store',
+    async (type) => {
+      const app = buildServer();
+      vi.mocked(findAgentTokenByHash).mockResolvedValue({ id: 'agent-1', userId: 'agent-user' });
+      const payload =
+        type === 'edit'
+          ? {
+              type,
+              expectedFingerprint: reviewFingerprint,
+              expectedActionSequence: 0,
+              proposal: {
+                calories: 2400,
+                protein: 180,
+                carbs: 240,
+                fat: 80,
+                effectiveDate: '2026-06-02',
+              },
+              reason: 'User-authored edit required.',
+            }
+          : type === 'defer'
+            ? {
+                type,
+                expectedFingerprint: reviewFingerprint,
+                expectedActionSequence: 0,
+                condition: { kind: 'until_date', localDate: '2026-06-02' },
+                reason: 'Wait for another record.',
+              }
+            : type === 'decline'
+              ? {
+                  type,
+                  expectedFingerprint: reviewFingerprint,
+                  expectedActionSequence: 0,
+                  reason: 'Keep current targets.',
+                }
+              : {
+                  type,
+                  expectedFingerprint: reviewFingerprint,
+                  expectedActionSequence: 0,
+                };
+      try {
+        await app.ready();
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/v1/adaptive-nutrition/reviews/review-1/actions',
+          headers: { authorization: 'AgentToken plain-agent-token' },
+          payload,
+        });
+        expect(response.statusCode, response.body).toBe(403);
+        expect(response.json()).toMatchObject({ error: { code: 'FORBIDDEN' } });
+        expect(vi.mocked(actOnAdaptiveWeeklyReview)).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    },
+  );
+
+  it('allows an AgentToken caller to ask one bounded review question without plan mutation', async () => {
+    const app = buildServer();
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({ id: 'agent-1', userId: 'agent-user' });
+    try {
+      await app.ready();
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/adaptive-nutrition/reviews/review-1/actions',
+        headers: { authorization: 'AgentToken plain-agent-token' },
+        payload: {
+          type: 'ask_agent',
+          expectedActionSequence: 0,
+          question: 'Was the low nutrition day already explained?',
+        },
+      });
+      expect(response.statusCode, response.body).toBe(200);
+      expect(vi.mocked(actOnAdaptiveWeeklyReview)).toHaveBeenCalledWith(
+        'agent-user',
+        'review-1',
+        expect.objectContaining({ type: 'ask_agent' }),
+        { type: 'agent_token', agentTokenId: 'agent-1', label: 'agent-1' },
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
   it('documents every lifecycle route with the correct security scheme', async () => {
     const app = buildServer();
     try {
@@ -817,6 +1089,14 @@ describe('adaptive nutrition routes', () => {
           '/api/v1/adaptive-nutrition/check-ins/{id}/decline',
           '/api/v1/adaptive-nutrition/check-ins',
           '/api/v1/adaptive-nutrition/check-ins/{id}',
+          '/api/v1/adaptive-nutrition/reviews/pending',
+          '/api/v1/adaptive-nutrition/reviews/preview',
+          '/api/v1/adaptive-nutrition/reviews',
+          '/api/v1/adaptive-nutrition/reviews/{id}',
+          '/api/v1/adaptive-nutrition/reviews/{id}/refresh',
+          '/api/v1/adaptive-nutrition/reviews/{id}/actions',
+          '/api/v1/adaptive-nutrition/review-context',
+          '/api/v1/adaptive-nutrition/review-context/{id}',
         ]),
       );
       const programOperation = document.paths['/api/v1/adaptive-nutrition/program']?.put;

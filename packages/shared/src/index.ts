@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export * from './schemas/adaptive-nutrition.js';
+export * from './schemas/adaptive-weekly-review.js';
 export * from './schemas/energy-balance.js';
 export * from './schemas/agent.js';
 export * from './schemas/auth.js';

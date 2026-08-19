@@ -11,6 +11,11 @@ export const adaptiveNutritionQueryKeys = {
   history: (page: number, limit: number) =>
     [...adaptiveNutritionQueryKey, 'check-ins', normalizeHistoryFilters(page, limit)] as const,
   detail: (id: string) => [...adaptiveNutritionQueryKey, 'check-ins', 'detail', id] as const,
+  reviews: () => [...adaptiveNutritionQueryKey, 'reviews'] as const,
+  pendingReview: () => [...adaptiveNutritionQueryKey, 'reviews', 'pending'] as const,
+  reviewDetail: (id: string) => [...adaptiveNutritionQueryKey, 'reviews', 'detail', id] as const,
+  reviewHistory: (page: number, limit: number) =>
+    [...adaptiveNutritionQueryKey, 'reviews', normalizeHistoryFilters(page, limit)] as const,
   goals: () => [...adaptiveNutritionQueryKey, 'goals'] as const,
   goalHistory: (page: number, limit: number) =>
     [...adaptiveNutritionQueryKey, 'goals', normalizeHistoryFilters(page, limit)] as const,

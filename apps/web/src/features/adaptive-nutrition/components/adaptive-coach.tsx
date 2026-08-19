@@ -12,9 +12,13 @@ import {
   useAcceptAdaptiveNutritionCheckIn,
   useAdaptiveNutritionCheckIn,
   useAdaptiveNutritionState,
+  useAdaptiveWeeklyReviewAction,
   useDeclineAdaptiveNutritionCheckIn,
+  usePendingAdaptiveWeeklyReview,
   usePreviewAdaptiveNutritionCheckIn,
+  usePreviewAdaptiveWeeklyReview,
   usePutAdaptiveNutritionProgram,
+  useRefreshAdaptiveWeeklyReview,
 } from '../api/adaptive-nutrition';
 import { AdaptiveSetupForm } from './adaptive-setup-form';
 import { AlgorithmStatusCard } from './algorithm-status-card';
@@ -24,9 +28,19 @@ import { GoalCard } from './goal-card';
 import { GoalCompletionDialog } from './goal-completion-dialog';
 import { GoalEditorDialog } from './goal-editor-dialog';
 import { GoalHistory } from './goal-history';
+import {
+  WeeklyDecisionBrief,
+  WeeklyReviewError,
+  WeeklyReviewLoading,
+} from './weekly-decision-review';
+import { WeeklyReviewHistory } from './weekly-review-history';
 
 export function AdaptiveCoach() {
   const stateQuery = useAdaptiveNutritionState();
+  const reviewQuery = usePendingAdaptiveWeeklyReview();
+  const reviewPreviewMutation = usePreviewAdaptiveWeeklyReview();
+  const reviewRefreshMutation = useRefreshAdaptiveWeeklyReview();
+  const reviewActionMutation = useAdaptiveWeeklyReviewAction();
   const previewMutation = usePreviewAdaptiveNutritionCheckIn();
   const acceptMutation = useAcceptAdaptiveNutritionCheckIn();
   const declineMutation = useDeclineAdaptiveNutritionCheckIn();
@@ -72,11 +86,22 @@ export function AdaptiveCoach() {
   }
 
   const state = stateQuery.data;
+  const weeklyReviewResolvedEmpty =
+    !reviewQuery.isLoading && !reviewQuery.isError && reviewQuery.data?.review === null;
 
   const requestPreview = async (kind: 'manual' | 'weekly') => {
     setActionError(null);
     setActionMessage('');
     try {
+      if (kind === 'weekly') {
+        const review = await reviewPreviewMutation.mutateAsync({ kind });
+        setActionMessage(
+          review.state === 'pending'
+            ? 'Weekly decision review ready.'
+            : 'This review is already recorded in your history.',
+        );
+        return;
+      }
       const checkIn = await previewMutation.mutateAsync({
         includeToday: kind === 'manual' ? includeToday : false,
         kind,
@@ -204,6 +229,38 @@ export function AdaptiveCoach() {
         <AdaptiveSetupForm currentTarget={state.currentTarget} />
       ) : (
         <>
+          {reviewQuery.isLoading ? <WeeklyReviewLoading /> : null}
+          {reviewQuery.isError ? (
+            <WeeklyReviewError onRetry={() => void reviewQuery.refetch()} />
+          ) : null}
+          {reviewQuery.data?.review ? (
+            <WeeklyDecisionBrief
+              isPending={reviewActionMutation.isPending || reviewRefreshMutation.isPending}
+              onAction={async (input) => {
+                await reviewActionMutation.mutateAsync({
+                  id: reviewQuery.data.review?.id ?? '',
+                  input,
+                });
+                setActionError(null);
+                setActionMessage(
+                  input.type === 'accept'
+                    ? 'Your weekly decision was accepted.'
+                    : input.type === 'decline'
+                      ? 'Current targets kept. The decision remains in history.'
+                      : input.type === 'defer'
+                        ? 'Review deferred without changing your plan.'
+                        : input.type === 'edit'
+                          ? 'Edited proposal saved. Accept when it looks right.'
+                          : 'Question saved for your connected agent.',
+                );
+              }}
+              onRefresh={async () => {
+                await reviewRefreshMutation.mutateAsync(reviewQuery.data.review?.id ?? '');
+              }}
+              review={reviewQuery.data.review}
+            />
+          ) : null}
+
           <AlgorithmStatusCard state={state} />
 
           <GoalCard
@@ -238,7 +295,7 @@ export function AdaptiveCoach() {
             </div>
           ) : null}
 
-          {state.pendingCheckIn ? (
+          {weeklyReviewResolvedEmpty && state.pendingCheckIn ? (
             pendingDetailQuery.isLoading ? (
               <Skeleton className="h-96 rounded-2xl" />
             ) : pendingDetailQuery.isError || !pendingDetailQuery.data ? (
@@ -262,18 +319,20 @@ export function AdaptiveCoach() {
                 }
               />
             )
-          ) : (
+          ) : weeklyReviewResolvedEmpty ? (
             <CheckInActions
               actionError={actionError}
               checkInDue={state.checkInDue}
               includeToday={includeToday}
-              isPending={previewMutation.isPending}
+              isPending={previewMutation.isPending || reviewPreviewMutation.isPending}
               onIncludeTodayChange={setIncludeToday}
               onPreview={requestPreview}
             />
-          )}
+          ) : null}
 
           {state.activeGoal ? <GoalHistory activeGoalId={state.activeGoal.id} /> : null}
+
+          <WeeklyReviewHistory />
 
           <CheckInHistory />
 
