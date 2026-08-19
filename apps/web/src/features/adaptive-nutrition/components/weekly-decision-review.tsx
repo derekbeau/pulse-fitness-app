@@ -1000,8 +1000,9 @@ function DataQualityModule({
           <p className="font-medium">Resolution paths</p>
           <p className="mt-1 text-muted-foreground">
             Ask your connected agent to confirm the complete log, mark the source record partial, or
-            attach bounded context. Quantitative eligibility changes only when the source status
-            changes.
+            attach relevant bounded context with an explicit resolution about completeness. Context
+            can remove a redundant question, but only a source-status correction changes
+            quantitative eligibility.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {module.resolutionOptions.map((option) => (

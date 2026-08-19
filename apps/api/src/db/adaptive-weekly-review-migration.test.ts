@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { adaptiveReviewContextSchema } from '@pulse/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 
 const sourceMigrationsFolder = fileURLToPath(new URL('../../drizzle', import.meta.url));
@@ -101,6 +102,7 @@ const seedLegacyRows = (sqlite: Database.Database, suffix = '') => {
 const insertReviewDomainRows = (
   sqlite: Database.Database,
   ids: { userId: string; programId: string; checkInId: string },
+  options: { contextResolution?: string | null; snapshot?: string } = {},
 ) => {
   sqlite
     .prepare(
@@ -108,18 +110,18 @@ const insertReviewDomainRows = (
         id, user_id, program_id, subject_type, subject, category, note, resolution,
         created_by, agent_token_id, actor_label, revision, created_at, updated_at, deleted_at
       ) VALUES ('context-1', ?, ?, 'date', '{"kind":"date","localDate":"2026-08-17"}',
-        'illness', 'Sick day', NULL, 'user', NULL, 'You', 1, 3, 3, NULL)`,
+        'illness', 'Sick day', ?, 'user', NULL, 'You', 1, 3, 3, NULL)`,
     )
-    .run(ids.userId, ids.programId);
+    .run(ids.userId, ids.programId, options.contextResolution ?? null);
   sqlite
     .prepare(
       `INSERT INTO adaptive_nutrition_reviews (
         id, user_id, program_id, check_in_id, kind, review_version, source_fingerprint,
         review_local_date, analysis_start, analysis_end, time_zone, snapshot, created_at
       ) VALUES ('review-1', ?, ?, ?, 'weekly', 1, ?, '2026-08-18', '2026-07-29',
-        '2026-08-17', 'America/Detroit', '{}', 4)`,
+        '2026-08-17', 'America/Detroit', ?, 4)`,
     )
-    .run(ids.userId, ids.programId, ids.checkInId, 'b'.repeat(64));
+    .run(ids.userId, ids.programId, ids.checkInId, 'b'.repeat(64), options.snapshot ?? '{}');
   sqlite
     .prepare(
       `INSERT INTO adaptive_nutrition_review_actions (
@@ -136,7 +138,7 @@ const expectHealthy = (sqlite: Database.Database) => {
   expect(sqlite.pragma('integrity_check')).toEqual([{ integrity_check: 'ok' }]);
 };
 
-const expectBehavioralHistoryGuards = (sqlite: Database.Database, userId: string) => {
+const expectBehavioralRevisionGuards = (sqlite: Database.Database, userId: string) => {
   expect(() =>
     sqlite
       .prepare(
@@ -145,7 +147,7 @@ const expectBehavioralHistoryGuards = (sqlite: Database.Database, userId: string
          WHERE id = 'context-1'`,
       )
       .run(),
-  ).toThrow(/revision history/iu);
+  ).toThrow(/optimistic revision contract/iu);
   expect(() =>
     sqlite
       .prepare(
@@ -154,7 +156,7 @@ const expectBehavioralHistoryGuards = (sqlite: Database.Database, userId: string
          WHERE id = 'context-1'`,
       )
       .run(),
-  ).toThrow(/revision history/iu);
+  ).toThrow(/optimistic revision contract/iu);
   expect(() =>
     sqlite
       .prepare(
@@ -163,19 +165,31 @@ const expectBehavioralHistoryGuards = (sqlite: Database.Database, userId: string
          WHERE id = 'context-1'`,
       )
       .run(),
-  ).toThrow(/revision history/iu);
+  ).toThrow(/optimistic revision contract/iu);
+
+  expect(() =>
+    sqlite
+      .prepare(
+        `UPDATE adaptive_nutrition_review_contexts
+         SET resolution = NULL, resolution_kind = 'nutrition_complete', revision = 2, updated_at = 6
+         WHERE id = 'context-1'`,
+      )
+      .run(),
+  ).toThrow(/CHECK constraint failed/iu);
 
   sqlite
     .prepare(
       `UPDATE adaptive_nutrition_review_contexts
-       SET note = 'Confirmed sick day', resolution = 'No follow-up needed', revision = 2, updated_at = 6
+       SET note = 'Confirmed sick day', resolution = 'Nutrition is complete',
+           resolution_kind = 'nutrition_complete', revision = 2, updated_at = 6
        WHERE id = 'context-1'`,
     )
     .run();
   expect(
     sqlite
       .prepare(
-        `SELECT subject, actor_label AS actorLabel, note, resolution, revision, deleted_at AS deletedAt
+        `SELECT subject, actor_label AS actorLabel, note, resolution,
+                resolution_kind AS resolutionKind, revision, deleted_at AS deletedAt
          FROM adaptive_nutrition_review_contexts WHERE id = 'context-1'`,
       )
       .get(),
@@ -183,7 +197,8 @@ const expectBehavioralHistoryGuards = (sqlite: Database.Database, userId: string
     subject: '{"kind":"date","localDate":"2026-08-17"}',
     actorLabel: 'You',
     note: 'Confirmed sick day',
-    resolution: 'No follow-up needed',
+    resolution: 'Nutrition is complete',
+    resolutionKind: 'nutrition_complete',
     revision: 2,
     deletedAt: null,
   });
@@ -203,7 +218,7 @@ const expectBehavioralHistoryGuards = (sqlite: Database.Database, userId: string
          WHERE id = 'context-1'`,
       )
       .run(),
-  ).toThrow(/revision history/iu);
+  ).toThrow(/optimistic revision contract/iu);
   expect(() =>
     sqlite.prepare("DELETE FROM adaptive_nutrition_review_contexts WHERE id = 'context-1'").run(),
   ).toThrow(/account deletion scope/iu);
@@ -244,7 +259,7 @@ describe('adaptive weekly review migration', () => {
     }
   });
 
-  it('upgrades a populated real 0048 database and enforces ownership and history guards', () => {
+  it('upgrades a populated real 0048 database and enforces ownership and revision guards', () => {
     const root = mkdtempSync(join(tmpdir(), 'pulse-weekly-review-upgrade-'));
     temporaryDirectories.push(root);
     const sqlite = new Database(join(root, 'upgrade.db'));
@@ -296,7 +311,7 @@ describe('adaptive weekly review migration', () => {
         sqlite.prepare("DELETE FROM adaptive_nutrition_reviews WHERE id = 'review-1'").run(),
       ).toThrow(/account deletion scope/iu);
 
-      expectBehavioralHistoryGuards(sqlite, ids.userId);
+      expectBehavioralRevisionGuards(sqlite, ids.userId);
 
       sqlite
         .prepare('INSERT INTO adaptive_nutrition_account_deletion_scope (user_id) VALUES (?)')
@@ -307,6 +322,93 @@ describe('adaptive weekly review migration', () => {
           .prepare('SELECT count(*) AS count FROM adaptive_nutrition_reviews WHERE user_id = ?')
           .get(ids.userId),
       ).toEqual({ count: 0 });
+      expectHealthy(sqlite);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('upgrades populated 0049 review data without inventing structured resolution semantics', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-weekly-review-0050-upgrade-'));
+    temporaryDirectories.push(root);
+    const sqlite = new Database(join(root, 'upgrade-0050.db'));
+    sqlite.pragma('foreign_keys = ON');
+    const legacyContext = {
+      id: 'context-1',
+      subject: { kind: 'date' as const, localDate: '2026-08-17' },
+      category: 'illness' as const,
+      note: 'Sick day',
+      resolution: 'The legacy note says the log was complete.',
+      provenance: { type: 'user' as const, agentTokenId: null, label: 'You' },
+      revision: 1,
+      createdAt: 3,
+      updatedAt: 3,
+      deletedAt: null,
+    };
+    const legacySnapshot = JSON.stringify({ contexts: [legacyContext] });
+    try {
+      migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 48) });
+      const ids = seedLegacyRows(sqlite);
+      migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 49) });
+      insertReviewDomainRows(sqlite, ids, {
+        contextResolution: legacyContext.resolution,
+        snapshot: legacySnapshot,
+      });
+      const contextBefore = sqlite
+        .prepare(
+          `SELECT id, user_id, program_id, subject_type, subject, category, note, resolution,
+                  created_by, agent_token_id, actor_label, revision, created_at, updated_at, deleted_at
+           FROM adaptive_nutrition_review_contexts WHERE id = 'context-1'`,
+        )
+        .get();
+      const reviewBefore = sqlite
+        .prepare("SELECT * FROM adaptive_nutrition_reviews WHERE id = 'review-1'")
+        .get();
+      const actionBefore = sqlite
+        .prepare("SELECT * FROM adaptive_nutrition_review_actions WHERE id = 'action-1'")
+        .get();
+
+      migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder });
+
+      expect(
+        sqlite
+          .prepare(
+            `SELECT id, user_id, program_id, subject_type, subject, category, note, resolution,
+                    created_by, agent_token_id, actor_label, revision, created_at, updated_at, deleted_at
+             FROM adaptive_nutrition_review_contexts WHERE id = 'context-1'`,
+          )
+          .get(),
+      ).toEqual(contextBefore);
+      expect(
+        sqlite
+          .prepare(
+            "SELECT resolution_kind AS resolutionKind FROM adaptive_nutrition_review_contexts WHERE id = 'context-1'",
+          )
+          .get(),
+      ).toEqual({ resolutionKind: null });
+      expect(
+        sqlite.prepare("SELECT * FROM adaptive_nutrition_reviews WHERE id = 'review-1'").get(),
+      ).toEqual(reviewBefore);
+      expect(
+        sqlite
+          .prepare("SELECT * FROM adaptive_nutrition_review_actions WHERE id = 'action-1'")
+          .get(),
+      ).toEqual(actionBefore);
+      const migratedSnapshot = JSON.parse(
+        String(
+          (
+            sqlite
+              .prepare("SELECT snapshot FROM adaptive_nutrition_reviews WHERE id = 'review-1'")
+              .get() as { snapshot: string }
+          ).snapshot,
+        ),
+      ) as { contexts: unknown[] };
+      expect(migratedSnapshot).toEqual(JSON.parse(legacySnapshot));
+      expect(adaptiveReviewContextSchema.parse(migratedSnapshot.contexts[0])).toEqual(
+        legacyContext,
+      );
+
+      expectBehavioralRevisionGuards(sqlite, ids.userId);
       expectHealthy(sqlite);
     } finally {
       sqlite.close();
@@ -334,7 +436,7 @@ describe('adaptive weekly review migration', () => {
       );
       const ids = seedLegacyRows(sqlite);
       insertReviewDomainRows(sqlite, ids);
-      expectBehavioralHistoryGuards(sqlite, ids.userId);
+      expectBehavioralRevisionGuards(sqlite, ids.userId);
       expectHealthy(sqlite);
     } finally {
       sqlite.close();

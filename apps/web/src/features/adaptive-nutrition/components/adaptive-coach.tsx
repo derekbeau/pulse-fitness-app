@@ -256,6 +256,8 @@ export function AdaptiveCoach() {
               }}
               onRefresh={async () => {
                 await reviewRefreshMutation.mutateAsync(reviewQuery.data.review?.id ?? '');
+                setActionError(null);
+                setActionMessage('Weekly review refreshed with current source data.');
               }}
               review={reviewQuery.data.review}
             />

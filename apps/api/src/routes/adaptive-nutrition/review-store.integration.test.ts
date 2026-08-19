@@ -9,7 +9,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import type { AdaptiveProgramMutation } from '@pulse/shared';
+import type { AdaptiveProgramMutation, AdaptiveReviewContext } from '@pulse/shared';
 
 import * as schema from '../../db/schema/index.js';
 import {
@@ -31,8 +31,11 @@ import { createAdaptiveNutritionStore } from './store.js';
 import {
   AdaptiveReviewContextNotFoundError,
   AdaptiveReviewProposalInvalidError,
+  AdaptiveReviewRefreshNotAllowedError,
   AdaptiveReviewStaleError,
   createAdaptiveWeeklyReviewStore,
+  matchLowDayResolutionContext,
+  selectReviewLowDayCandidates,
 } from './review-store.js';
 import { AdaptiveSameDateTargetExistsError } from './store.js';
 
@@ -260,6 +263,511 @@ describe('adaptive weekly review store', () => {
         ? recommendation.causalBreakdown.includedNutritionDates
         : [],
     ).toContain('2026-08-15');
+  });
+
+  it.each([
+    [
+      'nutrition log',
+      { kind: 'nutrition_log' as const, id: 'user-1-log-2026-08-15' },
+      'nutrition_exception' as const,
+    ],
+    ['local date', { kind: 'date' as const, localDate: '2026-08-15' }, 'illness' as const],
+    [
+      'local date recovery',
+      { kind: 'date' as const, localDate: '2026-08-15' },
+      'recovery' as const,
+    ],
+    [
+      'date range starting on the low day',
+      { kind: 'date_range' as const, startDate: '2026-08-15', endDate: '2026-08-17' },
+      'illness' as const,
+    ],
+    [
+      'date range spanning the low day',
+      { kind: 'date_range' as const, startDate: '2026-08-14', endDate: '2026-08-16' },
+      'recovery' as const,
+    ],
+    [
+      'date range ending on the low day',
+      { kind: 'date_range' as const, startDate: '2026-08-13', endDate: '2026-08-15' },
+      'nutrition_exception' as const,
+    ],
+  ])(
+    'uses resolved %s context to avoid a redundant low-day clarification',
+    (_, subject, category) => {
+      seedEligibleProgram();
+      db.update(mealItems)
+        .set({ calories: 600 })
+        .where(eq(mealItems.id, 'user-1-item-2026-08-15'))
+        .run();
+      const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+      store.createContext(
+        'user-1',
+        {
+          subject,
+          category,
+          note: 'Matching context is present, but completeness remains unresolved.',
+          resolution: null,
+        },
+        { type: 'user', label: 'You' },
+      );
+      const context = store.createContext(
+        'user-1',
+        {
+          subject,
+          category,
+          note: 'The low intake was intentional during recovery.',
+          resolution: 'Low intake was intentional and the log is complete.',
+          resolutionKind: 'nutrition_complete',
+        },
+        { type: 'agent_token', agentTokenId: 'agent-1', label: 'Coach' },
+      );
+
+      const review = store.preview('user-1', { kind: 'weekly' });
+      const quality = review.snapshot.modules.find((module) => module.kind === 'data_quality');
+
+      expect(quality).toMatchObject({ kind: 'data_quality', requiresClarification: false });
+      expect(quality?.kind === 'data_quality' ? quality.evidence : []).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            localDate: '2026-08-15',
+            reasonCodes: ['LIKELY_PARTIAL_NUTRITION'],
+            resolution: 'Low intake was intentional and the log is complete.',
+          }),
+        ]),
+      );
+      expect(review.snapshot.modules.at(-1)).not.toMatchObject({ outcome: 'clarify' });
+      expect(review.snapshot.contexts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: context.id,
+            revision: 1,
+            provenance: expect.objectContaining({ agentTokenId: 'agent-1', label: 'Coach' }),
+          }),
+        ]),
+      );
+    },
+  );
+
+  it('ranks competing low-day context deterministically', () => {
+    const context = (
+      id: string,
+      subject: AdaptiveReviewContext['subject'],
+      updatedAt: number,
+      resolutionKind: AdaptiveReviewContext['resolutionKind'] = 'nutrition_complete',
+    ): AdaptiveReviewContext => ({
+      id,
+      subject,
+      category: 'illness',
+      note: id,
+      resolution: 'The nutrition log is complete.',
+      resolutionKind,
+      provenance: { type: 'user', agentTokenId: null, label: 'You' },
+      revision: 1,
+      createdAt: 1,
+      updatedAt,
+      deletedAt: null,
+    });
+    const day = { id: 'low-log', date: '2026-08-15' };
+    const wide = context(
+      'range-wide',
+      { kind: 'date_range', startDate: '2026-08-10', endDate: '2026-08-20' },
+      50,
+    );
+    const narrow = context(
+      'range-narrow',
+      { kind: 'date_range', startDate: '2026-08-14', endDate: '2026-08-16' },
+      10,
+    );
+    const exactDate = context('date', { kind: 'date', localDate: day.date }, 5);
+    const exactLog = context('log', { kind: 'nutrition_log', id: day.id }, 1);
+    const unresolvedLog = context(
+      'unresolved-log',
+      { kind: 'nutrition_log', id: day.id },
+      100,
+      null,
+    );
+
+    expect(
+      matchLowDayResolutionContext([unresolvedLog, wide, narrow, exactDate, exactLog], day)?.id,
+    ).toBe('log');
+    expect(matchLowDayResolutionContext([wide, narrow, exactDate], day)?.id).toBe('date');
+    expect(matchLowDayResolutionContext([wide, narrow], day)?.id).toBe('range-narrow');
+
+    const newer = context(
+      'range-newer',
+      { kind: 'date_range', startDate: '2026-08-14', endDate: '2026-08-16' },
+      20,
+    );
+    expect(matchLowDayResolutionContext([narrow, newer], day)?.id).toBe('range-newer');
+    const idA = context(
+      'a-range',
+      { kind: 'date_range', startDate: '2026-08-14', endDate: '2026-08-16' },
+      20,
+    );
+    const idZ = context(
+      'z-range',
+      { kind: 'date_range', startDate: '2026-08-14', endDate: '2026-08-16' },
+      20,
+    );
+    expect(matchLowDayResolutionContext([idZ, idA], day)?.id).toBe('a-range');
+  });
+
+  it('uses context only for clarification while preserving quantitative review truth', () => {
+    seedEligibleProgram();
+    db.update(mealItems)
+      .set({ calories: 600 })
+      .where(eq(mealItems.id, 'user-1-item-2026-08-15'))
+      .run();
+    const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+    const lifecycle = createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) });
+    const unresolved = store.preview('user-1', { kind: 'weekly' });
+    const unresolvedRecommendation = unresolved.snapshot.modules.find(
+      (module) => module.kind === 'recommendation',
+    );
+    const calculationBefore = lifecycle.findCheckInDetail(
+      'user-1',
+      unresolved.checkInId,
+    )?.calculationSnapshot;
+    const targetBefore = db.select().from(nutritionTargets).all();
+    const nutritionBefore = db
+      .select()
+      .from(nutritionLogs)
+      .where(eq(nutritionLogs.id, 'user-1-log-2026-08-15'))
+      .get();
+
+    store.createContext(
+      'user-1',
+      {
+        subject: { kind: 'date', localDate: '2026-08-15' },
+        category: 'illness',
+        note: 'The low day was intentional while ill.',
+        resolution: 'Low intake was intentional and the log is complete.',
+        resolutionKind: 'nutrition_complete',
+      },
+      { type: 'user', label: 'You' },
+    );
+    expect(store.get('user-1', unresolved.id).state).toBe('stale');
+    const resolved = store.refresh('user-1', unresolved.id);
+    const resolvedRecommendation = resolved.snapshot.modules.find(
+      (module) => module.kind === 'recommendation',
+    );
+
+    expect(resolved.checkInId).toBe(unresolved.checkInId);
+    expect(
+      resolvedRecommendation?.kind === 'recommendation'
+        ? resolvedRecommendation.causalBreakdown
+        : null,
+    ).toEqual(
+      unresolvedRecommendation?.kind === 'recommendation'
+        ? unresolvedRecommendation.causalBreakdown
+        : null,
+    );
+    expect(lifecycle.findCheckInDetail('user-1', resolved.checkInId)?.calculationSnapshot).toEqual(
+      calculationBefore,
+    );
+    expect(db.select().from(nutritionTargets).all()).toEqual(targetBefore);
+    expect(
+      db.select().from(nutritionLogs).where(eq(nutritionLogs.id, 'user-1-log-2026-08-15')).get(),
+    ).toEqual(nutritionBefore);
+  });
+
+  it('does not let unrelated, unresolved, or deleted context suppress a low-day clarification', () => {
+    seedEligibleProgram();
+    db.update(mealItems)
+      .set({ calories: 600 })
+      .where(eq(mealItems.id, 'user-1-item-2026-08-15'))
+      .run();
+    const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+    const actor = { type: 'user' as const, label: 'You' };
+    store.createContext(
+      'user-1',
+      {
+        subject: { kind: 'date', localDate: '2026-08-14' },
+        category: 'illness',
+        note: 'Resolved illness on another day.',
+        resolution: 'The other day is complete.',
+      },
+      actor,
+    );
+    store.createContext(
+      'user-1',
+      {
+        subject: { kind: 'date_range', startDate: '2026-08-12', endDate: '2026-08-14' },
+        category: 'recovery',
+        note: 'Resolved recovery range that does not overlap.',
+        resolution: 'Those dates are complete.',
+      },
+      actor,
+    );
+    for (const category of [
+      'pain_injury',
+      'travel',
+      'training_change',
+      'schedule_change',
+      'clarification',
+      'other',
+    ] as const) {
+      store.createContext(
+        'user-1',
+        {
+          subject: { kind: 'date', localDate: '2026-08-15' },
+          category,
+          note: `Resolved ${category} context does not answer nutrition completeness.`,
+          resolution: 'This unrelated context is resolved.',
+          resolutionKind: 'nutrition_complete',
+        },
+        actor,
+      );
+    }
+    store.createContext(
+      'user-1',
+      {
+        subject: { kind: 'nutrition_log', id: 'user-1-log-2026-08-14' },
+        category: 'nutrition_exception',
+        note: 'A different owned nutrition log was confirmed.',
+        resolution: 'The other nutrition log is complete.',
+        resolutionKind: 'nutrition_complete',
+      },
+      actor,
+    );
+    store.createContext(
+      'user-1',
+      {
+        subject: { kind: 'date', localDate: '2026-08-15' },
+        category: 'illness',
+        note: 'Illness is confirmed, but nutrition completeness remains unknown.',
+        resolution: 'Illness confirmed; follow up about nutrition completeness.',
+      },
+      actor,
+    );
+    store.createContext(
+      'user-1',
+      {
+        subject: { kind: 'date', localDate: '2026-08-15' },
+        category: 'illness',
+        note: 'Illness may explain the low intake, but completeness is unresolved.',
+        resolution: null,
+      },
+      actor,
+    );
+    const deleted = store.createContext(
+      'user-1',
+      {
+        subject: { kind: 'nutrition_log', id: 'user-1-log-2026-08-15' },
+        category: 'nutrition_exception',
+        note: 'This context will be deleted.',
+        resolution: 'The log is complete.',
+        resolutionKind: 'nutrition_complete',
+      },
+      actor,
+    );
+    store.deleteContext('user-1', deleted.id, deleted.revision, actor);
+
+    const review = store.preview('user-1', { kind: 'weekly' });
+    const quality = review.snapshot.modules.find((module) => module.kind === 'data_quality');
+
+    expect(quality).toMatchObject({ kind: 'data_quality', requiresClarification: true });
+    expect(quality?.kind === 'data_quality' ? quality.evidence : []).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          localDate: '2026-08-15',
+          reasonCodes: ['LIKELY_PARTIAL_NUTRITION'],
+          resolution: null,
+        }),
+      ]),
+    );
+    expect(review.snapshot.modules.at(-1)).toMatchObject({ outcome: 'clarify' });
+    expect(review.snapshot.contexts.map((context) => context.id)).not.toContain(deleted.id);
+  });
+
+  it('makes matched context edits and deletion stale, then refreshes deterministically', () => {
+    seedEligibleProgram();
+    db.update(mealItems)
+      .set({ calories: 600 })
+      .where(eq(mealItems.id, 'user-1-item-2026-08-15'))
+      .run();
+    const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+    const actor = { type: 'user' as const, label: 'You' };
+    const context = store.createContext(
+      'user-1',
+      {
+        subject: { kind: 'date', localDate: '2026-08-15' },
+        category: 'illness',
+        note: 'Low intake during illness.',
+        resolution: 'Low intake was intentional and the log is complete.',
+        resolutionKind: 'nutrition_complete',
+      },
+      actor,
+    );
+    const resolved = store.preview('user-1', { kind: 'weekly' });
+    expect(resolved.snapshot.modules.at(-1)).not.toMatchObject({ outcome: 'clarify' });
+
+    const unrelated = store.updateContext(
+      'user-1',
+      context.id,
+      { expectedRevision: 1, category: 'training_change' },
+      actor,
+    );
+    expect(store.get('user-1', resolved.id).state).toBe('stale');
+    const clarified = store.refresh('user-1', resolved.id);
+    expect(clarified.snapshot.modules.at(-1)).toMatchObject({ outcome: 'clarify' });
+
+    const relevant = store.updateContext(
+      'user-1',
+      context.id,
+      { expectedRevision: unrelated.revision, category: 'recovery' },
+      actor,
+    );
+    expect(store.get('user-1', clarified.id).state).toBe('stale');
+    const resolvedAgain = store.refresh('user-1', clarified.id);
+    expect(resolvedAgain.snapshot.modules.at(-1)).not.toMatchObject({ outcome: 'clarify' });
+
+    store.deleteContext('user-1', context.id, relevant.revision, actor);
+    expect(store.get('user-1', resolvedAgain.id).state).toBe('stale');
+    const clarifiedAgain = store.refresh('user-1', resolvedAgain.id);
+    expect(new Set([resolved.id, clarified.id, resolvedAgain.id, clarifiedAgain.id]).size).toBe(4);
+    expect(clarifiedAgain.state).toBe('pending');
+    expect(store.getPending('user-1')?.id).toBe(clarifiedAgain.id);
+    expect(store.get('user-1', resolvedAgain.id).state).toBe('superseded');
+    expect(clarifiedAgain.snapshot.modules.at(-1)).toMatchObject({ outcome: 'clarify' });
+    expect(clarifiedAgain.snapshot.contexts.map((item) => item.id)).not.toContain(context.id);
+  });
+
+  it('bounds low-day anomaly detection to the declared review window', () => {
+    seedEligibleProgram();
+    seedNutrition('user-1', '2026-07-28', 300);
+    const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+
+    const outside = store.preview('user-1', { kind: 'weekly' });
+    expect(outside.snapshot.analysisStart).toBe('2026-07-29');
+    expect(outside.snapshot.modules.at(-1)).not.toMatchObject({ outcome: 'clarify' });
+    expect(
+      outside.snapshot.modules.flatMap((module) =>
+        module.kind === 'data_quality' ? module.evidence : [],
+      ),
+    ).not.toEqual(expect.arrayContaining([expect.objectContaining({ localDate: '2026-07-28' })]));
+
+    db.update(mealItems)
+      .set({ calories: 300 })
+      .where(eq(mealItems.id, 'user-1-item-2026-07-29'))
+      .run();
+    const staleOutside = store.get('user-1', outside.id);
+    expect(staleOutside.state).toBe('stale');
+    const boundary = store.refresh('user-1', outside.id);
+    expect(boundary.snapshot.modules.at(-1)).toMatchObject({ outcome: 'clarify' });
+    expect(
+      boundary.snapshot.modules.flatMap((module) =>
+        module.kind === 'data_quality' ? module.evidence : [],
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          localDate: boundary.snapshot.analysisStart,
+          reasonCodes: ['LIKELY_PARTIAL_NUTRITION'],
+        }),
+      ]),
+    );
+  });
+
+  it('selects low-day anomalies only from usable dates inside inclusive review bounds', () => {
+    const day = (id: string, date: string, calories: number) => ({
+      id,
+      date,
+      calories,
+      itemCount: 1,
+      status: 'complete',
+    });
+    const normalMiddle = day('middle', '2026-08-02', 2500);
+    const normalEnd = day('end', '2026-08-03', 2500);
+    const outsideLow = day('before', '2026-07-31', 300);
+    const pendingLow = day('pending', '2026-08-04', 300);
+    const usable = new Set(['before', 'start', 'middle', 'end', 'pending']);
+
+    expect(
+      selectReviewLowDayCandidates({
+        days: [outsideLow, day('start', '2026-08-01', 2500), normalMiddle, normalEnd, pendingLow],
+        analysisStart: '2026-08-01',
+        analysisEnd: '2026-08-03',
+        usableNutritionIds: usable,
+      }),
+    ).toEqual([]);
+    expect(
+      selectReviewLowDayCandidates({
+        days: [day('start', '2026-08-01', 300), normalMiddle, normalEnd],
+        analysisStart: '2026-08-01',
+        analysisEnd: '2026-08-03',
+        usableNutritionIds: usable,
+      }).map((candidate) => candidate.id),
+    ).toEqual(['start']);
+    expect(
+      selectReviewLowDayCandidates({
+        days: [day('start', '2026-08-01', 2500), normalMiddle, day('end', '2026-08-03', 300)],
+        analysisStart: '2026-08-01',
+        analysisEnd: '2026-08-03',
+        usableNutritionIds: usable,
+      }).map((candidate) => candidate.id),
+    ).toEqual(['end']);
+    expect(
+      selectReviewLowDayCandidates({
+        days: [day('start', '2026-08-01', 300), normalMiddle, normalEnd],
+        analysisStart: '2026-08-01',
+        analysisEnd: '2026-08-03',
+        usableNutritionIds: new Set(['middle', 'end']),
+      }),
+    ).toEqual([]);
+  });
+
+  it('limits low-day clarification to canonical Trend Weight overlap', () => {
+    seedEligibleProgram();
+    sqlite
+      .prepare("DELETE FROM body_weight WHERE user_id = 'user-1' AND date < '2026-08-05'")
+      .run();
+    seedWeight('user-1', '2026-08-04');
+    db.update(mealItems)
+      .set({ calories: 300 })
+      .where(eq(mealItems.id, 'user-1-item-2026-07-29'))
+      .run();
+    const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+
+    const beforeTrend = store.preview('user-1', { kind: 'weekly' });
+    expect(beforeTrend.snapshot.analysisStart).toBe('2026-07-29');
+    expect(
+      beforeTrend.snapshot.modules.flatMap((module) =>
+        module.kind === 'data_quality' ? module.evidence : [],
+      ),
+    ).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          localDate: '2026-07-29',
+          reasonCodes: ['LIKELY_PARTIAL_NUTRITION'],
+        }),
+      ]),
+    );
+
+    db.update(mealItems)
+      .set({ calories: 2500 })
+      .where(eq(mealItems.id, 'user-1-item-2026-07-29'))
+      .run();
+    db.update(mealItems)
+      .set({ calories: 300 })
+      .where(eq(mealItems.id, 'user-1-item-2026-08-04'))
+      .run();
+    expect(store.get('user-1', beforeTrend.id).state).toBe('stale');
+    const firstOverlap = store.refresh('user-1', beforeTrend.id);
+    expect(firstOverlap.snapshot.modules.at(-1)).toMatchObject({ outcome: 'clarify' });
+    expect(
+      firstOverlap.snapshot.modules.flatMap((module) =>
+        module.kind === 'data_quality' ? module.evidence : [],
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          localDate: '2026-08-04',
+          reasonCodes: ['LIKELY_PARTIAL_NUTRITION'],
+        }),
+      ]),
+    );
   });
 
   it('snapshots illness context and training facts without changing nutrition causality', () => {
@@ -509,9 +1017,15 @@ describe('adaptive weekly review store', () => {
       .prepare("DELETE FROM nutrition_logs WHERE user_id = 'user-1' AND date <= '2026-08-09'")
       .run();
     const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+    const lifecycle = createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) });
 
     const review = store.preview('user-1', { kind: 'weekly' });
     const quality = review.snapshot.modules.find((module) => module.kind === 'data_quality');
+    expect(lifecycle.findCheckInDetail('user-1', review.checkInId)?.status).toBe('held');
+    expect(review.state).toBe('pending');
+    expect(review.availableActions).toEqual(['ask_agent']);
+    expect(store.getPending('user-1')).toMatchObject({ id: review.id, state: 'pending' });
+    expect(() => store.refresh('user-1', review.id)).toThrow(AdaptiveReviewRefreshNotAllowedError);
     expect(review.snapshot.modules.at(-1)).toMatchObject({
       outcome: 'defer',
       proposedTarget: null,
@@ -526,6 +1040,29 @@ describe('adaptive weekly review store', () => {
         }),
       ]),
     );
+    const asked = store.act(
+      'user-1',
+      review.id,
+      {
+        type: 'ask_agent',
+        expectedActionSequence: 0,
+        question: 'What evidence should I complete before the next review?',
+      },
+      { type: 'user', label: 'You' },
+    );
+    expect(asked).toMatchObject({
+      state: 'awaiting_clarification',
+      availableActions: ['answer'],
+    });
+    expect(asked.actions.map((action) => action.type)).toEqual(['ask_agent']);
+
+    db.update(nutritionLogs)
+      .set({ updatedAt: nowMs + 1 })
+      .where(eq(nutritionLogs.id, 'user-1-log-2026-08-15'))
+      .run();
+    expect(store.get('user-1', review.id)).toMatchObject({ state: 'stale', availableActions: [] });
+    expect(store.getPending('user-1')).toBeNull();
+    expect(() => store.refresh('user-1', review.id)).toThrow(AdaptiveReviewRefreshNotAllowedError);
   });
 
   it('uses canonical trend overlap and guardrail math in the causal breakdown', () => {
@@ -790,6 +1327,169 @@ describe('adaptive weekly review store', () => {
     expect(store.getPending('user-1')?.id).toBe(refreshed.id);
   });
 
+  it.each(['accepted', 'declined'] as const)(
+    'never revives a terminal %s review through refresh',
+    (terminalState) => {
+      seedEligibleProgram();
+      const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+      const review = store.preview('user-1', { kind: 'weekly' });
+      const terminal = store.act(
+        'user-1',
+        review.id,
+        terminalState === 'accepted'
+          ? {
+              type: 'accept',
+              expectedFingerprint: review.sourceFingerprint,
+              expectedActionSequence: 0,
+            }
+          : {
+              type: 'decline',
+              expectedFingerprint: review.sourceFingerprint,
+              expectedActionSequence: 0,
+              reason: 'Keep this decision terminal.',
+            },
+        { type: 'user', label: 'You' },
+      );
+
+      expect(terminal.state).toBe(terminalState);
+      expect(store.getPending('user-1')).toBeNull();
+      expect(() => store.refresh('user-1', review.id)).toThrow(
+        AdaptiveReviewRefreshNotAllowedError,
+      );
+      expect(store.get('user-1', review.id).state).toBe(terminalState);
+      expect(store.getPending('user-1')).toBeNull();
+      expect(store.preview('user-1', { kind: 'weekly' }).id).toBe(review.id);
+      expect(db.select({ value: count() }).from(adaptiveNutritionReviews).get()?.value).toBe(1);
+    },
+  );
+
+  it('rejects refresh for fresh pending and deferred reviews', () => {
+    seedEligibleProgram();
+    const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+    const review = store.preview('user-1', { kind: 'weekly' });
+
+    expect(() => store.refresh('user-1', review.id)).toThrow(AdaptiveReviewRefreshNotAllowedError);
+    const deferred = store.act(
+      'user-1',
+      review.id,
+      {
+        type: 'defer',
+        expectedFingerprint: review.sourceFingerprint,
+        expectedActionSequence: 0,
+        condition: { kind: 'until_date', localDate: '2026-08-21' },
+        reason: 'Wait for the scheduled review date.',
+      },
+      { type: 'user', label: 'You' },
+    );
+    expect(deferred.state).toBe('deferred');
+    expect(() => store.refresh('user-1', review.id)).toThrow(AdaptiveReviewRefreshNotAllowedError);
+
+    nowMs = Date.parse('2026-08-21T16:00:00.000Z');
+    expect(store.get('user-1', review.id).state).toBe('pending');
+    expect(() => store.refresh('user-1', review.id)).toThrow(AdaptiveReviewRefreshNotAllowedError);
+    expect(db.select({ value: count() }).from(adaptiveNutritionReviews).get()?.value).toBe(1);
+  });
+
+  it('rejects refresh while a fresh review is awaiting clarification', () => {
+    seedEligibleProgram();
+    const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+    const review = store.preview('user-1', { kind: 'weekly' });
+    const awaiting = store.act(
+      'user-1',
+      review.id,
+      {
+        type: 'ask_agent',
+        expectedActionSequence: 0,
+        question: 'Please confirm whether the logged day is complete.',
+      },
+      { type: 'user', label: 'You' },
+    );
+
+    expect(awaiting.state).toBe('awaiting_clarification');
+    expect(() => store.refresh('user-1', review.id)).toThrow(AdaptiveReviewRefreshNotAllowedError);
+    expect(db.select({ value: count() }).from(adaptiveNutritionReviews).get()?.value).toBe(1);
+  });
+
+  it('atomically allows one stale refresh and rejects a concurrent retry', async () => {
+    seedEligibleProgram();
+    const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+    const original = store.preview('user-1', { kind: 'weekly' });
+    const originalSnapshot = structuredClone(original.snapshot);
+    const checkInsBefore = db
+      .select({ value: count() })
+      .from(adaptiveNutritionCheckIns)
+      .get()?.value;
+    db.update(nutritionLogs)
+      .set({ updatedAt: nowMs + 1 })
+      .where(eq(nutritionLogs.id, 'user-1-log-2026-08-15'))
+      .run();
+
+    expect(store.get('user-1', original.id).state).toBe('stale');
+    const attempts = await Promise.allSettled([
+      Promise.resolve().then(() => store.refresh('user-1', original.id)),
+      Promise.resolve().then(() => store.refresh('user-1', original.id)),
+    ]);
+    const fulfilled = attempts.filter(
+      (attempt): attempt is PromiseFulfilledResult<ReturnType<typeof store.refresh>> =>
+        attempt.status === 'fulfilled',
+    );
+    const rejected = attempts.filter(
+      (attempt): attempt is PromiseRejectedResult => attempt.status === 'rejected',
+    );
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]?.reason).toBeInstanceOf(AdaptiveReviewRefreshNotAllowedError);
+    const replacement = fulfilled[0]?.value;
+    if (!replacement) throw new Error('Expected one refresh replacement');
+    expect(store.get('user-1', original.id).state).toBe('superseded');
+    expect(store.get('user-1', original.id).snapshot).toEqual(originalSnapshot);
+    expect(store.getPending('user-1')?.id).toBe(replacement.id);
+    expect(db.select({ value: count() }).from(adaptiveNutritionReviews).get()?.value).toBe(2);
+    expect(db.select({ value: count() }).from(adaptiveNutritionReviewActions).get()?.value).toBe(1);
+    expect(db.select({ value: count() }).from(adaptiveNutritionCheckIns).get()?.value).toBe(
+      (checkInsBefore ?? 0) + 1,
+    );
+    expect(
+      db
+        .select({ value: count() })
+        .from(adaptiveNutritionCheckIns)
+        .where(eq(adaptiveNutritionCheckIns.status, 'pending'))
+        .get()?.value,
+    ).toBe(1);
+  });
+
+  it.each(['accepted', 'declined'] as const)(
+    'does not nag or refresh a review whose check-in was independently %s',
+    (terminalState) => {
+      const lifecycle = seedEligibleProgram();
+      const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+      const review = store.preview('user-1', { kind: 'weekly' });
+      if (terminalState === 'accepted') {
+        lifecycle.acceptCheckIn('user-1', review.checkInId, { replaceSameDateTarget: false });
+      } else {
+        lifecycle.declineCheckIn('user-1', review.checkInId);
+      }
+      const reviewCount = db.select({ value: count() }).from(adaptiveNutritionReviews).get()?.value;
+      const targetCount = db.select({ value: count() }).from(nutritionTargets).get()?.value;
+
+      expect(store.get('user-1', review.id).state).toBe('stale');
+      expect(store.getPending('user-1')).toBeNull();
+      expect(() => store.refresh('user-1', review.id)).toThrow(
+        AdaptiveReviewRefreshNotAllowedError,
+      );
+      expect(db.select({ value: count() }).from(adaptiveNutritionReviews).get()?.value).toBe(
+        reviewCount,
+      );
+      expect(db.select({ value: count() }).from(adaptiveNutritionReviewActions).get()?.value).toBe(
+        0,
+      );
+      expect(db.select({ value: count() }).from(nutritionTargets).get()?.value).toBe(targetCount);
+      expect(store.list('user-1', { page: 1, limit: 20 }).data).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: review.id, state: 'stale' })]),
+      );
+    },
+  );
+
   it('resurfaces an evidence-deferred review exactly when the next weigh-in exists', () => {
     seedEligibleProgram();
     const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
@@ -811,6 +1511,7 @@ describe('adaptive weekly review store', () => {
       { type: 'user', label: 'You' },
     );
     expect(store.getPending('user-1')).toBeNull();
+    expect(() => store.refresh('user-1', review.id)).toThrow(AdaptiveReviewRefreshNotAllowedError);
 
     nowMs = Date.parse('2026-08-20T16:00:00.000Z');
     seedWeight('user-1', '2026-08-20', 79.7);
@@ -962,7 +1663,7 @@ describe('adaptive weekly review store', () => {
     expect(later.snapshot.contexts.map((item) => item.id)).not.toContain(context.id);
   });
 
-  it('enforces annotation ownership, revision history, and agent-token edit scope', () => {
+  it('enforces annotation ownership, optimistic revisions, and agent-token edit scope', () => {
     seedEligibleProgram();
     seedEligibleProgram('user-2');
     const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });

@@ -2287,8 +2287,15 @@ change a nutrition target merely by being generated or read.
   check-in subjects. Entity context participates only while that owned entity falls inside the
   fixed review window. The server stamps `upcoming_check_in` context with the next due local review
   date (or today's local date when already due), so it is consumed by exactly that generated cycle.
-  Context retains actor provenance and revision history, can explain a fact or suppress a redundant
-  question, and cannot override quantities, status, exclusion, readiness, or calculations.
+  Context rows retain immutable creation identity and actor provenance plus an optimistic revision
+  counter; edits overwrite the live row and deletion is soft. Each immutable review snapshot freezes
+  the exact context revision it consumed. There is no standalone context-edit ledger. A resolved
+  `illness`, `recovery`, or `nutrition_exception` context can suppress a redundant low-day
+  completeness question only when it identifies the exact nutrition log, exact local date, or an
+  inclusive date range covering that day. The `nutrition_complete` resolution kind, paired with
+  non-null resolution text, is the explicit completeness assertion; resolution prose, free-text
+  notes, and unrelated categories never suppress the question on their own. Context cannot
+  override quantities, status, exclusion, readiness, or calculations.
 - Reviews keep original evidence and proposals immutable. Accept, edit, defer, decline, ask, answer,
   and supersede events form a contiguous append-only action ledger. Source corrections make a
   material decision stale; refresh creates a new fingerprinted snapshot and supersedes the old one.
@@ -2306,7 +2313,15 @@ change a nutrition target merely by being generated or read.
   identical cycle from reappearing.
 - Nonterminal pending/detail/history reads project source freshness. Any correction to quantitative,
   context, goal/program-revision, or embedded Energy Balance facts returns `stale` with no material
-  actions until an explicit refresh creates a new immutable review.
+  actions until an explicit refresh creates a new immutable review. Refresh is a stale-only
+  transition: fresh pending, awaiting-clarification, deferred, accepted, declined, and superseded
+  reviews return a conflict and create no replacement. An evidence-deferred review becomes
+  refreshable only after new completed evidence makes its projected state stale. An unchanged
+  `held` check-in remains a visible informational holding review without material decision, stale,
+  or refresh actions; only bounded ask/answer context remains available. If a held source changes,
+  or the underlying check-in becomes accepted, declined, or superseded outside the review action
+  flow, the immutable review remains in history as stale but is omitted from pending discovery
+  because it cannot be refreshed or acted on.
 - JWT and AgentToken callers receive the same pending/detail/history facts. AgentToken callers may
   create or revise their own bounded context and ask/answer review questions. Accept, edit, defer,
   and decline are JWT-only decisions.

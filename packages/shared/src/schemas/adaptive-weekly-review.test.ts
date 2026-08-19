@@ -135,6 +135,52 @@ describe('adaptive weekly review schemas', () => {
         note: 'Use this once on the next generated cycle.',
       }).subject,
     ).toEqual({ kind: 'upcoming_check_in' });
+    expect(
+      adaptiveReviewContextCreateInputSchema.parse({
+        subject: { kind: 'date', localDate: '2026-08-05' },
+        category: 'illness',
+        note: 'Low intake was intentional.',
+        resolution: 'The nutrition log is complete.',
+        resolutionKind: 'nutrition_complete',
+      }).resolutionKind,
+    ).toBe('nutrition_complete');
+    expect(
+      adaptiveReviewContextSchema.parse({
+        id: 'pre-0050-context',
+        subject: { kind: 'date', localDate: '2026-08-05' },
+        category: 'illness',
+        note: 'Immutable snapshot written before structured completeness resolutions.',
+        resolution: 'The nutrition log was complete.',
+        provenance: { type: 'user', agentTokenId: null, label: 'You' },
+        revision: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        deletedAt: null,
+      }).resolutionKind,
+    ).toBeUndefined();
+    expect(() =>
+      adaptiveReviewContextSchema.parse({
+        id: 'invalid-structured-resolution',
+        subject: { kind: 'date', localDate: '2026-08-05' },
+        category: 'illness',
+        note: 'Structured semantics require supporting resolution text.',
+        resolution: null,
+        resolutionKind: 'nutrition_complete',
+        provenance: { type: 'user', agentTokenId: null, label: 'You' },
+        revision: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        deletedAt: null,
+      }),
+    ).toThrow(/resolution text/u);
+    expect(() =>
+      adaptiveReviewContextCreateInputSchema.parse({
+        subject: { kind: 'date', localDate: '2026-08-05' },
+        category: 'illness',
+        note: 'Missing resolution text.',
+        resolutionKind: 'nutrition_complete',
+      }),
+    ).toThrow(/resolution text/u);
     expect(() =>
       adaptiveReviewContextSchema.parse({
         id: 'context-1',

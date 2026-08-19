@@ -90,6 +90,7 @@ import {
   AdaptiveReviewContextNotFoundError,
   AdaptiveReviewNotFoundError,
   AdaptiveReviewProposalInvalidError,
+  AdaptiveReviewRefreshNotAllowedError,
   AdaptiveReviewStaleError,
   createAdaptiveReviewContext,
   deleteAdaptiveReviewContext,
@@ -122,6 +123,9 @@ const sendAdaptiveError = (reply: FastifyReply, error: unknown) => {
   }
   if (error instanceof AdaptiveReviewStaleError) {
     return sendError(reply, 409, 'ADAPTIVE_REVIEW_STALE', error.message);
+  }
+  if (error instanceof AdaptiveReviewRefreshNotAllowedError) {
+    return sendError(reply, 409, 'ADAPTIVE_REVIEW_REFRESH_NOT_ALLOWED', error.message);
   }
   if (error instanceof AdaptiveReviewActionConflictError) {
     return sendError(reply, 409, 'ADAPTIVE_REVIEW_ACTION_CONFLICT', error.message);

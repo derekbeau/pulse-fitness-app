@@ -376,6 +376,7 @@ describe('WeeklyReviewEvidence', () => {
             category: 'illness',
             note: 'Illness already explains the rest day.',
             resolution: 'No redundant question needed.',
+            resolutionKind: null,
             provenance: { type: 'agent_token', agentTokenId: 'agent-1', label: 'Coach' },
             revision: 1,
             createdAt: review.createdAt,

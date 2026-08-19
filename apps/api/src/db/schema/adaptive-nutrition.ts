@@ -488,6 +488,7 @@ export const adaptiveNutritionReviewContexts = sqliteTable(
       .notNull(),
     note: text('note').notNull(),
     resolution: text('resolution'),
+    resolutionKind: text('resolution_kind').$type<'nutrition_complete'>(),
     createdBy: text('created_by').$type<'user' | 'agent_token'>().notNull(),
     agentTokenId: text('agent_token_id'),
     actorLabel: text('actor_label').notNull(),
@@ -527,6 +528,10 @@ export const adaptiveNutritionReviewContexts = sqliteTable(
     check(
       'adaptive_nutrition_review_contexts_resolution_check',
       sql`${table.resolution} is null or length(trim(${table.resolution})) between 1 and 4000`,
+    ),
+    check(
+      'adaptive_nutrition_review_contexts_resolution_kind_check',
+      sql`${table.resolutionKind} is null or (${table.resolutionKind} = 'nutrition_complete' and ${table.resolution} is not null)`,
     ),
     check(
       'adaptive_nutrition_review_contexts_actor_check',

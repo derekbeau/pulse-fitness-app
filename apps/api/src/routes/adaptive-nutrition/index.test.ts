@@ -36,6 +36,7 @@ import {
 } from './store.js';
 import {
   actOnAdaptiveWeeklyReview,
+  AdaptiveReviewRefreshNotAllowedError,
   getAdaptiveWeeklyReview,
   getPendingAdaptiveWeeklyReview,
   listAdaptiveWeeklyReviews,
@@ -973,6 +974,55 @@ describe('adaptive nutrition routes', () => {
         2,
         'agent-user',
         'review-1',
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns the same stable conflict when JWT or AgentToken tries to refresh a non-stale review', async () => {
+    const app = buildServer();
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({ id: 'agent-1', userId: 'agent-user' });
+    vi.mocked(refreshAdaptiveWeeklyReview).mockRejectedValue(
+      new AdaptiveReviewRefreshNotAllowedError(),
+    );
+    try {
+      await app.ready();
+      const jwt = app.jwt.sign(
+        { sub: 'jwt-user', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const [jwtResponse, agentResponse] = await Promise.all([
+        app.inject({
+          method: 'POST',
+          url: '/api/v1/adaptive-nutrition/reviews/terminal-review/refresh',
+          headers: { authorization: `Bearer ${jwt}` },
+        }),
+        app.inject({
+          method: 'POST',
+          url: '/api/v1/adaptive-nutrition/reviews/terminal-review/refresh',
+          headers: { authorization: 'AgentToken plain-agent-token' },
+        }),
+      ]);
+
+      expect(jwtResponse.statusCode, jwtResponse.body).toBe(409);
+      expect(agentResponse.statusCode, agentResponse.body).toBe(409);
+      expect(jwtResponse.json()).toEqual({
+        error: {
+          code: 'ADAPTIVE_REVIEW_REFRESH_NOT_ALLOWED',
+          message: 'Only a stale, nonterminal weekly review can be refreshed',
+        },
+      });
+      expect(agentResponse.json()).toEqual(jwtResponse.json());
+      expect(vi.mocked(refreshAdaptiveWeeklyReview)).toHaveBeenNthCalledWith(
+        1,
+        'jwt-user',
+        'terminal-review',
+      );
+      expect(vi.mocked(refreshAdaptiveWeeklyReview)).toHaveBeenNthCalledWith(
+        2,
+        'agent-user',
+        'terminal-review',
       );
     } finally {
       await app.close();

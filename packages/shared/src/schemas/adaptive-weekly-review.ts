@@ -114,6 +114,8 @@ export const adaptiveReviewContextCategorySchema = z.enum([
   'other',
 ]);
 
+export const adaptiveReviewContextResolutionKindSchema = z.enum(['nutrition_complete']);
+
 export const adaptiveReviewActorSchema = z
   .object({
     type: z.enum(['user', 'agent_token', 'system']),
@@ -138,13 +140,25 @@ export const adaptiveReviewContextSchema = z
     category: adaptiveReviewContextCategorySchema,
     note: requiredText,
     resolution: requiredText.nullable(),
+    // Optional only for immutable snapshots written before the structured
+    // resolution discriminator was introduced in migration 0050.
+    resolutionKind: adaptiveReviewContextResolutionKindSchema.nullable().optional(),
     provenance: adaptiveReviewActorSchema,
     revision: z.number().int().positive(),
     createdAt: z.number().int().nonnegative(),
     updatedAt: z.number().int().nonnegative(),
     deletedAt: z.number().int().nonnegative().nullable(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (value.resolutionKind === 'nutrition_complete' && !value.resolution) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'A structured resolution kind requires resolution text',
+        path: ['resolutionKind'],
+      });
+    }
+  });
 
 export const adaptiveReviewContextCreateInputSchema = z
   .object({
@@ -152,8 +166,18 @@ export const adaptiveReviewContextCreateInputSchema = z
     category: adaptiveReviewContextCategorySchema,
     note: requiredText,
     resolution: requiredText.nullable().optional(),
+    resolutionKind: adaptiveReviewContextResolutionKindSchema.nullable().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (value.resolutionKind !== null && value.resolutionKind !== undefined && !value.resolution) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'A structured resolution kind requires resolution text',
+        path: ['resolutionKind'],
+      });
+    }
+  });
 
 export const adaptiveReviewContextUpdateInputSchema = z
   .object({
@@ -161,13 +185,26 @@ export const adaptiveReviewContextUpdateInputSchema = z
     category: adaptiveReviewContextCategorySchema.optional(),
     note: requiredText.optional(),
     resolution: requiredText.nullable().optional(),
+    resolutionKind: adaptiveReviewContextResolutionKindSchema.nullable().optional(),
   })
   .strict()
   .refine(
     (value) =>
-      value.category !== undefined || value.note !== undefined || value.resolution !== undefined,
+      value.category !== undefined ||
+      value.note !== undefined ||
+      value.resolution !== undefined ||
+      value.resolutionKind !== undefined,
     'At least one context field must be provided',
-  );
+  )
+  .superRefine((value, context) => {
+    if (value.resolutionKind !== null && value.resolutionKind !== undefined && !value.resolution) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'A structured resolution kind requires resolution text in the same update',
+        path: ['resolutionKind'],
+      });
+    }
+  });
 
 export const adaptiveReviewContextDeleteQuerySchema = z
   .object({ expectedRevision: z.coerce.number().int().positive() })

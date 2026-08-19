@@ -1,11 +1,11 @@
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
 
+import { setAuthenticatedSession } from './auth-session';
 import { apiBaseURL } from './test-env';
 
 test.use({ timezoneId: 'America/Detroit' });
 
 const fixturePassword = 'adaptive-preview-only';
-const authTokenStorageKey = 'pulse-auth-token';
 type Fixture =
   | 'review-clean-loss'
   | 'review-clean-gain'
@@ -106,11 +106,7 @@ function monitorPage(page: Page, expected: Array<{ pathname: string; status: num
 async function authenticate(page: Page, fixture: Fixture) {
   const token = tokens.get(fixture);
   if (!token) throw new Error(`Missing ${fixture} token`);
-  await page.goto('/login');
-  await page.evaluate(([key, value]) => window.localStorage.setItem(key, value), [
-    authTokenStorageKey,
-    token,
-  ] as const);
+  await setAuthenticatedSession(page, token);
 }
 
 async function openCoach(page: Page, fixture: Fixture) {
@@ -120,7 +116,7 @@ async function openCoach(page: Page, fixture: Fixture) {
       new URL(value.url()).pathname === '/api/v1/adaptive-nutrition/reviews/pending' &&
       value.status() === 200,
   );
-  await page.goto('/nutrition?view=coach');
+  await page.goto('/nutrition?view=coach', { waitUntil: 'networkidle' });
   await response;
   await expect(page.locator('[data-slot="weekly-decision-review"]')).toBeVisible();
 }
@@ -132,6 +128,7 @@ async function openEvidence(page: Page) {
   await expect(
     page.getByRole('heading', { level: 1, name: 'Weekly Review Evidence' }),
   ).toBeVisible();
+  await page.waitForLoadState('networkidle');
 }
 
 test.describe.serial('agentic weekly decision reviews', () => {
@@ -232,13 +229,22 @@ test.describe.serial('agentic weekly decision reviews', () => {
 
     await openCoach(page, 'review-holding');
     await expect(page.getByRole('heading', { name: /Defer a target decision/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Accept/ })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Accept and keep current plan' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Edit proposal' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Defer review' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Decline recommendation' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Ask your agent' })).toBeEnabled();
+    await expect(page.getByText('Needs refresh', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Refresh review' })).toHaveCount(0);
     await openEvidence(page);
     await expect(page.getByText('No nutrition log').first()).toBeVisible();
     diagnostics();
   });
 
-  test('lets a real AgentToken resolve bounded low-day context without changing eligibility', async () => {
+  test('lets a real AgentToken resolve bounded low-day context without changing eligibility', async ({
+    page,
+  }) => {
+    const diagnostics = monitorPage(page);
     const lowJwt = tokens.get('review-low-day');
     const otherJwt = tokens.get('review-clean-maintain');
     if (!lowJwt || !otherJwt) throw new Error('Missing context fixtures');
@@ -261,6 +267,8 @@ test.describe.serial('agentic weekly decision reviews', () => {
     const lowAgentHeaders = { authorization: `AgentToken ${lowAgent.data.token}` };
     const otherAgentHeaders = { authorization: `AgentToken ${otherAgent.data.token}` };
     try {
+      await openCoach(page, 'review-low-day');
+      await expect(page.getByRole('heading', { name: /Clarify one logged day/ })).toBeVisible();
       const [pendingResponse, stateBeforeResponse] = await Promise.all([
         apiContext.get('/api/v1/adaptive-nutrition/reviews/pending', {
           headers: lowJwtHeaders,
@@ -283,10 +291,11 @@ test.describe.serial('agentic weekly decision reviews', () => {
 
       const createdResponse = await apiContext.post('/api/v1/adaptive-nutrition/review-context', {
         data: {
-          subject: { kind: 'nutrition_log', id: nutritionId },
-          category: 'nutrition_exception',
-          note: 'Confirmed as a complete low-intake day.',
-          resolution: 'Confirmed complete by the connected agent.',
+          subject: { kind: 'date', localDate: datePlus(fixtureDate, -3) },
+          category: 'illness',
+          note: 'Low intake was intentional during illness recovery.',
+          resolution: 'Low intake was intentional and the log is complete.',
+          resolutionKind: 'nutrition_complete',
         },
         headers: lowAgentHeaders,
       });
@@ -324,11 +333,23 @@ test.describe.serial('agentic weekly decision reviews', () => {
       );
       expect(staleUpdate.status()).toBe(409);
 
-      const refreshedResponse = await apiContext.post(
-        `/api/v1/adaptive-nutrition/reviews/${pending.data.review.id}/refresh`,
-        { headers: lowAgentHeaders },
+      await page.reload({ waitUntil: 'networkidle' });
+      await expect(
+        page
+          .locator('[data-slot="weekly-decision-review"]')
+          .getByText('Needs refresh', { exact: true }),
+      ).toBeVisible();
+      const refreshedResponsePromise = page.waitForResponse(
+        (value) =>
+          new URL(value.url()).pathname ===
+            `/api/v1/adaptive-nutrition/reviews/${pending.data.review.id}/refresh` &&
+          value.status() === 200,
       );
-      expect(refreshedResponse.status()).toBe(200);
+      await page.getByRole('button', { name: 'Refresh review' }).click();
+      const refreshedResponse = await refreshedResponsePromise;
+      await expect(page.getByRole('status')).toContainText(
+        'Weekly review refreshed with current source data.',
+      );
       const refreshed = (await refreshedResponse.json()) as {
         data: {
           id: string;
@@ -342,14 +363,40 @@ test.describe.serial('agentic weekly decision reviews', () => {
         refreshed.data.snapshot.modules.find((module) => module.kind === 'data_quality')
           ?.requiresClarification,
       ).toBe(false);
+      await expect(page.getByRole('heading', { name: /Clarify one logged day/ })).toHaveCount(0);
+      await openEvidence(page);
+      const contextSection = page.getByRole('heading', { name: 'Context records' }).locator('..');
+      await expect(
+        contextSection.getByText('Resolution: Low intake was intentional and the log is complete.'),
+      ).toBeVisible();
+      await expect(contextSection.getByText(/Low-day review agent/)).toBeVisible();
+      const resolvedEvidence = page
+        .getByText('Complete low day explained by context', { exact: true })
+        .locator('..');
+      await expect(resolvedEvidence.getByText('logged', { exact: true })).toBeVisible();
+      await expect(page.getByText(/Pulse has not changed its eligibility status\./)).toBeVisible();
+      await expect(page.getByText('Complete day needs confirmation', { exact: true })).toHaveCount(
+        0,
+      );
       expect(refreshed.data.snapshot.contexts).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             id: created.data.id,
-            resolution: 'Confirmed complete by the connected agent.',
+            resolution: 'Low intake was intentional and the log is complete.',
           }),
         ]),
       );
+      const [jwtReview, agentReview] = await Promise.all([
+        apiContext.get(`/api/v1/adaptive-nutrition/reviews/${refreshed.data.id}`, {
+          headers: lowJwtHeaders,
+        }),
+        apiContext.get(`/api/v1/adaptive-nutrition/reviews/${refreshed.data.id}`, {
+          headers: lowAgentHeaders,
+        }),
+      ]);
+      expect(jwtReview.ok()).toBeTruthy();
+      expect(agentReview.ok()).toBeTruthy();
+      expect(await agentReview.json()).toEqual(await jwtReview.json());
       const stateAfterResponse = await apiContext.get('/api/v1/adaptive-nutrition', {
         headers: lowJwtHeaders,
       });
@@ -366,6 +413,25 @@ test.describe.serial('agentic weekly decision reviews', () => {
       );
       const immutable = (await immutableResponse.json()) as typeof refreshed;
       expect(immutable.data.snapshot.contexts).toEqual(refreshed.data.snapshot.contexts);
+      await page.goto('/nutrition?view=coach', { waitUntil: 'networkidle' });
+      await expect(
+        page
+          .locator('[data-slot="weekly-decision-review"]')
+          .getByText('Needs refresh', { exact: true }),
+      ).toBeVisible();
+      const clarifiedResponsePromise = page.waitForResponse(
+        (value) =>
+          new URL(value.url()).pathname ===
+            `/api/v1/adaptive-nutrition/reviews/${refreshed.data.id}/refresh` &&
+          value.status() === 200,
+      );
+      await page.getByRole('button', { name: 'Refresh review' }).click();
+      await clarifiedResponsePromise;
+      await expect(page.getByRole('status')).toContainText(
+        'Weekly review refreshed with current source data.',
+      );
+      await expect(page.getByRole('heading', { name: /Clarify one logged day/ })).toBeVisible();
+      diagnostics();
     } finally {
       await Promise.all([
         apiContext.delete(`/api/v1/agent-tokens/${lowAgent.data.id}`, {
@@ -389,6 +455,20 @@ test.describe.serial('agentic weekly decision reviews', () => {
     const pending = await apiContext.get('/api/v1/adaptive-nutrition/reviews/pending', { headers });
     const pendingPayload = (await pending.json()) as { data: { review: { id: string } } };
     const reviewId = pendingPayload.data.review.id;
+    const originalResponse = await apiContext.get(
+      `/api/v1/adaptive-nutrition/reviews/${reviewId}`,
+      { headers },
+    );
+    expect(originalResponse.ok()).toBeTruthy();
+    const original = (await originalResponse.json()) as {
+      data: { checkInId: string; snapshot: unknown };
+    };
+    const [reviewsBeforeResponse, checkInsBeforeResponse] = await Promise.all([
+      apiContext.get('/api/v1/adaptive-nutrition/reviews?page=1&limit=100', { headers }),
+      apiContext.get('/api/v1/adaptive-nutrition/check-ins?page=1&limit=100', { headers }),
+    ]);
+    const reviewsBefore = (await reviewsBeforeResponse.json()) as { meta: { total: number } };
+    const checkInsBefore = (await checkInsBeforeResponse.json()) as { meta: { total: number } };
     const diagnostics = monitorPage(page, [
       { pathname: `/api/v1/adaptive-nutrition/reviews/${reviewId}/actions`, status: 409 },
     ]);
@@ -397,6 +477,7 @@ test.describe.serial('agentic weekly decision reviews', () => {
       headers,
     });
     expect(corrected.ok()).toBeTruthy();
+    let replacementReviewId: string | undefined;
     try {
       const response = page.waitForResponse(
         (value) =>
@@ -405,13 +486,93 @@ test.describe.serial('agentic weekly decision reviews', () => {
       await page.getByRole('button', { name: 'Accept and keep current plan' }).click();
       await response;
       await expect(page.getByRole('alert')).toContainText('source record changed');
-      const refreshed = page.waitForResponse(
-        (value) =>
-          new URL(value.url()).pathname.endsWith(`/${reviewId}/refresh`) && value.status() === 200,
-      );
-      await page.getByRole('button', { name: 'Refresh review' }).click();
-      await refreshed;
-      await expect(page.getByText('Needs refresh')).toHaveCount(0);
+
+      const agentResponse = await apiContext.post('/api/v1/agent-tokens', {
+        data: { name: 'Concurrent stale review verifier' },
+        headers,
+      });
+      expect(agentResponse.status()).toBe(201);
+      const agent = (await agentResponse.json()) as { data: { id: string; token: string } };
+      try {
+        const attempts = await Promise.all([
+          apiContext.post(`/api/v1/adaptive-nutrition/reviews/${reviewId}/refresh`, {
+            headers,
+          }),
+          apiContext.post(`/api/v1/adaptive-nutrition/reviews/${reviewId}/refresh`, {
+            headers: { authorization: `AgentToken ${agent.data.token}` },
+          }),
+        ]);
+        expect(attempts.map((attempt) => attempt.status()).sort()).toEqual([200, 409]);
+        const successful = attempts.find((attempt) => attempt.status() === 200);
+        const conflicted = attempts.find((attempt) => attempt.status() === 409);
+        if (!successful || !conflicted) throw new Error('Expected one refresh and one conflict');
+        const replacement = (await successful.json()) as {
+          data: { id: string; checkInId: string };
+        };
+        replacementReviewId = replacement.data.id;
+        expect(await conflicted.json()).toEqual({
+          error: {
+            code: 'ADAPTIVE_REVIEW_REFRESH_NOT_ALLOWED',
+            message: 'Only a stale, nonterminal weekly review can be refreshed',
+          },
+        });
+
+        const [oldResponse, pendingAfterResponse, reviewsAfterResponse, checkInsAfterResponse] =
+          await Promise.all([
+            apiContext.get(`/api/v1/adaptive-nutrition/reviews/${reviewId}`, { headers }),
+            apiContext.get('/api/v1/adaptive-nutrition/reviews/pending', { headers }),
+            apiContext.get('/api/v1/adaptive-nutrition/reviews?page=1&limit=100', { headers }),
+            apiContext.get('/api/v1/adaptive-nutrition/check-ins?page=1&limit=100', { headers }),
+          ]);
+        const old = (await oldResponse.json()) as {
+          data: {
+            actions: Array<{ type: string; payload: Record<string, unknown> }>;
+            snapshot: unknown;
+            state: string;
+          };
+        };
+        const pendingAfter = (await pendingAfterResponse.json()) as {
+          data: { review: { id: string; checkInId: string } };
+        };
+        const reviewsAfter = (await reviewsAfterResponse.json()) as { meta: { total: number } };
+        const checkInsAfter = (await checkInsAfterResponse.json()) as {
+          data: Array<{ id: string; status: string }>;
+          meta: { total: number };
+        };
+        expect(old.data.snapshot).toEqual(original.data.snapshot);
+        expect(old.data.state).toBe('superseded');
+        expect(old.data.actions).toEqual([
+          expect.objectContaining({
+            type: 'supersede',
+            payload: expect.objectContaining({
+              replacementCheckInId: replacement.data.checkInId,
+            }),
+          }),
+        ]);
+        expect(pendingAfter.data.review).toMatchObject({
+          id: replacement.data.id,
+          checkInId: replacement.data.checkInId,
+        });
+        expect(reviewsAfter.meta.total).toBe(reviewsBefore.meta.total + 1);
+        expect(checkInsAfter.meta.total).toBe(checkInsBefore.meta.total + 1);
+        expect(checkInsAfter.data.filter((checkIn) => checkIn.status === 'pending')).toEqual([
+          expect.objectContaining({ id: replacement.data.checkInId }),
+        ]);
+      } finally {
+        const removed = await apiContext.delete(`/api/v1/agent-tokens/${agent.data.id}`, {
+          headers,
+        });
+        expect(removed.status()).toBe(200);
+      }
+
+      await page.reload({ waitUntil: 'networkidle' });
+      const replacementBrief = page.locator('[data-slot="weekly-decision-review"]');
+      await expect(replacementBrief).toBeVisible();
+      if (!replacementReviewId) throw new Error('Expected the replacement review ID');
+      await expect(
+        replacementBrief.getByRole('link', { name: 'Review all evidence' }),
+      ).toHaveAttribute('href', `/nutrition/reviews/${replacementReviewId}`);
+      await expect(replacementBrief.getByText('Needs refresh', { exact: true })).toHaveCount(0);
     } finally {
       const restored = await apiContext.patch(`/api/v1/nutrition/${date}/status`, {
         data: { status: 'complete' },
@@ -426,13 +587,58 @@ test.describe.serial('agentic weekly decision reviews', () => {
     page,
   }) => {
     const diagnostics = monitorPage(page);
-    await openCoach(page, 'review-decline');
-    await page.getByRole('button', { name: 'Decline recommendation' }).click();
-    await page.getByRole('button', { name: 'Decline and keep current' }).click();
-    await expect(page.locator('[data-slot="weekly-decision-review"]')).toHaveCount(0);
-    await page.reload();
-    await expect(page.locator('[data-slot="weekly-decision-review"]')).toHaveCount(0);
-    await expect(page.getByText('Declined', { exact: true }).first()).toBeVisible();
+    const declineToken = tokens.get('review-decline');
+    if (!declineToken) throw new Error('Missing decline fixture token');
+    const declineJwtHeaders = { authorization: `Bearer ${declineToken}` };
+    const agentResponse = await apiContext.post('/api/v1/agent-tokens', {
+      data: { name: 'Terminal review verifier' },
+      headers: declineJwtHeaders,
+    });
+    expect(agentResponse.status()).toBe(201);
+    const agent = (await agentResponse.json()) as { data: { id: string; token: string } };
+    const agentHeaders = { authorization: `AgentToken ${agent.data.token}` };
+    try {
+      const pendingResponse = await apiContext.get('/api/v1/adaptive-nutrition/reviews/pending', {
+        headers: declineJwtHeaders,
+      });
+      const pending = (await pendingResponse.json()) as { data: { review: { id: string } } };
+      await openCoach(page, 'review-decline');
+      await page.getByRole('button', { name: 'Decline recommendation' }).click();
+      await page.getByRole('button', { name: 'Decline and keep current' }).click();
+      await expect(page.getByRole('status')).toContainText(
+        'Current targets kept. The decision remains in history.',
+      );
+      await expect(page.locator('[data-slot="weekly-decision-review"]')).toHaveCount(0);
+      await page.reload({ waitUntil: 'networkidle' });
+      await expect(page.locator('[data-slot="weekly-decision-review"]')).toHaveCount(0);
+      await expect(page.getByText('Declined', { exact: true }).first()).toBeVisible();
+
+      const forbiddenRefresh = await apiContext.post(
+        `/api/v1/adaptive-nutrition/reviews/${pending.data.review.id}/refresh`,
+        { headers: agentHeaders },
+      );
+      expect(forbiddenRefresh.status()).toBe(409);
+      expect(await forbiddenRefresh.json()).toEqual({
+        error: {
+          code: 'ADAPTIVE_REVIEW_REFRESH_NOT_ALLOWED',
+          message: 'Only a stale, nonterminal weekly review can be refreshed',
+        },
+      });
+      const [jwtPending, agentPending] = await Promise.all([
+        apiContext.get('/api/v1/adaptive-nutrition/reviews/pending', {
+          headers: declineJwtHeaders,
+        }),
+        apiContext.get('/api/v1/adaptive-nutrition/reviews/pending', { headers: agentHeaders }),
+      ]);
+      const jwtPendingPayload = await jwtPending.json();
+      expect(jwtPendingPayload).toEqual({ data: { review: null } });
+      expect(await agentPending.json()).toEqual(jwtPendingPayload);
+    } finally {
+      const removed = await apiContext.delete(`/api/v1/agent-tokens/${agent.data.id}`, {
+        headers: declineJwtHeaders,
+      });
+      expect(removed.status()).toBe(200);
+    }
 
     await openCoach(page, 'review-defer');
     const trigger = page.getByRole('button', { name: 'Defer review' });
@@ -443,6 +649,9 @@ test.describe.serial('agentic weekly decision reviews', () => {
     await expect(trigger).toBeFocused();
     await trigger.click();
     await page.getByRole('button', { name: 'Defer without changing plan' }).click();
+    await expect(page.getByRole('status')).toContainText(
+      'Review deferred without changing your plan.',
+    );
     await expect(page.locator('[data-slot="weekly-decision-review"]')).toHaveCount(0);
     diagnostics();
   });
@@ -478,6 +687,7 @@ test.describe.serial('agentic weekly decision reviews', () => {
     );
     await page.getByRole('button', { name: 'Accept and apply targets' }).click();
     await acceptResponse;
+    await expect(page.getByRole('status')).toContainText('Your weekly decision was accepted.');
     await expect(page.locator('[data-slot="weekly-decision-review"]')).toHaveCount(0);
     const afterAccept = await apiContext.get('/api/v1/adaptive-nutrition', {
       headers: { authorization: `Bearer ${token}` },
@@ -562,6 +772,7 @@ test.describe.serial('agentic weekly decision reviews', () => {
     await page.getByRole('button', { name: 'Try again' }).click();
     await response;
     await expect(page.locator('[data-slot="weekly-decision-review"]')).toBeVisible();
+    await page.waitForLoadState('networkidle');
     diagnostics();
   });
 });

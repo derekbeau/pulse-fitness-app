@@ -16,6 +16,7 @@ import {
   adaptiveWeeklyReviewSchema,
   adaptiveWeeklyReviewSnapshotSchema,
   addCalendarDays,
+  calendarDaysBetween,
   evaluateEligibility,
   summarizeAdaptiveReadinessEvidence,
   type AdaptiveCheckInDetail,
@@ -92,6 +93,13 @@ export class AdaptiveReviewStaleError extends Error {
   }
 }
 
+export class AdaptiveReviewRefreshNotAllowedError extends Error {
+  constructor() {
+    super('Only a stale, nonterminal weekly review can be refreshed');
+    this.name = 'AdaptiveReviewRefreshNotAllowedError';
+  }
+}
+
 export class AdaptiveReviewActionConflictError extends Error {
   constructor(message = 'Weekly review action sequence changed before this decision') {
     super(message);
@@ -142,6 +150,54 @@ const fingerprint = (value: unknown) =>
     .update(JSON.stringify(canonicalize(value)))
     .digest('hex');
 
+export const matchLowDayResolutionContext = (
+  contexts: AdaptiveReviewContext[],
+  day: { id: string; date: string },
+) => {
+  const relevantCategories = new Set(['illness', 'recovery', 'nutrition_exception']);
+  const candidates = contexts.flatMap((context) => {
+    if (
+      context.deletedAt !== null ||
+      context.resolution === null ||
+      context.resolutionKind !== 'nutrition_complete' ||
+      !relevantCategories.has(context.category)
+    ) {
+      return [];
+    }
+    const subject = context.subject;
+    const specificity =
+      subject.kind === 'nutrition_log' && subject.id === day.id
+        ? 3
+        : subject.kind === 'date' && subject.localDate === day.date
+          ? 2
+          : subject.kind === 'date_range' &&
+              subject.startDate <= day.date &&
+              subject.endDate >= day.date
+            ? 1
+            : 0;
+    if (specificity === 0) return [];
+    return [
+      {
+        context,
+        specificity,
+        rangeDays:
+          subject.kind === 'date_range'
+            ? calendarDaysBetween(subject.startDate, subject.endDate)
+            : 0,
+      },
+    ];
+  });
+  candidates.sort(
+    (left, right) =>
+      right.specificity - left.specificity ||
+      left.rangeDays - right.rangeDays ||
+      right.context.updatedAt - left.context.updatedAt ||
+      right.context.revision - left.context.revision ||
+      left.context.id.localeCompare(right.context.id),
+  );
+  return candidates.at(0)?.context ?? null;
+};
+
 const actorColumns = (actor: AdaptiveReviewActor) => ({
   actorType: actor.type,
   agentTokenId: actor.type === 'agent_token' ? actor.agentTokenId : null,
@@ -157,12 +213,44 @@ const median = (values: number[]) => {
     : ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2;
 };
 
+export const selectReviewLowDayCandidates = <
+  T extends {
+    id: string;
+    date: string;
+    status: string;
+    itemCount: number;
+    calories: number;
+  },
+>(input: {
+  days: readonly T[];
+  analysisStart: string | null;
+  analysisEnd: string | null;
+  usableNutritionIds: ReadonlySet<string>;
+}) => {
+  const completeDays = input.days.filter(
+    (day) =>
+      input.analysisStart !== null &&
+      input.analysisEnd !== null &&
+      day.status === 'complete' &&
+      day.itemCount > 0 &&
+      day.date >= input.analysisStart &&
+      day.date <= input.analysisEnd &&
+      input.usableNutritionIds.has(day.id),
+  );
+  const typicalCalories = median(completeDays.map((day) => day.calories));
+  const threshold = typicalCalories === null ? null : Math.max(800, typicalCalories * 0.6);
+  return completeDays.length >= 3 && threshold !== null
+    ? completeDays.filter((day) => day.calories < threshold)
+    : [];
+};
+
 const contextSelection = {
   id: adaptiveNutritionReviewContexts.id,
   subject: adaptiveNutritionReviewContexts.subject,
   category: adaptiveNutritionReviewContexts.category,
   note: adaptiveNutritionReviewContexts.note,
   resolution: adaptiveNutritionReviewContexts.resolution,
+  resolutionKind: adaptiveNutritionReviewContexts.resolutionKind,
   createdBy: adaptiveNutritionReviewContexts.createdBy,
   agentTokenId: adaptiveNutritionReviewContexts.agentTokenId,
   actorLabel: adaptiveNutritionReviewContexts.actorLabel,
@@ -181,6 +269,7 @@ const parseContext = (row: Omit<ContextRow, 'userId' | 'programId' | 'subjectTyp
     category: row.category,
     note: row.note,
     resolution: row.resolution,
+    resolutionKind: row.resolutionKind,
     provenance: {
       type: row.createdBy === 'agent_token' ? 'agent_token' : 'user',
       agentTokenId: row.agentTokenId,
@@ -393,7 +482,7 @@ export const createAdaptiveWeeklyReviewStore = (options: {
             .map((context) => context.id),
         ),
     );
-    return (
+    const relevantContexts = (
       db
         .select(contextSelection)
         .from(adaptiveNutritionReviewContexts)
@@ -401,7 +490,6 @@ export const createAdaptiveWeeklyReviewStore = (options: {
           and(
             eq(adaptiveNutritionReviewContexts.userId, userId),
             eq(adaptiveNutritionReviewContexts.programId, programId),
-            isNull(adaptiveNutritionReviewContexts.deletedAt),
           ),
         )
         .orderBy(
@@ -475,6 +563,14 @@ export const createAdaptiveWeeklyReviewStore = (options: {
         }
         return subjectDate !== undefined && subjectDate >= startDate && subjectDate <= endDate;
       });
+    return {
+      active: relevantContexts.filter((context) => context.deletedAt === null),
+      revisions: relevantContexts.map((context) => ({
+        id: context.id,
+        revision: context.revision,
+        deletedAt: context.deletedAt,
+      })),
+    };
   };
 
   const loadSourceFacts = (userId: string, programId: string, checkIn: AdaptiveCheckInDetail) => {
@@ -578,7 +674,7 @@ export const createAdaptiveWeeklyReviewStore = (options: {
           .orderBy(asc(sessionSets.sessionId), asc(sessionSets.orderIndex), asc(sessionSets.id))
           .all()
       : [];
-    const contexts = loadActiveContexts(userId, programId, startDate, endDate);
+    const contextFacts = loadActiveContexts(userId, programId, startDate, endDate);
     const currentTarget = db
       .select()
       .from(nutritionTargets)
@@ -635,7 +731,8 @@ export const createAdaptiveWeeklyReviewStore = (options: {
       scheduled,
       sessions,
       sets,
-      contexts,
+      contexts: contextFacts.active,
+      contextRevisions: contextFacts.revisions,
       currentTarget,
       weightUnit,
       programRevision,
@@ -665,7 +762,7 @@ export const createAdaptiveWeeklyReviewStore = (options: {
       scheduled: sources.scheduled,
       sessions: sources.sessions,
       sets: sources.sets,
-      contexts: sources.contexts.map((context) => ({ id: context.id, revision: context.revision })),
+      contexts: sources.contextRevisions,
       currentTarget: sources.currentTarget
         ? {
             id: sources.currentTarget.id,
@@ -732,16 +829,12 @@ export const createAdaptiveWeeklyReviewStore = (options: {
     const suspectWeightIds = new Set(eligibility.suspectWeightEntryIds);
     const firstTrendDate = eligibility.trendPoints.at(0)?.date ?? null;
     const lastTrendDate = eligibility.trendPoints.at(-1)?.date ?? null;
-    const completeDays = sources.nutrition.filter(
-      (day) =>
-        day.status === 'complete' && day.itemCount > 0 && day.date <= (checkIn.analysisEnd ?? ''),
-    );
-    const typicalCalories = median(completeDays.map((day) => day.calories));
-    const lowDayThreshold = typicalCalories === null ? null : Math.max(800, typicalCalories * 0.6);
-    const unusuallyLowDays =
-      completeDays.length >= 3 && lowDayThreshold !== null
-        ? completeDays.filter((day) => day.calories < lowDayThreshold)
-        : [];
+    const unusuallyLowDays = selectReviewLowDayCandidates({
+      days: sources.nutrition,
+      analysisStart: checkIn.analysisStart,
+      analysisEnd: checkIn.analysisEnd,
+      usableNutritionIds,
+    });
     const dataEvidence: Array<{
       kind: 'nutrition' | 'weigh_in';
       id: string | null;
@@ -827,21 +920,18 @@ export const createAdaptiveWeeklyReviewStore = (options: {
       }
     }
     for (const day of unusuallyLowDays) {
+      const matchedContext = matchLowDayResolutionContext(sources.contexts, day);
       dataEvidence.push({
         kind: 'nutrition',
         id: day.id,
         localDate: day.date,
         state: 'logged',
-        label: 'Complete day needs confirmation',
+        label: matchedContext
+          ? 'Complete low day explained by context'
+          : 'Complete day needs confirmation',
         detail: `${Math.round(day.calories)} kcal is unusually low relative to this review period. Pulse has not changed its eligibility status.`,
         reasonCodes: ['LIKELY_PARTIAL_NUTRITION'],
-        resolution:
-          sources.contexts.find(
-            (context) =>
-              context.category === 'nutrition_exception' &&
-              context.subject.kind === 'nutrition_log' &&
-              context.subject.id === day.id,
-          )?.resolution ?? null,
+        resolution: matchedContext?.resolution ?? null,
       });
     }
     const pendingWeights = sources.weights.filter(
@@ -1222,105 +1312,120 @@ export const createAdaptiveWeeklyReviewStore = (options: {
     });
   };
 
+  const previewWithinTransaction = (
+    userId: string,
+    input: AdaptiveWeeklyReviewPreviewInput,
+    forceRefresh = false,
+    validatedRefreshReviewId?: string,
+  ): AdaptiveWeeklyReview => {
+    const program = findProgram(userId);
+    if (!program) throw new AdaptiveProgramNotFoundError();
+    const localDate = dateKeyInTimeZone(now(), program.timeZone);
+    const sameCycle = db
+      .select(reviewRowSelection)
+      .from(adaptiveNutritionReviews)
+      .where(
+        and(
+          eq(adaptiveNutritionReviews.userId, userId),
+          eq(adaptiveNutritionReviews.programId, program.id),
+          eq(adaptiveNutritionReviews.kind, input.kind),
+          eq(adaptiveNutritionReviews.reviewLocalDate, localDate),
+        ),
+      )
+      .orderBy(desc(adaptiveNutritionReviews.createdAt))
+      .limit(1)
+      .get() as ReviewRow | undefined;
+    if (sameCycle && !forceRefresh) return projectCurrentReview(sameCycle);
+
+    const checkIn = adaptiveStore.previewCheckIn(userId, {
+      kind: input.kind,
+      includeToday: false,
+    });
+    const sources = loadSourceFacts(userId, program.id, checkIn);
+    const sourceHash = sourceFingerprint(checkIn, sources);
+    const existing = db
+      .select(reviewRowSelection)
+      .from(adaptiveNutritionReviews)
+      .where(
+        and(
+          eq(adaptiveNutritionReviews.userId, userId),
+          eq(adaptiveNutritionReviews.programId, program.id),
+          eq(adaptiveNutritionReviews.kind, input.kind),
+          eq(adaptiveNutritionReviews.analysisEnd, checkIn.analysisEnd ?? checkIn.localDate),
+          eq(adaptiveNutritionReviews.sourceFingerprint, sourceHash),
+        ),
+      )
+      .limit(1)
+      .get() as ReviewRow | undefined;
+    if (existing) return projectCurrentReview(existing);
+
+    const activeRows = db
+      .select(reviewRowSelection)
+      .from(adaptiveNutritionReviews)
+      .where(
+        and(
+          eq(adaptiveNutritionReviews.userId, userId),
+          eq(adaptiveNutritionReviews.programId, program.id),
+        ),
+      )
+      .all() as ReviewRow[];
+    for (const row of activeRows) {
+      const current = projectCurrentReview(row);
+      const sourceStatus = adaptiveStore.findCheckInDetail(row.userId, row.checkInId)?.status;
+      if (
+        row.id !== validatedRefreshReviewId &&
+        current.state === 'stale' &&
+        sourceStatus !== undefined &&
+        ['accepted', 'declined', 'held', 'superseded'].includes(sourceStatus)
+      ) {
+        continue;
+      }
+      if (['pending', 'awaiting_clarification', 'deferred', 'stale'].includes(current.state)) {
+        const sequence = current.actionSequence + 1;
+        db.insert(adaptiveNutritionReviewActions)
+          .values({
+            id: randomUUID(),
+            reviewId: row.id,
+            userId,
+            sequence,
+            type: 'supersede',
+            payload: { type: 'supersede', replacementCheckInId: checkIn.id },
+            ...actorColumns({ type: 'system', label: 'Pulse' }),
+            createdAt: now().getTime(),
+          })
+          .run();
+      }
+    }
+    const snapshot = buildSnapshot(userId, program.id, checkIn, sources, sourceHash);
+    const row = db
+      .insert(adaptiveNutritionReviews)
+      .values({
+        id: randomUUID(),
+        userId,
+        programId: program.id,
+        checkInId: checkIn.id,
+        kind: input.kind,
+        reviewVersion: 1,
+        sourceFingerprint: sourceHash,
+        reviewLocalDate: checkIn.localDate,
+        analysisStart: snapshot.analysisStart,
+        analysisEnd: snapshot.analysisEnd,
+        timeZone: snapshot.timeZone,
+        snapshot,
+        createdAt: now().getTime(),
+      })
+      .returning(reviewRowSelection)
+      .get() as ReviewRow | undefined;
+    if (!row) throw new Error('Failed to persist adaptive weekly review');
+    return projectCurrentReview(row);
+  };
+
   const preview = (
     userId: string,
     rawInput: AdaptiveWeeklyReviewPreviewInput,
-    forceRefresh = false,
   ): AdaptiveWeeklyReview => {
     const input = adaptiveWeeklyReviewPreviewInputSchema.parse(rawInput);
-    return immediate(() => {
-      const program = findProgram(userId);
-      if (!program) throw new AdaptiveProgramNotFoundError();
-      const localDate = dateKeyInTimeZone(now(), program.timeZone);
-      const sameCycle = db
-        .select(reviewRowSelection)
-        .from(adaptiveNutritionReviews)
-        .where(
-          and(
-            eq(adaptiveNutritionReviews.userId, userId),
-            eq(adaptiveNutritionReviews.programId, program.id),
-            eq(adaptiveNutritionReviews.kind, input.kind),
-            eq(adaptiveNutritionReviews.reviewLocalDate, localDate),
-          ),
-        )
-        .orderBy(desc(adaptiveNutritionReviews.createdAt))
-        .limit(1)
-        .get() as ReviewRow | undefined;
-      if (sameCycle && !forceRefresh) return projectCurrentReview(sameCycle);
-
-      const checkIn = adaptiveStore.previewCheckIn(userId, {
-        kind: input.kind,
-        includeToday: false,
-      });
-      const sources = loadSourceFacts(userId, program.id, checkIn);
-      const sourceHash = sourceFingerprint(checkIn, sources);
-      const existing = db
-        .select(reviewRowSelection)
-        .from(adaptiveNutritionReviews)
-        .where(
-          and(
-            eq(adaptiveNutritionReviews.userId, userId),
-            eq(adaptiveNutritionReviews.programId, program.id),
-            eq(adaptiveNutritionReviews.kind, input.kind),
-            eq(adaptiveNutritionReviews.analysisEnd, checkIn.analysisEnd ?? checkIn.localDate),
-            eq(adaptiveNutritionReviews.sourceFingerprint, sourceHash),
-          ),
-        )
-        .limit(1)
-        .get() as ReviewRow | undefined;
-      if (existing) return projectCurrentReview(existing);
-
-      const activeRows = db
-        .select(reviewRowSelection)
-        .from(adaptiveNutritionReviews)
-        .where(
-          and(
-            eq(adaptiveNutritionReviews.userId, userId),
-            eq(adaptiveNutritionReviews.programId, program.id),
-          ),
-        )
-        .all() as ReviewRow[];
-      for (const row of activeRows) {
-        const current = projectCurrentReview(row);
-        if (['pending', 'awaiting_clarification', 'deferred', 'stale'].includes(current.state)) {
-          const sequence = current.actionSequence + 1;
-          db.insert(adaptiveNutritionReviewActions)
-            .values({
-              id: randomUUID(),
-              reviewId: row.id,
-              userId,
-              sequence,
-              type: 'supersede',
-              payload: { type: 'supersede', replacementCheckInId: checkIn.id },
-              ...actorColumns({ type: 'system', label: 'Pulse' }),
-              createdAt: now().getTime(),
-            })
-            .run();
-        }
-      }
-      const snapshot = buildSnapshot(userId, program.id, checkIn, sources, sourceHash);
-      const row = db
-        .insert(adaptiveNutritionReviews)
-        .values({
-          id: randomUUID(),
-          userId,
-          programId: program.id,
-          checkInId: checkIn.id,
-          kind: input.kind,
-          reviewVersion: 1,
-          sourceFingerprint: sourceHash,
-          reviewLocalDate: checkIn.localDate,
-          analysisStart: snapshot.analysisStart,
-          analysisEnd: snapshot.analysisEnd,
-          timeZone: snapshot.timeZone,
-          snapshot,
-          createdAt: now().getTime(),
-        })
-        .returning(reviewRowSelection)
-        .get() as ReviewRow | undefined;
-      if (!row) throw new Error('Failed to persist adaptive weekly review');
-      return projectCurrentReview(row);
-    });
+    return immediate(() => previewWithinTransaction(userId, input, false));
   };
 
   const isDeferredReady = (review: AdaptiveWeeklyReview) => {
@@ -1404,7 +1509,8 @@ export const createAdaptiveWeeklyReviewStore = (options: {
     if (['accepted', 'declined', 'superseded'].includes(hydrated.state)) return hydrated;
     const checkIn = adaptiveStore.findCheckInDetail(row.userId, row.checkInId);
     const fresh =
-      checkIn?.status === 'pending' &&
+      checkIn !== null &&
+      ['held', 'pending'].includes(checkIn.status) &&
       sourceFingerprint(checkIn, loadSourceFacts(row.userId, row.programId, checkIn)) ===
         row.sourceFingerprint;
     if (!fresh) {
@@ -1412,6 +1518,14 @@ export const createAdaptiveWeeklyReviewStore = (options: {
         ...hydrated,
         state: 'stale',
         availableActions: [],
+      });
+    }
+    if (checkIn.status === 'held') {
+      return adaptiveWeeklyReviewSchema.parse({
+        ...hydrated,
+        availableActions: hydrated.availableActions.filter((action) =>
+          ['answer', 'ask_agent'].includes(action),
+        ),
       });
     }
     if (hydrated.state === 'deferred' && isDeferredReady(hydrated)) {
@@ -1447,7 +1561,16 @@ export const createAdaptiveWeeklyReviewStore = (options: {
         .flatMap((row) => {
           const hydrated = hydrateReview(row);
           if (hydrated.state === 'deferred' && !isDeferredReady(hydrated)) return [];
-          return [projectCurrentReview(row)];
+          const current = projectCurrentReview(row);
+          const sourceStatus = adaptiveStore.findCheckInDetail(row.userId, row.checkInId)?.status;
+          if (
+            current.state === 'stale' &&
+            sourceStatus !== undefined &&
+            ['accepted', 'declined', 'held', 'superseded'].includes(sourceStatus)
+          ) {
+            return [];
+          }
+          return [current];
         })
         .find((review) => ['pending', 'awaiting_clarification', 'stale'].includes(review.state)) ??
       null
@@ -1645,13 +1768,22 @@ export const createAdaptiveWeeklyReviewStore = (options: {
     });
   };
 
-  const refresh = (userId: string, reviewId: string): AdaptiveWeeklyReview => {
-    const row = findReviewRow(userId, reviewId);
-    if (!row) throw new AdaptiveReviewNotFoundError();
-    const refreshed = preview(userId, { kind: row.kind }, true);
-    if (refreshed.id === row.id) throw new AdaptiveReviewStaleError();
-    return refreshed;
-  };
+  const refresh = (userId: string, reviewId: string): AdaptiveWeeklyReview =>
+    immediate(() => {
+      const row = findReviewRow(userId, reviewId);
+      if (!row) throw new AdaptiveReviewNotFoundError();
+      const sourceCheckIn = adaptiveStore.findCheckInDetail(row.userId, row.checkInId);
+      if (
+        projectCurrentReview(row).state !== 'stale' ||
+        sourceCheckIn === null ||
+        sourceCheckIn.status !== 'pending'
+      ) {
+        throw new AdaptiveReviewRefreshNotAllowedError();
+      }
+      const refreshed = previewWithinTransaction(userId, { kind: row.kind }, true, row.id);
+      if (refreshed.id === row.id) throw new AdaptiveReviewStaleError();
+      return refreshed;
+    });
 
   const validateSubjectOwnership = (
     userId: string,
@@ -1746,6 +1878,7 @@ export const createAdaptiveWeeklyReviewStore = (options: {
           category: input.category,
           note: input.note,
           resolution: input.resolution ?? null,
+          resolutionKind: input.resolutionKind ?? null,
           createdBy: actor.type,
           agentTokenId: actor.type === 'agent_token' ? actor.agentTokenId : null,
           actorLabel: actor.label,
@@ -1805,6 +1938,11 @@ export const createAdaptiveWeeklyReviewStore = (options: {
           ...(input.category === undefined ? {} : { category: input.category }),
           ...(input.note === undefined ? {} : { note: input.note }),
           ...(input.resolution === undefined ? {} : { resolution: input.resolution }),
+          ...(input.resolutionKind === undefined
+            ? input.resolution === null
+              ? { resolutionKind: null }
+              : {}
+            : { resolutionKind: input.resolutionKind }),
           revision: existing.revision + 1,
           updatedAt: now().getTime(),
         })

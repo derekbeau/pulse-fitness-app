@@ -1,10 +1,10 @@
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
 
+import { setAuthenticatedSession } from './auth-session';
 import { apiBaseURL } from './test-env';
 
 test.use({ timezoneId: 'America/Detroit' });
 
-const authTokenStorageKey = 'pulse-auth-token';
 const fixturePassword = 'adaptive-preview-only';
 type Fixture =
   | 'baseline'
@@ -96,11 +96,7 @@ function monitorPage(page: Page, options: { allowExpectedAnalytics503?: boolean 
 async function authenticate(page: Page, fixture: Fixture) {
   const token = tokens.get(fixture);
   if (!token) throw new Error(`Missing ${fixture} token`);
-  await page.goto('/login');
-  await page.evaluate(([key, value]) => window.localStorage.setItem(key, value), [
-    authTokenStorageKey,
-    token,
-  ] as const);
+  await setAuthenticatedSession(page, token);
 }
 
 async function openAnalytics(page: Page, fixture: Fixture, end?: string) {
@@ -111,7 +107,9 @@ async function openAnalytics(page: Page, fixture: Fixture, end?: string) {
       value.request().method() === 'GET' &&
       value.status() === 200,
   );
-  await page.goto(`/nutrition/energy-balance${end ? `?end=${end}` : ''}`);
+  await page.goto(`/nutrition/energy-balance${end ? `?end=${end}` : ''}`, {
+    waitUntil: 'networkidle',
+  });
   await response;
   await expect(
     page.getByRole('heading', { level: 1, name: 'Energy Balance & Expenditure' }),
