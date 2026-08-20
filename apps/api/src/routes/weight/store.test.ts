@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SQLiteSyncDialect } from 'drizzle-orm/sqlite-core';
 
 import { bodyWeight } from '../../db/schema/index.js';
 
@@ -24,6 +25,11 @@ const testState = vi.hoisted(() => {
   const deleteFrom = vi.fn(() => ({
     where: deleteWhere,
   }));
+
+  const updateRun = vi.fn();
+  const updateWhere = vi.fn(() => ({ run: updateRun }));
+  const updateSet = vi.fn(() => ({ where: updateWhere }));
+  const update = vi.fn(() => ({ set: updateSet }));
 
   const selectGet = vi.fn();
   const selectAll = vi.fn();
@@ -55,6 +61,7 @@ const testState = vi.hoisted(() => {
       delete: deleteFrom,
       insert,
       select,
+      update,
     },
     reset() {
       deleteFrom.mockClear();
@@ -73,6 +80,10 @@ const testState = vi.hoisted(() => {
       selectOffset.mockClear();
       selectAll.mockClear();
       selectGet.mockClear();
+      update.mockClear();
+      updateSet.mockClear();
+      updateWhere.mockClear();
+      updateRun.mockClear();
     },
     deleteFrom,
     deleteWhere,
@@ -90,6 +101,10 @@ const testState = vi.hoisted(() => {
     selectOffset,
     selectAll,
     selectGet,
+    update,
+    updateSet,
+    updateWhere,
+    updateRun,
   };
 });
 
@@ -148,15 +163,28 @@ describe('weight store', () => {
       unitAtEntry: 'lbs',
       notes: null,
     });
-    expect(testState.insertOnConflictDoUpdate).toHaveBeenCalledWith({
+    expect(testState.insertOnConflictDoUpdate).toHaveBeenCalledOnce();
+    const conflict = (
+      testState.insertOnConflictDoUpdate.mock.calls[0] as unknown as [
+        {
+          set: Record<string, unknown>;
+          target: unknown[];
+        },
+      ]
+    )[0];
+    expect(conflict).toMatchObject({
       target: [bodyWeight.userId, bodyWeight.date],
       set: {
         weight: 182.8,
         weightKg: 82.916685236,
         unitAtEntry: 'lbs',
         notes: null,
-        updatedAt,
       },
+    });
+    expect(new SQLiteSyncDialect().sqlToQuery(conflict?.set.updatedAt as never)).toEqual({
+      sql: 'max("body_weight"."updated_at" + 1, ?)',
+      params: [updatedAt],
+      typings: ['none'],
     });
     expect(testState.insertReturning).toHaveBeenCalledOnce();
   });
@@ -204,6 +232,36 @@ describe('weight store', () => {
       unit: 'lbs',
     });
     expect(canonical).toMatchObject({ weightKg: 80, unitAtEntry: 'kg' });
+  });
+
+  it('makes a same-millisecond patch timestamp monotonic', async () => {
+    const updatedAt = 1_700_000_000_123;
+    vi.spyOn(Date, 'now').mockReturnValue(updatedAt);
+    testState.updateRun.mockReturnValue({ changes: 1 });
+    testState.selectGet.mockReturnValue({
+      id: 'entry-1',
+      date: '2026-03-06',
+      weightKg: 80,
+      unitAtEntry: 'kg',
+      notes: 'Corrected',
+      createdAt: updatedAt,
+      updatedAt: updatedAt + 1,
+    });
+
+    const { patchBodyWeightEntryById } = await import('./store.js');
+    await expect(
+      patchBodyWeightEntryById('entry-1', 'user-1', { notes: 'Corrected' }, 'kg'),
+    ).resolves.toMatchObject({ updatedAt: updatedAt + 1 });
+
+    const updates = (
+      testState.updateSet.mock.calls as unknown as [[Record<string, unknown>]]
+    )[0][0];
+    expect(updates).toMatchObject({ notes: 'Corrected' });
+    expect(new SQLiteSyncDialect().sqlToQuery(updates.updatedAt as never)).toEqual({
+      sql: 'max("body_weight"."updated_at" + 1, ?)',
+      params: [updatedAt],
+      typings: ['none'],
+    });
   });
 
   it('finds a body weight entry by user and date or returns null', async () => {

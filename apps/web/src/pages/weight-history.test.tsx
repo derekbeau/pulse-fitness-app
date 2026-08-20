@@ -1,3 +1,4 @@
+import type { TrendWeightAnalytics } from '@pulse/shared';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,10 +9,140 @@ import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 
 const weightUnitState = vi.hoisted(() => ({ value: 'lbs' as 'lbs' | 'kg' }));
+const trendAnalyticsState = vi.hoisted(() => ({
+  data: {
+    range: { preset: '1m', startDate: '2026-02-07', endDate: '2026-03-08' },
+    timeZone: 'America/Detroit',
+    isHistorical: false,
+    unit: 'lbs',
+    algorithm: {
+      version: 'trend-weight-v1',
+      windowDays: 30,
+      alpha: 0.1,
+      interpolation: 'none',
+      minimumObservations: 2,
+    },
+    current: {
+      latestScale: {
+        id: 'weight-3',
+        date: '2026-03-06',
+        weight: 181.4,
+        unit: 'lbs',
+        notes: null,
+        createdAt: 3,
+        updatedAt: 3,
+      },
+      trendWeight: 181.6,
+      trendDate: '2026-03-06',
+      scaleTrendDifference: -0.2,
+      ratePerWeek: -0.3,
+      rateEffectiveDate: '2026-03-06',
+      state: 'developing',
+      evidence: { observationCount: 3, spanDays: 2, latestAgeDays: 2 },
+    },
+    deltas: [7, 14, 30, 90].map((requestedDays) => ({
+      requestedDays,
+      status: 'unavailable',
+      value: null,
+      fromAsOfDate: '2026-01-01',
+      fromTrendDate: null,
+      toTrendDate: '2026-03-06',
+      reasonCode: 'NO_PRIOR_TREND',
+    })),
+    points: [
+      {
+        sourceEntryId: 'weight-1',
+        date: '2026-03-04',
+        scaleWeight: 181.8,
+        trendWeight: null,
+        scaleTrendDifference: null,
+        state: 'scale_only',
+        observationCount: 1,
+        spanDays: 0,
+        gapFromPreviousDays: null,
+        startsNewTrendSegment: false,
+        corrected: false,
+        annotation: null,
+      },
+      {
+        sourceEntryId: 'weight-2',
+        date: '2026-03-05',
+        scaleWeight: 181.2,
+        trendWeight: 181.74,
+        scaleTrendDifference: -0.54,
+        state: 'developing',
+        observationCount: 2,
+        spanDays: 1,
+        gapFromPreviousDays: 1,
+        startsNewTrendSegment: false,
+        corrected: false,
+        annotation: null,
+      },
+      {
+        sourceEntryId: 'weight-3',
+        date: '2026-03-06',
+        scaleWeight: 181.4,
+        trendWeight: 181.706,
+        scaleTrendDifference: -0.306,
+        state: 'developing',
+        observationCount: 3,
+        spanDays: 2,
+        gapFromPreviousDays: 1,
+        startsNewTrendSegment: false,
+        corrected: false,
+        annotation: null,
+      },
+    ],
+    markers: [],
+    goal: null,
+    explanation: {
+      headline: 'Trend Weight has limited confidence.',
+      detail:
+        'Scale weight can move faster than Trend Weight because Trend Weight waits for repeated evidence.',
+      lag: 'Trend Weight intentionally responds gradually to short-term scale changes; it does not diagnose their cause.',
+      confidence: 'Trend Weight is available, but the recent evidence span is limited.',
+      facts: {
+        confidenceReason: 'LIMITED_EVIDENCE_SPAN',
+        scaleTrendRelation: 'below',
+        paceDirection: 'losing',
+        paceFreshness: 'current',
+        goalComparison: 'no_goal',
+      },
+    },
+    policy: {
+      productTrend: 'trend-weight-v1',
+      trajectory: 'product_trend_weight',
+      coaching: 'product_trend_weight',
+      goalEta: 'adaptive_model_trend',
+      goalCompletion: 'adaptive_model_trend',
+      maintenanceRange: 'adaptive_model_trend',
+      celebrations: 'adaptive_model_trend',
+      adaptiveTdee: 'adaptive_model_trend',
+      measurementHistory: 'scale_weight',
+      explanation: 'Product Trend Weight is for display; model trend remains versioned.',
+    },
+    sourceFingerprint: 'a'.repeat(64),
+  } as TrendWeightAnalytics,
+}));
 
 vi.mock('@/hooks/use-weight-unit', () => ({
   useWeightUnit: () => ({ weightUnit: weightUnitState.value }),
 }));
+
+vi.mock('@/features/weight/api/weight', async () => {
+  const actual = await vi.importActual<typeof import('@/features/weight/api/weight')>(
+    '@/features/weight/api/weight',
+  );
+  return {
+    ...actual,
+    useTrendWeightAnalytics: () => ({
+      data: trendAnalyticsState.data,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    }),
+  };
+});
 
 vi.mock('recharts', async () => {
   const actual = await vi.importActual<typeof import('recharts')>('recharts');
@@ -68,6 +199,8 @@ describe('WeightHistoryPage', () => {
   });
 
   afterEach(() => {
+    trendAnalyticsState.data.goal = null;
+    trendAnalyticsState.data.markers = [];
     if (originalTimezone === undefined) {
       delete process.env.TZ;
     } else {
@@ -76,6 +209,81 @@ describe('WeightHistoryPage', () => {
     window.localStorage.clear();
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it('renders maintenance semantics and off-measurement annotations from server facts', async () => {
+    trendAnalyticsState.data.goal = {
+      id: 'goal-maintain',
+      type: 'maintain',
+      targetWeight: null,
+      maintenanceCenter: 181.5,
+      maintenanceLower: 179.5,
+      maintenanceUpper: 183.5,
+      desiredRatePerWeek: 0,
+      actualRatePerWeek: -0.3,
+      paceState: 'outside_goal_band',
+      maintenanceBandState: 'inside_maintenance_band',
+      explanation: 'Trend Weight is inside the maintenance corridor.',
+    };
+    trendAnalyticsState.data.markers = [
+      {
+        id: 'revision-off-date',
+        date: '2026-03-03',
+        kind: 'goal_revised',
+        label: 'Goal revised',
+      },
+      {
+        id: 'goal-started',
+        date: '2026-03-05',
+        kind: 'goal_started',
+        label: 'Goal started',
+      },
+      {
+        id: 'check-in',
+        date: '2026-03-05',
+        kind: 'check_in',
+        label: 'Check-in',
+      },
+    ];
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/users/me' && method === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              id: 'user-1',
+              username: 'test-user',
+              name: 'Test User',
+              weightUnit: 'lbs',
+              createdAt: 1,
+            },
+          }),
+        );
+      }
+      if (url.pathname === '/api/v1/weight' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Trend Weight' })).toBeInTheDocument();
+    const goalContext = screen.getByRole('heading', { name: 'Goal context' }).closest('article');
+    if (!goalContext) throw new Error('Goal context article was not rendered');
+    expect(within(goalContext).getByText('Maintenance corridor')).toBeInTheDocument();
+    expect(within(goalContext).getByText(/inside maintenance band/i)).toBeInTheDocument();
+    expect(within(goalContext).getByText('0 lbs/week')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show exact values' }));
+    expect(screen.getByRole('heading', { name: 'Annotations' })).toBeInTheDocument();
+    expect(screen.getByText(/Mar 3, 2026 · Goal revised · goal revised/)).toBeInTheDocument();
+    const marchFifth = screen.getByRole('row', { name: /Mar 5, 2026/ });
+    expect(within(marchFifth).getByText('Goal started · Check-in')).toBeInTheDocument();
   });
 
   it('shows the chart, lists entries in reverse chronological order, and deletes with confirmation', async () => {
@@ -147,10 +355,10 @@ describe('WeightHistoryPage', () => {
 
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'Weight History' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Trend Weight' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Weight history trend chart' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '30D' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('img', { name: 'Trend Weight chart' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '1M' })).toHaveAttribute('aria-pressed', 'true');
 
     const list = screen.getByRole('list', { name: 'Weight history entries' });
     expect(within(list).getByText('181.4 lbs')).toBeInTheDocument();
@@ -298,7 +506,7 @@ describe('WeightHistoryPage', () => {
 
     renderPage();
 
-    await screen.findByRole('heading', { name: 'Weight History' });
+    await screen.findByRole('heading', { name: 'Trend Weight' });
     fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
 
     expect(screen.getByLabelText('Date')).toHaveValue('2026-03-08');
@@ -545,7 +753,7 @@ describe('WeightHistoryPage', () => {
     });
   });
 
-  it('shows a range empty state until the user expands to all history', async () => {
+  it('keeps the entry ledger separate from the server-owned exact trend table', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const rawUrl =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
@@ -591,13 +799,11 @@ describe('WeightHistoryPage', () => {
 
     const list = await screen.findByRole('list', { name: 'Weight history entries' });
     expect(within(list).getByText('81.2 kg')).toBeInTheDocument();
-    expect(screen.getByText('No entries in this range yet.')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'All' }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('img', { name: 'Weight history trend chart' })).toBeInTheDocument();
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Show exact values' }));
+    expect(
+      screen.getByRole('table', { name: 'Exact Scale and Trend Weight values' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mar 6, 2026' })).toBeInTheDocument();
   });
 
   it('shows empty state when no entries are available', async () => {
@@ -666,10 +872,10 @@ describe('WeightHistoryPage', () => {
 
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'Weight History' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Trend Weight' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Help' }));
 
-    expect(screen.getByRole('heading', { name: 'Weight history help' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Trend Weight help' })).toBeInTheDocument();
     expect(
       screen.getByText(
         "Weight tracking stores one entry per day. Saving again on the same day updates that day's value instead of creating duplicates.",
@@ -677,7 +883,7 @@ describe('WeightHistoryPage', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'The dashboard computes its EWMA from the trailing 30 calendar days. With fewer than two measurements in that window, it shows your latest weight instead.',
+        'Product Trend Weight uses observations from the trailing 30 calendar days. With fewer than two measurements, Pulse labels the result as still learning.',
       ),
     ).toBeInTheDocument();
     expect(

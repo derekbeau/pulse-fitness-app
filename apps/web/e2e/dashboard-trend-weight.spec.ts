@@ -220,13 +220,71 @@ test('dashboard shows the latest scale weight when the trend window has only one
   await weightHistoryLink.press('Enter');
 
   await expect(page).toHaveURL(/\/weight\/history$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Weight History' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Trend Weight' })).toBeVisible();
   await page.getByRole('button', { name: 'Help' }).click();
-  await expect(page.getByRole('heading', { name: 'Weight history help' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Trend Weight help' })).toBeVisible();
   await expect(
     page.getByText(
-      'The dashboard computes its EWMA from the trailing 30 calendar days. With fewer than two measurements in that window, it shows your latest weight instead.',
+      'Product Trend Weight uses observations from the trailing 30 calendar days. With fewer than two measurements, Pulse labels the result as still learning.',
     ),
   ).toBeVisible();
   assertPageClean();
+});
+
+test('dashboard Trend Weight honors the selected historical date', async ({ page }) => {
+  const snapshotDate = detroitDateKey();
+  const historicalDate = addDays(snapshotDate, -3);
+  const assertPageClean = monitorPage(page);
+  const weights = Array.from({ length: 18 }, (_, index) => ({
+    date: addDays(snapshotDate, index - 17),
+    weight: 185 - index * 0.2,
+  }));
+  const { authToken } = await createUserWithWeights(snapshotDate, weights);
+  const apiContext = await request.newContext({ baseURL: apiBaseURL });
+
+  try {
+    const historicalResponse = await apiContext.get(
+      `/api/v1/weight/trend?range=1m&end=${historicalDate}`,
+      { headers: { authorization: `Bearer ${authToken}` } },
+    );
+    expect(historicalResponse.ok(), await historicalResponse.text()).toBeTruthy();
+    const historical = (await historicalResponse.json()) as {
+      data: { current: { trendDate: string; trendWeight: number } };
+    };
+
+    await authenticatePage(page, authToken);
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: 'Change date' }).click();
+    const analyticsResponse = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return (
+        response.request().method() === 'GET' &&
+        url.pathname === '/api/v1/weight/trend' &&
+        url.searchParams.get('end') === historicalDate
+      );
+    });
+    await page.locator(`[data-slot="calendar-day"][data-date="${historicalDate}"]`).click();
+    expect((await analyticsResponse).ok()).toBeTruthy();
+
+    await expect(page.getByText('Historical view')).toBeVisible();
+    await expect(
+      page.getByRole('heading', {
+        name: `${Number(historical.data.current.trendWeight.toFixed(1))} lbs`,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        `Effective ${new Intl.DateTimeFormat('en-US', {
+          day: 'numeric',
+          month: 'short',
+          timeZone: 'UTC',
+          year: 'numeric',
+        }).format(new Date(`${historical.data.current.trendDate}T12:00:00.000Z`))}`,
+      ),
+    ).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    assertPageClean();
+  } finally {
+    await apiContext.dispose();
+  }
 });

@@ -4,8 +4,8 @@ import { Link } from 'react-router';
 import { computeEWMA, type DashboardTrendMetric } from '@pulse/shared';
 
 import { Card, CardContent } from '@/components/ui/card';
+import { useTrendWeightAnalytics } from '@/features/weight/api/weight';
 import { useMacroTrend } from '@/hooks/use-macro-trend';
-import { useWeightTrend } from '@/hooks/use-weight-trend';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { WEIGHT_TREND_POLL_INTERVAL_MS, getForegroundPollingInterval } from '@/lib/query-polling';
 import { accentCardStyles } from '@/lib/accent-card-styles';
@@ -22,12 +22,15 @@ type TrendMetricCardProps = {
   subtitle?: string;
   currentValue: string;
   changePercent: number;
+  changeDirection?: ChangeDirection;
+  changeLabel?: string;
   color: string;
   data: TrendSparklinePlotDatum[];
   to: string;
   className?: string;
   textClassName?: string;
   formatTooltip?: (value: number) => string;
+  showRawSeries?: boolean;
 };
 
 export type TrendSparklineDatum = {
@@ -38,7 +41,8 @@ export type TrendSparklineDatum = {
 export type TrendSparklinePlotDatum = {
   date: string;
   value: number;
-  trend: number;
+  trend: number | null;
+  startsNewTrendSegment?: boolean;
 };
 
 export type TrendSparklineProps = {
@@ -48,10 +52,13 @@ export type TrendSparklineProps = {
   subtitle?: string;
   currentValue: number | string;
   changePercent: number;
+  changeDirection?: ChangeDirection;
+  changeLabel?: string;
   className?: string;
   textClassName?: string;
   emptyMessage?: string;
   formatTooltip?: (value: number) => string;
+  showRawSeries?: boolean;
 };
 
 export type TrendSparklinesProps = {
@@ -149,6 +156,41 @@ const resolveTrendRange = (endDate?: string) => {
   };
 };
 
+const breakTrendSegments = (data: TrendSparklinePlotDatum[]) =>
+  data.flatMap((entry, index) =>
+    index > 0 && entry.startsNewTrendSegment
+      ? [{ ...entry, date: `${entry.date} gap`, trend: null }, entry]
+      : [entry],
+  );
+
+export function TrendSparklineTooltipContent({
+  entry,
+  formatValue,
+  showRawSeries,
+}: {
+  entry: TrendSparklinePlotDatum;
+  formatValue: (value: number) => string;
+  showRawSeries: boolean;
+}) {
+  return (
+    <div className="rounded-md border border-border/70 bg-background/95 px-2 py-1 text-xs shadow-sm backdrop-blur-sm">
+      {showRawSeries ? (
+        <>
+          <p className="font-medium">Scale {formatValue(entry.value)}</p>
+          <p className="text-muted-foreground/70">
+            Trend {entry.trend === null ? 'Not available' : formatValue(entry.trend)}
+          </p>
+        </>
+      ) : (
+        <p className="font-medium">
+          Trend {entry.trend === null ? 'Not available' : formatValue(entry.trend)}
+        </p>
+      )}
+      <p className="text-muted-foreground">{entry.date}</p>
+    </div>
+  );
+}
+
 export function TrendSparkline({
   data,
   color,
@@ -156,15 +198,18 @@ export function TrendSparkline({
   subtitle,
   currentValue,
   changePercent,
+  changeDirection,
+  changeLabel,
   className,
   textClassName,
   emptyMessage = 'No data',
   formatTooltip,
+  showRawSeries = true,
 }: TrendSparklineProps) {
-  const direction = getChangeDirection(changePercent);
+  const direction = changeDirection ?? getChangeDirection(changePercent);
   const ChangeIcon = CHANGE_ICONS[direction];
   const textClass = textClassName ?? 'text-on-accent';
-  const plottedData = data;
+  const plottedData = breakTrendSegments(data);
   const hasSingleDataPoint = plottedData.length === 1;
 
   return (
@@ -204,7 +249,7 @@ export function TrendSparkline({
             data-slot="trend-sparkline-change"
           >
             <ChangeIcon aria-hidden="true" className="size-4" />
-            <span>{formatChangePercent(changePercent)}</span>
+            <span>{changeLabel ?? formatChangePercent(changePercent)}</span>
           </div>
         </div>
       </div>
@@ -236,35 +281,39 @@ export function TrendSparkline({
                   const entry = payload[0].payload as TrendSparklinePlotDatum;
                   const fmt = formatTooltip ?? ((v: number) => String(Math.round(v)));
                   return (
-                    <div className="rounded-md border border-border/70 bg-background/95 px-2 py-1 text-xs shadow-sm backdrop-blur-sm">
-                      <p className="font-medium">{fmt(entry.value)}</p>
-                      <p className="text-muted-foreground/70">{fmt(entry.trend)} trend</p>
-                      <p className="text-muted-foreground">{entry.date}</p>
-                    </div>
+                    <TrendSparklineTooltipContent
+                      entry={entry}
+                      formatValue={fmt}
+                      showRawSeries={showRawSeries}
+                    />
                   );
                 }}
                 cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '3 3' }}
                 isAnimationActive={false}
               />
-              <Line
-                activeDot={{
-                  fill: color,
-                  r: 3,
-                  stroke: 'var(--color-background)',
-                  strokeWidth: 1.5,
-                }}
-                dataKey="value"
-                dot={
-                  hasSingleDataPoint ? { fill: color, r: 4, stroke: color, strokeWidth: 0 } : false
-                }
-                isAnimationActive={false}
-                stroke={color}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeOpacity={0.4}
-                strokeWidth={hasSingleDataPoint ? 0 : 1.5}
-                type="monotone"
-              />
+              {showRawSeries ? (
+                <Line
+                  activeDot={{
+                    fill: color,
+                    r: 3,
+                    stroke: 'var(--color-background)',
+                    strokeWidth: 1.5,
+                  }}
+                  dataKey="value"
+                  dot={
+                    hasSingleDataPoint
+                      ? { fill: color, r: 4, stroke: color, strokeWidth: 0 }
+                      : false
+                  }
+                  isAnimationActive={false}
+                  stroke={color}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeOpacity={0.4}
+                  strokeWidth={hasSingleDataPoint ? 0 : 1.5}
+                  type="monotone"
+                />
+              ) : null}
               <Line
                 activeDot={false}
                 dataKey="trend"
@@ -289,12 +338,15 @@ function TrendMetricCard({
   subtitle,
   currentValue,
   changePercent,
+  changeDirection,
+  changeLabel,
   color,
   data,
   to,
   className,
   textClassName,
   formatTooltip,
+  showRawSeries,
 }: TrendMetricCardProps) {
   return (
     <Card
@@ -308,12 +360,15 @@ function TrendMetricCard({
       <CardContent className="h-full px-3">
         <TrendSparkline
           changePercent={changePercent}
+          changeDirection={changeDirection}
+          changeLabel={changeLabel}
           color={color}
           currentValue={currentValue}
           data={data}
           formatTooltip={formatTooltip}
           label={label}
           subtitle={subtitle}
+          showRawSeries={showRawSeries}
           textClassName={textClassName}
         />
       </CardContent>
@@ -356,7 +411,7 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
   const needsWeight = resolvedMetrics.includes('weight');
   const needsMacros = resolvedMetrics.includes('calories') || resolvedMetrics.includes('protein');
   const range = resolveTrendRange(endDate);
-  const weightTrendQuery = useWeightTrend(range.from, range.to, {
+  const weightTrendQuery = useTrendWeightAnalytics('1m', endDate, {
     enabled: needsWeight,
     refetchIntervalMs: getForegroundPollingInterval(WEIGHT_TREND_POLL_INTERVAL_MS),
   });
@@ -386,37 +441,61 @@ export function TrendSparklines({ endDate, metrics }: TrendSparklinesProps) {
     );
   }
 
-  const weightSeriesRaw = needsWeight
-    ? toMetricSeries(weightTrendQuery.data ?? [], (entry) => entry.value)
-    : [];
   const calorieSeriesRaw = needsMacros
     ? toMetricSeries(macroTrendQuery.data ?? [], (entry) => entry.calories)
     : [];
   const proteinSeriesRaw = needsMacros
     ? toMetricSeries(macroTrendQuery.data ?? [], (entry) => entry.protein)
     : [];
-  const weightSeries = buildPlotSeries(filterSeriesWithData(weightSeriesRaw));
+  const weightSeries = needsWeight
+    ? (weightTrendQuery.data?.points ?? []).map((point) => ({
+        date: point.date,
+        value: point.scaleWeight,
+        trend: point.trendWeight,
+        startsNewTrendSegment: point.startsNewTrendSegment,
+      }))
+    : [];
   const calorieSeries = buildPlotSeries(filterSeriesWithData(calorieSeriesRaw));
   const proteinSeries = buildPlotSeries(filterSeriesWithData(proteinSeriesRaw));
-  const latestWeight = getLatestTrend(weightSeries, 0);
-  const weightDisplayUnit = weightTrendQuery.data?.at(-1)?.unit ?? weightUnit;
+  const latestWeight = weightTrendQuery.data?.current.trendWeight ?? null;
+  const weightRate = weightTrendQuery.data?.current.ratePerWeek ?? null;
+  const weightDisplayUnit = weightTrendQuery.data?.unit ?? weightUnit;
+  const weightState = weightTrendQuery.data?.current.state;
+  const weightSubtitle =
+    weightState === 'stale'
+      ? 'Product trend · Stale'
+      : weightState === 'scale_only'
+        ? 'Product trend · Still learning'
+        : weightState === 'developing'
+          ? 'Product trend · Limited evidence'
+          : weightState === 'no_data'
+            ? 'Product trend · No data'
+            : 'Product trend';
   const latestCalories = getLatestTrend(calorieSeries, 0);
   const latestProtein = getLatestTrend(proteinSeries, 0);
   const allConfigs = {
     weight: {
-      label: 'Weight Trend',
-      subtitle: LOOKBACK_LABEL,
+      label: 'Trend Weight',
+      subtitle: weightSubtitle,
       to: '/weight/history',
-      currentValue: weightSeries.length > 0 ? formatWeight(latestWeight, weightDisplayUnit) : '--',
-      changePercent:
-        weightSeries.length > 1
-          ? calculateTrendChangePercent(latestWeight, getPreviousTrend(weightSeries, latestWeight))
-          : 0,
+      currentValue: latestWeight === null ? '--' : formatWeight(latestWeight, weightDisplayUnit),
+      changePercent: 0,
+      changeDirection:
+        weightRate === null || Math.abs(weightRate) < 0.01
+          ? 'neutral'
+          : weightRate > 0
+            ? 'up'
+            : 'down',
+      changeLabel:
+        weightRate === null
+          ? 'Not available'
+          : `${weightRate > 0 ? '+' : ''}${formatWeight(weightRate, weightDisplayUnit)}/week`,
       color: 'var(--color-on-cream)',
       data: weightSeries,
       className: accentCardStyles.cream,
       textClassName: 'text-on-cream',
       formatTooltip: (v: number) => formatWeight(v, weightDisplayUnit),
+      showRawSeries: false,
     },
     calories: {
       label: 'Calorie Trend',

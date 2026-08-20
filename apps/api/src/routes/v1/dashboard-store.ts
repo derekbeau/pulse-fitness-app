@@ -12,7 +12,12 @@ import type {
   DashboardWeightTrendPoint,
   DashboardWorkoutSnapshot,
 } from '@pulse/shared';
-import { computeEWMA, convertWeightFromKg, dashboardConfigSchema } from '@pulse/shared';
+import {
+  TREND_WEIGHT_ALGORITHM,
+  calculateCanonicalTrendWeightCurrent,
+  convertWeightFromKg,
+  dashboardConfigSchema,
+} from '@pulse/shared';
 
 import { db } from '../../db/index.js';
 import {
@@ -30,9 +35,6 @@ import {
   workoutTemplates,
 } from '../../db/schema/index.js';
 import { addUtcDays, getDatesInRange } from './dashboard-utils.js';
-
-const DASHBOARD_TREND_WINDOW_DAYS = 30;
-const MIN_DASHBOARD_TREND_ENTRIES = 2;
 
 const weightSelection = {
   valueKg: bodyWeight.weightKg,
@@ -414,23 +416,24 @@ export const getDashboardSnapshot = async (
   // the dashboard can fall back to the latest scale weight.
   let trendWeight: number | null = null;
   if (weight) {
-    const trendWindowStart = addUtcDays(date, -(DASHBOARD_TREND_WINDOW_DAYS - 1));
+    const trendWindowStart = addUtcDays(date, -(TREND_WEIGHT_ALGORITHM.windowDays - 1));
     const recentWeights = db
-      .select({ date: bodyWeight.date, weightKg: bodyWeight.weightKg })
+      .select({
+        id: bodyWeight.id,
+        date: bodyWeight.date,
+        weightKg: bodyWeight.weightKg,
+        createdAt: bodyWeight.createdAt,
+        updatedAt: bodyWeight.updatedAt,
+      })
       .from(bodyWeight)
       .where(and(eq(bodyWeight.userId, userId), between(bodyWeight.date, trendWindowStart, date)))
       .orderBy(asc(bodyWeight.date))
       .all();
 
-    if (recentWeights.length >= MIN_DASHBOARD_TREND_ENTRIES) {
-      const ewmaResults = computeEWMA(
-        recentWeights.map((w) => ({ date: w.date, weight: Number(w.weightKg) })),
-      );
-      const lastResult = ewmaResults[ewmaResults.length - 1];
-      if (lastResult) {
-        trendWeight = lastResult.trend;
-      }
-    }
+    trendWeight = calculateCanonicalTrendWeightCurrent(
+      recentWeights.map((entry) => ({ ...entry, weightKg: Number(entry.weightKg) })),
+      date,
+    ).trendWeightKg;
   }
 
   const macrosActual =

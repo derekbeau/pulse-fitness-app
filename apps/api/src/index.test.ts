@@ -190,6 +190,11 @@ describe('OpenAPI docs', () => {
         tags: ['weight'],
         security: [{ bearerAuth: [] }, { agentToken: [] }],
       });
+      expect(body.paths?.['/api/v1/weight/trend']?.get).toMatchObject({
+        summary: 'Get canonical Trend Weight analytics',
+        tags: ['weight'],
+        security: [{ bearerAuth: [] }, { agentToken: [] }],
+      });
       expect(body.paths?.['/api/v1/dashboard/snapshot']?.get).toMatchObject({
         summary: 'Get the dashboard snapshot for a day',
         tags: ['dashboard'],
