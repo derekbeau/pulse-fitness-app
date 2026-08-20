@@ -4,13 +4,12 @@ import { agentTokens, users } from '../db/schema/index.js';
 
 export type AgentTokenAuthRecord = {
   id: string;
+  name?: string;
   userId: string;
   expiresAt?: number | null;
 };
 
-export const findUserAuthById = async (
-  userId: string,
-): Promise<{ id: string } | undefined> => {
+export const findUserAuthById = async (userId: string): Promise<{ id: string } | undefined> => {
   const { db } = await import('../db/index.js');
 
   return db
@@ -31,6 +30,7 @@ export const findAgentTokenByHash = async (
   return db
     .select({
       id: agentTokens.id,
+      name: agentTokens.name,
       userId: agentTokens.userId,
       expiresAt: agentTokens.expiresAt,
     })

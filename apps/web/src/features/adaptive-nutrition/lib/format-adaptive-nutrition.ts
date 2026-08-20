@@ -199,6 +199,13 @@ export function formatAdaptiveWeightChange(weightKg: number | null | undefined, 
   return `${sign}${decimalFormatter.format(converted)} ${unit}/week`;
 }
 
+export function formatAdaptiveWeightDelta(weightKg: number | null | undefined, unit: WeightUnit) {
+  if (weightKg == null) return '—';
+  const converted = convertWeightFromKg(Math.abs(weightKg), unit);
+  const sign = weightKg > 0 ? '+' : weightKg < 0 ? '−' : '';
+  return `${sign}${decimalFormatter.format(converted)} ${unit}`;
+}
+
 export function getConfidenceTone(label: AdaptiveConfidenceLabel | null | undefined) {
   if (label === 'High') {
     return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';

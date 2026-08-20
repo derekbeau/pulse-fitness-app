@@ -117,6 +117,10 @@ lifecycle decisions remain JWT-only:
 - `POST /api/v1/adaptive-nutrition/check-ins/preview` — persist a proposal or held attempt; never applies a
   target automatically.
 - `GET /api/v1/adaptive-nutrition/check-ins` and `GET .../check-ins/:id` — replayable check-in history.
+- `GET /api/v1/adaptive-nutrition/reviews/pending`, `GET .../reviews`, and `GET .../reviews/:id` — the same immutable, ordered weekly decision facts shown in the browser.
+- `POST /api/v1/adaptive-nutrition/reviews/preview` and `POST .../reviews/:id/refresh` — create a deterministic review snapshot or refresh stale evidence without applying targets.
+- `POST /api/v1/adaptive-nutrition/review-context` plus context PATCH/DELETE — store bounded, owned annotations with AgentToken provenance; a token may revise only its own context.
+- `POST /api/v1/adaptive-nutrition/reviews/:id/actions` — AgentToken callers may `ask_agent` or `answer`. They receive `403 FORBIDDEN` for accept, edit, defer, or decline because those are user plan decisions.
 - `GET /api/v1/adaptive-nutrition/goals/current` — current goal and progress.
 - `GET /api/v1/adaptive-nutrition/goals` and `GET .../goals/:id` — lifecycle history, immutable revisions,
   linked accepted check-ins, and canonical weekly trend points.

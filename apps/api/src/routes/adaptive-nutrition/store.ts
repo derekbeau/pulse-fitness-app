@@ -61,6 +61,7 @@ import {
   type AdaptiveProgram,
   type AdaptiveProgramCalculation,
   type AdaptiveProgramMutation,
+  type AdaptiveReviewTargetProposal,
   type AdaptiveRecommendation,
   type AdaptiveWeightEntry,
   type NutritionTarget,
@@ -380,11 +381,15 @@ export const createAdaptiveNutritionStore = (options: {
   db: AdaptiveDatabase;
   sqlite: Database.Database;
   now?: () => Date;
+  runInTransaction?: <T>(operation: () => T) => T;
 }) => {
   const { db, sqlite } = options;
   const now = options.now ?? (() => new Date());
 
-  const immediate = <T>(operation: () => T): T => sqlite.transaction(operation).immediate();
+  const immediate = <T>(operation: () => T): T =>
+    options.runInTransaction
+      ? options.runInTransaction(operation)
+      : sqlite.transaction(operation).immediate();
 
   const findProgram = (userId: string): AdaptiveProgram | null => {
     const value = db
@@ -1821,6 +1826,7 @@ export const createAdaptiveNutritionStore = (options: {
     userId: string,
     checkInId: string,
     rawInput: AdaptiveAcceptInput,
+    acceptedProposalOverride?: AdaptiveReviewTargetProposal,
   ): AdaptiveAcceptResult => {
     const input = adaptiveAcceptInputSchema.parse(rawInput);
     return immediate(() => {
@@ -1854,8 +1860,14 @@ export const createAdaptiveNutritionStore = (options: {
       if (rebuilt.recommendation.inputFingerprint !== checkIn.dataFingerprint) {
         throw new AdaptiveCheckInStaleError();
       }
-      const proposal = checkIn.proposedTargets;
+      const proposal = acceptedProposalOverride ?? checkIn.proposedTargets;
       if (!proposal) throw new AdaptiveCheckInNotAcceptableError();
+      if (
+        acceptedProposalOverride &&
+        acceptedProposalOverride.effectiveDate !== checkIn.proposedTargets?.effectiveDate
+      ) {
+        throw new AdaptiveCheckInNotAcceptableError();
+      }
       const existing = findTargetForDate(userId, proposal.effectiveDate);
       if (existing && !input.replaceSameDateTarget) {
         throw new AdaptiveSameDateTargetExistsError();

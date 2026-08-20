@@ -1,6 +1,11 @@
 import {
   AdaptiveTdeeConfigurationError,
   adaptiveAcceptInputSchema,
+  adaptiveReviewActionInputSchema,
+  adaptiveReviewContextCreateInputSchema,
+  adaptiveReviewContextDeleteQuerySchema,
+  adaptiveReviewContextSchema,
+  adaptiveReviewContextUpdateInputSchema,
   adaptiveAcceptResultSchema,
   adaptiveCheckInDetailSchema,
   adaptiveCheckInQuerySchema,
@@ -20,6 +25,10 @@ import {
   adaptivePreviewInputSchema,
   adaptiveProgramMutationSchema,
   adaptiveProgramSchema,
+  adaptiveWeeklyReviewListQuerySchema,
+  adaptiveWeeklyReviewPendingSchema,
+  adaptiveWeeklyReviewPreviewInputSchema,
+  adaptiveWeeklyReviewSchema,
   apiDataResponseSchema,
   apiPaginatedResponseSchema,
 } from '@pulse/shared';
@@ -73,6 +82,26 @@ import {
   putAdaptiveNutritionProgram,
   startAdaptiveGoal,
 } from './store.js';
+import {
+  actOnAdaptiveWeeklyReview,
+  AdaptiveReviewActionConflictError,
+  AdaptiveReviewActionNotAllowedError,
+  AdaptiveReviewContextConflictError,
+  AdaptiveReviewContextNotFoundError,
+  AdaptiveReviewNotFoundError,
+  AdaptiveReviewProposalInvalidError,
+  AdaptiveReviewRefreshNotAllowedError,
+  AdaptiveReviewStaleError,
+  createAdaptiveReviewContext,
+  deleteAdaptiveReviewContext,
+  getAdaptiveWeeklyReview,
+  getPendingAdaptiveWeeklyReview,
+  listAdaptiveWeeklyReviews,
+  previewAdaptiveWeeklyReview,
+  refreshAdaptiveWeeklyReview,
+  updateAdaptiveReviewContext,
+  type AdaptiveReviewActor,
+} from './review-store.js';
 
 const conflictResponseSchema = apiErrorResponseSchema;
 
@@ -82,6 +111,30 @@ const sendAdaptiveError = (reply: FastifyReply, error: unknown) => {
   }
   if (error instanceof AdaptiveAnalyticsPreProgramEndError) {
     return sendError(reply, 400, 'ADAPTIVE_ANALYTICS_PRE_PROGRAM_END', error.message);
+  }
+  if (error instanceof AdaptiveReviewNotFoundError) {
+    return sendError(reply, 404, 'ADAPTIVE_REVIEW_NOT_FOUND', error.message);
+  }
+  if (error instanceof AdaptiveReviewContextNotFoundError) {
+    return sendError(reply, 404, 'ADAPTIVE_REVIEW_CONTEXT_NOT_FOUND', error.message);
+  }
+  if (error instanceof AdaptiveReviewContextConflictError) {
+    return sendError(reply, 409, 'ADAPTIVE_REVIEW_CONTEXT_CONFLICT', error.message);
+  }
+  if (error instanceof AdaptiveReviewStaleError) {
+    return sendError(reply, 409, 'ADAPTIVE_REVIEW_STALE', error.message);
+  }
+  if (error instanceof AdaptiveReviewRefreshNotAllowedError) {
+    return sendError(reply, 409, 'ADAPTIVE_REVIEW_REFRESH_NOT_ALLOWED', error.message);
+  }
+  if (error instanceof AdaptiveReviewActionConflictError) {
+    return sendError(reply, 409, 'ADAPTIVE_REVIEW_ACTION_CONFLICT', error.message);
+  }
+  if (error instanceof AdaptiveReviewActionNotAllowedError) {
+    return sendError(reply, 409, 'ADAPTIVE_REVIEW_ACTION_NOT_ALLOWED', error.message);
+  }
+  if (error instanceof AdaptiveReviewProposalInvalidError) {
+    return sendError(reply, 400, 'ADAPTIVE_REVIEW_PROPOSAL_INVALID', error.message);
   }
   if (error instanceof AdaptiveGoalNotFoundError) {
     return sendError(reply, 404, 'ADAPTIVE_GOAL_NOT_FOUND', error.message);
@@ -144,6 +197,285 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
+
+  const reviewActor = (request: {
+    authType?: string;
+    agentTokenId?: string;
+    agentTokenName?: string;
+  }): AdaptiveReviewActor =>
+    request.authType === 'agent-token' && request.agentTokenId
+      ? {
+          type: 'agent_token',
+          agentTokenId: request.agentTokenId,
+          label: request.agentTokenName ?? request.agentTokenId,
+        }
+      : { type: 'user', label: 'You' };
+
+  typedApp.get(
+    '/reviews/pending',
+    {
+      schema: {
+        response: {
+          200: apiDataResponseSchema(adaptiveWeeklyReviewPendingSchema),
+          401: apiErrorResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Get the surfaced weekly decision review without creating one',
+        description:
+          'Returns the same immutable, server-authored review facts to JWT and AgentToken callers. Reads never generate, wake, or mutate a review.',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) =>
+      reply.send({ data: { review: await getPendingAdaptiveWeeklyReview(request.userId) } }),
+  );
+
+  typedApp.post(
+    '/reviews/preview',
+    {
+      schema: {
+        body: adaptiveWeeklyReviewPreviewInputSchema,
+        response: {
+          200: apiDataResponseSchema(adaptiveWeeklyReviewSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: conflictResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Prepare a deterministic weekly decision review',
+        description:
+          'Persists one immutable, idempotent module snapshot over bounded Pulse records. No model call or plan change occurs.',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.send({
+          data: await previewAdaptiveWeeklyReview(request.userId, request.body),
+        });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
+  );
+
+  typedApp.get(
+    '/reviews',
+    {
+      schema: {
+        querystring: adaptiveWeeklyReviewListQuerySchema,
+        response: {
+          200: apiPaginatedResponseSchema(adaptiveWeeklyReviewSchema),
+          401: apiErrorResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'List immutable weekly review history',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) =>
+      reply.send(await listAdaptiveWeeklyReviews(request.userId, request.query)),
+  );
+
+  typedApp.get(
+    '/reviews/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(adaptiveWeeklyReviewSchema),
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Get an immutable weekly review and its action history',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.send({
+          data: await getAdaptiveWeeklyReview(request.userId, request.params.id),
+        });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
+  );
+
+  typedApp.post(
+    '/reviews/:id/refresh',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(adaptiveWeeklyReviewSchema),
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: conflictResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Refresh a stale weekly review from current source records',
+        description:
+          'Creates a new immutable review and supersedes the old snapshot only when source evidence changed. It does not apply a plan change.',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.send({
+          data: await refreshAdaptiveWeeklyReview(request.userId, request.params.id),
+        });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
+  );
+
+  typedApp.post(
+    '/reviews/:id/actions',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: adaptiveReviewActionInputSchema,
+        response: {
+          200: apiDataResponseSchema(adaptiveWeeklyReviewSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: conflictResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Record an explicit weekly review action',
+        description:
+          'Accept, edit, defer, and decline are JWT-only material decisions. AgentToken callers may ask or answer bounded review questions but cannot change the plan.',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      if (
+        request.authType === 'agent-token' &&
+        ['accept', 'edit', 'defer', 'decline'].includes(request.body.type)
+      ) {
+        return sendError(reply, 403, 'FORBIDDEN', 'JWT authentication required for plan decisions');
+      }
+      try {
+        return reply.send({
+          data: await actOnAdaptiveWeeklyReview(
+            request.userId,
+            request.params.id,
+            request.body,
+            reviewActor(request),
+          ),
+        });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
+  );
+
+  typedApp.post(
+    '/review-context',
+    {
+      schema: {
+        body: adaptiveReviewContextCreateInputSchema,
+        response: {
+          201: apiDataResponseSchema(adaptiveReviewContextSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Create bounded weekly-review context',
+        description:
+          'Context can explain evidence or suppress a redundant question. It never changes quantitative eligibility or calculations.',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.code(201).send({
+          data: await createAdaptiveReviewContext(
+            request.userId,
+            request.body,
+            reviewActor(request) as Exclude<AdaptiveReviewActor, { type: 'system' }>,
+          ),
+        });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
+  );
+
+  typedApp.patch(
+    '/review-context/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        body: adaptiveReviewContextUpdateInputSchema,
+        response: {
+          200: apiDataResponseSchema(adaptiveReviewContextSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: conflictResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Edit bounded weekly-review context with revision protection',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.send({
+          data: await updateAdaptiveReviewContext(
+            request.userId,
+            request.params.id,
+            request.body,
+            reviewActor(request) as Exclude<AdaptiveReviewActor, { type: 'system' }>,
+          ),
+        });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
+  );
+
+  typedApp.delete(
+    '/review-context/:id',
+    {
+      schema: {
+        params: idParamsSchema,
+        querystring: adaptiveReviewContextDeleteQuerySchema,
+        response: {
+          200: apiDataResponseSchema(adaptiveReviewContextSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: conflictResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Soft-delete bounded weekly-review context',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.send({
+          data: await deleteAdaptiveReviewContext(
+            request.userId,
+            request.params.id,
+            request.query.expectedRevision,
+            reviewActor(request) as Exclude<AdaptiveReviewActor, { type: 'system' }>,
+          ),
+        });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
+  );
 
   typedApp.get(
     '/analytics',

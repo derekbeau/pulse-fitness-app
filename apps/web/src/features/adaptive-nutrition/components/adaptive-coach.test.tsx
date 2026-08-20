@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   putProgram: vi.fn(),
   startGoal: vi.fn(),
   useCheckIn: vi.fn(),
+  usePendingReview: vi.fn(),
+  useReviewHistory: vi.fn(),
   useHistory: vi.fn(),
   useGoalHistory: vi.fn(),
   useGoalDetail: vi.fn(),
@@ -29,6 +31,11 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../api/adaptive-nutrition', () => ({
   useAdaptiveNutritionState: mocks.useState,
+  usePendingAdaptiveWeeklyReview: mocks.usePendingReview,
+  usePreviewAdaptiveWeeklyReview: () => ({ isPending: false, mutateAsync: vi.fn() }),
+  useAdaptiveWeeklyReviewAction: () => ({ isPending: false, mutateAsync: vi.fn() }),
+  useAdaptiveWeeklyReviewHistory: mocks.useReviewHistory,
+  useRefreshAdaptiveWeeklyReview: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useAdaptiveNutritionCheckIn: mocks.useCheckIn,
   useAdaptiveNutritionHistory: mocks.useHistory,
   useAdaptiveGoalHistory: mocks.useGoalHistory,
@@ -431,6 +438,17 @@ describe('AdaptiveCoach', () => {
       refetch: vi.fn(),
     });
     mocks.useLatestWeight.mockReturnValue({ data: null, isLoading: false });
+    mocks.usePendingReview.mockReturnValue({
+      data: { review: null },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    mocks.useReviewHistory.mockReturnValue({
+      data: { data: [], meta: { page: 1, limit: 6, total: 0 } },
+      isLoading: false,
+      isError: false,
+    });
     mocks.useCheckIn.mockReturnValue({ data: detail, isLoading: false, isError: false });
     mocks.useState.mockReturnValue({
       data: createState('learning'),
@@ -1082,6 +1100,36 @@ describe('AdaptiveCoach', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Keep current' }));
     await waitFor(() => expect(mocks.decline).toHaveBeenCalledWith(detail.id));
   });
+
+  it.each([
+    {
+      label: 'loading',
+      query: { data: undefined, isLoading: true, isError: false, refetch: vi.fn() },
+      expected: 'Loading weekly review',
+    },
+    {
+      label: 'error',
+      query: { data: undefined, isLoading: false, isError: true, refetch: vi.fn() },
+      expected: 'Weekly review unavailable',
+    },
+  ])(
+    'does not leak legacy check-in decisions while the weekly review is $label',
+    ({ query, expected }) => {
+      mocks.useState.mockReturnValue({
+        data: createState('pending_recommendation'),
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      });
+      mocks.usePendingReview.mockReturnValue(query);
+
+      render(<AdaptiveCoach />);
+
+      expect(screen.getByText(expected)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Use these targets' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Keep current' })).not.toBeInTheDocument();
+    },
+  );
 
   it('recovers from a stale acceptance by generating a fresh preview', async () => {
     mocks.useState.mockReturnValue({
