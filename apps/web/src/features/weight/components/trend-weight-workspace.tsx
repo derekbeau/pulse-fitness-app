@@ -17,7 +17,12 @@ import { Activity, CircleHelp, Scale, TrendingDown, TrendingUp } from 'lucide-re
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useTrendWeightAnalytics } from '@/features/weight/api/weight';
-import { parseDateInput } from '@/lib/date';
+import {
+  formatTrendWeightAxisDate,
+  formatTrendWeightDate,
+  trendWeightChartTicks,
+  trendWeightDateCoordinate,
+} from '@/features/weight/lib/trend-weight-date';
 
 const RANGE_OPTIONS: Array<{ value: TrendWeightRange; label: string }> = [
   { value: '1m', label: '1M' },
@@ -27,15 +32,6 @@ const RANGE_OPTIONS: Array<{ value: TrendWeightRange; label: string }> = [
   { value: 'all', label: 'All' },
 ];
 
-const dateFormatter = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-});
-const axisFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
-
-const formatDate = (date: string) => dateFormatter.format(parseDateInput(`${date}T12:00:00`));
-const dateValue = (date: string) => Date.parse(`${date}T12:00:00.000Z`);
 const formatRecordedAt = (timestamp: number, timeZone: string) =>
   new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
@@ -64,7 +60,7 @@ function chartSegments(points: TrendWeightAnalytics['points']) {
   let segment = 0;
   return points.map((point, index) => {
     if (index > 0 && point.startsNewTrendSegment) segment += 1;
-    return { ...point, dateValue: dateValue(point.date), segment };
+    return { ...point, dateValue: trendWeightDateCoordinate(point.date), segment };
   });
 }
 
@@ -88,6 +84,11 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
     }
     return [...groups.entries()].map(([date, markers]) => ({ date, markers }));
   }, [analytics?.markers]);
+  const chartTicks = useMemo(
+    () =>
+      analytics ? trendWeightChartTicks(analytics.range.startDate, analytics.range.endDate) : [],
+    [analytics],
+  );
   const selectedPoint =
     points.find((point) => point.sourceEntryId === selectedPointId) ?? points.at(-1) ?? null;
   const values = points.flatMap((point) =>
@@ -175,7 +176,7 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 {current.trendDate
-                  ? `Effective ${formatDate(current.trendDate)}`
+                  ? `Effective ${formatTrendWeightDate(current.trendDate)}`
                   : analytics.explanation.headline}
               </p>
             </div>
@@ -196,7 +197,7 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
                 {latest ? formatWeight(latest.weight, latest.unit) : 'Not available'}
               </dd>
               <dd className="text-xs text-muted-foreground">
-                {latest ? formatDate(latest.date) : 'No measurements yet'}
+                {latest ? formatTrendWeightDate(latest.date) : 'No measurements yet'}
               </dd>
               {latest ? (
                 <dd className="text-xs text-muted-foreground">
@@ -256,7 +257,7 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
                 </dd>
                 <dd className="text-xs text-muted-foreground">
                   {delta.fromTrendDate
-                    ? `From ${formatDate(delta.fromTrendDate)}`
+                    ? `From ${formatTrendWeightDate(delta.fromTrendDate)}`
                     : delta.reasonCode === 'STALE_CURRENT_TREND'
                       ? 'Current estimate is stale'
                       : 'Needs an earlier supported trend'}
@@ -310,7 +311,7 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
                 data-date={group.date}
                 key={group.date}
               >
-                {formatDate(group.date)} ·{' '}
+                {formatTrendWeightDate(group.date)} ·{' '}
                 {group.markers.length > 1
                   ? `${group.markers.length} events: ${group.markers
                       .map((marker) => marker.label)
@@ -365,14 +366,16 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
                   axisLine={false}
                   dataKey="dateValue"
                   domain={[
-                    dateValue(analytics.range.startDate),
-                    dateValue(analytics.range.endDate),
+                    trendWeightDateCoordinate(analytics.range.startDate),
+                    trendWeightDateCoordinate(analytics.range.endDate),
                   ]}
+                  interval="preserveStartEnd"
                   minTickGap={22}
                   scale="time"
                   tick={{ fill: 'var(--color-muted)', fontSize: 11 }}
-                  tickFormatter={(value: number) => axisFormatter.format(new Date(value))}
+                  tickFormatter={formatTrendWeightAxisDate}
                   tickLine={false}
+                  ticks={chartTicks}
                   type="number"
                 />
                 <YAxis
@@ -407,7 +410,7 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
                     key={group.date}
                     stroke="var(--color-muted)"
                     strokeDasharray="2 4"
-                    x={dateValue(group.date)}
+                    x={trendWeightDateCoordinate(group.date)}
                   />
                 ))}
                 <Tooltip
@@ -421,7 +424,9 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
                         className="rounded-xl border border-border bg-card p-3 text-sm shadow-lg"
                         data-slot="trend-weight-tooltip"
                       >
-                        <p className="font-medium text-foreground">{formatDate(point.date)}</p>
+                        <p className="font-medium text-foreground">
+                          {formatTrendWeightDate(point.date)}
+                        </p>
                         <p className="mt-1 text-muted-foreground">
                           Scale {formatWeight(point.scaleWeight, unit)}
                         </p>
@@ -506,7 +511,9 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
             className="mt-4 rounded-2xl bg-secondary/40 p-3"
             data-slot="trend-weight-point-detail"
           >
-            <p className="font-medium text-foreground">{formatDate(selectedPoint.date)}</p>
+            <p className="font-medium text-foreground">
+              {formatTrendWeightDate(selectedPoint.date)}
+            </p>
             <p className="mt-1 text-sm text-muted-foreground">
               Scale {formatWeight(selectedPoint.scaleWeight, unit)} · Trend{' '}
               {selectedPoint.trendWeight === null
@@ -625,7 +632,7 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
                             onClick={() => setSelectedPointId(point.sourceEntryId)}
                             type="button"
                           >
-                            {formatDate(point.date)}
+                            {formatTrendWeightDate(point.date)}
                           </button>
                         </td>
                         <td className="px-3 py-2">{formatWeight(point.scaleWeight, unit)}</td>
@@ -664,7 +671,7 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
                 <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
                   {analytics.markers.map((marker) => (
                     <li key={`${marker.kind}-${marker.id}`}>
-                      {formatDate(marker.date)} · {marker.label} ·{' '}
+                      {formatTrendWeightDate(marker.date)} · {marker.label} ·{' '}
                       {marker.kind.replaceAll('_', ' ')}
                     </li>
                   ))}

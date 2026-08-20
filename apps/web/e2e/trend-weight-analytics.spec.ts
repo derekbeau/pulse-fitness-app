@@ -1,3 +1,4 @@
+import type { TrendWeightAnalytics } from '@pulse/shared';
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -9,17 +10,19 @@ test.use({ timezoneId: 'America/Detroit' });
 
 const password = 'trend-weight-preview-only';
 
-const dateKeyInDetroit = () => {
+const dateKeyInTimeZone = (timeZone: string) => {
   const parts = new Intl.DateTimeFormat('en-US', {
     day: '2-digit',
     month: '2-digit',
-    timeZone: 'America/Detroit',
+    timeZone,
     year: 'numeric',
   }).formatToParts(new Date());
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((value) => value.type === type)?.value ?? '';
   return `${part('year')}-${part('month')}-${part('day')}`;
 };
+
+const dateKeyInDetroit = () => dateKeyInTimeZone('America/Detroit');
 
 const addDays = (date: string, days: number) => {
   const value = new Date(`${date}T12:00:00.000Z`);
@@ -34,6 +37,12 @@ const uiDate = (date: string) =>
     year: 'numeric',
     timeZone: 'UTC',
   }).format(new Date(`${date}T12:00:00.000Z`));
+const uiAxisDate = (date: string) =>
+  new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T00:00:00.000Z`));
 const uiWeight = (value: number) => `${Number(value.toFixed(1))} lbs`;
 const uiSignedWeight = (value: number) =>
   `${value > 0 ? '+' : value < 0 ? '−' : ''}${uiWeight(Math.abs(value))}`;
@@ -100,28 +109,75 @@ async function configureGoal(
   api: APIRequestContext,
   authorization: string,
   type: 'lose' | 'maintain' | 'gain',
+  timeZone = 'America/Detroit',
+  options: { supersedePending?: boolean; targetWeightKg?: number | null } = {},
 ) {
   const response = await api.put('/api/v1/adaptive-nutrition/program', {
     data: {
       status: 'active',
-      timeZone: 'America/Detroit',
+      timeZone,
       heightCm: null,
       birthDate: null,
       rmrEquation: 'manual_tdee',
       activityLevel: null,
       manualBaselineTdeeKcal: 2500,
       goalType: type,
-      targetWeightKg: type === 'lose' ? 75 : type === 'gain' ? 90 : null,
+      targetWeightKg:
+        options.targetWeightKg ?? (type === 'lose' ? 75 : type === 'gain' ? 90 : null),
       goalRatePctPerWeek: type === 'lose' ? -0.5 : type === 'gain' ? 0.25 : 0,
       proteinGrams: 180,
       fatAllocationPct: 30,
       userCalorieFloorKcal: 1500,
       rebaseline: false,
-      supersedePending: false,
+      supersedePending: options.supersedePending ?? false,
     },
     headers: { authorization },
   });
   expect(response.ok(), await response.text()).toBeTruthy();
+}
+
+async function reviseGoal(api: APIRequestContext, authorization: string) {
+  const currentResponse = await api.get('/api/v1/adaptive-nutrition/goals/current', {
+    headers: { authorization },
+  });
+  expect(currentResponse.ok(), await currentResponse.text()).toBeTruthy();
+  const current = (await currentResponse.json()) as { data: { goal: { id: string } } };
+  const response = await api.patch(`/api/v1/adaptive-nutrition/goals/${current.data.goal.id}`, {
+    data: {
+      type: 'lose',
+      targetWeightKg: 74,
+      maintenanceCenterKg: null,
+      goalRatePctPerWeek: -0.4,
+      supersedePendingRecommendation: true,
+    },
+    headers: { authorization },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+}
+
+async function chartDotX(dot: ReturnType<Page['locator']>) {
+  const path = dot.locator('path');
+  const coordinate = await path.getAttribute('cx');
+  if (coordinate !== null) return Number(coordinate);
+  const transform = await path.getAttribute('transform');
+  const match = transform?.match(/^translate\(([-\d.]+)/);
+  if (!match) throw new Error('Trend Weight point did not expose an x coordinate');
+  return Number(match[1]);
+}
+
+async function trendWeightAxisLabels(page: Page) {
+  return page
+    .locator('.recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value')
+    .allTextContents();
+}
+
+async function expectLiteralAxisRange(page: Page, range: TrendWeightAnalytics['range']) {
+  await expect
+    .poll(async () => trendWeightAxisLabels(page))
+    .toEqual(expect.arrayContaining([uiAxisDate(range.startDate), uiAxisDate(range.endDate)]));
+  const labels = await trendWeightAxisLabels(page);
+  expect(labels[0]).toBe(uiAxisDate(range.startDate));
+  expect(labels.at(-1)).toBe(uiAxisDate(range.endDate));
 }
 
 test('shows server-owned Trend Weight, raw spike, exact table, ranges, and responsive layouts', async ({
@@ -635,4 +691,312 @@ test('shows sparse gaps and deterministically replaces a same-day measurement', 
   } finally {
     await api.dispose();
   }
+});
+
+const dateZoneCases = [
+  {
+    name: 'Detroit',
+    screenshots: [] as Array<{ filename: string; width: number }>,
+    timeZone: 'America/Detroit',
+  },
+  {
+    name: 'Tokyo',
+    screenshots: [{ filename: 'issue-108-tokyo-768.png', width: 768 }],
+    timeZone: 'Asia/Tokyo',
+  },
+  {
+    name: 'Kiritimati',
+    screenshots: [
+      { filename: 'issue-108-kiritimati-390.png', width: 390 },
+      { filename: 'issue-108-kiritimati-1280.png', width: 1280 },
+    ],
+    timeZone: 'Pacific/Kiritimati',
+  },
+  {
+    name: 'GMT plus 12',
+    screenshots: [{ filename: 'issue-108-gmt-plus12-320.png', width: 320 }],
+    timeZone: 'Etc/GMT+12',
+  },
+] as const;
+
+for (const scenario of dateZoneCases) {
+  test.describe(`Trend Weight literal dates in ${scenario.name}`, () => {
+    test.use({ timezoneId: scenario.timeZone });
+
+    test('keeps chart, inspection, markers, table, and ranges on server date keys', async ({
+      page,
+    }) => {
+      const endDate = dateKeyInTimeZone(scenario.timeZone);
+      const api = await request.newContext({ baseURL: apiBaseURL });
+      const diagnostics = monitorPage(page);
+
+      try {
+        const user = await createTrendUser(api, addDays(endDate, -1), 30);
+        await configureGoal(api, user.authorization, 'lose', scenario.timeZone);
+        await reviseGoal(api, user.authorization);
+        await setAuthenticatedSession(page, user.token);
+
+        const initialResponsePromise = page.waitForResponse((response) => {
+          const url = new URL(response.url());
+          return (
+            response.request().method() === 'GET' &&
+            url.pathname === '/api/v1/weight/trend' &&
+            url.searchParams.get('range') === '1m' &&
+            url.searchParams.get('timeZone') === scenario.timeZone &&
+            !url.searchParams.has('end')
+          );
+        });
+        await page.goto('/weight', { waitUntil: 'networkidle' });
+        const initialResponse = await initialResponsePromise;
+        expect(initialResponse.ok(), await initialResponse.text()).toBeTruthy();
+        const initial = ((await initialResponse.json()) as { data: TrendWeightAnalytics }).data;
+
+        expect(initial.timeZone).toBe(scenario.timeZone);
+        expect(initial.range.endDate).toBe(endDate);
+        await expectLiteralAxisRange(page, initial.range);
+
+        const firstPoint = initial.points[0];
+        const invariantPoint = initial.points.at(-1);
+        expect(firstPoint).toBeDefined();
+        expect(invariantPoint?.trendWeight).not.toBeNull();
+        if (!firstPoint || !invariantPoint || invariantPoint.trendWeight === null) {
+          throw new Error('Expected first and invariant Trend Weight points with a trend value');
+        }
+        expect(initial.points.some((point) => point.date === endDate)).toBe(false);
+
+        const firstDot = page.locator('.recharts-scatter-symbol').first();
+        await firstDot.hover();
+        await expect(page.locator('[data-slot="trend-weight-tooltip"]')).toContainText(
+          uiDate(firstPoint.date),
+        );
+        await firstDot.click();
+        await expect(page.locator('[data-slot="trend-weight-point-detail"]')).toContainText(
+          uiDate(firstPoint.date),
+        );
+
+        await page.getByRole('button', { name: 'Show exact values' }).press('Enter');
+        const table = page.getByRole('table', { name: 'Exact Scale and Trend Weight values' });
+        await expect(
+          table.getByRole('button', { name: uiDate(firstPoint.date), exact: true }),
+        ).toBeVisible();
+        await expect(
+          table.getByRole('button', { name: uiDate(invariantPoint.date), exact: true }),
+        ).toBeVisible();
+
+        const endMarkers = initial.markers.filter((marker) => marker.date === endDate);
+        expect(endMarkers.length).toBeGreaterThan(0);
+        expect(endMarkers.map((marker) => marker.kind)).toEqual(
+          expect.arrayContaining(['goal_started', 'goal_revised', 'check_in']),
+        );
+        const markerPill = page.locator(
+          `[data-slot="trend-weight-marker-lane"] [data-date="${endDate}"]`,
+        );
+        await expect(markerPill).toContainText(uiDate(endDate));
+        const annotations = page.getByRole('region', { name: 'Annotations' });
+        for (const kind of ['goal_started', 'goal_revised', 'check_in'] as const) {
+          const marker = endMarkers.find((candidate) => candidate.kind === kind);
+          expect(marker).toBeDefined();
+          if (!marker) throw new Error(`Expected ${kind} marker on ${endDate}`);
+          await expect(
+            annotations
+              .getByText(`${uiDate(endDate)} · ${marker.label} · ${kind.replaceAll('_', ' ')}`, {
+                exact: true,
+              })
+              .first(),
+          ).toBeVisible();
+        }
+
+        const markerLine = page.locator('.trend-weight-marker-line line').last();
+        const markerX = Number(await markerLine.getAttribute('x1'));
+        const plotClip = page.locator('.recharts-wrapper clipPath rect').first();
+        const plotRight =
+          Number(await plotClip.getAttribute('x')) + Number(await plotClip.getAttribute('width'));
+        expect(markerX).toBeGreaterThan(0);
+        expect(Math.abs(markerX - plotRight)).toBeLessThanOrEqual(0.5);
+
+        for (const next of [
+          { label: '3M', value: '3m' },
+          { label: '6M', value: '6m' },
+          { label: '1Y', value: '1y' },
+          { label: 'All', value: 'all' },
+        ] as const) {
+          const responsePromise = page.waitForResponse((response) => {
+            const url = new URL(response.url());
+            return (
+              response.request().method() === 'GET' &&
+              url.pathname === '/api/v1/weight/trend' &&
+              url.searchParams.get('range') === next.value
+            );
+          });
+          await page.getByRole('button', { name: next.label }).press('Space');
+          const response = await responsePromise;
+          expect(response.ok(), await response.text()).toBeTruthy();
+          const analytics = ((await response.json()) as { data: TrendWeightAnalytics }).data;
+          const samePoint = analytics.points.find(
+            (point) => point.sourceEntryId === invariantPoint.sourceEntryId,
+          );
+          expect(samePoint?.date).toBe(invariantPoint.date);
+          expect(samePoint?.trendWeight).toBe(invariantPoint.trendWeight);
+          await expectLiteralAxisRange(page, analytics.range);
+          const invariantRow = table
+            .getByRole('button', { name: uiDate(invariantPoint.date), exact: true })
+            .locator('..')
+            .locator('..');
+          await expect(invariantRow).toBeVisible();
+          await expect(invariantRow.locator('td').nth(2)).toHaveText(
+            uiWeight(invariantPoint.trendWeight),
+          );
+        }
+
+        const invariantDot = page.locator('.recharts-scatter-symbol').last();
+        await invariantDot.hover();
+        await expect(page.locator('[data-slot="trend-weight-tooltip"]')).toContainText(
+          uiDate(invariantPoint.date),
+        );
+        await expect(page.locator('[data-slot="trend-weight-tooltip"]')).toContainText(
+          `Trend ${uiWeight(invariantPoint.trendWeight)}`,
+        );
+        await invariantDot.click();
+        await expect(page.locator('[data-slot="trend-weight-point-detail"]')).toContainText(
+          uiDate(invariantPoint.date),
+        );
+
+        for (const width of [320, 390, 430, 768, 1280]) {
+          await page.setViewportSize({ width, height: 900 });
+          expect(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+            ),
+            `${scenario.timeZone} ${width}px page overflow`,
+          ).toBe(true);
+        }
+
+        for (const screenshot of scenario.screenshots) {
+          await page.setViewportSize({ width: screenshot.width, height: 900 });
+          await page
+            .getByRole('heading', { level: 1, name: 'Trend Weight' })
+            .scrollIntoViewIfNeeded();
+          await captureIssueScreenshot(page, screenshot.filename);
+        }
+
+        if (scenario.timeZone === 'Pacific/Kiritimati') {
+          await page.goto('/', { waitUntil: 'networkidle' });
+          const compact = page.locator('[data-slot="weight-trend-chart"]');
+          await expect(compact).toBeVisible();
+          const compactLabels = await compact
+            .locator('.recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value')
+            .allTextContents();
+          expect(compactLabels[0]).toBe(uiAxisDate(initial.range.startDate));
+          expect(compactLabels.at(-1)).toBe(uiAxisDate(initial.range.endDate));
+          const compactFirstDot = compact.locator('.recharts-scatter-symbol').first();
+          await compactFirstDot.hover();
+          await expect(compact.locator('[data-slot="trend-weight-tooltip"]')).toContainText(
+            uiDate(firstPoint.date),
+          );
+          expect(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+            ),
+          ).toBe(true);
+        }
+
+        await page.waitForLoadState('networkidle');
+        diagnostics();
+      } finally {
+        await api.dispose();
+      }
+    });
+  });
+}
+
+test.describe('Trend Weight literal dates across Detroit DST', () => {
+  test.use({ timezoneId: 'America/Detroit' });
+
+  test('keeps spring-forward points and a correction marker on their literal dates', async ({
+    page,
+  }) => {
+    const endDate = dateKeyInDetroit();
+    const api = await request.newContext({ baseURL: apiBaseURL });
+    const diagnostics = monitorPage(page);
+
+    try {
+      const user = await createTrendUser(api, endDate, 0);
+      let correctedEntryId = '';
+      for (const [date, weight] of [
+        ['2026-03-07', 184],
+        ['2026-03-08', 183.5],
+        ['2026-03-09', 183],
+        [addDays(endDate, -1), 180.5],
+        [endDate, 180],
+      ] as const) {
+        const response = await api.post('/api/v1/weight', {
+          data: { date, unit: 'lbs', weight },
+          headers: { authorization: user.authorization },
+        });
+        expect(response.ok(), await response.text()).toBeTruthy();
+        if (date === '2026-03-08') {
+          correctedEntryId = ((await response.json()) as { data: { id: string } }).data.id;
+        }
+      }
+      const correction = await api.patch(`/api/v1/weight/${correctedEntryId}`, {
+        data: { weight: 183.25 },
+        headers: { authorization: user.authorization },
+      });
+      expect(correction.ok(), await correction.text()).toBeTruthy();
+
+      await setAuthenticatedSession(page, user.token);
+      await page.goto('/weight', { waitUntil: 'networkidle' });
+      const allResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return url.pathname === '/api/v1/weight/trend' && url.searchParams.get('range') === 'all';
+      });
+      await page.getByRole('button', { name: 'All' }).press('Space');
+      const allResponse = await allResponsePromise;
+      expect(allResponse.ok(), await allResponse.text()).toBeTruthy();
+      const analytics = ((await allResponse.json()) as { data: TrendWeightAnalytics }).data;
+
+      await expectLiteralAxisRange(page, analytics.range);
+      const marchDates = ['2026-03-07', '2026-03-08', '2026-03-09'];
+      expect(analytics.points.slice(0, 3).map((point) => point.date)).toEqual(marchDates);
+
+      const march8Index = analytics.points.findIndex((point) => point.date === '2026-03-08');
+      expect(march8Index).toBeGreaterThanOrEqual(0);
+      const march8Dot = page.locator('.recharts-scatter-symbol').nth(march8Index);
+      await march8Dot.hover();
+      await expect(page.locator('[data-slot="trend-weight-tooltip"]')).toContainText('Mar 8, 2026');
+      await march8Dot.click();
+      await expect(page.locator('[data-slot="trend-weight-point-detail"]')).toContainText(
+        'Mar 8, 2026',
+      );
+
+      await page.getByRole('button', { name: 'Show exact values' }).press('Enter');
+      const table = page.getByRole('table', { name: 'Exact Scale and Trend Weight values' });
+      for (const date of marchDates) {
+        await expect(table.getByRole('button', { name: uiDate(date), exact: true })).toBeVisible();
+      }
+      const correctionMarker = page.locator(
+        '[data-slot="trend-weight-marker-lane"] [data-date="2026-03-08"]',
+      );
+      await expect(correctionMarker).toContainText('Mar 8, 2026');
+      await expect(correctionMarker).toContainText('Corrected weigh-in');
+
+      const correctionLine = page.locator('.trend-weight-marker-line line').first();
+      const correctionX = Number(await correctionLine.getAttribute('x1'));
+      const dotX = await chartDotX(march8Dot);
+      expect(Math.abs(correctionX - dotX)).toBeLessThanOrEqual(0.5);
+
+      await page.setViewportSize({ width: 430, height: 900 });
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true);
+      await page.getByRole('heading', { level: 1, name: 'Trend Weight' }).scrollIntoViewIfNeeded();
+      await captureIssueScreenshot(page, 'issue-108-detroit-dst-430.png');
+      await page.waitForLoadState('networkidle');
+      diagnostics();
+    } finally {
+      await api.dispose();
+    }
+  });
 });

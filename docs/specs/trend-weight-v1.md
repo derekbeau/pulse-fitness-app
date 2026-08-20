@@ -25,6 +25,12 @@ caller's IANA time zone; the server does not derive local “today” from its h
 dashboard passes its selected historical date, so the compact chart and full workspace share the
 same as-of boundary.
 
+Date-only response keys remain literal calendar dates in every browser zone. The chart maps each
+`YYYY-MM-DD` key to a UTC-midnight numeric coordinate and formats that coordinate in fixed UTC;
+points, range endpoints, markers, tooltips, selected details, and exact-value tables therefore
+cannot shift the server-owned date. Real timestamps such as a measurement's recorded time continue
+to render in the response's IANA time zone.
+
 ## Product and model trend distinction
 
 Pulse has a pre-existing Adaptive TDEE model trend with daily interpolation, a seven-day half-life,
