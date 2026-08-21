@@ -142,10 +142,37 @@ SELECT
 	json_extract(c.`current_targets`, '$.updatedAt'),
 	0
 FROM `adaptive_nutrition_checkins` c
+JOIN `nutrition_targets` t
+	ON t.`id` = json_extract(c.`current_targets`, '$.id')
+	AND t.`user_id` = c.`user_id`
 WHERE c.`status` = 'accepted'
 	AND json_valid(c.`current_targets`)
-	AND json_extract(c.`current_targets`, '$.id') = c.`accepted_nutrition_target_id`
-	AND json_extract(c.`current_targets`, '$.source') = 'manual';
+	AND json_type(c.`current_targets`) = 'object'
+	AND json_type(c.`current_targets`, '$.id') = 'text'
+	AND json_type(c.`current_targets`, '$.calories') in ('integer', 'real')
+	AND json_type(c.`current_targets`, '$.protein') in ('integer', 'real')
+	AND json_type(c.`current_targets`, '$.carbs') in ('integer', 'real')
+	AND json_type(c.`current_targets`, '$.fat') in ('integer', 'real')
+	AND json_type(c.`current_targets`, '$.macroCalories') in ('integer', 'real')
+	AND json_type(c.`current_targets`, '$.source') = 'text'
+	AND json_type(c.`current_targets`, '$.adaptiveCheckInId') = 'null'
+	AND json_type(c.`current_targets`, '$.effectiveDate') = 'text'
+	AND json_type(c.`current_targets`, '$.createdAt') = 'integer'
+	AND json_type(c.`current_targets`, '$.updatedAt') = 'integer'
+	AND json_extract(c.`current_targets`, '$.source') = 'manual'
+	AND json_extract(c.`current_targets`, '$.createdAt') = t.`created_at`
+	AND json_extract(c.`current_targets`, '$.updatedAt') between t.`created_at` and t.`updated_at`
+	AND json_extract(c.`current_targets`, '$.calories') >= 0
+	AND json_extract(c.`current_targets`, '$.protein') >= 0
+	AND json_extract(c.`current_targets`, '$.carbs') >= 0
+	AND json_extract(c.`current_targets`, '$.fat') >= 0
+	AND abs(
+		json_extract(c.`current_targets`, '$.macroCalories') -
+		((json_extract(c.`current_targets`, '$.protein') * 4) +
+		 (json_extract(c.`current_targets`, '$.carbs') * 4) +
+		 (json_extract(c.`current_targets`, '$.fat') * 9))
+	) < 0.000001
+	AND json_extract(c.`current_targets`, '$.effectiveDate') glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]';
 --> statement-breakpoint
 INSERT INTO `__nutrition_target_event_candidates`
 SELECT
@@ -163,8 +190,10 @@ SELECT
 	'adaptive',
 	a.`check_in_id`,
 	a.`recorded_at`,
-	1
-FROM `__nutrition_target_accepted_backfill` a;
+	CASE WHEN a.`check_in_id` = t.`adaptive_check_in_id` THEN 2 ELSE 1 END
+FROM `__nutrition_target_accepted_backfill` a
+JOIN `nutrition_targets` t
+	ON t.`id` = a.`target_id` AND t.`user_id` = a.`user_id`;
 --> statement-breakpoint
 INSERT INTO `__nutrition_target_event_candidates`
 SELECT
@@ -183,6 +212,67 @@ SELECT
 	2
 FROM `nutrition_targets` t
 WHERE t.`source` = 'manual';
+--> statement-breakpoint
+DELETE FROM `__nutrition_target_event_candidates`
+WHERE `source` = 'manual'
+	AND `id` NOT IN (
+		SELECT min(c.`id`)
+		FROM `__nutrition_target_event_candidates` c
+		WHERE c.`source` = 'manual'
+		GROUP BY c.`target_id`, c.`user_id`, c.`effective_date`, c.`calories`, c.`protein`,
+			c.`carbs`, c.`fat`, c.`macro_calories`, c.`recorded_at`
+	);
+--> statement-breakpoint
+INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
+SELECT CASE WHEN EXISTS (
+	SELECT 1
+	FROM `nutrition_targets` t
+	WHERE NOT EXISTS (
+			SELECT 1 FROM `__nutrition_target_event_candidates` c
+			WHERE c.`target_id` = t.`id` AND c.`user_id` = t.`user_id`
+		)
+		OR coalesce((
+			SELECT min(c.`recorded_at`) FROM `__nutrition_target_event_candidates` c
+			WHERE c.`target_id` = t.`id` AND c.`user_id` = t.`user_id`
+		), -1) <> t.`created_at`
+		OR coalesce((
+			SELECT max(c.`recorded_at`) FROM `__nutrition_target_event_candidates` c
+			WHERE c.`target_id` = t.`id` AND c.`user_id` = t.`user_id`
+		), -1) <> t.`updated_at`
+		OR EXISTS (
+			SELECT 1 FROM `__nutrition_target_event_candidates` c
+			WHERE c.`target_id` = t.`id`
+				AND c.`user_id` = t.`user_id`
+				AND (c.`recorded_at` < t.`created_at` OR c.`recorded_at` > t.`updated_at`)
+		)
+) THEN 0 ELSE 1 END;
+--> statement-breakpoint
+INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
+WITH `latest_candidates` AS (
+	SELECT
+		c.*,
+		row_number() OVER (
+			PARTITION BY c.`target_id`
+			ORDER BY c.`recorded_at` DESC, c.`sort_priority` DESC, c.`id` DESC
+		) AS `rank`
+	FROM `__nutrition_target_event_candidates` c
+)
+SELECT CASE WHEN EXISTS (
+	SELECT 1
+	FROM `nutrition_targets` t
+	LEFT JOIN `latest_candidates` c
+		ON c.`target_id` = t.`id` AND c.`user_id` = t.`user_id` AND c.`rank` = 1
+	WHERE c.`id` is null
+		OR c.`effective_date` <> t.`effective_date`
+		OR abs(c.`calories` - t.`calories`) >= 0.000001
+		OR abs(c.`protein` - t.`protein`) >= 0.000001
+		OR abs(c.`carbs` - t.`carbs`) >= 0.000001
+		OR abs(c.`fat` - t.`fat`) >= 0.000001
+		OR abs(c.`macro_calories` - ((t.`protein` * 4) + (t.`carbs` * 4) + (t.`fat` * 9))) >= 0.000001
+		OR c.`source` <> t.`source`
+		OR c.`adaptive_check_in_id` is not t.`adaptive_check_in_id`
+		OR c.`recorded_at` <> t.`updated_at`
+) THEN 0 ELSE 1 END;
 --> statement-breakpoint
 INSERT INTO `nutrition_target_events` (
 	`id`, `target_id`, `user_id`, `sequence`, `effective_date`, `calories`, `protein`,
@@ -210,6 +300,30 @@ SELECT
 	c.`recorded_at`
 FROM `__nutrition_target_event_candidates` c
 ORDER BY c.`target_id`, c.`recorded_at`, c.`sort_priority`, c.`id`;
+--> statement-breakpoint
+INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
+WITH `latest_events` AS (
+	SELECT
+		e.*,
+		row_number() OVER (PARTITION BY e.`target_id` ORDER BY e.`sequence` DESC) AS `rank`
+	FROM `nutrition_target_events` e
+)
+SELECT CASE WHEN EXISTS (
+	SELECT 1
+	FROM `nutrition_targets` t
+	LEFT JOIN `latest_events` e
+		ON e.`target_id` = t.`id` AND e.`user_id` = t.`user_id` AND e.`rank` = 1
+	WHERE e.`id` is null
+		OR e.`effective_date` <> t.`effective_date`
+		OR abs(e.`calories` - t.`calories`) >= 0.000001
+		OR abs(e.`protein` - t.`protein`) >= 0.000001
+		OR abs(e.`carbs` - t.`carbs`) >= 0.000001
+		OR abs(e.`fat` - t.`fat`) >= 0.000001
+		OR abs(e.`macro_calories` - ((t.`protein` * 4) + (t.`carbs` * 4) + (t.`fat` * 9))) >= 0.000001
+		OR e.`source` <> t.`source`
+		OR e.`adaptive_check_in_id` is not t.`adaptive_check_in_id`
+		OR e.`recorded_at` <> t.`updated_at`
+) THEN 0 ELSE 1 END;
 --> statement-breakpoint
 DROP TABLE `__nutrition_target_event_candidates`;
 --> statement-breakpoint

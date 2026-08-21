@@ -876,8 +876,12 @@ The existing unique `(userId, effectiveDate)` means accepting an adaptive target
 - Event rows are append-only outside explicit account deletion, use composite same-user foreign
   keys, and allow equal recorded timestamps only through the contiguous sequence tie-breaker.
 - Migration reconstructs an accepted event only from an immutable accepted proposal or accepted
-  review action. It may preserve an exact manual predecessor from the check-in snapshot; it aborts
-  instead of labeling an unrecoverable current mutable value as historical fact.
+  review action. It may preserve exact manual predecessor states only from complete owned check-in
+  snapshots whose target identity, values, timestamps, and provenance validate. Every target's
+  reconstructed chain must begin at the materialized row's `createdAt`, end with an exact match at
+  `updatedAt`, remain timestamp-monotonic, and retain distinct equal-time states in deterministic
+  order. A mutated manual row without that complete chain aborts and rolls back the migration; the
+  current row is never backdated or used to erase an unknowable earlier interval.
 - The UI uses a confirmation dialog.
 
 ### 14.5 Canonical body weight migration
@@ -1000,7 +1004,10 @@ Body:
 
 Transaction:
 
-1. Verify ownership and branch on status: `pending` continues; `accepted` returns 200 with its existing accepted target; `declined`, `superseded`, or `held` returns `409 CHECKIN_NOT_ACCEPTABLE`.
+1. Verify ownership and branch on status: `pending` continues; `accepted` returns 200 with the exact
+   immutable target event accepted by that check-in, even if a later same-date acceptance reused and
+   changed the materialized target row; `declined`, `superseded`, or `held` returns
+   `409 CHECKIN_NOT_ACCEPTABLE`.
 2. Verify program algorithm version still matches.
 3. Recompute the fingerprint using the check-in's persisted `localDate`, `analysisStart`, `analysisEnd`, `includeToday`, algorithm constants, and prior reference while re-reading mutable source rows for those exact ranges. Crossing local midnight alone must not stale a preview.
 4. If fingerprint changed, return `409 CHECKIN_STALE` and do not write a target.

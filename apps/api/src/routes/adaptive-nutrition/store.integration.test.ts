@@ -834,6 +834,75 @@ describe('adaptive nutrition lifecycle store', () => {
     ]);
   });
 
+  it('replays the immutable accepted snapshot after a later same-id adaptive replacement', () => {
+    acceptBaselineAndAdvance();
+    seedEligibleHistory('user-1');
+
+    const first = storeA.previewCheckIn('user-1', { kind: 'manual', includeToday: false });
+    const firstProposal = requireValue(first.proposedTargets, 'Expected first proposal');
+    const acceptedOverride = {
+      ...firstProposal,
+      calories: firstProposal.calories - 80,
+      carbs: firstProposal.carbs - 20,
+    };
+    const acceptedFirst = storeA.acceptCheckIn(
+      'user-1',
+      first.id,
+      { replaceSameDateTarget: false },
+      acceptedOverride,
+    );
+
+    const replacement = storeA.previewCheckIn('user-1', {
+      kind: 'manual',
+      includeToday: false,
+    });
+    const replacementProposal = requireValue(
+      replacement.proposedTargets,
+      'Expected replacement proposal',
+    );
+    const replacementOverride = {
+      ...replacementProposal,
+      calories: replacementProposal.calories - 160,
+      carbs: replacementProposal.carbs - 40,
+    };
+    const acceptedReplacement = storeA.acceptCheckIn(
+      'user-1',
+      replacement.id,
+      { replaceSameDateTarget: true },
+      replacementOverride,
+    );
+
+    expect(acceptedReplacement.target).toMatchObject({
+      id: acceptedFirst.target.id,
+      calories: replacementOverride.calories,
+      carbs: replacementOverride.carbs,
+      adaptiveCheckInId: replacement.id,
+    });
+    expect(storeA.acceptCheckIn('user-1', first.id, { replaceSameDateTarget: false })).toEqual(
+      acceptedFirst,
+    );
+    expect(
+      dbA
+        .select()
+        .from(nutritionTargetEvents)
+        .where(eq(nutritionTargetEvents.targetId, acceptedFirst.target.id))
+        .all(),
+    ).toEqual([
+      expect.objectContaining({
+        sequence: 1,
+        calories: acceptedOverride.calories,
+        carbs: acceptedOverride.carbs,
+        adaptiveCheckInId: first.id,
+      }),
+      expect.objectContaining({
+        sequence: 2,
+        calories: replacementOverride.calories,
+        carbs: replacementOverride.carbs,
+        adaptiveCheckInId: replacement.id,
+      }),
+    ]);
+  });
+
   it('does not silently change a reached goal and completes retry-safely across connections', async () => {
     storeA.upsertProgram(
       'user-1',

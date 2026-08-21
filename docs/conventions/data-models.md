@@ -459,10 +459,12 @@ Constraints:
 - `nutrition_targets_provenance_check`
 - `nutrition_targets_macro_calories_nonnegative_check`
 
-Manual writes always clear adaptive linkage and calculate macro calories server-side. The internal
-adaptive writer accepts only a pending, non-holding check-in whose persisted, typed proposal exactly
-matches the target values and effective date. Replacement updates the existing same-date row only
-after the owned check-in snapshot is verified to preserve the row being replaced.
+Manual writes always clear adaptive linkage and calculate macro calories server-side. Adaptive target
+writes exist only inside the canonical check-in acceptance transaction; there is no independent
+target-only Adaptive persistence entry point. Replacement updates the existing same-date row only
+after the owned check-in snapshot is verified to preserve the row being replaced, appends the exact
+final accepted event, and then resolves the check-in atomically. Replaying an accepted check-in reads
+that check-in's immutable event rather than the later mutable row.
 
 #### `nutrition_target_events`
 
@@ -483,6 +485,10 @@ row for a user and effective date.
 Unique indexes enforce `(targetId, sequence)` and one event per accepted check-in. Database triggers
 require the exact next sequence and nondecreasing recorded time, reject updates, and permit deletion
 only inside the existing account-deletion scope. Equal timestamps use sequence as the causal tie.
+Migration requires each target's recoverable event chain to start at its original `createdAt` and end
+with an exact materialized-row match at `updatedAt`. Complete owned check-in snapshots may recover
+manual predecessor states. A mutated manual row without an exact initial snapshot, or any chain with
+an unrecoverable interval, aborts the migration transaction instead of inventing or omitting history.
 
 #### `adaptive_nutrition_programs`
 
