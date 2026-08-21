@@ -22,6 +22,7 @@ import {
   mealItems,
   meals,
   nutritionLogs,
+  nutritionTargetEvents,
   nutritionTargets,
   users,
 } from '../../db/schema/index.js';
@@ -240,6 +241,7 @@ beforeEach(() => {
   sqliteA.exec(`
     INSERT OR IGNORE INTO adaptive_nutrition_account_deletion_scope (user_id)
     SELECT id FROM users;
+    DELETE FROM nutrition_target_events;
     DELETE FROM nutrition_targets;
     DELETE FROM adaptive_nutrition_goal_completions;
     DELETE FROM adaptive_nutrition_checkins;
@@ -771,6 +773,26 @@ describe('adaptive nutrition lifecycle store', () => {
         updatedAt: nowMs - 500,
       })
       .run();
+    dbA
+      .insert(nutritionTargetEvents)
+      .values({
+        id: 'same-day-manual-event',
+        targetId: 'same-day-target',
+        userId: 'user-1',
+        sequence: 1,
+        effectiveDate: '2026-06-22',
+        calories: 2200,
+        protein: 180,
+        carbs: 230,
+        fat: 62,
+        macroCalories: 180 * 4 + 230 * 4 + 62 * 9,
+        source: 'manual',
+        adaptiveCheckInId: null,
+        eventType: 'manual_write',
+        recordedAt: nowMs - 500,
+        createdAt: nowMs - 500,
+      })
+      .run();
     const preview = storeA.previewCheckIn('user-1', { kind: 'manual', includeToday: false });
     expect(preview.reasonCodes).toContain('SAME_DATE_TARGET_EXISTS');
     expect(() =>
@@ -784,6 +806,32 @@ describe('adaptive nutrition lifecycle store', () => {
       source: 'adaptive',
       adaptiveCheckInId: preview.id,
     });
+    expect(
+      dbA
+        .select()
+        .from(nutritionTargetEvents)
+        .where(eq(nutritionTargetEvents.targetId, 'same-day-target'))
+        .all(),
+    ).toEqual([
+      expect.objectContaining({
+        sequence: 1,
+        source: 'manual',
+        calories: 2200,
+        adaptiveCheckInId: null,
+      }),
+      expect.objectContaining({
+        sequence: 2,
+        source: 'adaptive',
+        adaptiveCheckInId: preview.id,
+        calories: accepted.target.calories,
+        protein: accepted.target.protein,
+        carbs: accepted.target.carbs,
+        fat: accepted.target.fat,
+        macroCalories: accepted.target.macroCalories,
+        effectiveDate: accepted.target.effectiveDate,
+        recordedAt: nowMs,
+      }),
+    ]);
   });
 
   it('does not silently change a reached goal and completes retry-safely across connections', async () => {

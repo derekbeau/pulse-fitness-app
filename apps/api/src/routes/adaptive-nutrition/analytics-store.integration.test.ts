@@ -135,6 +135,7 @@ beforeEach(() => {
   sqlite.exec(`
     INSERT OR IGNORE INTO adaptive_nutrition_account_deletion_scope (user_id)
     SELECT id FROM users;
+    DELETE FROM nutrition_target_events;
     DELETE FROM nutrition_targets;
     DELETE FROM adaptive_nutrition_checkins;
     DELETE FROM adaptive_nutrition_programs;

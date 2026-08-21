@@ -150,8 +150,13 @@ async function openTrajectory(
         revisionAdjustmentKg?: number;
       };
       weeklyContributions: Array<{ direction: string }>;
-      trendPoints: Array<{ date: string; trendWeightKg: number | null }>;
-      annotations: Array<{ date: string; label: string }>;
+      trendPoints: Array<{
+        date: string;
+        trendWeightKg: number | null;
+        targetWeightKg: number | null;
+        evidenceState: string;
+      }>;
+      annotations: Array<{ date: string; kind: string; label: string }>;
       completionReview: {
         trendTargetStatus: string;
         scaleTargetStatus: string;
@@ -341,6 +346,48 @@ test.describe.serial('Goal trajectory', () => {
     await expect(page.getByText(/Goal target.*revised/u).first()).toBeVisible();
     await expect(page.getByText(/Structured evidence using revision/u)).toBeVisible();
     await expect(page.getByText('Goal revision adjustment')).toBeVisible();
+    const strategyPoint = analytics.trendPoints.find(
+      (point) => point.evidenceState === 'strategy_event',
+    );
+    expect(strategyPoint, 'off-measurement strategy revision point').toBeDefined();
+    expect(strategyPoint?.trendWeightKg).toBeNull();
+    expect(strategyPoint?.targetWeightKg).not.toBeNull();
+    const revisionAnnotationIndex = analytics.annotations.findIndex(
+      (annotation) =>
+        annotation.date === strategyPoint?.date && annotation.kind.includes('revised'),
+    );
+    expect(revisionAnnotationIndex).toBeGreaterThanOrEqual(0);
+    const revisionX = Number(
+      await page
+        .locator('.goal-trajectory-annotation-line line, line.goal-trajectory-annotation-line')
+        .nth(revisionAnnotationIndex)
+        .getAttribute('x1'),
+    );
+    const targetTransitionXs = await page
+      .locator('.goal-trajectory-target-line path, path.goal-trajectory-target-line')
+      .evaluate((path) => {
+        const values = (path.getAttribute('d')?.match(/-?\d+(?:\.\d+)?/gu) ?? []).map(Number);
+        const points = Array.from({ length: Math.floor(values.length / 2) }, (_, index) => ({
+          x: values[index * 2],
+          y: values[index * 2 + 1],
+        }));
+        return points.flatMap((point, index) => {
+          const next = points[index + 1];
+          return next && Math.abs(point.x - next.x) <= 0.5 && Math.abs(point.y - next.y) > 0.5
+            ? [point.x]
+            : [];
+        });
+      });
+    expect(
+      targetTransitionXs.some((coordinate) => Math.abs(coordinate - revisionX) <= 1),
+      `target transition ${targetTransitionXs.join(', ')} aligns to revision ${revisionX}`,
+    ).toBe(true);
+    await page.getByText('Exact trajectory values').press('Enter');
+    const strategyRow = page
+      .getByRole('button', { name: uiDate(strategyPoint?.date ?? ''), exact: true })
+      .locator('xpath=ancestor::tr');
+    await expect(strategyRow.getByRole('cell').nth(1)).toHaveText('—');
+    await expect(strategyRow).toContainText('Strategy event · no Product Trend Weight observation');
     await assertNoOverflow(page, 430);
     if (process.env.CAPTURE_ISSUE_109_SCREENSHOTS === '1') {
       await page.screenshot({ fullPage: true, path: 'artifacts/issue-109-revision-430.png' });

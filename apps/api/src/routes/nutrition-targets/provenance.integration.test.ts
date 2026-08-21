@@ -12,6 +12,7 @@ import {
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
   adaptiveNutritionPrograms,
+  nutritionTargetEvents,
   nutritionTargets,
   users,
 } from '../../db/schema/index.js';
@@ -167,6 +168,24 @@ describe('nutrition target provenance store', () => {
       source: 'manual',
       adaptiveCheckInId: null,
       macroCalories: 2350,
+    });
+    expect(
+      dbModule.db
+        .select()
+        .from(nutritionTargetEvents)
+        .where(eq(nutritionTargetEvents.targetId, target.id))
+        .get(),
+    ).toMatchObject({
+      sequence: 1,
+      calories: 2200,
+      protein: 180,
+      carbs: 250,
+      fat: 70,
+      macroCalories: 2350,
+      source: 'manual',
+      adaptiveCheckInId: null,
+      eventType: 'manual_write',
+      effectiveDate: '2026-03-09',
     });
   });
 

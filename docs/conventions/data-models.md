@@ -30,6 +30,7 @@ Direct `userId` ownership lives on these root tables:
 - `nutrition_logs`
 - `body_weight`
 - `nutrition_targets`
+- `nutrition_target_events`
 - `adaptive_nutrition_programs`
 - `adaptive_nutrition_checkins`
 - `adaptive_nutrition_goals`
@@ -463,6 +464,26 @@ adaptive writer accepts only a pending, non-holding check-in whose persisted, ty
 matches the target values and effective date. Replacement updates the existing same-date row only
 after the owned check-in snapshot is verified to preserve the row being replaced.
 
+#### `nutrition_target_events`
+
+Append-only target facts preserve history while `nutrition_targets` remains the materialized current
+row for a user and effective date.
+
+- `id`: `text` primary key UUID
+- `targetId`, `userId`: required composite FK -> `nutrition_targets.(id, userId)`, `ON DELETE RESTRICT`
+- `sequence`: required contiguous integer per target
+- `effectiveDate`: required `YYYY-MM-DD`
+- `calories`, `protein`, `carbs`, `fat`, `macroCalories`: required exact accepted/manual values
+- `source`: `manual | adaptive`
+- `adaptiveCheckInId`, `userId`: nullable/required composite ownership FK to the accepted check-in;
+  required only for Adaptive events
+- `eventType`: `manual_write | adaptive_accept | migration_backfill`
+- `recordedAt`, `createdAt`: required Unix ms causal/audit timestamps
+
+Unique indexes enforce `(targetId, sequence)` and one event per accepted check-in. Database triggers
+require the exact next sequence and nondecreasing recorded time, reject updates, and permit deletion
+only inside the existing account-deletion scope. Equal timestamps use sequence as the causal tie.
+
 #### `adaptive_nutrition_programs`
 
 One lifetime row per user holds adaptive-coaching configuration and stable baseline values. Ordinary
@@ -743,7 +764,7 @@ This is the polymorphic bridge for cross-entity references such as journal -> wo
 
 ## Relationship Patterns
 
-- `users` has many `agent_tokens`, `habits`, `habit_entries`, `workout_templates`, `workout_sessions`, `foods`, `nutrition_logs`, `body_weight`, `nutrition_targets`, `adaptive_nutrition_checkins`, `adaptive_nutrition_goals`, `adaptive_nutrition_goal_revisions`, `adaptive_nutrition_goal_completions`, `scheduled_workouts`, `health_conditions`, `journal_entries`, `activities`, `resources`, `equipment_locations`, and `entity_links`; it has one `adaptive_nutrition_programs` row in v1.
+- `users` has many `agent_tokens`, `habits`, `habit_entries`, `workout_templates`, `workout_sessions`, `foods`, `nutrition_logs`, `body_weight`, `nutrition_targets`, `nutrition_target_events`, `adaptive_nutrition_checkins`, `adaptive_nutrition_goals`, `adaptive_nutrition_goal_revisions`, `adaptive_nutrition_goal_completions`, `scheduled_workouts`, `health_conditions`, `journal_entries`, `activities`, `resources`, `equipment_locations`, and `entity_links`; it has one `adaptive_nutrition_programs` row in v1.
 - `users` has one `dashboard_config`.
 - `habits` has many `habit_entries`.
 - `workout_templates` has many `template_exercises`.
@@ -754,7 +775,8 @@ This is the polymorphic bridge for cross-entity references such as journal -> wo
 - `adaptive_nutrition_programs` has many immutable `adaptive_nutrition_checkins` and many
   `adaptive_nutrition_goals`; each goal has many immutable `adaptive_nutrition_goal_revisions`.
 - `adaptive_nutrition_checkins` may link one goal/revision pair; an adaptive `nutrition_targets` row restricts
-  deletion of its source check-in.
+  deletion of its source check-in. `nutrition_target_events` immutably records every accepted
+  Adaptive target and manual target write with same-user target/check-in ownership.
 - `adaptive_nutrition_goal_completions` immutably relates one accepted completion check-in, one completed
   loss/gain goal, and one successor maintenance goal under the same user and program.
 - `health_conditions` has many `condition_timeline_events`, `condition_protocols`, and `condition_severity_points`.

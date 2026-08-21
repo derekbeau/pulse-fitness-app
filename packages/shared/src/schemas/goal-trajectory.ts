@@ -282,10 +282,10 @@ export const adaptiveGoalTrajectoryPointSchema = z
   .object({
     date: dateSchema,
     trendWeightKg: z.number().positive().finite().nullable(),
-    scaleWeightKg: z.number().positive().finite(),
-    sourceEntryId: z.string().min(1),
-    evidenceState: z.enum(['scale_only', 'developing', 'sufficient']),
-    observationCount: z.number().int().positive(),
+    scaleWeightKg: z.number().positive().finite().nullable(),
+    sourceEntryId: z.string().min(1).nullable(),
+    evidenceState: z.enum(['strategy_event', 'scale_only', 'developing', 'sufficient']),
+    observationCount: z.number().int().nonnegative(),
     spanDays: z.number().int().nonnegative(),
     gapFromPreviousDays: z.number().int().nonnegative().nullable(),
     corrected: z.boolean(),
@@ -301,14 +301,30 @@ export const adaptiveGoalTrajectoryPointSchema = z
   .strict()
   .superRefine((value, context) => {
     const validEvidence =
+      (value.evidenceState === 'strategy_event' &&
+        value.trendWeightKg === null &&
+        value.scaleWeightKg === null &&
+        value.sourceEntryId === null &&
+        value.adaptiveStrategyTrendWeightKg === null &&
+        value.observationCount === 0 &&
+        value.spanDays === 0 &&
+        value.gapFromPreviousDays === null &&
+        !value.corrected &&
+        value.section === 'historical') ||
       (value.evidenceState === 'scale_only' &&
         value.trendWeightKg === null &&
+        value.scaleWeightKg !== null &&
+        value.sourceEntryId !== null &&
         value.observationCount === 1) ||
       (value.evidenceState === 'developing' &&
         value.trendWeightKg !== null &&
+        value.scaleWeightKg !== null &&
+        value.sourceEntryId !== null &&
         value.observationCount >= 2) ||
       (value.evidenceState === 'sufficient' &&
         value.trendWeightKg !== null &&
+        value.scaleWeightKg !== null &&
+        value.sourceEntryId !== null &&
         value.observationCount >= 3 &&
         value.spanDays >= 14);
     if (!validEvidence) {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AdaptiveGoalTrajectory } from '@pulse/shared';
@@ -159,6 +159,25 @@ const trajectory: AdaptiveGoalTrajectory = {
       section: 'historical',
     },
     {
+      date: '2026-08-01',
+      trendWeightKg: null,
+      scaleWeightKg: null,
+      sourceEntryId: null,
+      evidenceState: 'strategy_event',
+      observationCount: 0,
+      spanDays: 0,
+      gapFromPreviousDays: null,
+      corrected: false,
+      adaptiveStrategyTrendWeightKg: null,
+      goalRevisionId: 'revision-2',
+      revisionSequence: 2,
+      targetWeightKg: 90,
+      maintenanceCenterKg: null,
+      maintenanceLowerKg: null,
+      maintenanceUpperKg: null,
+      section: 'historical',
+    },
+    {
       date: '2026-08-19',
       trendWeightKg: 97.2,
       scaleWeightKg: 96.9,
@@ -259,6 +278,20 @@ describe('GoalTrajectoryWorkspace', () => {
     expect(screen.getByText('Not enough evidence')).toBeInTheDocument();
     expect(screen.getByText(/missing evidence is not treated as zero/)).toBeInTheDocument();
     expect(screen.getAllByText('Target and pace revised').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByText('Exact trajectory values'));
+    const strategyRow = screen.getByRole('button', { name: 'Aug 1, 2026' }).closest('tr');
+    expect(strategyRow).not.toBeNull();
+    expect(within(strategyRow as HTMLTableRowElement).getAllByRole('cell')[1]).toHaveTextContent(
+      '—',
+    );
+    expect(
+      within(strategyRow as HTMLTableRowElement).getByText(
+        'Strategy event · no Product Trend Weight observation',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(strategyRow as HTMLTableRowElement).getByText('historical · revision 2'),
+    ).toBeInTheDocument();
   });
 
   it('keeps chart range separate from the selected pace lookback', () => {

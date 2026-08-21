@@ -20,6 +20,7 @@ import {
   adaptiveNutritionProgramRevisions,
   adaptiveNutritionPrograms,
   bodyWeight,
+  nutritionTargetEvents,
   nutritionTargets,
   users,
 } from '../../db/schema/index.js';
@@ -196,9 +197,29 @@ const setup = (targetWeightKg = 90) => {
       fat: 70,
       source: 'adaptive',
       adaptiveCheckInId: 'check-in-1',
+      macroCalories: 180 * 4 + 190 * 4 + 70 * 9,
       effectiveDate: '2026-07-15',
       createdAt: Date.parse('2026-07-15T12:00:00Z'),
       updatedAt: Date.parse('2026-07-15T12:00:00Z'),
+    })
+    .run();
+  db.insert(nutritionTargetEvents)
+    .values({
+      id: 'target-event-1',
+      targetId: 'target-1',
+      userId: 'user-1',
+      sequence: 1,
+      effectiveDate: '2026-07-15',
+      calories: 2100,
+      protein: 180,
+      carbs: 190,
+      fat: 70,
+      macroCalories: 180 * 4 + 190 * 4 + 70 * 9,
+      source: 'adaptive',
+      adaptiveCheckInId: 'check-in-1',
+      eventType: 'adaptive_accept',
+      recordedAt: Date.parse('2026-07-15T12:00:00Z'),
+      createdAt: Date.parse('2026-07-15T12:00:00Z'),
     })
     .run();
   const store = createAdaptiveGoalTrajectoryStore({ db, now: () => now });
@@ -225,6 +246,7 @@ describe('adaptive goal trajectory store', () => {
         revisions: db.select().from(adaptiveNutritionGoalRevisions).all(),
         checkIns: db.select().from(adaptiveNutritionCheckIns).all(),
         targets: db.select().from(nutritionTargets).all(),
+        targetEvents: db.select().from(nutritionTargetEvents).all(),
         completions: db.select().from(adaptiveNutritionGoalCompletions).all(),
         weights: db.select().from(bodyWeight).all(),
       };
@@ -299,6 +321,7 @@ describe('adaptive goal trajectory store', () => {
         revisions: db.select().from(adaptiveNutritionGoalRevisions).all(),
         checkIns: db.select().from(adaptiveNutritionCheckIns).all(),
         targets: db.select().from(nutritionTargets).all(),
+        targetEvents: db.select().from(nutritionTargetEvents).all(),
         completions: db.select().from(adaptiveNutritionGoalCompletions).all(),
         weights: db.select().from(bodyWeight).all(),
       }).toEqual(before);
@@ -361,6 +384,13 @@ describe('adaptive goal trajectory store', () => {
           expect.objectContaining({ kind: 'goal_target_and_rate_revised', date: '2026-08-01' }),
         ]),
       );
+      expect(august.trendPoints.find((point) => point.date === '2026-08-01')).toMatchObject({
+        evidenceState: 'strategy_event',
+        trendWeightKg: null,
+        scaleWeightKg: null,
+        targetWeightKg: 88,
+        revisionSequence: 2,
+      });
     } finally {
       sqlite.close();
     }
@@ -565,7 +595,15 @@ describe('adaptive goal trajectory store', () => {
       expect(active.summary.latestScale).toBeNull();
       expect(active.summary.currentTrendWeightKg).toBeNull();
       expect(active.productTrend).toMatchObject({ state: 'no_data', currentTrendDate: null });
-      expect(active.trendPoints).toEqual([]);
+      expect(active.trendPoints).toEqual([
+        expect.objectContaining({
+          date: '2026-08-20',
+          evidenceState: 'strategy_event',
+          trendWeightKg: null,
+          scaleWeightKg: null,
+          targetWeightKg: 102,
+        }),
+      ]);
     } finally {
       sqlite.close();
     }
@@ -908,6 +946,25 @@ describe('adaptive goal trajectory store', () => {
         })
         .where(eq(adaptiveNutritionCheckIns.id, 'late-check-in'))
         .run();
+      db.insert(nutritionTargetEvents)
+        .values({
+          id: 'late-target-event',
+          targetId: 'late-target',
+          userId: 'user-1',
+          sequence: 1,
+          effectiveDate: '2026-07-10',
+          calories: 2050,
+          protein: 180,
+          carbs: 175,
+          fat: 70,
+          macroCalories: 180 * 4 + 175 * 4 + 70 * 9,
+          source: 'adaptive',
+          adaptiveCheckInId: 'late-check-in',
+          eventType: 'adaptive_accept',
+          recordedAt: acceptedAt,
+          createdAt: acceptedAt,
+        })
+        .run();
       db.insert(adaptiveNutritionGoalRevisions)
         .values({
           id: 'late-goal-revision',
@@ -999,15 +1056,161 @@ describe('adaptive goal trajectory store', () => {
       });
       expect(live).toMatchObject({
         goal: { status: 'completed' },
-        activeRevision: { id: 'late-goal-revision' },
-        context: { calorieTargetKcal: 2050 },
+        activeRevision: { id: 'goal-revision-1' },
+        context: { calorieTargetKcal: null },
       });
-      expect(live.annotations.map((annotation) => annotation.kind)).toEqual(
-        expect.arrayContaining([
-          'goal_target_and_rate_revised',
-          'goal_reached_review',
-          'goal_completed',
-        ]),
+      expect(live.annotations.map((annotation) => annotation.kind)).toEqual(['goal_started']);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('reconstructs same-date replacements from immutable events and orders equal-time accepts by sequence', () => {
+    const { db, sqlite, store } = setup();
+    try {
+      const historicalQuery = {
+        range: 'all' as const,
+        lookbackDays: 21 as const,
+        end: '2026-07-15',
+      };
+      const before = store.getTrajectory('user-1', 'goal-1', historicalQuery);
+      expect(before.context).toMatchObject({
+        calorieTargetKcal: 2100,
+        calorieTargetEffectiveDate: '2026-07-15',
+      });
+      expect(before.annotations).toContainEqual(
+        expect.objectContaining({
+          checkInId: 'check-in-1',
+          kind: 'accepted_target_change',
+          label: 'Accepted target change · 2,100 kcal',
+        }),
+      );
+
+      const acceptedAt = Date.parse('2026-07-20T12:00:00Z');
+      const base = {
+        userId: 'user-1',
+        programId: 'program-1',
+        goalId: 'goal-1',
+        goalRevisionId: 'goal-revision-1',
+        kind: 'weekly' as const,
+        status: 'accepted' as const,
+        calculationState: 'updating' as const,
+        localDate: '2026-07-15',
+        analysisStart: '2026-06-24',
+        analysisEnd: '2026-07-14',
+        includeToday: false,
+        algorithmVersion: 'adaptive-tdee-v1',
+        inputSnapshot: { version: 2 },
+        calculationSnapshot: { goal: { goalReached: false } },
+        reasonCodes: [] as string[],
+        priorTdeeKcal: 2475,
+        observedTdeeKcal: 2450,
+        proposedTdeeKcal: 2460,
+        currentTargets: null,
+        acceptedNutritionTargetId: 'target-1',
+        resolvedAt: acceptedAt,
+        createdAt: acceptedAt,
+      };
+      db.insert(adaptiveNutritionCheckIns)
+        .values([
+          {
+            ...base,
+            id: 'same-date-check-in-b',
+            dataFingerprint: 'b'.repeat(64),
+            proposedTargets: {
+              calories: 1950,
+              protein: 180,
+              carbs: 152.5,
+              fat: 70,
+              effectiveDate: '2026-07-15',
+            },
+          },
+          {
+            ...base,
+            id: 'same-date-check-in-c',
+            dataFingerprint: 'c'.repeat(64),
+            proposedTargets: {
+              calories: 1850,
+              protein: 180,
+              carbs: 127.5,
+              fat: 70,
+              effectiveDate: '2026-07-15',
+            },
+          },
+        ])
+        .run();
+      db.update(nutritionTargets)
+        .set({
+          calories: 1850,
+          protein: 180,
+          carbs: 127.5,
+          fat: 70,
+          macroCalories: 1860,
+          source: 'adaptive',
+          adaptiveCheckInId: 'same-date-check-in-c',
+          updatedAt: acceptedAt,
+        })
+        .where(eq(nutritionTargets.id, 'target-1'))
+        .run();
+      db.insert(nutritionTargetEvents)
+        .values([
+          {
+            id: 'same-date-event-b',
+            targetId: 'target-1',
+            userId: 'user-1',
+            sequence: 2,
+            effectiveDate: '2026-07-15',
+            calories: 1900,
+            protein: 180,
+            carbs: 140,
+            fat: 70,
+            macroCalories: 1910,
+            source: 'adaptive',
+            adaptiveCheckInId: 'same-date-check-in-b',
+            eventType: 'adaptive_accept',
+            recordedAt: acceptedAt,
+            createdAt: acceptedAt,
+          },
+          {
+            id: 'same-date-event-c',
+            targetId: 'target-1',
+            userId: 'user-1',
+            sequence: 3,
+            effectiveDate: '2026-07-15',
+            calories: 1850,
+            protein: 180,
+            carbs: 127.5,
+            fat: 70,
+            macroCalories: 1860,
+            source: 'adaptive',
+            adaptiveCheckInId: 'same-date-check-in-c',
+            eventType: 'adaptive_accept',
+            recordedAt: acceptedAt,
+            createdAt: acceptedAt,
+          },
+        ])
+        .run();
+
+      expect(store.getTrajectory('user-1', 'goal-1', historicalQuery)).toEqual(before);
+      const live = store.getTrajectory('user-1', 'goal-1', {
+        range: 'all',
+        lookbackDays: 21,
+      });
+      expect(live.context).toMatchObject({
+        calorieTargetKcal: 1850,
+        calorieTargetEffectiveDate: '2026-07-15',
+      });
+      expect(live.annotations).toContainEqual(
+        expect.objectContaining({
+          checkInId: 'same-date-check-in-b',
+          label: 'Accepted target change · 1,900 kcal',
+        }),
+      );
+      expect(live.annotations).toContainEqual(
+        expect.objectContaining({
+          checkInId: 'same-date-check-in-c',
+          label: 'Accepted target change · 1,850 kcal',
+        }),
       );
     } finally {
       sqlite.close();

@@ -867,7 +867,17 @@ The existing unique `(userId, effectiveDate)` means accepting an adaptive target
 - Preview reports `sameDateTargetExists`.
 - Accept request requires `replaceSameDateTarget: true` when a row exists.
 - Replacement updates the same row’s values and provenance inside the accept transaction.
-- The check-in snapshot preserves the replaced target.
+- Every manual write and accepted Adaptive replacement appends a `nutrition_target_events` row in
+  the same transaction. The event freezes the target ID, effective date, exact calories/macros and
+  derived macro calories, source, accepted check-in relation, causal recorded time, and a contiguous
+  per-target sequence. The live `nutrition_targets` row remains the materialized current value.
+- Accepted events use the final applied proposal. If a weekly review edits the proposal before the
+  user accepts it, the event stores the edited values rather than the original check-in proposal.
+- Event rows are append-only outside explicit account deletion, use composite same-user foreign
+  keys, and allow equal recorded timestamps only through the contiguous sequence tie-breaker.
+- Migration reconstructs an accepted event only from an immutable accepted proposal or accepted
+  review action. It may preserve an exact manual predecessor from the check-in snapshot; it aborts
+  instead of labeling an unrecoverable current mutable value as historical fact.
 - The UI uses a confirmation dialog.
 
 ### 14.5 Canonical body weight migration
@@ -2359,6 +2369,9 @@ completes a goal, or applies a catch-up adjustment.
   target effective dates, goal revisions, program revisions, completion rows, and goal lifecycle
   changes are invisible until their real creation/resolution instant. A later accept, decline,
   supersession, revision, completion, or target creation cannot rewrite an earlier response.
+- Closed-goal responses described as “at goal end” recompute the program-local causal cutoff from
+  the clamped goal-end strategy date. Omitted ends and explicit dates after closure therefore cannot
+  pull a later-resolved, pre-dated acceptance into the immutable goal-end record.
 - Desired loss/gain timelines reuse the compounded percentage-rate projection from goal setup.
   Actual-rate estimates use dated regression over the selected lookback, report observation/span
   sufficiency, and return no ETA for stale, flat, moving-away, or insufficient evidence.
@@ -2367,7 +2380,10 @@ completes a goal, or applies a catch-up adjustment.
   `INSUFFICIENT_WEEKLY_EVIDENCE`; it is never converted to zero. The current partial week is omitted.
 - Goal revisions do not reset the original start. Each point carries the revision effective on its
   date, same-day revisions are ordered by immutable sequence, and revision/check-in annotations
-  remain visible even on dates without a weigh-in.
+  remain visible even on dates without a weigh-in. A revision date without Product evidence emits a
+  strategy-only chart row: target or maintenance-band values change on that exact date while Product
+  Trend Weight, scale weight, source entry, and Adaptive strategy trend remain null. Exact-value and
+  screen-reader text identify the row as a strategy event, never a weigh-in.
 - Annotation kinds state what actually happened. Accepted target-change labels require an accepted
   target relation; expenditure-only and no-target-change reviews are labeled separately, as are
   goal-reached reviews, target/rate revisions, and completion. Same-date ordering is deterministic.
@@ -2377,9 +2393,12 @@ completes a goal, or applies a catch-up adjustment.
 - Maintenance uses the Pulse-defined radius `max(0.68 kg, center × 1%)`, with near-edge beginning
   at 80% of the radius. Time in range discloses its local interval, modeled-day denominator, and
   evidence state. Correction policy is `review_only_no_automatic_change`.
-- Supporting calorie target and Adaptive expenditure are selected as of the trajectory date from
-  accepted effective records. JWT and AgentToken callers receive the same strict facts, but the GET
-  exposes no decision or mutation capability.
+- Supporting calorie targets are selected from immutable `nutrition_target_events`: the latest
+  causally visible event effective on or before the strategy date, with sequence breaking equal-time
+  same-date ties. Accepted-target annotations read the same immutable event rather than the mutable
+  current row. Adaptive expenditure remains selected from causally accepted check-ins. Live facts
+  must agree with the materialized current target. JWT and AgentToken callers receive the same strict
+  facts, but the GET exposes no decision or mutation capability.
 
 ## Sources
 

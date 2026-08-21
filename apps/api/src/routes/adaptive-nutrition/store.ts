@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type Database from 'better-sqlite3';
-import { and, asc, count, desc, eq, gte, isNotNull, lte, ne, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, isNotNull, lte, max, ne, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 import {
@@ -79,6 +79,7 @@ import {
   mealItems,
   meals,
   nutritionLogs,
+  nutritionTargetEvents,
   nutritionTargets,
   users,
 } from '../../db/schema/index.js';
@@ -1904,6 +1905,32 @@ export const createAdaptiveNutritionStore = (options: {
             .returning(targetSelection)
             .get();
       if (!target) throw new Error('Failed to persist accepted adaptive target');
+
+      const nextTargetEventSequence =
+        (db
+          .select({ value: max(nutritionTargetEvents.sequence) })
+          .from(nutritionTargetEvents)
+          .where(eq(nutritionTargetEvents.targetId, target.id))
+          .get()?.value ?? 0) + 1;
+      db.insert(nutritionTargetEvents)
+        .values({
+          id: randomUUID(),
+          targetId: target.id,
+          userId,
+          sequence: nextTargetEventSequence,
+          effectiveDate: proposal.effectiveDate,
+          calories: proposal.calories,
+          protein: proposal.protein,
+          carbs: proposal.carbs,
+          fat: proposal.fat,
+          macroCalories,
+          source: 'adaptive',
+          adaptiveCheckInId: checkIn.id,
+          eventType: 'adaptive_accept',
+          recordedAt: timestamp,
+          createdAt: timestamp,
+        })
+        .run();
 
       db.update(adaptiveNutritionCheckIns)
         .set({

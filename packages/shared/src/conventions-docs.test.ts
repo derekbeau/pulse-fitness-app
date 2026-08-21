@@ -242,6 +242,7 @@ describe('convention documentation', () => {
       'meal_items',
       'body_weight',
       'nutrition_targets',
+      'nutrition_target_events',
       'dashboard_config',
       'scheduled_workouts',
       'health_conditions',

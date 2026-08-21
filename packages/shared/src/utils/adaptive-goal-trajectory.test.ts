@@ -818,5 +818,32 @@ describe('goal trajectory strict state schemas', () => {
         ),
       }).success,
     ).toBe(false);
+
+    const strategyEvent = {
+      ...envelope.trendPoints[14],
+      trendWeightKg: null,
+      scaleWeightKg: null,
+      sourceEntryId: null,
+      evidenceState: 'strategy_event' as const,
+      observationCount: 0,
+      spanDays: 0,
+      gapFromPreviousDays: null,
+      adaptiveStrategyTrendWeightKg: null,
+      section: 'historical' as const,
+    };
+    expect(
+      adaptiveGoalTrajectorySchema.safeParse({
+        ...envelope,
+        trendPoints: envelope.trendPoints.map((point, index) =>
+          index === 14 ? strategyEvent : point,
+        ),
+      }).success,
+    ).toBe(true);
+    expect(
+      adaptiveGoalTrajectoryPointSchema.safeParse({
+        ...strategyEvent,
+        trendWeightKg: 98,
+      }).success,
+    ).toBe(false);
   });
 });

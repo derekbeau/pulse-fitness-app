@@ -46,6 +46,7 @@ import {
   mealItems,
   meals,
   nutritionTargets,
+  nutritionTargetEvents,
   nutritionLogs,
   parseJsonStringArray,
   parseWorkoutSessionFeedback,
@@ -618,7 +619,9 @@ describe('nutritionTargets schema', () => {
       'adaptive_nutrition_checkins',
     );
     expect(config.foreignKeys[1]?.onDelete).toBe('restrict');
-    expect(config.indexes).toHaveLength(0);
+    expect(config.indexes.map((index) => index.config.name)).toEqual([
+      'nutrition_targets_id_user_id_unique',
+    ]);
     expect(config.uniqueConstraints).toHaveLength(1);
     expect(config.uniqueConstraints[0]?.getName()).toBe(
       'nutrition_targets_user_id_effective_date_unique',
@@ -633,6 +636,44 @@ describe('nutritionTargets schema', () => {
       'nutrition_targets_macros_nonnegative_check',
       'nutrition_targets_provenance_check',
       'nutrition_targets_source_check',
+    ]);
+  });
+
+  it('defines immutable, owned nutrition target event snapshots', () => {
+    expect(getTableName(nutritionTargetEvents)).toBe('nutrition_target_events');
+    const columns = getTableColumns(nutritionTargetEvents);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'targetId',
+      'userId',
+      'sequence',
+      'effectiveDate',
+      'calories',
+      'protein',
+      'carbs',
+      'fat',
+      'macroCalories',
+      'source',
+      'adaptiveCheckInId',
+      'eventType',
+      'recordedAt',
+      'createdAt',
+    ]);
+    const config = getTableConfig(nutritionTargetEvents);
+    expect(config.foreignKeys).toHaveLength(3);
+    expect(config.indexes.map((index) => index.config.name).sort()).toEqual([
+      'nutrition_target_events_adaptive_check_in_unique',
+      'nutrition_target_events_target_sequence_unique',
+      'nutrition_target_events_user_effective_recorded_idx',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'nutrition_target_events_effective_date_check',
+      'nutrition_target_events_event_type_check',
+      'nutrition_target_events_provenance_check',
+      'nutrition_target_events_sequence_check',
+      'nutrition_target_events_source_check',
+      'nutrition_target_events_timestamps_check',
+      'nutrition_target_events_values_check',
     ]);
   });
 });

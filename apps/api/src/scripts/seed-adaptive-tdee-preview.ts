@@ -21,6 +21,7 @@ import {
   mealItems,
   meals,
   nutritionLogs,
+  nutritionTargetEvents,
   nutritionTargets,
   users,
 } from '../db/schema/index.js';
@@ -501,6 +502,9 @@ const cleanupExistingFixtures = (db: AdaptiveDatabase) => {
         .run();
       tx.delete(adaptiveNutritionReviewContexts)
         .where(eq(adaptiveNutritionReviewContexts.userId, fixtureUser.id))
+        .run();
+      tx.delete(nutritionTargetEvents)
+        .where(eq(nutritionTargetEvents.userId, fixtureUser.id))
         .run();
       tx.delete(nutritionTargets).where(eq(nutritionTargets.userId, fixtureUser.id)).run();
       tx.delete(adaptiveNutritionGoalCompletions)

@@ -31,6 +31,7 @@ import {
   adaptiveNutritionProgramRevisions,
   adaptiveNutritionPrograms,
   bodyWeight,
+  nutritionTargetEvents,
   nutritionTargets,
 } from '../../db/schema/index.js';
 import { getDateKeyInTimeZone, resolveEffectiveProgramRevisions } from './analytics-store.js';
@@ -190,14 +191,15 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
     let today = getDateKeyInTimeZone(now(), timeZone);
     if (requestedEnd > today) throw new AdaptiveGoalTrajectoryFutureEndError();
     if (requestedEnd < goal.startedLocalDate) throw new AdaptiveGoalTrajectoryPreGoalEndError();
-    const causalCutoff = query.end
-      ? endOfLocalDateExclusive(requestedEnd, timeZone)
-      : now().getTime() + 1;
-    if (goal.createdAt >= causalCutoff) throw new AdaptiveGoalTrajectoryPreGoalEndError();
+    const requestedCausalCutoff = Math.min(
+      endOfLocalDateExclusive(requestedEnd, timeZone),
+      now().getTime() + 1,
+    );
+    if (goal.createdAt >= requestedCausalCutoff) throw new AdaptiveGoalTrajectoryPreGoalEndError();
     const goalClosedAsOf =
       goal.endedLocalDate !== null &&
       goal.endedLocalDate <= requestedEnd &&
-      goal.updatedAt < causalCutoff;
+      (query.end === undefined || goal.updatedAt < requestedCausalCutoff);
     const strategyAsOfDate =
       goalClosedAsOf && goal.endedLocalDate !== null && requestedEnd > goal.endedLocalDate
         ? goal.endedLocalDate
@@ -215,6 +217,10 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
       timeZone = effectiveProgramRevision.snapshot.timeZone;
       today = getDateKeyInTimeZone(now(), timeZone);
     }
+    const causalCutoff =
+      query.end !== undefined || goalClosedAsOf || strategyAsOfDate < today
+        ? Math.min(endOfLocalDateExclusive(strategyAsOfDate, timeZone), now().getTime() + 1)
+        : now().getTime() + 1;
     const lifecycleGoal = goalClosedAsOf
       ? goal
       : adaptiveGoalSchema.parse({
@@ -439,39 +445,71 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
       completionAllowed,
       completionTrendSupported,
     });
-    const targets = db
+    const targetEvents = db
       .select({
-        id: nutritionTargets.id,
-        calories: nutritionTargets.calories,
-        source: nutritionTargets.source,
-        adaptiveCheckInId: nutritionTargets.adaptiveCheckInId,
-        effectiveDate: nutritionTargets.effectiveDate,
-        createdAt: nutritionTargets.createdAt,
+        id: nutritionTargetEvents.id,
+        targetId: nutritionTargetEvents.targetId,
+        calories: nutritionTargetEvents.calories,
+        protein: nutritionTargetEvents.protein,
+        carbs: nutritionTargetEvents.carbs,
+        fat: nutritionTargetEvents.fat,
+        macroCalories: nutritionTargetEvents.macroCalories,
+        source: nutritionTargetEvents.source,
+        adaptiveCheckInId: nutritionTargetEvents.adaptiveCheckInId,
+        effectiveDate: nutritionTargetEvents.effectiveDate,
+        sequence: nutritionTargetEvents.sequence,
+        recordedAt: nutritionTargetEvents.recordedAt,
       })
-      .from(nutritionTargets)
+      .from(nutritionTargetEvents)
       .where(
         and(
-          eq(nutritionTargets.userId, userId),
-          lte(nutritionTargets.effectiveDate, strategyAsOfDate),
-          lte(nutritionTargets.createdAt, causalCutoff - 1),
+          eq(nutritionTargetEvents.userId, userId),
+          lte(nutritionTargetEvents.effectiveDate, strategyAsOfDate),
+          lte(nutritionTargetEvents.recordedAt, causalCutoff - 1),
         ),
       )
-      .orderBy(asc(nutritionTargets.effectiveDate), asc(nutritionTargets.createdAt))
+      .orderBy(
+        asc(nutritionTargetEvents.effectiveDate),
+        asc(nutritionTargetEvents.recordedAt),
+        asc(nutritionTargetEvents.sequence),
+        asc(nutritionTargetEvents.id),
+      )
       .all();
-    const acceptedTargetIds = new Set(
-      checkIns
-        .filter((checkIn) => checkIn.status === 'accepted')
-        .map((checkIn) => checkIn.acceptedNutritionTargetId)
-        .filter((id): id is string => id !== null),
-    );
-    const currentTarget =
-      targets
-        .filter(
-          (target) =>
-            target.source !== 'adaptive' ||
-            (target.adaptiveCheckInId !== null && acceptedTargetIds.has(target.id)),
+    const currentTarget = targetEvents.at(-1) ?? null;
+    if (query.end === undefined && !goalClosedAsOf) {
+      const materializedTarget = db
+        .select()
+        .from(nutritionTargets)
+        .where(
+          and(
+            eq(nutritionTargets.userId, userId),
+            lte(nutritionTargets.effectiveDate, strategyAsOfDate),
+          ),
         )
-        .at(-1) ?? null;
+        .orderBy(asc(nutritionTargets.effectiveDate))
+        .all()
+        .at(-1);
+      const materiallyEqual =
+        (materializedTarget === undefined && currentTarget === null) ||
+        (materializedTarget !== undefined &&
+          currentTarget !== null &&
+          materializedTarget.id === currentTarget.targetId &&
+          materializedTarget.effectiveDate === currentTarget.effectiveDate &&
+          materializedTarget.source === currentTarget.source &&
+          materializedTarget.adaptiveCheckInId === currentTarget.adaptiveCheckInId &&
+          Math.abs(materializedTarget.calories - currentTarget.calories) < 0.000001 &&
+          Math.abs(materializedTarget.protein - currentTarget.protein) < 0.000001 &&
+          Math.abs(materializedTarget.carbs - currentTarget.carbs) < 0.000001 &&
+          Math.abs(materializedTarget.fat - currentTarget.fat) < 0.000001 &&
+          Math.abs(
+            (materializedTarget.macroCalories ??
+              materializedTarget.protein * 4 +
+                materializedTarget.carbs * 4 +
+                materializedTarget.fat * 9) - currentTarget.macroCalories,
+          ) < 0.000001);
+      if (!materiallyEqual)
+        throw new Error('Current nutrition target does not match immutable target history');
+    }
     const acceptedExpenditure = checkIns
       .filter(
         (checkIn) =>
@@ -488,7 +526,7 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
           left.id.localeCompare(right.id),
       )
       .at(-1);
-    const displayPoints = productSeries
+    const productDisplayPoints = productSeries
       .filter((point) => point.date >= rangeStart)
       .map((point) => {
         const revision = latestRevisionOn(revisions, point.date);
@@ -525,6 +563,45 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
               : ('historical' as const),
         };
       });
+    const productDates = new Set(productDisplayPoints.map((point) => point.date));
+    const strategyEventPoints = revisions
+      .filter(
+        (revision) =>
+          revision.effectiveLocalDate >= rangeStart &&
+          revision.effectiveLocalDate <= strategyAsOfDate &&
+          !productDates.has(revision.effectiveLocalDate),
+      )
+      .map((revision) => {
+        const center = revision.maintenanceCenterKg;
+        const radius = center
+          ? Math.max(
+              ADAPTIVE_GOAL_TRAJECTORY_CONSTANTS.maintenanceMinimumRadiusKg,
+              center * ADAPTIVE_GOAL_TRAJECTORY_CONSTANTS.maintenanceRadiusFraction,
+            )
+          : null;
+        return {
+          date: revision.effectiveLocalDate,
+          trendWeightKg: null,
+          scaleWeightKg: null,
+          sourceEntryId: null,
+          evidenceState: 'strategy_event' as const,
+          observationCount: 0,
+          spanDays: 0,
+          gapFromPreviousDays: null,
+          corrected: false,
+          adaptiveStrategyTrendWeightKg: null,
+          goalRevisionId: revision.id,
+          revisionSequence: revision.sequence,
+          targetWeightKg: revision.targetWeightKg,
+          maintenanceCenterKg: center,
+          maintenanceLowerKg: center !== null && radius !== null ? center - radius : null,
+          maintenanceUpperKg: center !== null && radius !== null ? center + radius : null,
+          section: 'historical' as const,
+        };
+      });
+    const displayPoints = [...productDisplayPoints, ...strategyEventPoints].sort((left, right) =>
+      left.date.localeCompare(right.date),
+    );
     const completion = db
       .select({
         checkInId: adaptiveNutritionGoalCompletions.checkInId,
@@ -577,10 +654,8 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
           };
         }),
       ...acceptedForGoal.map((checkIn) => {
-        const acceptedTarget = targets.find(
-          (target) =>
-            target.id === checkIn.acceptedNutritionTargetId &&
-            target.adaptiveCheckInId === checkIn.id,
+        const acceptedTarget = targetEvents.find(
+          (target) => target.adaptiveCheckInId === checkIn.id,
         );
         const reached = calculationGoalReached(checkIn.calculationSnapshot);
         return {

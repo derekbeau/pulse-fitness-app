@@ -1,4 +1,6 @@
-import { and, desc, eq, lte } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+
+import { and, desc, eq, lte, max } from 'drizzle-orm';
 
 import {
   createNutritionTargetInputSchema,
@@ -9,6 +11,7 @@ import {
 import {
   adaptiveNutritionCheckIns,
   adaptiveNutritionPrograms,
+  nutritionTargetEvents,
   nutritionTargets,
 } from '../../db/schema/index.js';
 
@@ -113,22 +116,12 @@ export const upsertNutritionTarget = async (
   const updatedAt = Date.now();
   const macroCalories = calculateMacroCalories(input);
 
-  const target = db
-    .insert(nutritionTargets)
-    .values({
-      userId,
-      calories: input.calories,
-      protein: input.protein,
-      carbs: input.carbs,
-      fat: input.fat,
-      source: 'manual',
-      adaptiveCheckInId: null,
-      macroCalories,
-      effectiveDate: input.effectiveDate,
-    })
-    .onConflictDoUpdate({
-      target: [nutritionTargets.userId, nutritionTargets.effectiveDate],
-      set: {
+  const target = db.transaction((tx) => {
+    const persisted = tx
+      .insert(nutritionTargets)
+      .values({
+        id: randomUUID(),
+        userId,
         calories: input.calories,
         protein: input.protein,
         carbs: input.carbs,
@@ -136,11 +129,54 @@ export const upsertNutritionTarget = async (
         source: 'manual',
         adaptiveCheckInId: null,
         macroCalories,
+        effectiveDate: input.effectiveDate,
+        createdAt: updatedAt,
         updatedAt,
-      },
-    })
-    .returning(nutritionTargetSelection)
-    .get();
+      })
+      .onConflictDoUpdate({
+        target: [nutritionTargets.userId, nutritionTargets.effectiveDate],
+        set: {
+          calories: input.calories,
+          protein: input.protein,
+          carbs: input.carbs,
+          fat: input.fat,
+          source: 'manual',
+          adaptiveCheckInId: null,
+          macroCalories,
+          updatedAt,
+        },
+      })
+      .returning(nutritionTargetSelection)
+      .get();
+
+    if (!persisted) throw new Error('Failed to persist nutrition target');
+    const sequence =
+      (tx
+        .select({ value: max(nutritionTargetEvents.sequence) })
+        .from(nutritionTargetEvents)
+        .where(eq(nutritionTargetEvents.targetId, persisted.id))
+        .get()?.value ?? 0) + 1;
+    tx.insert(nutritionTargetEvents)
+      .values({
+        id: randomUUID(),
+        targetId: persisted.id,
+        userId,
+        sequence,
+        effectiveDate: input.effectiveDate,
+        calories: input.calories,
+        protein: input.protein,
+        carbs: input.carbs,
+        fat: input.fat,
+        macroCalories,
+        source: 'manual',
+        adaptiveCheckInId: null,
+        eventType: 'manual_write',
+        recordedAt: updatedAt,
+        createdAt: updatedAt,
+      })
+      .run();
+    return persisted;
+  });
 
   if (!target) {
     throw new Error('Failed to persist nutrition target');

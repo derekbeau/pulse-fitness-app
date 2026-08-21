@@ -14,6 +14,7 @@ import {
   adaptiveNutritionReviews,
   habits,
   nutritionTargets,
+  nutritionTargetEvents,
   users,
 } from '../../db/schema/index.js';
 
@@ -189,6 +190,7 @@ export const deleteUserAccount = async (userId: string): Promise<boolean> => {
     tx.delete(adaptiveNutritionReviewContexts)
       .where(eq(adaptiveNutritionReviewContexts.userId, userId))
       .run();
+    tx.delete(nutritionTargetEvents).where(eq(nutritionTargetEvents.userId, userId)).run();
     tx.delete(nutritionTargets).where(eq(nutritionTargets.userId, userId)).run();
     tx.delete(adaptiveNutritionGoalCompletions)
       .where(eq(adaptiveNutritionGoalCompletions.userId, userId))

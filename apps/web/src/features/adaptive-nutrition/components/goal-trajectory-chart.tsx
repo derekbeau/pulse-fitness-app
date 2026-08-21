@@ -58,8 +58,8 @@ export function GoalTrajectoryChart({
         date: point.date,
         dateValue: trendWeightDateCoordinate(point.date),
         trend: point.trendWeightKg === null ? null : convertWeightFromKg(point.trendWeightKg, unit),
-        scale: convertWeightFromKg(point.scaleWeightKg, unit),
-        segment,
+        scale: point.scaleWeightKg === null ? null : convertWeightFromKg(point.scaleWeightKg, unit),
+        segment: point.evidenceState === 'strategy_event' ? null : segment,
         target:
           point.targetWeightKg === null ? null : convertWeightFromKg(point.targetWeightKg, unit),
         maintenanceLower:
@@ -227,6 +227,7 @@ export function GoalTrajectoryChart({
               <Tooltip content={<TrajectoryTooltip unit={unit} />} />
               {analytics.annotations.map((annotation) => (
                 <ReferenceLine
+                  className="goal-trajectory-annotation-line"
                   key={annotation.id}
                   stroke="var(--color-on-cream)"
                   strokeDasharray={
@@ -260,6 +261,7 @@ export function GoalTrajectoryChart({
                 strokeOpacity={0.7}
               />
               <Line
+                className="goal-trajectory-target-line"
                 dataKey="target"
                 dot={false}
                 isAnimationActive={false}
@@ -354,7 +356,9 @@ export function GoalTrajectoryChart({
           <p>
             <strong>{formatTrendWeightDate(selectedRow.date)}</strong>
             {selectedPoint
-              ? ` · Product Trend Weight ${formatAdaptiveWeight(selectedPoint.trendWeightKg, unit)} · Scale Weight ${formatAdaptiveWeight(selectedPoint.scaleWeightKg, unit)} · ${selectedPoint.evidenceState.replace('_', ' ')} · Adaptive strategy trend ${formatAdaptiveWeight(selectedPoint.adaptiveStrategyTrendWeightKg, unit)} · revision ${selectedPoint.revisionSequence}`
+              ? selectedPoint.evidenceState === 'strategy_event'
+                ? ` · Strategy event · no Product Trend Weight observation · revision ${selectedPoint.revisionSequence}`
+                : ` · Product Trend Weight ${formatAdaptiveWeight(selectedPoint.trendWeightKg, unit)} · Scale Weight ${formatAdaptiveWeight(selectedPoint.scaleWeightKg, unit)} · ${selectedPoint.evidenceState.replace('_', ' ')} · Adaptive strategy trend ${formatAdaptiveWeight(selectedPoint.adaptiveStrategyTrendWeightKg, unit)} · revision ${selectedPoint.revisionSequence}`
               : ''}
             {selectedRow.forecast !== null
               ? ` · Estimated trend ${selectedRow.forecast.toFixed(1)} ${unit} · corridor ${Math.min(selectedRow.forecastFaster ?? selectedRow.forecast, selectedRow.forecastSlower ?? selectedRow.forecast).toFixed(1)}–${Math.max(selectedRow.forecastFaster ?? selectedRow.forecast, selectedRow.forecastSlower ?? selectedRow.forecast).toFixed(1)} ${unit}`
@@ -467,7 +471,9 @@ export function GoalTrajectoryChart({
                     </td>
                     <td className="p-3">
                       {point
-                        ? `${point.evidenceState.replace('_', ' ')} · ${point.observationCount} observations`
+                        ? point.evidenceState === 'strategy_event'
+                          ? 'Strategy event · no Product Trend Weight observation'
+                          : `${point.evidenceState.replace('_', ' ')} · ${point.observationCount} observations`
                         : 'Forecast only'}
                     </td>
                     <td className="p-3">
