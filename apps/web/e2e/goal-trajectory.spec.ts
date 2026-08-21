@@ -452,6 +452,45 @@ test.describe.serial('Goal trajectory', () => {
     diagnostics();
   });
 
+  test('keeps the trajectory readable in light, dark, and midnight themes', async ({ page }) => {
+    const diagnostics = monitorPage(page);
+    await page.setViewportSize({ width: 390, height: 1000 });
+    const { goalId } = await openTrajectory(page, 'trajectory-loss');
+
+    for (const theme of ['light', 'dark', 'midnight'] as const) {
+      await page.evaluate((value) => window.localStorage.setItem('pulse-theme', value), theme);
+      const trajectoryResponse = page.waitForResponse(
+        (response) =>
+          response.url().includes(`/api/v1/adaptive-nutrition/goals/${goalId}/trajectory?`) &&
+          response.status() === 200,
+      );
+      await page.reload({ waitUntil: 'networkidle' });
+      await trajectoryResponse;
+
+      const rootClasses = (await page.locator('html').getAttribute('class'))?.split(/\s+/u) ?? [];
+      expect(rootClasses.includes('dark'), `${theme} dark class`).toBe(theme === 'dark');
+      expect(rootClasses.includes('theme-midnight'), `${theme} midnight class`).toBe(
+        theme === 'midnight',
+      );
+      await expect(page.getByRole('heading', { level: 2, name: 'Goal trajectory' })).toBeVisible();
+      await expect(page.getByLabel('Trajectory legend')).toContainText('Product Trend Weight');
+      await assertNoOverflow(page, 390);
+
+      if (
+        process.env.CAPTURE_ISSUE_109_SCREENSHOTS === '1' &&
+        (theme === 'light' || theme === 'midnight')
+      ) {
+        await page.screenshot({
+          fullPage: true,
+          path: `artifacts/issue-109-theme-${theme}-390.png`,
+        });
+      }
+    }
+
+    await page.waitForLoadState('networkidle');
+    diagnostics();
+  });
+
   for (const [zone, width] of [
     ['Pacific/Kiritimati', 390],
     ['Etc/GMT+12', 320],
