@@ -1,6 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { computeEWMA, computeWeightInsights, type WeightEntry } from './ewma';
+import {
+  calculateCanonicalTrendWeightCurrent,
+  calculateCanonicalTrendWeightDeltas,
+  calculateCanonicalTrendWeightSeries,
+  computeEWMA,
+  computeWeightInsights,
+  type CanonicalTrendWeightInput,
+  type WeightEntry,
+} from './ewma';
+
+const canonicalEntry = (
+  date: string,
+  weightKg: number,
+  overrides: Partial<CanonicalTrendWeightInput> = {},
+): CanonicalTrendWeightInput => ({
+  id: `weight-${date}`,
+  date,
+  weightKg,
+  createdAt: Date.parse(`${date}T12:00:00.000Z`),
+  updatedAt: Date.parse(`${date}T12:00:00.000Z`),
+  ...overrides,
+});
 
 describe('computeEWMA', () => {
   it('returns trend equal to scale for a single entry', () => {
@@ -118,5 +139,124 @@ describe('computeWeightInsights', () => {
       periodChange: 0,
       direction: 'stable',
     });
+  });
+});
+
+describe('canonical Trend Weight v1', () => {
+  it('uses only the inclusive trailing 30 calendar days and no interpolation', () => {
+    const entries = [
+      canonicalEntry('2026-07-19', 120),
+      canonicalEntry('2026-07-20', 100),
+      canonicalEntry('2026-08-10', 101),
+      canonicalEntry('2026-08-18', 110),
+    ];
+
+    const current = calculateCanonicalTrendWeightCurrent(entries, '2026-08-18');
+
+    expect(current.trendWeightKg).toBeCloseTo(101.09);
+    expect(current.evidence).toEqual({
+      observationCount: 3,
+      spanDays: 29,
+      latestAgeDays: 0,
+    });
+  });
+
+  it('is range invariant on overlapping dates', () => {
+    const entries = Array.from({ length: 100 }, (_, index) =>
+      canonicalEntry(
+        new Date(Date.UTC(2026, 4, 11 + index)).toISOString().slice(0, 10),
+        80 + Math.sin(index / 3),
+      ),
+    );
+
+    const oneMonth = calculateCanonicalTrendWeightSeries(entries, '2026-07-20', '2026-08-18');
+    const all = calculateCanonicalTrendWeightSeries(entries, '2026-05-11', '2026-08-18');
+    const allByDate = new Map(all.map((point) => [point.date, point]));
+
+    for (const point of oneMonth) {
+      expect(point.trendWeightKg).toBe(allByDate.get(point.date)?.trendWeightKg);
+      expect(point.observationCount).toBe(allByDate.get(point.date)?.observationCount);
+    }
+  });
+
+  it('keeps a transient scale spike visible while smoothing the trend', () => {
+    const entries = Array.from({ length: 20 }, (_, index) =>
+      canonicalEntry(
+        new Date(Date.UTC(2026, 7, index + 1)).toISOString().slice(0, 10),
+        index === 19 ? 90 : 80,
+      ),
+    );
+
+    const current = calculateCanonicalTrendWeightCurrent(entries, '2026-08-20');
+
+    expect(current.latestScale?.weightKg).toBe(90);
+    expect(current.trendWeightKg).toBeCloseTo(81);
+    expect(current.scaleTrendDifferenceKg).toBeCloseTo(9);
+    expect(current.state).toBe('sufficient');
+  });
+
+  it('returns honest scale-only and stale states without fabricated precision', () => {
+    expect(
+      calculateCanonicalTrendWeightCurrent([canonicalEntry('2026-08-18', 82)], '2026-08-18'),
+    ).toMatchObject({ trendWeightKg: null, rateKgPerWeek: null, state: 'scale_only' });
+    expect(
+      calculateCanonicalTrendWeightCurrent(
+        [canonicalEntry('2026-07-01', 82), canonicalEntry('2026-07-02', 81)],
+        '2026-08-18',
+      ),
+    ).toMatchObject({ trendWeightKg: null, state: 'stale' });
+
+    const staleEntries = [
+      canonicalEntry('2026-07-20', 82),
+      canonicalEntry('2026-07-21', 81),
+      canonicalEntry('2026-07-22', 80),
+    ];
+    expect(calculateCanonicalTrendWeightCurrent(staleEntries, '2026-08-01')).toMatchObject({
+      trendWeightKg: expect.any(Number),
+      rateKgPerWeek: null,
+      state: 'stale',
+    });
+    expect(calculateCanonicalTrendWeightDeltas(staleEntries, '2026-08-01')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: 'unavailable',
+          valueKg: null,
+          reasonCode: 'STALE_CURRENT_TREND',
+        }),
+      ]),
+    );
+  });
+
+  it('reports dated supported and unavailable deltas', () => {
+    const entries = Array.from({ length: 60 }, (_, index) =>
+      canonicalEntry(
+        new Date(Date.UTC(2026, 5, 20 + index)).toISOString().slice(0, 10),
+        100 - index * 0.1,
+      ),
+    );
+    const deltas = calculateCanonicalTrendWeightDeltas(entries, '2026-08-18');
+
+    expect(deltas.map((delta) => delta.status)).toEqual([
+      'supported',
+      'supported',
+      'supported',
+      'unavailable',
+    ]);
+    expect(deltas[0]).toMatchObject({
+      requestedDays: 7,
+      fromAsOfDate: '2026-08-11',
+      fromTrendDate: '2026-08-11',
+      toTrendDate: '2026-08-18',
+    });
+    expect(deltas[3]?.reasonCode).toBe('NO_PRIOR_TREND');
+  });
+
+  it('rejects duplicate dates so persistence remains the deterministic authority', () => {
+    expect(() =>
+      calculateCanonicalTrendWeightCurrent(
+        [canonicalEntry('2026-08-18', 80), canonicalEntry('2026-08-18', 81, { id: 'other' })],
+        '2026-08-18',
+      ),
+    ).toThrow(/duplicate date/);
   });
 });

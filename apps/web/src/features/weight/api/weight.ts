@@ -3,12 +3,14 @@ import {
   apiMetaSchema,
   bodyWeightEntrySchema,
   deleteWeightResultSchema,
+  trendWeightAnalyticsSchema,
   type BodyWeightEntry,
   type CreateWeightInput,
   type DashboardSnapshot,
   type DashboardWeightTrendPoint,
   type DeleteWeightResult,
   type PatchWeightInput,
+  type TrendWeightRange,
 } from '@pulse/shared';
 import { toast } from 'sonner';
 
@@ -53,6 +55,9 @@ export const weightQueryKeys = {
   trendRoot: () => ['weight', 'list'] as const,
   trend: ({ from, to }: Pick<WeightListFilters, 'from' | 'to'> = {}) =>
     ['weight', 'list', normalizeWeightListFilters({ from, to })] as const,
+  analyticsRoot: () => ['weight', 'analytics'] as const,
+  analytics: (range: TrendWeightRange, end: string | undefined, timeZone: string) =>
+    ['weight', 'analytics', { range, end: end ?? null, timeZone }] as const,
   page: ({
     days,
     from,
@@ -109,6 +114,17 @@ const parseWeightEntryCollection = (response: unknown) => {
 const fetchWeightEntries = async (filters: WeightListFilters) => {
   const response = await apiRequest<unknown>(buildWeightEntriesPath(filters));
   return parseWeightEntryCollection(response);
+};
+
+const fetchTrendWeightAnalytics = async (
+  range: TrendWeightRange,
+  end: string | undefined,
+  timeZone: string,
+) => {
+  const search = new URLSearchParams({ range, timeZone });
+  if (end) search.set('end', end);
+  const response = await apiRequest<unknown>(`/api/v1/weight/trend?${search.toString()}`);
+  return trendWeightAnalyticsSchema.parse(response);
 };
 
 const fetchPaginatedWeightEntries = async (
@@ -384,6 +400,20 @@ export const usePaginatedWeightEntries = (
   });
 
 export const useWeightTrend = (from?: string, to?: string) => useWeightEntries({ from, to });
+
+export const useTrendWeightAnalytics = (
+  range: TrendWeightRange,
+  end?: string,
+  options: { enabled?: boolean; refetchIntervalMs?: number } = {},
+) => {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return useQuery({
+    enabled: options.enabled,
+    queryKey: weightQueryKeys.analytics(range, end, timeZone),
+    queryFn: () => fetchTrendWeightAnalytics(range, end, timeZone),
+    refetchInterval: options.refetchIntervalMs,
+  });
+};
 
 export const useLogWeight = () => {
   return createOptimisticMutation<

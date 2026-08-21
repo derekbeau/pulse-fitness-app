@@ -30,7 +30,7 @@ const protectedRoutes = [
   { heading: 'Activity', path: '/activity' },
   { heading: 'Nutrition', path: '/foods' },
   { heading: 'Journal', path: '/journal' },
-  { heading: 'Weight History', path: '/weight' },
+  { heading: 'Trend Weight', path: '/weight' },
   { heading: 'Profile', path: '/profile' },
   { heading: 'Equipment', path: '/profile/equipment' },
   { heading: 'Health Tracking', path: '/profile/injuries' },

@@ -155,7 +155,7 @@ export const upsertBodyWeightEntry = async (
       set: {
         ...canonicalWeight,
         notes: input.notes ?? null,
-        updatedAt,
+        updatedAt: sql`max(${bodyWeight.updatedAt} + 1, ${updatedAt})`,
       },
     })
     .returning(canonicalBodyWeightEntrySelection)
@@ -236,9 +236,8 @@ export const patchBodyWeightEntryById = async (
   inputUnit: WeightUnit,
 ): Promise<CanonicalBodyWeightEntry | null> => {
   const { db } = await import('../../db/index.js');
-  const updates: Partial<typeof bodyWeight.$inferInsert> & { updatedAt: number } = {
-    updatedAt: Date.now(),
-  };
+  const updatedAt = Date.now();
+  const updates: Partial<typeof bodyWeight.$inferInsert> = {};
 
   if (input.weight !== undefined) {
     Object.assign(updates, getCanonicalWriteValues(input.weight, inputUnit));
@@ -250,7 +249,10 @@ export const patchBodyWeightEntryById = async (
 
   const result = db
     .update(bodyWeight)
-    .set(updates)
+    .set({
+      ...updates,
+      updatedAt: sql<number>`max(${bodyWeight.updatedAt} + 1, ${updatedAt})`,
+    })
     .where(and(eq(bodyWeight.id, id), eq(bodyWeight.userId, userId)))
     .run();
 

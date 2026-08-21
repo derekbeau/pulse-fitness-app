@@ -19,6 +19,14 @@ vi.mock('@/hooks/use-weight-unit', () => ({
   useWeightUnit: () => ({ weightUnit: 'lbs' }),
 }));
 
+vi.mock('@/features/weight/components/trend-weight-workspace', () => ({
+  TrendWeightWorkspace: () => (
+    <section>
+      <h2>Scale and Trend Weight</h2>
+    </section>
+  ),
+}));
+
 const formatWeight = (value: number): string => `${value.toFixed(1)} lbs`;
 const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS);
 
@@ -596,7 +604,7 @@ describe('DashboardPage', () => {
     expect(screen.getByLabelText('Macro display mode')).toBeInTheDocument();
     expect(screen.getByLabelText('Habit chains')).toBeInTheDocument();
     expect(screen.getByLabelText('Trend sparklines')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Weight Trend' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Scale and Trend Weight' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recent Workouts' })).toBeInTheDocument();
     expect(screen.getByText('Upper Push A (Completed)')).toBeInTheDocument();
     expect(screen.getByText('1900 / 2300')).toBeInTheDocument();

@@ -476,7 +476,7 @@ export function DashboardPage() {
     if (widgetId === 'weight-trend') {
       return (
         <DashboardWidgetFrame widgetLabel={DASHBOARD_WIDGET_IDS['weight-trend']}>
-          <WeightTrendChart />
+          <WeightTrendChart endDate={selectedDateKey} />
         </DashboardWidgetFrame>
       );
     }
@@ -749,7 +749,7 @@ export function DashboardPage() {
               dataSlot="dashboard-weight-trend-row"
               widgetLabel={DASHBOARD_WIDGET_IDS['weight-trend']}
             >
-              <WeightTrendChart />
+              <WeightTrendChart endDate={selectedDateKey} />
             </DashboardWidgetFrame>
           ) : null}
         </div>

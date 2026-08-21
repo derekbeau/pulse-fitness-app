@@ -17,6 +17,7 @@ import {
   upsertBodyWeightEntry,
   toBodyWeightEntry,
 } from './store.js';
+import { getTrendWeightAnalytics } from './trend-store.js';
 
 vi.mock('./store.js', () => ({
   deleteBodyWeightEntryById: vi.fn(),
@@ -29,6 +30,10 @@ vi.mock('./store.js', () => ({
   patchBodyWeightEntryById: vi.fn(),
   upsertBodyWeightEntry: vi.fn(),
   toBodyWeightEntry: vi.fn(),
+}));
+
+vi.mock('./trend-store.js', () => ({
+  getTrendWeightAnalytics: vi.fn(),
 }));
 
 vi.mock('../../middleware/store.js', () => ({
@@ -69,6 +74,7 @@ describe('weight routes', () => {
     vi.mocked(patchBodyWeightEntryById).mockReset();
     vi.mocked(upsertBodyWeightEntry).mockReset();
     vi.mocked(toBodyWeightEntry).mockReset();
+    vi.mocked(getTrendWeightAnalytics).mockReset();
     vi.mocked(getBodyWeightDisplayUnit).mockResolvedValue('lbs');
     vi.mocked(toBodyWeightEntry).mockImplementation((entry, unit) => ({
       id: entry.id,
@@ -83,6 +89,118 @@ describe('weight routes', () => {
     vi.mocked(updateAgentTokenLastUsedAt).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-weight-route-secret';
+  });
+
+  it('returns identical strict Trend Weight facts to JWT and AgentToken callers', async () => {
+    const analytics = {
+      range: { preset: '1m' as const, startDate: '2026-07-21', endDate: '2026-08-19' },
+      timeZone: 'America/Detroit',
+      isHistorical: true,
+      unit: 'lbs' as const,
+      algorithm: {
+        version: 'trend-weight-v1' as const,
+        windowDays: 30 as const,
+        alpha: 0.1 as const,
+        interpolation: 'none' as const,
+        minimumObservations: 2 as const,
+      },
+      current: {
+        latestScale: null,
+        trendWeight: null,
+        trendDate: null,
+        scaleTrendDifference: null,
+        ratePerWeek: null,
+        rateEffectiveDate: null,
+        state: 'no_data' as const,
+        evidence: { observationCount: 0, spanDays: 0, latestAgeDays: null },
+      },
+      deltas: ([7, 14, 30, 90] as const).map((requestedDays) => ({
+        requestedDays,
+        status: 'unavailable' as const,
+        value: null,
+        fromAsOfDate:
+          requestedDays === 7
+            ? '2026-08-12'
+            : requestedDays === 14
+              ? '2026-08-05'
+              : requestedDays === 30
+                ? '2026-07-20'
+                : '2026-05-21',
+        fromTrendDate: null,
+        toTrendDate: null,
+        reasonCode: 'NO_CURRENT_TREND' as const,
+      })),
+      points: [],
+      markers: [],
+      goal: null,
+      explanation: {
+        headline: 'Log your first weigh-in to start Trend Weight.',
+        detail:
+          'Pulse will separate scale weight from Trend Weight after another recent observation.',
+        lag: 'Trend Weight intentionally responds gradually to short-term scale changes; it does not diagnose their cause.',
+        confidence: 'No measurements support a trend yet.',
+        facts: {
+          confidenceReason: 'NO_MEASUREMENTS' as const,
+          scaleTrendRelation: 'unavailable' as const,
+          paceDirection: 'unavailable' as const,
+          paceFreshness: 'unavailable' as const,
+          goalComparison: 'no_goal' as const,
+        },
+      },
+      policy: {
+        productTrend: 'trend-weight-v1' as const,
+        trajectory: 'product_trend_weight' as const,
+        coaching: 'product_trend_weight' as const,
+        goalEta: 'adaptive_model_trend' as const,
+        goalCompletion: 'adaptive_model_trend' as const,
+        maintenanceRange: 'adaptive_model_trend' as const,
+        celebrations: 'adaptive_model_trend' as const,
+        adaptiveTdee: 'adaptive_model_trend' as const,
+        measurementHistory: 'scale_weight' as const,
+        explanation: 'Product and model trends remain explicit.',
+      },
+      sourceFingerprint: 'a'.repeat(64),
+    };
+    vi.mocked(getTrendWeightAnalytics).mockImplementation(async () => analytics);
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const token = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const [jwtResponse, agentResponse] = await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/weight/trend?range=1m&end=2026-08-19',
+          headers: createAuthorizationHeader(token),
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/weight/trend?range=1m&end=2026-08-19',
+          headers: { authorization: 'AgentToken trend-agent-token' },
+        }),
+      ]);
+
+      expect(jwtResponse.statusCode).toBe(200);
+      expect(agentResponse.statusCode).toBe(200);
+      expect(jwtResponse.json().data).toEqual(agentResponse.json().data);
+      expect(getTrendWeightAnalytics).toHaveBeenNthCalledWith(1, 'user-1', {
+        range: '1m',
+        end: '2026-08-19',
+      });
+      expect(getTrendWeightAnalytics).toHaveBeenNthCalledWith(2, 'user-1', {
+        range: '1m',
+        end: '2026-08-19',
+      });
+    } finally {
+      await app.close();
+    }
   });
 
   afterEach(() => {
@@ -746,6 +864,10 @@ describe('weight routes', () => {
         app.inject({
           method: 'GET',
           url: '/api/v1/weight/latest',
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/weight/trend?timeZone=America%2FDetroit',
         }),
         app.inject({
           method: 'PATCH',

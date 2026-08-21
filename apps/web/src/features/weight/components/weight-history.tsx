@@ -1,22 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  computeEWMA,
-  computeWeightInsights,
   createWeightInputSchema,
   formatWeight as formatWeightWithUnit,
   type BodyWeightEntry,
   type CreateWeightInput,
 } from '@pulse/shared';
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import { PencilLine, Plus, Scale, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -33,36 +21,11 @@ import {
   useWeightEntries,
 } from '@/features/weight/api/weight';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
-import { addDays, formatDateKey, parseDateInput } from '@/lib/date';
+import { formatDateKey, parseDateInput } from '@/lib/date';
 
-type RangeOption = {
-  days: number | null;
-  label: string;
-  value: '30d' | '90d' | '180d' | '365d' | 'all';
-};
-
-const RANGE_OPTIONS: RangeOption[] = [
-  { value: '30d', label: '30D', days: 30 },
-  { value: '90d', label: '90D', days: 90 },
-  { value: '180d', label: '6M', days: 180 },
-  { value: '365d', label: '1Y', days: 365 },
-  { value: 'all', label: 'All', days: null },
-];
-
-const DEFAULT_RANGE = RANGE_OPTIONS[0];
+import { TrendWeightWorkspace } from './trend-weight-workspace';
 
 const entryDateFormatter = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-});
-
-const axisDateFormatter = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-});
-
-const tooltipDateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
   year: 'numeric',
@@ -77,45 +40,6 @@ function formatEntryDate(dateKey: string) {
   return entryDateFormatter.format(parseDateInput(`${dateKey}T00:00:00`));
 }
 
-function filterEntriesByRange(entries: BodyWeightEntry[], days: number | null) {
-  if (days === null) {
-    return entries;
-  }
-
-  const rangeEnd = formatDateKey(new Date());
-  const rangeStart = formatDateKey(addDays(parseDateInput(`${rangeEnd}T00:00:00`), -(days - 1)));
-
-  return entries.filter((entry) => entry.date >= rangeStart && entry.date <= rangeEnd);
-}
-
-function computeYAxisDomain(points: Array<{ scale: number; trend: number }>): [number, number] {
-  if (points.length === 0) {
-    return [0, 1];
-  }
-
-  const values = points.flatMap((point) => [point.scale, point.trend]);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-
-  if (min === max) {
-    const padding = Math.max(1, min * 0.02);
-    return [min - padding, max + padding];
-  }
-
-  const padding = Math.max(0.5, (max - min) * 0.1);
-  return [Number((min - padding).toFixed(1)), Number((max + padding).toFixed(1))];
-}
-
-function formatSignedChange(value: number, formatWeightValue: (value: number) => string) {
-  const absolute = formatWeightValue(Math.abs(value));
-
-  if (Math.abs(value) < 0.1) {
-    return `${absolute} change`;
-  }
-
-  return `${value > 0 ? '+' : '-'}${absolute}`;
-}
-
 function getDefaultDate() {
   return formatDateKey(new Date());
 }
@@ -126,7 +50,6 @@ export function WeightHistory() {
   const logWeightMutation = useLogWeight();
   const deleteWeightMutation = useDeleteWeight();
   const updateWeightMutation = useUpdateWeight();
-  const [selectedRange, setSelectedRange] = useState<RangeOption>(DEFAULT_RANGE);
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [addErrorMessage, setAddErrorMessage] = useState('');
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
@@ -154,27 +77,10 @@ export function WeightHistory() {
     () => [...(entriesQuery.data ?? [])].sort(compareWeightEntries),
     [entriesQuery.data],
   );
-  const chartEntries = useMemo(
-    () => filterEntriesByRange(allWeightEntries, selectedRange.days),
-    [allWeightEntries, selectedRange.days],
-  );
   const sortedWeightEntries = useMemo(
     () => [...allWeightEntries].sort((left, right) => compareWeightEntries(right, left)),
     [allWeightEntries],
   );
-  const chartData = useMemo(
-    () => computeEWMA(chartEntries.map((entry) => ({ date: entry.date, weight: entry.weight }))),
-    [chartEntries],
-  );
-  const summaryDays = selectedRange.days ?? Math.max(chartData.length, 1);
-  const rangeInsights = useMemo(
-    () => computeWeightInsights(chartData, summaryDays),
-    [chartData, summaryDays],
-  );
-  const yDomain = useMemo(() => computeYAxisDomain(chartData), [chartData]);
-  const latestEntry = sortedWeightEntries[0] ?? null;
-  const responseUnit = latestEntry?.unit ?? weightUnit;
-  const formatResponseWeight = (value: number) => formatWeightWithUnit(value, responseUnit);
 
   async function onSubmitNewEntry(values: CreateWeightInput) {
     setAddErrorMessage('');
@@ -256,6 +162,8 @@ export function WeightHistory() {
 
   return (
     <section className="space-y-6">
+      <TrendWeightWorkspace />
+
       <section className="rounded-3xl border border-border/70 bg-card/95 p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
@@ -359,198 +267,6 @@ export function WeightHistory() {
             </div>
           </form>
         ) : null}
-      </section>
-
-      <section className="rounded-3xl border border-border/70 bg-card/95 p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold text-foreground">Trend chart</h2>
-              <p className="text-sm text-muted">
-                Logged weigh-ins with EWMA smoothing across your selected range.
-              </p>
-            </div>
-            <div
-              aria-label="Weight history range"
-              className="inline-flex w-full flex-wrap items-center gap-1 rounded-full border border-border bg-secondary/30 p-1 sm:w-auto"
-              role="group"
-            >
-              {RANGE_OPTIONS.map((option) => (
-                <Button
-                  aria-pressed={selectedRange.value === option.value}
-                  className="rounded-full px-3 text-xs"
-                  key={option.value}
-                  onClick={() => setSelectedRange(option)}
-                  size="sm"
-                  type="button"
-                  variant={selectedRange.value === option.value ? 'default' : 'ghost'}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl bg-secondary/40 px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Latest entry
-              </p>
-              <p className="mt-1 text-lg font-semibold text-foreground">
-                {latestEntry ? formatWeightWithUnit(latestEntry.weight, latestEntry.unit) : '--'}
-              </p>
-            </div>
-            <div className="rounded-2xl bg-secondary/40 px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Period average
-              </p>
-              <p className="mt-1 text-lg font-semibold text-foreground">
-                {chartData.length > 0 ? formatResponseWeight(rangeInsights.avgWeight) : '--'}
-              </p>
-            </div>
-            <div className="rounded-2xl bg-secondary/40 px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Range change
-              </p>
-              <p className="mt-1 text-lg font-semibold text-foreground">
-                {chartData.length > 0
-                  ? formatSignedChange(rangeInsights.periodChange, formatResponseWeight)
-                  : '--'}
-              </p>
-            </div>
-          </div>
-
-          {isLoading ? (
-            <div className="h-[280px] w-full animate-pulse rounded-2xl bg-muted/50 sm:h-[360px]" />
-          ) : isError ? (
-            <div className="rounded-2xl border border-dashed border-destructive/40 p-6">
-              <h3 className="text-base font-semibold text-foreground">
-                Unable to load weight history
-              </h3>
-              <p className="mt-1 text-sm text-muted">
-                {entriesQuery.error instanceof Error
-                  ? entriesQuery.error.message
-                  : 'The weight history request failed.'}
-              </p>
-            </div>
-          ) : chartData.length === 0 ? (
-            <div className="flex min-h-[240px] items-center justify-center rounded-2xl border border-dashed border-border bg-muted/15 px-4 text-center sm:min-h-[320px]">
-              <div className="space-y-2">
-                <p className="text-base font-semibold text-foreground">
-                  {isEmpty
-                    ? 'Log your first weight entry to build a trend.'
-                    : 'No entries in this range yet.'}
-                </p>
-                <p className="text-sm text-muted">
-                  Try a wider date range or add a new weigh-in above.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div
-              aria-label="Weight history trend chart"
-              className="h-[280px] w-full sm:h-[360px]"
-              role="img"
-            >
-              <ResponsiveContainer
-                height="100%"
-                initialDimension={{ height: 280, width: 320 }}
-                width="100%"
-              >
-                <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 2, left: 0 }}>
-                  <defs>
-                    <linearGradient id="weight-history-scale-fill" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.04} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
-                  <XAxis
-                    axisLine={false}
-                    dataKey="date"
-                    minTickGap={16}
-                    tick={{ fill: 'var(--color-muted)', fontSize: 11 }}
-                    tickFormatter={(value: string) =>
-                      axisDateFormatter.format(parseDateInput(`${value}T12:00:00`))
-                    }
-                    tickLine={false}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    domain={yDomain}
-                    tick={{ fill: 'var(--color-muted)', fontSize: 11 }}
-                    tickFormatter={(value: number) => value.toFixed(value % 1 === 0 ? 0 : 1)}
-                    tickLine={false}
-                    width={42}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--color-card)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: '14px',
-                      color: 'var(--color-foreground)',
-                    }}
-                    formatter={(value: number | undefined, name: string | undefined) => {
-                      if (name === 'scale') {
-                        return [formatResponseWeight(value ?? 0), 'Logged weight'];
-                      }
-
-                      return [formatResponseWeight(value ?? 0), 'Trend weight'];
-                    }}
-                    labelFormatter={(label) =>
-                      typeof label === 'string'
-                        ? tooltipDateFormatter.format(parseDateInput(`${label}T12:00:00`))
-                        : ''
-                    }
-                    separator=": "
-                  />
-                  <Area
-                    dataKey="scale"
-                    fill="url(#weight-history-scale-fill)"
-                    isAnimationActive={false}
-                    name="scale"
-                    stroke="var(--color-primary)"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    type="monotone"
-                  />
-                  <Line
-                    dataKey="trend"
-                    dot={{
-                      fill: 'var(--color-card)',
-                      r: 4,
-                      stroke: 'var(--color-accent-cream)',
-                      strokeWidth: 2,
-                    }}
-                    isAnimationActive={false}
-                    name="trend"
-                    stroke="var(--color-accent-cream)"
-                    strokeDasharray="6 4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2.5}
-                    type="monotone"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-muted">
-            <span className="inline-flex items-center gap-2">
-              <span aria-hidden="true" className="size-2 rounded-full bg-primary" />
-              Logged weight
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                className="size-2 rounded-full bg-[var(--color-accent-cream)]"
-              />
-              EWMA trend
-            </span>
-          </div>
-        </div>
       </section>
 
       <section className="space-y-3">

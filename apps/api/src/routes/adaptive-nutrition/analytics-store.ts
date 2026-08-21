@@ -61,7 +61,7 @@ export class AdaptiveAnalyticsPreProgramEndError extends Error {
   }
 }
 
-const getDateKeyInTimeZone = (date: Date, timeZone: string) => {
+export const getDateKeyInTimeZone = (date: Date, timeZone: string) => {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
@@ -83,7 +83,7 @@ const datesBetween = (startDate: string, endDate: string) => {
 
 const unique = <T>(values: readonly T[]): T[] => [...new Set(values)];
 
-type EffectiveProgramRevision = {
+export type EffectiveProgramRevision = {
   id: string;
   sequence: number;
   effectiveAt: number;
@@ -91,7 +91,7 @@ type EffectiveProgramRevision = {
   snapshot: AdaptiveProgramCalculation;
 };
 
-const resolveEffectiveProgramRevisions = (
+export const resolveEffectiveProgramRevisions = (
   revisions: Array<Omit<EffectiveProgramRevision, 'effectiveLocalDate'>>,
 ): EffectiveProgramRevision[] => {
   const resolved: EffectiveProgramRevision[] = [];

@@ -5,6 +5,8 @@ import {
   createWeightInputSchema,
   deleteWeightResultSchema,
   patchWeightInputSchema,
+  trendWeightAnalyticsSchema,
+  trendWeightQuerySchema,
   weightQueryParamsSchema,
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
@@ -33,6 +35,7 @@ import {
   upsertBodyWeightEntry,
   toBodyWeightEntry,
 } from './store.js';
+import { getTrendWeightAnalytics } from './trend-store.js';
 
 const listWeightEntriesResponseSchema = z.union([
   apiPaginatedResponseSchema(bodyWeightEntrySchema),
@@ -87,6 +90,34 @@ export const weightRoutes: FastifyPluginAsync = async (app) => {
           previousEntry: existingEntry,
         }),
       );
+    },
+  );
+
+  typedApp.get(
+    '/trend',
+    {
+      schema: {
+        querystring: trendWeightQuerySchema,
+        response: {
+          200: apiDataResponseSchema(trendWeightAnalyticsSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['weight'],
+        summary: 'Get canonical Trend Weight analytics',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        const analytics = await getTrendWeightAnalytics(request.userId, request.query);
+        return reply.send(buildDataResponse(request, analytics));
+      } catch (error) {
+        if (error instanceof RangeError) {
+          return sendError(reply, 400, 'TREND_WEIGHT_INVALID_END', error.message);
+        }
+        throw error;
+      }
     },
   );
 
