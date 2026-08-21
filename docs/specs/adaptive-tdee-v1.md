@@ -876,12 +876,18 @@ The existing unique `(userId, effectiveDate)` means accepting an adaptive target
 - Event rows are append-only outside explicit account deletion, use composite same-user foreign
   keys, and allow equal recorded timestamps only through the contiguous sequence tie-breaker.
 - Migration reconstructs an accepted event only from an immutable accepted proposal or accepted
-  review action. It may preserve exact manual predecessor states only from complete owned check-in
-  snapshots whose target identity, values, timestamps, and provenance validate. Every target's
-  reconstructed chain must begin at the materialized row's `createdAt`, end with an exact match at
-  `updatedAt`, remain timestamp-monotonic, and retain distinct equal-time states in deterministic
-  order. A mutated manual row without that complete chain aborts and rolls back the migration; the
-  current row is never backdated or used to erase an unknowable earlier interval.
+  review action. Before filtering candidates, it inventories every accepted check-in's non-null
+  `currentTargets`, every accepted proposal, and every accepted review action's `appliedProposal`.
+  Each source claim must have a complete valid shape, same-user target identity, nonnegative values,
+  correct 4/4/9 macro arithmetic, valid effective date and causal timestamps, valid provenance, and
+  an exact candidate mapping. Complete owned snapshots may preserve manual or Adaptive predecessor
+  states. Exact duplicate claims intentionally deduplicate to one event, while distinct equal-time
+  states retain deterministic sequence order. Keep actions are excluded because they do not accept
+  or create a target. Every reconstructed chain must begin at the materialized row's `createdAt`, end
+  with an exact match at `updatedAt`, and remain timestamp-monotonic. A malformed non-null claim, an
+  unmapped accepted proposal/action, or a mutated manual row without that complete chain aborts and
+  rolls back the migration; the current row is never backdated or used to erase an unknowable
+  interval.
 - The UI uses a confirmation dialog.
 
 ### 14.5 Canonical body weight migration

@@ -487,8 +487,16 @@ require the exact next sequence and nondecreasing recorded time, reject updates,
 only inside the existing account-deletion scope. Equal timestamps use sequence as the causal tie.
 Migration requires each target's recoverable event chain to start at its original `createdAt` and end
 with an exact materialized-row match at `updatedAt`. Complete owned check-in snapshots may recover
-manual predecessor states. A mutated manual row without an exact initial snapshot, or any chain with
-an unrecoverable interval, aborts the migration transaction instead of inventing or omitting history.
+manual or Adaptive predecessor states. Before candidate filtering, migration inventories every
+accepted check-in with a non-null predecessor snapshot, every accepted proposal, and every accepted
+review action with a final applied proposal. Each claim must validate its complete shape, same-user
+identity, values, 4/4/9 macro arithmetic, effective date, causal timestamps, and provenance, then map
+to an exact event candidate. Exact duplicate claims may intentionally collapse to one event; distinct
+same-time states remain in deterministic order. A malformed non-null claim, a mutated manual row
+without an exact initial snapshot, an unmapped accepted proposal/action, or any chain with an
+unrecoverable interval aborts and rolls back the entire migration instead of inventing or omitting
+history. A keep decision is intentionally outside this inventory because it does not create an
+accepted target.
 
 #### `adaptive_nutrition_programs`
 
