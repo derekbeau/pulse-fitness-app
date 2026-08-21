@@ -4,6 +4,7 @@ import type { AdaptiveGoal, AdaptiveGoalRevision } from '../schemas/adaptive-nut
 import {
   adaptiveGoalCompletionReviewSchema,
   adaptiveGoalTrajectoryForecastSchema,
+  adaptiveGoalTrajectoryPointSchema,
   adaptiveGoalTrajectoryRateSchema,
   adaptiveGoalTrajectorySchema,
   adaptiveGoalTrajectoryTimeInRangeSchema,
@@ -286,6 +287,52 @@ describe('calculateAdaptiveGoalTrajectory', () => {
     });
   });
 
+  it.each([
+    {
+      reason: 'INSUFFICIENT_TREND' as const,
+      points: dailyPoints().slice(-1),
+      blockReason: null,
+    },
+    {
+      reason: 'INSUFFICIENT_OBSERVED_WEIGHT' as const,
+      points: dailyPoints()
+        .slice(-8)
+        .map((point) => ({ ...point, sourceEntryId: null, interpolated: true })),
+      blockReason: null,
+    },
+    {
+      reason: 'STALE_WEIGHT' as const,
+      points: dailyPoints()
+        .slice(-21)
+        .map((point, index) => ({
+          ...point,
+          sourceEntryId: index < 2 ? `stale-${index}` : null,
+          interpolated: index >= 2,
+        })),
+      blockReason: null,
+    },
+    {
+      reason: 'SUSPECT_WEIGHT_DATA' as const,
+      points: dailyPoints(),
+      blockReason: 'SUSPECT_WEIGHT_DATA' as const,
+    },
+  ])('preserves the $reason forecast reason instead of relabeling it limited', (fixture) => {
+    const result = calculate({
+      actualRateTrendPoints: fixture.points,
+      actualRateBlockReason: fixture.blockReason,
+    });
+    expect(result.actualRate).toMatchObject({
+      status: 'unavailable',
+      unavailableReason: fixture.reason,
+      kgPerWeek: null,
+    });
+    expect(result.forecast).toMatchObject({
+      status: 'unavailable',
+      unavailableReason: fixture.reason,
+      points: [],
+    });
+  });
+
   it('does not let an opposite pre-goal trend drive the selected goal pace', () => {
     const preGoal = dailyPoints({
       start: '2026-01-01',
@@ -547,6 +594,35 @@ describe('calculateAdaptiveGoalTrajectory', () => {
       paceState: 'reached',
     });
     expect(result.forecast).toMatchObject({ status: 'reached', projectedWeeks: 0 });
+    expect(
+      result.weeklyContributions.filter((week) => week.direction !== 'insufficient_evidence').at(-1)
+        ?.remainingDistanceKg,
+    ).toBe(0);
+  });
+
+  it('clamps a gain overshoot weekly remaining distance to zero', () => {
+    const result = calculate({
+      goal: goal({
+        type: 'gain',
+        targetWeightKg: 101,
+        goalRatePctPerWeek: 0.25,
+      }),
+      revisions: [
+        revision({
+          targetWeightKg: 101,
+          goalRatePctPerWeek: 0.25,
+          previousTargetWeightKg: 101,
+          previousRatePctPerWeek: 0.25,
+        }),
+      ],
+      trendPoints: dailyPoints({ initial: 100, kgPerWeek: 0.8 }),
+      latestScale: { id: 'gain-28', date: '2026-01-29', weightKg: 103.2 },
+      completionTrendSupported: true,
+    });
+    expect(
+      result.weeklyContributions.filter((week) => week.direction !== 'insufficient_evidence').at(-1)
+        ?.remainingDistanceKg,
+    ).toBe(0);
   });
 
   it('exports named tested constants for the Pulse maintenance and evidence policy', () => {
@@ -596,6 +672,29 @@ describe('goal trajectory strict state schemas', () => {
     ).toBe(false);
   });
 
+  it('rejects Product Trend Weight point states with fabricated precision', () => {
+    const point = {
+      date: '2026-01-10',
+      trendWeightKg: 99,
+      scaleWeightKg: 99,
+      sourceEntryId: 'weight-1',
+      evidenceState: 'scale_only',
+      observationCount: 1,
+      spanDays: 0,
+      gapFromPreviousDays: null,
+      corrected: false,
+      adaptiveStrategyTrendWeightKg: null,
+      goalRevisionId: 'revision-1',
+      revisionSequence: 1,
+      targetWeightKg: 90,
+      maintenanceCenterKg: null,
+      maintenanceLowerKg: null,
+      maintenanceUpperKg: null,
+      section: 'historical',
+    };
+    expect(adaptiveGoalTrajectoryPointSchema.safeParse(point).success).toBe(false);
+  });
+
   it('rejects an unavailable rate that omits its reason or claims supported confidence', () => {
     const value = {
       lookbackDays: 21,
@@ -640,7 +739,13 @@ describe('goal trajectory strict state schemas', () => {
     const calculation = calculate();
     const envelope = {
       algorithmVersion: 'adaptive-tdee-v1' as const,
-      trendSource: 'adaptive_model_trend' as const,
+      trendSource: 'product_trend_weight_v1' as const,
+      strategyTrendSource: 'adaptive_model_trend' as const,
+      productTrend: {
+        currentTrendWeightKg: calculation.summary.currentTrendWeightKg,
+        currentTrendDate: calculation.summary.currentTrendDate,
+        state: 'sufficient' as const,
+      },
       timeZone: 'America/Detroit',
       isHistorical: false,
       goal: goal(),
@@ -662,9 +767,14 @@ describe('goal trajectory strict state schemas', () => {
       trendPoints: dailyPoints().map((point, index, points) => ({
         date: point.date,
         trendWeightKg: point.trendWeightKg,
-        modeledWeightKg: point.weightKg,
-        sourceEntryId: point.sourceEntryId,
-        interpolated: point.interpolated,
+        scaleWeightKg: point.weightKg,
+        sourceEntryId: point.sourceEntryId ?? `modeled-${index}`,
+        evidenceState: 'sufficient' as const,
+        observationCount: index + 3,
+        spanDays: index + 14,
+        gapFromPreviousDays: index === 0 ? null : 1,
+        corrected: false,
+        adaptiveStrategyTrendWeightKg: point.trendWeightKg,
         goalRevisionId: 'revision-1',
         revisionSequence: 1,
         targetWeightKg: 90,

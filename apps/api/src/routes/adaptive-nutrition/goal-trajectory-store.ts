@@ -13,6 +13,8 @@ import {
   calculateAdaptiveDateBoundaries,
   calculateAdaptiveGoalTrajectory,
   calculateAdaptiveTrendPoints,
+  calculateCanonicalTrendWeightCurrent,
+  calculateCanonicalTrendWeightSeries,
   calendarDaysBetween,
   evaluateEligibility,
   type AdaptiveGoalRevision,
@@ -66,7 +68,21 @@ type TrajectoryCheckIn = {
   proposedTdeeKcal: number | null;
   proposedTargets: unknown;
   calculationSnapshot: unknown;
+  acceptedNutritionTargetId: string | null;
+  resolvedAt: number | null;
   createdAt: number;
+};
+
+export const endOfLocalDateExclusive = (date: string, timeZone: string) => {
+  const center = Date.parse(`${date}T00:00:00.000Z`);
+  let lower = center - 2 * 86_400_000;
+  let upper = center + 3 * 86_400_000;
+  while (lower + 1 < upper) {
+    const middle = Math.floor((lower + upper) / 2);
+    if (getDateKeyInTimeZone(new Date(middle), timeZone) <= date) lower = middle;
+    else upper = middle;
+  }
+  return upper;
 };
 
 const proposedTargetEffectiveDate = (value: unknown): string | null => {
@@ -158,23 +174,48 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
     const liveToday = getDateKeyInTimeZone(now(), latestProgramRevision.snapshot.timeZone);
     const requestedEnd =
       query.end ?? (goal.status === 'active' ? liveToday : (goal.endedLocalDate ?? liveToday));
-    const strategyAsOfDate =
-      goal.endedLocalDate !== null && requestedEnd > goal.endedLocalDate
-        ? goal.endedLocalDate
-        : requestedEnd;
-    const effectiveProgramRevision =
+    let effectiveProgramRevision =
       query.end || goal.status !== 'active'
         ? [...programRevisions]
             .reverse()
-            .find((revision) => revision.effectiveLocalDate <= strategyAsOfDate)
+            .find(
+              (revision) =>
+                revision.effectiveLocalDate <= requestedEnd &&
+                revision.effectiveAt <
+                  endOfLocalDateExclusive(requestedEnd, revision.snapshot.timeZone),
+            )
         : latestProgramRevision;
     if (!effectiveProgramRevision) throw new AdaptiveGoalTrajectoryPreGoalEndError();
-    const timeZone = effectiveProgramRevision.snapshot.timeZone;
-    const today = getDateKeyInTimeZone(now(), timeZone);
+    let timeZone = effectiveProgramRevision.snapshot.timeZone;
+    let today = getDateKeyInTimeZone(now(), timeZone);
     if (requestedEnd > today) throw new AdaptiveGoalTrajectoryFutureEndError();
     if (requestedEnd < goal.startedLocalDate) throw new AdaptiveGoalTrajectoryPreGoalEndError();
-    const goalClosedAsOf = goal.endedLocalDate !== null && goal.endedLocalDate <= strategyAsOfDate;
-    const calculationGoal = goalClosedAsOf
+    const causalCutoff = query.end
+      ? endOfLocalDateExclusive(requestedEnd, timeZone)
+      : now().getTime() + 1;
+    if (goal.createdAt >= causalCutoff) throw new AdaptiveGoalTrajectoryPreGoalEndError();
+    const goalClosedAsOf =
+      goal.endedLocalDate !== null &&
+      goal.endedLocalDate <= requestedEnd &&
+      goal.updatedAt < causalCutoff;
+    const strategyAsOfDate =
+      goalClosedAsOf && goal.endedLocalDate !== null && requestedEnd > goal.endedLocalDate
+        ? goal.endedLocalDate
+        : requestedEnd;
+    if (strategyAsOfDate !== requestedEnd) {
+      effectiveProgramRevision = [...programRevisions]
+        .reverse()
+        .find(
+          (revision) =>
+            revision.effectiveLocalDate <= strategyAsOfDate &&
+            revision.effectiveAt <
+              endOfLocalDateExclusive(strategyAsOfDate, revision.snapshot.timeZone),
+        );
+      if (!effectiveProgramRevision) throw new AdaptiveGoalTrajectoryPreGoalEndError();
+      timeZone = effectiveProgramRevision.snapshot.timeZone;
+      today = getDateKeyInTimeZone(now(), timeZone);
+    }
+    const lifecycleGoal = goalClosedAsOf
       ? goal
       : adaptiveGoalSchema.parse({
           ...goal,
@@ -193,39 +234,63 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
           eq(adaptiveNutritionGoalRevisions.goalId, goalId),
           eq(adaptiveNutritionGoalRevisions.userId, userId),
           lte(adaptiveNutritionGoalRevisions.effectiveLocalDate, strategyAsOfDate),
+          lte(adaptiveNutritionGoalRevisions.createdAt, causalCutoff - 1),
         ),
       )
       .orderBy(asc(adaptiveNutritionGoalRevisions.sequence))
       .all()
       .map((revision) => adaptiveGoalRevisionSchema.parse(revision));
     const activeRevision = latestRevisionOn(revisions, strategyAsOfDate);
+    const calculationGoal = adaptiveGoalSchema.parse({
+      ...lifecycleGoal,
+      targetWeightKg: activeRevision.targetWeightKg,
+      maintenanceCenterKg: activeRevision.maintenanceCenterKg,
+      goalRatePctPerWeek: activeRevision.goalRatePctPerWeek,
+      updatedAt: goalClosedAsOf ? goal.updatedAt : activeRevision.createdAt,
+    });
     const weightRows = db
       .select({
         id: bodyWeight.id,
         date: bodyWeight.date,
         weightKg: bodyWeight.weightKg,
+        createdAt: bodyWeight.createdAt,
         updatedAt: bodyWeight.updatedAt,
       })
       .from(bodyWeight)
-      .where(
-        and(
-          eq(bodyWeight.userId, userId),
-          gte(
-            bodyWeight.date,
-            addCalendarDays(
-              goal.startedLocalDate,
-              -(ADAPTIVE_TDEE_CONSTANTS.analysisDays + ADAPTIVE_TDEE_CONSTANTS.warmupDays - 1),
-            ),
-          ),
-          lte(bodyWeight.date, evidenceThroughDate),
-        ),
-      )
+      .where(and(eq(bodyWeight.userId, userId), lte(bodyWeight.date, strategyAsOfDate)))
       .orderBy(asc(bodyWeight.date), asc(bodyWeight.id))
       .all()
       .map((entry) => ({ ...entry, weightKg: Number(entry.weightKg) }));
-    const rawModelPoints = calculateAdaptiveTrendPoints(weightRows).filter(
+    const adaptiveWeightRows = weightRows.filter(
+      (entry) =>
+        entry.date >=
+          addCalendarDays(
+            goal.startedLocalDate,
+            -(ADAPTIVE_TDEE_CONSTANTS.analysisDays + ADAPTIVE_TDEE_CONSTANTS.warmupDays - 1),
+          ) && entry.date <= evidenceThroughDate,
+    );
+    const rawModelPoints = calculateAdaptiveTrendPoints(adaptiveWeightRows).filter(
       (point) => point.date >= goal.startedLocalDate && point.date <= evidenceThroughDate,
     );
+    const productSeries = calculateCanonicalTrendWeightSeries(
+      weightRows,
+      goal.startedLocalDate,
+      strategyAsOfDate,
+    );
+    const rawProductCurrent = calculateCanonicalTrendWeightCurrent(weightRows, strategyAsOfDate);
+    const productCurrent =
+      rawProductCurrent.latestScale?.date &&
+      rawProductCurrent.latestScale.date >= goal.startedLocalDate
+        ? rawProductCurrent
+        : {
+            latestScale: null,
+            trendWeightKg: null,
+            trendDate: null,
+            scaleTrendDifferenceKg: null,
+            rateKgPerWeek: null,
+            state: 'no_data' as const,
+            evidence: { observationCount: 0, spanDays: 0, latestAgeDays: null },
+          };
     const requestedRangeStart =
       query.range === 'all'
         ? goal.startedLocalDate
@@ -239,7 +304,7 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
     const currentEligibility = evaluateEligibility({
       boundaries: currentBoundaries,
       nutritionDays: [],
-      weightEntries: weightRows,
+      weightEntries: adaptiveWeightRows,
     });
     const goalPeriodEligibilityTrendPoints = currentEligibility.trendPoints.filter(
       (point) => point.date >= goal.startedLocalDate && point.date <= strategyAsOfDate,
@@ -260,7 +325,7 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
             sourceEntryId: null,
             interpolated: true,
           }
-        : (goalPeriodEligibilityTrendPoints.at(-1) ?? storedStartPoint);
+        : (goalPeriodEligibilityTrendPoints.at(-1) ?? null);
     const endpointCorrectPointsByDate = new Map(
       rawModelPoints.map((point) => [point.date, point] as const),
     );
@@ -314,6 +379,8 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
         proposedTdeeKcal: adaptiveNutritionCheckIns.proposedTdeeKcal,
         proposedTargets: adaptiveNutritionCheckIns.proposedTargets,
         calculationSnapshot: adaptiveNutritionCheckIns.calculationSnapshot,
+        acceptedNutritionTargetId: adaptiveNutritionCheckIns.acceptedNutritionTargetId,
+        resolvedAt: adaptiveNutritionCheckIns.resolvedAt,
         createdAt: adaptiveNutritionCheckIns.createdAt,
       })
       .from(adaptiveNutritionCheckIns)
@@ -322,6 +389,7 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
           eq(adaptiveNutritionCheckIns.userId, userId),
           eq(adaptiveNutritionCheckIns.programId, program.id),
           lte(adaptiveNutritionCheckIns.localDate, strategyAsOfDate),
+          lte(adaptiveNutritionCheckIns.createdAt, causalCutoff - 1),
         ),
       )
       .orderBy(
@@ -329,7 +397,15 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
         asc(adaptiveNutritionCheckIns.createdAt),
         asc(adaptiveNutritionCheckIns.id),
       )
-      .all();
+      .all()
+      .map((checkIn) => ({
+        ...checkIn,
+        status:
+          checkIn.status !== 'held' &&
+          (checkIn.resolvedAt === null || checkIn.resolvedAt >= causalCutoff)
+            ? ('pending' as const)
+            : checkIn.status,
+      }));
     const acceptedForGoal = checkIns.filter(
       (checkIn) => checkIn.goalId === goalId && checkIn.status === 'accepted',
     );
@@ -365,7 +441,10 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
     });
     const targets = db
       .select({
+        id: nutritionTargets.id,
         calories: nutritionTargets.calories,
+        source: nutritionTargets.source,
+        adaptiveCheckInId: nutritionTargets.adaptiveCheckInId,
         effectiveDate: nutritionTargets.effectiveDate,
         createdAt: nutritionTargets.createdAt,
       })
@@ -374,11 +453,25 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
         and(
           eq(nutritionTargets.userId, userId),
           lte(nutritionTargets.effectiveDate, strategyAsOfDate),
+          lte(nutritionTargets.createdAt, causalCutoff - 1),
         ),
       )
       .orderBy(asc(nutritionTargets.effectiveDate), asc(nutritionTargets.createdAt))
       .all();
-    const currentTarget = targets.at(-1) ?? null;
+    const acceptedTargetIds = new Set(
+      checkIns
+        .filter((checkIn) => checkIn.status === 'accepted')
+        .map((checkIn) => checkIn.acceptedNutritionTargetId)
+        .filter((id): id is string => id !== null),
+    );
+    const currentTarget =
+      targets
+        .filter(
+          (target) =>
+            target.source !== 'adaptive' ||
+            (target.adaptiveCheckInId !== null && acceptedTargetIds.has(target.id)),
+        )
+        .at(-1) ?? null;
     const acceptedExpenditure = checkIns
       .filter(
         (checkIn) =>
@@ -395,14 +488,13 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
           left.id.localeCompare(right.id),
       )
       .at(-1);
-    const displayPoints = modelPoints
-      .filter(
-        (point) =>
-          point.date >= rangeStart &&
-          (point.date <= evidenceThroughDate || point.date === currentTrendPoint.date),
-      )
+    const displayPoints = productSeries
+      .filter((point) => point.date >= rangeStart)
       .map((point) => {
         const revision = latestRevisionOn(revisions, point.date);
+        const adaptivePoint = [...modelPoints]
+          .reverse()
+          .find((candidate) => candidate.date <= point.date);
         const center = revision.maintenanceCenterKg;
         const radius = center
           ? Math.max(
@@ -413,9 +505,14 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
         return {
           date: point.date,
           trendWeightKg: point.trendWeightKg,
-          modeledWeightKg: point.weightKg,
+          scaleWeightKg: point.scaleWeightKg,
           sourceEntryId: point.sourceEntryId,
-          interpolated: point.interpolated,
+          evidenceState: point.state,
+          observationCount: point.observationCount,
+          spanDays: point.spanDays,
+          gapFromPreviousDays: point.gapFromPreviousDays,
+          corrected: point.corrected,
+          adaptiveStrategyTrendWeightKg: adaptivePoint?.trendWeightKg ?? null,
           goalRevisionId: revision.id,
           revisionSequence: revision.sequence,
           targetWeightKg: revision.targetWeightKg,
@@ -423,7 +520,9 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
           maintenanceLowerKg: center !== null && radius !== null ? center - radius : null,
           maintenanceUpperKg: center !== null && radius !== null ? center + radius : null,
           section:
-            point.date === currentTrendPoint.date ? ('current' as const) : ('historical' as const),
+            point.date === productCurrent.trendDate
+              ? ('current' as const)
+              : ('historical' as const),
         };
       });
     const completion = db
@@ -441,6 +540,7 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
             eq(adaptiveNutritionGoalCompletions.completedGoalId, goalId),
             eq(adaptiveNutritionGoalCompletions.maintenanceGoalId, goalId),
           ),
+          lte(adaptiveNutritionGoalCompletions.createdAt, causalCutoff - 1),
         ),
       )
       .limit(1)
@@ -457,25 +557,55 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
       },
       ...revisions
         .filter((revision) => revision.sequence > 1)
-        .map((revision) => ({
-          id: revision.id,
-          date: revision.effectiveLocalDate,
-          kind: 'goal_revised' as const,
-          label: `Target or rate revised · revision ${revision.sequence}`,
-          goalRevisionId: revision.id,
-          revisionSequence: revision.sequence,
-          checkInId: null,
-        })),
-      ...acceptedForGoal.map((checkIn) => ({
-        id: checkIn.id,
-        date: checkIn.localDate,
-        kind: 'accepted_check_in' as const,
-        label: 'Accepted check-in target change',
-        goalRevisionId: checkIn.goalRevisionId,
-        revisionSequence:
-          revisions.find((revision) => revision.id === checkIn.goalRevisionId)?.sequence ?? null,
-        checkInId: checkIn.id,
-      })),
+        .map((revision) => {
+          const targetChanged =
+            revision.targetWeightKg !== revision.previousTargetWeightKg ||
+            revision.maintenanceCenterKg !== revision.previousCenterKg;
+          const rateChanged = revision.goalRatePctPerWeek !== revision.previousRatePctPerWeek;
+          return {
+            id: revision.id,
+            date: revision.effectiveLocalDate,
+            kind: targetChanged
+              ? rateChanged
+                ? ('goal_target_and_rate_revised' as const)
+                : ('goal_target_revised' as const)
+              : ('goal_rate_revised' as const),
+            label: `${targetChanged ? 'Goal target' : 'Goal rate'}${targetChanged && rateChanged ? ' and rate' : ''} revised · revision ${revision.sequence}`,
+            goalRevisionId: revision.id,
+            revisionSequence: revision.sequence,
+            checkInId: null,
+          };
+        }),
+      ...acceptedForGoal.map((checkIn) => {
+        const acceptedTarget = targets.find(
+          (target) =>
+            target.id === checkIn.acceptedNutritionTargetId &&
+            target.adaptiveCheckInId === checkIn.id,
+        );
+        const reached = calculationGoalReached(checkIn.calculationSnapshot);
+        return {
+          id: checkIn.id,
+          date: checkIn.localDate,
+          kind: reached
+            ? ('goal_reached_review' as const)
+            : acceptedTarget
+              ? ('accepted_target_change' as const)
+              : checkIn.proposedTdeeKcal !== null
+                ? ('accepted_expenditure_update' as const)
+                : ('accepted_no_target_change' as const),
+          label: reached
+            ? 'Accepted goal-reached review'
+            : acceptedTarget
+              ? `Accepted target change · ${Math.round(acceptedTarget.calories).toLocaleString('en-US')} kcal`
+              : checkIn.proposedTdeeKcal !== null
+                ? 'Accepted expenditure update · targets unchanged'
+                : 'Accepted review · targets unchanged',
+          goalRevisionId: checkIn.goalRevisionId,
+          revisionSequence:
+            revisions.find((revision) => revision.id === checkIn.goalRevisionId)?.sequence ?? null,
+          checkInId: checkIn.id,
+        };
+      }),
       ...(goalClosedAsOf && completion?.completedGoalId === goalId
         ? [
             {
@@ -489,15 +619,34 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
             },
           ]
         : []),
-    ].sort(
-      (left, right) =>
+    ].sort((left, right) => {
+      const kindOrder = [
+        'goal_started',
+        'goal_target_revised',
+        'goal_rate_revised',
+        'goal_target_and_rate_revised',
+        'accepted_target_change',
+        'accepted_expenditure_update',
+        'accepted_no_target_change',
+        'goal_reached_review',
+        'goal_completed',
+      ];
+      return (
         left.date.localeCompare(right.date) ||
+        kindOrder.indexOf(left.kind) - kindOrder.indexOf(right.kind) ||
         (left.revisionSequence ?? 0) - (right.revisionSequence ?? 0) ||
-        left.id.localeCompare(right.id),
-    );
+        left.id.localeCompare(right.id)
+      );
+    });
     return adaptiveGoalTrajectorySchema.parse({
       algorithmVersion: 'adaptive-tdee-v1',
-      trendSource: 'adaptive_model_trend',
+      trendSource: 'product_trend_weight_v1',
+      strategyTrendSource: 'adaptive_model_trend',
+      productTrend: {
+        currentTrendWeightKg: productCurrent.trendWeightKg,
+        currentTrendDate: productCurrent.trendDate,
+        state: productCurrent.state,
+      },
       timeZone,
       isHistorical: calculationGoal.status !== 'active' || strategyAsOfDate < today,
       goal: calculationGoal,

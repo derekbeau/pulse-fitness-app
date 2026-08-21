@@ -85,7 +85,8 @@ export function GoalTrajectoryWorkspace({ goalId, end }: { goalId: string; end?:
             <div>
               <p className="text-sm font-semibold">Chart range</p>
               <p aria-live="polite" className="text-xs text-muted-foreground">
-                {range.toUpperCase()} · {analytics.trendPoints.length} modeled daily points
+                {range.toUpperCase()} · {analytics.trendPoints.length} Product Trend Weight
+                observations
               </p>
             </div>
             <div className="flex flex-wrap gap-2" role="group" aria-label="Goal trajectory range">
@@ -186,20 +187,29 @@ function TrajectoryHero({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5 px-5 pb-5 sm:px-6">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <HeroMetric
-            label="Start trend"
-            sublabel={formatAdaptiveDate(analytics.goal.startedLocalDate)}
-            value={formatAdaptiveWeight(summary.startTrendWeightKg, unit)}
+            label="Product Trend Weight"
+            sublabel={
+              analytics.productTrend.currentTrendDate
+                ? `${formatAdaptiveDate(analytics.productTrend.currentTrendDate)} · ${analytics.productTrend.state.replace('_', ' ')}`
+                : 'Not enough goal-period evidence'
+            }
+            value={formatAdaptiveWeight(analytics.productTrend.currentTrendWeightKg, unit)}
           />
           <HeroMetric
-            label="Current model trend"
+            label="Adaptive strategy trend"
             sublabel={
               summary.currentTrendDate
                 ? formatAdaptiveDate(summary.currentTrendDate)
                 : 'Not enough evidence'
             }
             value={formatAdaptiveWeight(summary.currentTrendWeightKg, unit)}
+          />
+          <HeroMetric
+            label="Stored Adaptive start"
+            sublabel={formatAdaptiveDate(analytics.goal.startedLocalDate)}
+            value={formatAdaptiveWeight(summary.startTrendWeightKg, unit)}
           />
           <HeroMetric
             label={summary.kind === 'maintenance' ? 'Center' : 'Target'}
@@ -332,6 +342,8 @@ function ForecastCard({
         return 'Pulse can show the measured pace, but the evidence is still limited, so it is not publishing a completion range. Your goal and current targets have not changed.';
       case 'INSUFFICIENT_TREND':
         return 'Pulse does not have enough supported trend history for an honest completion range. Your goal and current targets have not changed.';
+      case 'INSUFFICIENT_OBSERVED_WEIGHT':
+        return 'Pulse does not have enough observed weigh-ins for an honest completion range. Modeled dates are not counted as scale evidence, and your plan has not changed.';
     }
   })();
   return (
@@ -356,7 +368,11 @@ function ForecastCard({
           />
           <Metric
             label={`Recent pace · ${actualRate.lookbackDays} days`}
-            value={formatAdaptiveWeightChange(actualRate.kgPerWeek, unit)}
+            value={
+              actualRate.status === 'available'
+                ? formatAdaptiveWeightChange(actualRate.kgPerWeek, unit)
+                : 'Not measured'
+            }
           />
           <Metric
             label="Estimated completion"
@@ -606,7 +622,8 @@ function GoalRecord({ analytics, unit }: { analytics: AdaptiveGoalTrajectory; un
           ))}
         </ol>
         <p className="text-xs text-muted-foreground">
-          Trend source: Adaptive model trend ({analytics.algorithmVersion}).{' '}
+          Display trend: Product Trend Weight v1. Strategy trend: Adaptive model trend (
+          {analytics.algorithmVersion}).{' '}
           {analytics.isHistorical ? 'Latest scale evidence in this goal' : 'Current scale evidence'}
           {analytics.summary.latestScale
             ? ` · ${formatAdaptiveDate(analytics.summary.latestScale.date)}: ${formatAdaptiveWeight(analytics.summary.latestScale.weightKg, unit)}`

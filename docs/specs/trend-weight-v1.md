@@ -40,10 +40,13 @@ change those consent-sensitive calculations.
 
 The `/api/v1/weight/trend` response states the policy explicitly:
 
-- Product Trend Weight drives the dashboard, the Trend Weight workspace, and coaching direction.
+- Product Trend Weight drives the dashboard, the Trend Weight workspace, coaching direction, and
+  the primary historical line in Goal Trajectory.
 - Scale weight remains the measurement history.
-- The Adaptive model trend continues to drive Adaptive TDEE and existing goal ETA/completion,
-  maintenance, and celebration safeguards.
+- The Adaptive model trend continues to drive Adaptive TDEE and Goal Trajectory strategy facts:
+  completed/remaining distance, weekly contributions, recent strategy pace, ETA/forecast,
+  maintenance, completion, and celebration safeguards. Those facts remain explicitly labeled and
+  are never presented as Product Trend Weight.
 
 UI code must consume these server facts and must not recompute EWMA, deltas, rates, confidence, or
 goal comparison.

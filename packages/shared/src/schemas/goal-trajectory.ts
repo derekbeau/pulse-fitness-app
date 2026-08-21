@@ -102,6 +102,7 @@ export const adaptiveGoalTrajectoryForecastSchema = z
     unavailableReason: z
       .enum([
         'INSUFFICIENT_TREND',
+        'INSUFFICIENT_OBSERVED_WEIGHT',
         'STALE_WEIGHT',
         'MOVING_AWAY',
         'RATE_TOO_SMALL',
@@ -280,10 +281,15 @@ export const adaptiveGoalTrajectorySummarySchema = z.discriminatedUnion('kind', 
 export const adaptiveGoalTrajectoryPointSchema = z
   .object({
     date: dateSchema,
-    trendWeightKg: z.number().positive().finite(),
-    modeledWeightKg: z.number().positive().finite(),
-    sourceEntryId: z.string().nullable(),
-    interpolated: z.boolean(),
+    trendWeightKg: z.number().positive().finite().nullable(),
+    scaleWeightKg: z.number().positive().finite(),
+    sourceEntryId: z.string().min(1),
+    evidenceState: z.enum(['scale_only', 'developing', 'sufficient']),
+    observationCount: z.number().int().positive(),
+    spanDays: z.number().int().nonnegative(),
+    gapFromPreviousDays: z.number().int().nonnegative().nullable(),
+    corrected: z.boolean(),
+    adaptiveStrategyTrendWeightKg: z.number().positive().finite().nullable(),
     goalRevisionId: z.string().min(1),
     revisionSequence: z.number().int().positive(),
     targetWeightKg: z.number().positive().finite().nullable(),
@@ -292,7 +298,26 @@ export const adaptiveGoalTrajectoryPointSchema = z
     maintenanceUpperKg: z.number().positive().finite().nullable(),
     section: z.enum(['historical', 'current']),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const validEvidence =
+      (value.evidenceState === 'scale_only' &&
+        value.trendWeightKg === null &&
+        value.observationCount === 1) ||
+      (value.evidenceState === 'developing' &&
+        value.trendWeightKg !== null &&
+        value.observationCount >= 2) ||
+      (value.evidenceState === 'sufficient' &&
+        value.trendWeightKg !== null &&
+        value.observationCount >= 3 &&
+        value.spanDays >= 14);
+    if (!validEvidence) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Product Trend Weight point state must agree with its evidence and precision',
+      });
+    }
+  });
 
 export const adaptiveGoalWeeklyContributionSchema = z
   .object({
@@ -332,7 +357,17 @@ export const adaptiveGoalTrajectoryAnnotationSchema = z
   .object({
     id: z.string().min(1),
     date: dateSchema,
-    kind: z.enum(['goal_started', 'goal_revised', 'accepted_check_in', 'goal_completed']),
+    kind: z.enum([
+      'goal_started',
+      'goal_target_revised',
+      'goal_rate_revised',
+      'goal_target_and_rate_revised',
+      'accepted_target_change',
+      'accepted_expenditure_update',
+      'accepted_no_target_change',
+      'goal_reached_review',
+      'goal_completed',
+    ]),
     label: z.string().min(1),
     goalRevisionId: z.string().nullable(),
     revisionSequence: z.number().int().positive().nullable(),
@@ -413,7 +448,15 @@ export const adaptiveGoalCompletionReviewSchema = z
 export const adaptiveGoalTrajectorySchema = z
   .object({
     algorithmVersion: adaptiveTdeeAlgorithmVersionSchema,
-    trendSource: z.literal('adaptive_model_trend'),
+    trendSource: z.literal('product_trend_weight_v1'),
+    strategyTrendSource: z.literal('adaptive_model_trend'),
+    productTrend: z
+      .object({
+        currentTrendWeightKg: z.number().positive().finite().nullable(),
+        currentTrendDate: dateSchema.nullable(),
+        state: z.enum(['no_data', 'scale_only', 'developing', 'sufficient', 'stale']),
+      })
+      .strict(),
     timeZone: z.string().min(1),
     isHistorical: z.boolean(),
     goal: adaptiveGoalSchema,
@@ -447,6 +490,29 @@ export const adaptiveGoalTrajectorySchema = z
   })
   .strict()
   .superRefine((value, context) => {
+    const productHasTrend = value.productTrend.currentTrendWeightKg !== null;
+    if (
+      productHasTrend !== (value.productTrend.currentTrendDate !== null) ||
+      (!productHasTrend &&
+        value.productTrend.state !== 'no_data' &&
+        value.productTrend.state !== 'scale_only' &&
+        value.productTrend.state !== 'stale')
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Product Trend Weight state must agree with its current value and date',
+      });
+    }
+    if (
+      value.productTrend.currentTrendDate !== null &&
+      (value.productTrend.currentTrendDate < value.goal.startedLocalDate ||
+        value.productTrend.currentTrendDate > value.strategyAsOfDate)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Product Trend Weight must stay inside the requested goal period',
+      });
+    }
     if (
       value.range.endDate !== value.strategyAsOfDate ||
       value.range.startDate < value.goal.startedLocalDate
@@ -494,15 +560,17 @@ export const adaptiveGoalTrajectorySchema = z
     }
     const currentSections = value.trendPoints.filter((point) => point.section === 'current');
     const currentIsInRange =
-      value.currentTrendDate !== null && value.currentTrendDate >= value.range.startDate;
+      value.productTrend.currentTrendDate !== null &&
+      value.productTrend.currentTrendDate >= value.range.startDate;
     if (
-      currentSections.some((point) => point.date !== value.currentTrendDate) ||
+      currentSections.some((point) => point.date !== value.productTrend.currentTrendDate) ||
       (currentIsInRange &&
-        (currentSections.length !== 1 || currentSections[0]?.date !== value.currentTrendDate))
+        (currentSections.length !== 1 ||
+          currentSections[0]?.date !== value.productTrend.currentTrendDate))
     ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Current trajectory section must agree with the current trend date',
+        message: 'Current trajectory section must agree with the Product Trend Weight date',
       });
     }
     if (

@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { fileURLToPath } from 'node:url';
@@ -6,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   calculateAdaptiveDateBoundaries,
-  calculateAdaptiveTrendPoints,
+  calculateCanonicalTrendWeightSeries,
   evaluateEligibility,
 } from '@pulse/shared';
 
@@ -26,6 +27,7 @@ import {
   AdaptiveGoalTrajectoryFutureEndError,
   AdaptiveGoalTrajectoryPreGoalEndError,
   createAdaptiveGoalTrajectoryStore,
+  endOfLocalDateExclusive,
 } from './goal-trajectory-store.js';
 import { AdaptiveGoalNotFoundError } from './goal-store.js';
 
@@ -179,7 +181,7 @@ const setup = (targetWeightKg = 90) => {
         fat: 70,
         effectiveDate: '2026-07-15',
       },
-      acceptedNutritionTargetId: null,
+      acceptedNutritionTargetId: 'target-1',
       resolvedAt: Date.parse('2026-07-15T12:00:00Z'),
       createdAt: Date.parse('2026-07-15T12:00:00Z'),
     })
@@ -195,6 +197,8 @@ const setup = (targetWeightKg = 90) => {
       source: 'adaptive',
       adaptiveCheckInId: 'check-in-1',
       effectiveDate: '2026-07-15',
+      createdAt: Date.parse('2026-07-15T12:00:00Z'),
+      updatedAt: Date.parse('2026-07-15T12:00:00Z'),
     })
     .run();
   const store = createAdaptiveGoalTrajectoryStore({ db, now: () => now });
@@ -202,6 +206,15 @@ const setup = (targetWeightKg = 90) => {
 };
 
 describe('adaptive goal trajectory store', () => {
+  it.each([
+    ['2026-03-08', 'America/Detroit', '2026-03-09T04:00:00.000Z'],
+    ['2026-11-01', 'America/Detroit', '2026-11-02T05:00:00.000Z'],
+    ['2026-08-20', 'Pacific/Kiritimati', '2026-08-20T10:00:00.000Z'],
+    ['2026-08-20', 'Etc/GMT+12', '2026-08-21T12:00:00.000Z'],
+  ])('resolves %s in %s through the true local end of day', (date, timeZone, expected) => {
+    expect(new Date(endOfLocalDateExclusive(date, timeZone)).toISOString()).toBe(expected);
+  });
+
   it('returns one read-only goal-scoped Adaptive model trajectory with effective context', () => {
     const { db, sqlite, store, weights } = setup();
     try {
@@ -221,7 +234,8 @@ describe('adaptive goal trajectory store', () => {
       });
       expect(trajectory).toMatchObject({
         algorithmVersion: 'adaptive-tdee-v1',
-        trendSource: 'adaptive_model_trend',
+        trendSource: 'product_trend_weight_v1',
+        strategyTrendSource: 'adaptive_model_trend',
         timeZone: 'America/Detroit',
         isHistorical: false,
         strategyAsOfDate: '2026-08-20',
@@ -237,11 +251,8 @@ describe('adaptive goal trajectory store', () => {
       expect(trajectory.summary.kind).toBe('weight_change');
       expect(trajectory.annotations.map((annotation) => annotation.kind)).toEqual([
         'goal_started',
-        'accepted_check_in',
+        'accepted_target_change',
       ]);
-      const expected = calculateAdaptiveTrendPoints(
-        weights.map(({ id, date, weightKg, updatedAt }) => ({ id, date, weightKg, updatedAt })),
-      ).filter((point) => point.date >= '2026-07-01');
       const canonicalCurrent = evaluateEligibility({
         boundaries: calculateAdaptiveDateBoundaries('2026-08-20', false),
         nutritionDays: [],
@@ -257,14 +268,28 @@ describe('adaptive goal trajectory store', () => {
         canonicalCurrent?.trendWeightKg ?? 0,
         8,
       );
-      expect(trajectory.trendPoints).toHaveLength(expected.length);
+      expect(trajectory.trendPoints.length).toBeGreaterThan(1);
+      const expectedProduct = calculateCanonicalTrendWeightSeries(
+        weights,
+        '2026-07-01',
+        '2026-08-20',
+      );
+      expect(
+        trajectory.trendPoints.map(({ date, trendWeightKg }) => ({ date, trendWeightKg })),
+      ).toEqual(expectedProduct.map(({ date, trendWeightKg }) => ({ date, trendWeightKg })));
+      expect(
+        Math.abs(
+          (trajectory.productTrend.currentTrendWeightKg ?? 0) -
+            (trajectory.summary.currentTrendWeightKg ?? 0),
+        ),
+      ).toBeGreaterThan(0.1);
       expect(trajectory.trendPoints[0]).toMatchObject({
         date: '2026-07-01',
-        trendWeightKg: 100,
+        scaleWeightKg: 100,
       });
       expect(trajectory.trendPoints.at(-1)).toMatchObject({
         date: trajectory.currentTrendDate,
-        trendWeightKg: trajectory.summary.currentTrendWeightKg,
+        trendWeightKg: trajectory.productTrend.currentTrendWeightKg,
         section: 'current',
       });
       expect({
@@ -322,12 +347,18 @@ describe('adaptive goal trajectory store', () => {
       expect(august.summary).toMatchObject({ targetWeightKg: 88, startTrendWeightKg: 100 });
       expect(august.forecast).toEqual(all.forecast);
       expect(august.actualRate).toEqual(all.actualRate);
+      for (const point of august.trendPoints) {
+        expect(all.trendPoints.find((candidate) => candidate.date === point.date)).toMatchObject({
+          date: point.date,
+          trendWeightKg: point.trendWeightKg,
+        });
+      }
       expect(
         august.trendPoints.find((point) => point.date === '2026-07-31')?.revisionSequence,
       ).toBe(1);
       expect(august.annotations).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ kind: 'goal_revised', date: '2026-08-01' }),
+          expect.objectContaining({ kind: 'goal_target_and_rate_revised', date: '2026-08-01' }),
         ]),
       );
     } finally {
@@ -427,9 +458,9 @@ describe('adaptive goal trajectory store', () => {
       expect(trajectory.currentTrendDate).toBe('2026-07-31');
       expect(trajectory.trendPoints.at(-1)).toMatchObject({
         date: '2026-07-31',
-        trendWeightKg: 97,
         section: 'current',
       });
+      expect(trajectory.trendPoints.at(-1)?.trendWeightKg).not.toBe(97);
       expect(trajectory.completionReview).toMatchObject({
         completionReviewRequired: false,
         completionAllowed: false,
@@ -524,7 +555,7 @@ describe('adaptive goal trajectory store', () => {
       expect(active).toMatchObject({
         strategyAsOfDate: '2026-08-20',
         evidenceThroughDate: '2026-08-19',
-        currentTrendDate: '2026-08-20',
+        currentTrendDate: null,
         actualRate: {
           status: 'unavailable',
           unavailableReason: 'INSUFFICIENT_TREND',
@@ -532,13 +563,9 @@ describe('adaptive goal trajectory store', () => {
         },
       });
       expect(active.summary.latestScale).toBeNull();
-      expect(active.trendPoints).toEqual([
-        expect.objectContaining({
-          date: '2026-08-20',
-          trendWeightKg: 96,
-          section: 'current',
-        }),
-      ]);
+      expect(active.summary.currentTrendWeightKg).toBeNull();
+      expect(active.productTrend).toMatchObject({ state: 'no_data', currentTrendDate: null });
+      expect(active.trendPoints).toEqual([]);
     } finally {
       sqlite.close();
     }
@@ -553,7 +580,7 @@ describe('adaptive goal trajectory store', () => {
           finalTrendWeightKg: 96.2,
           endedLocalDate: '2026-08-20',
           endedReason: 'completed',
-          updatedAt: Date.parse('2026-08-20T18:00:00Z'),
+          updatedAt: Date.parse('2026-08-20T14:00:00Z'),
         })
         .run();
       const closed = store.getTrajectory('user-1', 'goal-1', {
@@ -567,11 +594,7 @@ describe('adaptive goal trajectory store', () => {
         summary: { currentTrendWeightKg: 96.2 },
         completionReview: { reasonCode: 'GOAL_CLOSED' },
       });
-      expect(closed.trendPoints.at(-1)).toMatchObject({
-        date: '2026-08-20',
-        trendWeightKg: 96.2,
-        section: 'current',
-      });
+      expect(closed.trendPoints.some((point) => point.date === '2026-08-20')).toBe(false);
     } finally {
       sqlite.close();
     }
@@ -748,6 +771,243 @@ describe('adaptive goal trajectory store', () => {
       );
       expect(trajectory.annotations).toEqual(
         expect.arrayContaining([expect.objectContaining({ kind: 'goal_started' })]),
+      );
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('labels accepted reviews from their actual target and expenditure relations', () => {
+    const { db, sqlite, store } = setup();
+    try {
+      const acceptedAt = Date.parse('2026-08-01T12:00:00Z');
+      const base = {
+        userId: 'user-1',
+        programId: 'program-1',
+        goalId: 'goal-1',
+        goalRevisionId: 'goal-revision-1',
+        kind: 'weekly' as const,
+        status: 'accepted' as const,
+        calculationState: 'updating' as const,
+        analysisStart: '2026-07-10',
+        analysisEnd: '2026-07-30',
+        includeToday: false,
+        algorithmVersion: 'adaptive-tdee-v1',
+        inputSnapshot: { version: 2 },
+        calculationSnapshot: { goal: { goalReached: false } },
+        reasonCodes: [] as string[],
+        priorTdeeKcal: 2475,
+        observedTdeeKcal: 2450,
+        currentTargets: null,
+        proposedTargets: null,
+        acceptedNutritionTargetId: null,
+        resolvedAt: acceptedAt,
+        createdAt: acceptedAt,
+      };
+      db.insert(adaptiveNutritionCheckIns)
+        .values([
+          {
+            ...base,
+            id: 'expenditure-only-check-in',
+            localDate: '2026-08-01',
+            dataFingerprint: 'e'.repeat(64),
+            proposedTdeeKcal: 2460,
+          },
+          {
+            ...base,
+            id: 'no-change-check-in',
+            localDate: '2026-08-02',
+            dataFingerprint: 'f'.repeat(64),
+            proposedTdeeKcal: null,
+          },
+        ])
+        .run();
+      const annotations = store
+        .getTrajectory('user-1', 'goal-1', { range: 'all', lookbackDays: 21 })
+        .annotations.map(({ kind, label }) => ({ kind, label }));
+      expect(annotations).toEqual(
+        expect.arrayContaining([
+          {
+            kind: 'accepted_expenditure_update',
+            label: 'Accepted expenditure update · targets unchanged',
+          },
+          { kind: 'accepted_no_target_change', label: 'Accepted review · targets unchanged' },
+        ]),
+      );
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('keeps an earlier historical response byte-stable after later backdated acceptance events', () => {
+    const { db, sqlite, store } = setup();
+    try {
+      db.insert(adaptiveNutritionCheckIns)
+        .values({
+          id: 'late-check-in',
+          userId: 'user-1',
+          programId: 'program-1',
+          goalId: 'goal-1',
+          goalRevisionId: 'goal-revision-1',
+          kind: 'weekly',
+          status: 'pending',
+          calculationState: 'updating',
+          localDate: '2026-07-10',
+          analysisStart: '2026-06-19',
+          analysisEnd: '2026-07-09',
+          includeToday: false,
+          algorithmVersion: 'adaptive-tdee-v1',
+          dataFingerprint: 'd'.repeat(64),
+          inputSnapshot: { version: 2 },
+          calculationSnapshot: { goal: { goalReached: true } },
+          reasonCodes: [],
+          priorTdeeKcal: 2500,
+          observedTdeeKcal: 2400,
+          proposedTdeeKcal: 2425,
+          currentTargets: null,
+          proposedTargets: {
+            calories: 2050,
+            protein: 180,
+            carbs: 175,
+            fat: 70,
+            effectiveDate: '2026-07-10',
+          },
+          acceptedNutritionTargetId: null,
+          resolvedAt: null,
+          createdAt: Date.parse('2026-07-05T12:00:00Z'),
+        })
+        .run();
+      const historicalQuery = {
+        range: 'all' as const,
+        lookbackDays: 21 as const,
+        end: '2026-07-10',
+      };
+      const before = store.getTrajectory('user-1', 'goal-1', historicalQuery);
+
+      const acceptedAt = Date.parse('2026-07-20T12:00:00Z');
+      db.insert(nutritionTargets)
+        .values({
+          id: 'late-target',
+          userId: 'user-1',
+          calories: 2050,
+          protein: 180,
+          carbs: 175,
+          fat: 70,
+          source: 'adaptive',
+          adaptiveCheckInId: 'late-check-in',
+          effectiveDate: '2026-07-10',
+          createdAt: acceptedAt,
+          updatedAt: acceptedAt,
+        })
+        .run();
+      db.update(adaptiveNutritionCheckIns)
+        .set({
+          status: 'accepted',
+          acceptedNutritionTargetId: 'late-target',
+          resolvedAt: acceptedAt,
+        })
+        .where(eq(adaptiveNutritionCheckIns.id, 'late-check-in'))
+        .run();
+      db.insert(adaptiveNutritionGoalRevisions)
+        .values({
+          id: 'late-goal-revision',
+          goalId: 'goal-1',
+          userId: 'user-1',
+          sequence: 2,
+          targetWeightKg: 88,
+          maintenanceCenterKg: null,
+          goalRatePctPerWeek: -0.4,
+          previousTargetWeightKg: 90,
+          previousCenterKg: null,
+          previousRatePctPerWeek: -0.5,
+          reason: 'user_edit',
+          effectiveLocalDate: '2026-07-10',
+          createdAt: acceptedAt,
+        })
+        .run();
+      db.insert(adaptiveNutritionProgramRevisions)
+        .values({
+          id: 'late-program-revision',
+          programId: 'program-1',
+          userId: 'user-1',
+          sequence: 2,
+          effectiveAt: acceptedAt,
+          snapshot: { ...programSnapshot, timeZone: 'Asia/Tokyo', targetWeightKg: 88 },
+          source: 'program_updated',
+          createdAt: acceptedAt,
+        })
+        .run();
+      db.update(adaptiveNutritionGoals)
+        .set({
+          status: 'completed',
+          finalTrendWeightKg: 99,
+          endedLocalDate: '2026-07-10',
+          endedReason: 'completed',
+          updatedAt: acceptedAt,
+        })
+        .where(eq(adaptiveNutritionGoals.id, 'goal-1'))
+        .run();
+      db.insert(adaptiveNutritionGoals)
+        .values({
+          id: 'late-maintenance-goal',
+          userId: 'user-1',
+          programId: 'program-1',
+          type: 'maintain',
+          status: 'active',
+          startTrendWeightKg: 99,
+          startScaleWeightKg: 99,
+          finalTrendWeightKg: null,
+          targetWeightKg: null,
+          maintenanceCenterKg: 99,
+          goalRatePctPerWeek: 0,
+          startedLocalDate: '2026-07-10',
+          createdAt: acceptedAt,
+          updatedAt: acceptedAt,
+        })
+        .run();
+      db.insert(adaptiveNutritionGoalRevisions)
+        .values({
+          id: 'late-maintenance-revision',
+          goalId: 'late-maintenance-goal',
+          userId: 'user-1',
+          sequence: 1,
+          targetWeightKg: null,
+          maintenanceCenterKg: 99,
+          goalRatePctPerWeek: 0,
+          previousTargetWeightKg: null,
+          previousCenterKg: 99,
+          previousRatePctPerWeek: 0,
+          reason: 'goal_completion',
+          effectiveLocalDate: '2026-07-10',
+          createdAt: acceptedAt,
+        })
+        .run();
+      db.insert(adaptiveNutritionGoalCompletions)
+        .values({
+          checkInId: 'late-check-in',
+          userId: 'user-1',
+          completedGoalId: 'goal-1',
+          maintenanceGoalId: 'late-maintenance-goal',
+          createdAt: acceptedAt,
+        })
+        .run();
+
+      expect(store.getTrajectory('user-1', 'goal-1', historicalQuery)).toEqual(before);
+      const live = store.getTrajectory('user-1', 'goal-1', {
+        range: 'all',
+        lookbackDays: 21,
+      });
+      expect(live).toMatchObject({
+        goal: { status: 'completed' },
+        activeRevision: { id: 'late-goal-revision' },
+        context: { calorieTargetKcal: 2050 },
+      });
+      expect(live.annotations.map((annotation) => annotation.kind)).toEqual(
+        expect.arrayContaining([
+          'goal_target_and_rate_revised',
+          'goal_reached_review',
+          'goal_completed',
+        ]),
       );
     } finally {
       sqlite.close();

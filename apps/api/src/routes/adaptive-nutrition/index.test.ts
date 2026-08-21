@@ -276,7 +276,13 @@ const energyBalanceAnalytics = {
 };
 const goalTrajectory = {
   algorithmVersion: 'adaptive-tdee-v1' as const,
-  trendSource: 'adaptive_model_trend' as const,
+  trendSource: 'product_trend_weight_v1' as const,
+  strategyTrendSource: 'adaptive_model_trend' as const,
+  productTrend: {
+    currentTrendWeightKg: 82,
+    currentTrendDate: '2026-06-01',
+    state: 'developing' as const,
+  },
   timeZone: 'America/Detroit',
   isHistorical: true,
   goal: goalRecord,
@@ -332,9 +338,14 @@ const goalTrajectory = {
     {
       date: '2026-06-01',
       trendWeightKg: 82,
-      modeledWeightKg: 82,
+      scaleWeightKg: 82,
       sourceEntryId: 'weight-1',
-      interpolated: false,
+      evidenceState: 'developing' as const,
+      observationCount: 2,
+      spanDays: 7,
+      gapFromPreviousDays: null,
+      corrected: false,
+      adaptiveStrategyTrendWeightKg: 82,
       goalRevisionId: 'revision-1',
       revisionSequence: 1,
       targetWeightKg: null,

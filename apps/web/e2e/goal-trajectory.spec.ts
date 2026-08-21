@@ -21,6 +21,21 @@ type Fixture =
 let api: APIRequestContext;
 const tokens = new Map<Fixture, string>();
 
+const uiDate = (date: string) =>
+  new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T00:00:00.000Z`));
+
+const uiAxisDate = (date: string) =>
+  new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T00:00:00.000Z`));
+
 function username(fixture: Fixture) {
   const suffix: Record<Fixture, string> = {
     'trajectory-loss': 'gt-loss',
@@ -104,26 +119,39 @@ async function openTrajectory(
   const response = await trajectoryResponse;
   const payload = (await response.json()) as {
     data: {
+      trendSource: string;
+      strategyTrendSource: string;
+      productTrend: { currentTrendWeightKg: number | null; currentTrendDate: string | null };
       isHistorical: boolean;
       strategyAsOfDate: string;
+      range: { startDate: string; endDate: string };
       goal: { status: string; endedLocalDate: string | null };
       activeRevision: { sequence: number };
       actualRate: {
         lookbackDays: number;
+        kgPerWeek: number | null;
         status: string;
         confidence: string;
+        unavailableReason: string | null;
         observedWeightCount: number;
         spanDays: number;
       };
-      forecast: { status: string; unavailableReason?: string | null } | null;
+      forecast: {
+        status: string;
+        unavailableReason?: string | null;
+        projectedEndDate?: string | null;
+      } | null;
       summary: {
         kind: string;
+        currentTrendWeightKg?: number | null;
         paceState?: string;
         rangeStatus?: string;
         originalPlannedChangeKg?: number;
         revisionAdjustmentKg?: number;
       };
       weeklyContributions: Array<{ direction: string }>;
+      trendPoints: Array<{ date: string; trendWeightKg: number | null }>;
+      annotations: Array<{ date: string; label: string }>;
       completionReview: {
         trendTargetStatus: string;
         scaleTargetStatus: string;
@@ -183,6 +211,17 @@ test.describe.serial('Goal trajectory', () => {
     await page.setViewportSize({ width: 390, height: 1000 });
     const { analytics } = await openTrajectory(page, 'trajectory-loss');
     await expect(page.getByRole('heading', { name: /Lose to/u })).toBeVisible();
+    expect(analytics.trendSource).toBe('product_trend_weight_v1');
+    expect(analytics.strategyTrendSource).toBe('adaptive_model_trend');
+    expect(
+      Math.abs(
+        (analytics.productTrend.currentTrendWeightKg ?? 0) -
+          (analytics.summary.currentTrendWeightKg ?? 0),
+      ),
+    ).toBeGreaterThan(0.01);
+    await expect(page.getByText('Product Trend Weight').first()).toBeVisible();
+    await expect(page.getByText('Adaptive strategy trend').first()).toBeVisible();
+    await expect(page.getByText('Stored Adaptive start')).toBeVisible();
     await expect(page.getByText('Selected pace')).toBeVisible();
     await expect(page.getByText('Original goal distance')).toBeVisible();
     await expect(page.getByText('Current planned distance')).toBeVisible();
@@ -202,11 +241,17 @@ test.describe.serial('Goal trajectory', () => {
 
     const all = page.getByRole('button', { name: 'All' });
     await all.focus();
-    const allResponse = page.waitForResponse(
+    const allResponsePromise = page.waitForResponse(
       (response) => response.url().includes('range=all') && response.status() === 200,
     );
     await page.keyboard.press('Enter');
-    await allResponse;
+    const allResponse = await allResponsePromise;
+    const allAnalytics = (await allResponse.json()) as {
+      data: {
+        productTrend: { currentTrendWeightKg: number | null; currentTrendDate: string | null };
+      };
+    };
+    expect(allAnalytics.data.productTrend).toEqual(analytics.productTrend);
     await expect(all).toHaveAttribute('aria-pressed', 'true');
     await expect(all).toBeFocused();
 
@@ -232,6 +277,12 @@ test.describe.serial('Goal trajectory', () => {
     await page.keyboard.press('Enter');
     const exactTable = page.getByRole('table', { name: /Exact values for the goal trajectory/u });
     await expect(exactTable).toBeVisible();
+    await expect(
+      exactTable.getByRole('columnheader', { name: 'Product Trend Weight' }),
+    ).toBeVisible();
+    await expect(
+      exactTable.getByRole('columnheader', { name: 'Adaptive strategy trend' }),
+    ).toBeVisible();
     const lastExactDate = exactTable.locator('tbody tr').last().getByRole('button');
     await lastExactDate.focus();
     await page.keyboard.press('Enter');
@@ -287,7 +338,7 @@ test.describe.serial('Goal trajectory', () => {
     await expect(
       page.getByText(`Revision ${analytics.activeRevision.sequence}`, { exact: true }).first(),
     ).toBeVisible();
-    await expect(page.getByText(/Target or rate revised/u).first()).toBeVisible();
+    await expect(page.getByText(/Goal target.*revised/u).first()).toBeVisible();
     await expect(page.getByText(/Structured evidence using revision/u)).toBeVisible();
     await expect(page.getByText('Goal revision adjustment')).toBeVisible();
     await assertNoOverflow(page, 430);
@@ -340,10 +391,10 @@ test.describe.serial('Goal trajectory', () => {
     expect(analytics.actualRate.confidence).toBe('insufficient');
     expect(analytics.forecast).toMatchObject({
       status: 'unavailable',
-      unavailableReason: 'LIMITED_TREND_CONFIDENCE',
+      unavailableReason: analytics.actualRate.unavailableReason,
     });
     await expect(page.getByText('No reliable estimate yet')).toBeVisible();
-    await expect(page.getByText(/evidence is still limited/u)).toBeVisible();
+    await expect(page.getByText(/not have enough supported trend history/u)).toBeVisible();
     await assertNoOverflow(page, 430);
     diagnostics();
   });
@@ -400,4 +451,49 @@ test.describe.serial('Goal trajectory', () => {
     }
     diagnostics();
   });
+
+  for (const [zone, width] of [
+    ['Pacific/Kiritimati', 390],
+    ['Etc/GMT+12', 320],
+  ] as const) {
+    test.describe(`literal goal dates in ${zone}`, () => {
+      test.use({ timezoneId: zone });
+
+      test('keeps Product points, markers, ticks, and exact rows on server date keys', async ({
+        page,
+      }) => {
+        const diagnostics = monitorPage(page);
+        await page.setViewportSize({ width, height: 1000 });
+        const { analytics } = await openTrajectory(page, 'trajectory-loss');
+        const firstPoint = analytics.trendPoints[0];
+        const firstAnnotation = analytics.annotations[0];
+        expect(firstPoint).toBeDefined();
+        expect(firstAnnotation).toBeDefined();
+        if (!firstPoint || !firstAnnotation) throw new Error('Expected trajectory evidence');
+
+        const ticks = page.locator(
+          '.recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value',
+        );
+        await expect(ticks.first()).toHaveText(uiAxisDate(analytics.range.startDate));
+        await expect(ticks.last()).toHaveText(
+          uiAxisDate(analytics.forecast?.projectedEndDate ?? analytics.range.endDate),
+        );
+        await expect(
+          page.getByRole('button', {
+            name: new RegExp(`${uiDate(firstAnnotation.date)}.*${firstAnnotation.label}`, 'u'),
+          }),
+        ).toBeVisible();
+
+        const exactSummary = page.getByText('Exact trajectory values');
+        await exactSummary.press('Enter');
+        const table = page.getByRole('table', { name: /Exact values for the goal trajectory/u });
+        await expect(
+          table.getByRole('button', { name: uiDate(firstPoint.date), exact: true }),
+        ).toBeVisible();
+        await assertNoOverflow(page, width);
+        await page.waitForLoadState('networkidle');
+        diagnostics();
+      });
+    });
+  }
 });

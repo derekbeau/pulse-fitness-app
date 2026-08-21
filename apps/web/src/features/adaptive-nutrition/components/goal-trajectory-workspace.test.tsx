@@ -28,7 +28,13 @@ vi.mock('recharts', async () => {
 
 const trajectory: AdaptiveGoalTrajectory = {
   algorithmVersion: 'adaptive-tdee-v1',
-  trendSource: 'adaptive_model_trend',
+  trendSource: 'product_trend_weight_v1',
+  strategyTrendSource: 'adaptive_model_trend',
+  productTrend: {
+    currentTrendWeightKg: 97.2,
+    currentTrendDate: '2026-08-19',
+    state: 'sufficient',
+  },
   timeZone: 'America/Detroit',
   isHistorical: false,
   goal: {
@@ -136,9 +142,14 @@ const trajectory: AdaptiveGoalTrajectory = {
     {
       date: '2026-07-01',
       trendWeightKg: 100,
-      modeledWeightKg: 100,
+      scaleWeightKg: 100,
       sourceEntryId: 'weight-1',
-      interpolated: false,
+      evidenceState: 'developing',
+      observationCount: 2,
+      spanDays: 3,
+      gapFromPreviousDays: null,
+      corrected: false,
+      adaptiveStrategyTrendWeightKg: 100,
       goalRevisionId: 'revision-1',
       revisionSequence: 1,
       targetWeightKg: 92,
@@ -149,10 +160,15 @@ const trajectory: AdaptiveGoalTrajectory = {
     },
     {
       date: '2026-08-19',
-      trendWeightKg: 97,
-      modeledWeightKg: 96.9,
+      trendWeightKg: 97.2,
+      scaleWeightKg: 96.9,
       sourceEntryId: 'weight-2',
-      interpolated: false,
+      evidenceState: 'sufficient',
+      observationCount: 10,
+      spanDays: 28,
+      gapFromPreviousDays: 3,
+      corrected: false,
+      adaptiveStrategyTrendWeightKg: 97,
       goalRevisionId: 'revision-2',
       revisionSequence: 2,
       targetWeightKg: 90,
@@ -199,7 +215,7 @@ const trajectory: AdaptiveGoalTrajectory = {
     {
       id: 'revision',
       date: '2026-08-01',
-      kind: 'goal_revised',
+      kind: 'goal_target_and_rate_revised',
       label: 'Target and pace revised',
       goalRevisionId: 'revision-2',
       revisionSequence: 2,
@@ -230,6 +246,10 @@ describe('GoalTrajectoryWorkspace', () => {
     render(<GoalTrajectoryWorkspace goalId="goal-1" />);
 
     expect(screen.getByRole('heading', { name: 'Lose to 198.4 lbs' })).toBeInTheDocument();
+    expect(screen.getAllByText('Product Trend Weight').length).toBeGreaterThan(1);
+    expect(screen.getAllByText('Adaptive strategy trend').length).toBeGreaterThan(1);
+    expect(screen.getByText('Stored Adaptive start')).toBeInTheDocument();
+    expect(screen.getByText(/Solid is Product Trend Weight/u)).toBeInTheDocument();
     expect(screen.getByText('Slower than selected')).toBeInTheDocument();
     expect(screen.getByText('30% complete')).toBeInTheDocument();
     expect(screen.getByText('21 days later')).toBeInTheDocument();
@@ -315,6 +335,7 @@ describe('GoalTrajectoryWorkspace', () => {
     ['unavailable', 'STALE_WEIGHT', /Recent weigh-in evidence is stale/u],
     ['unavailable', 'SUSPECT_WEIGHT_DATA', /found suspect weight evidence/u],
     ['unavailable', 'LIMITED_TREND_CONFIDENCE', /evidence is still limited/u],
+    ['unavailable', 'INSUFFICIENT_OBSERVED_WEIGHT', /not have enough observed weigh-ins/u],
   ] as const)(
     'renders honest %s forecast explanation for %s',
     (status, unavailableReason, expectedCopy) => {
@@ -381,6 +402,45 @@ describe('GoalTrajectoryWorkspace', () => {
       }
     },
   );
+
+  it('does not describe an unavailable actual rate as measured pace', () => {
+    vi.mocked(useAdaptiveGoalTrajectory).mockReturnValue({
+      data: {
+        ...trajectory,
+        actualRate: {
+          ...trajectory.actualRate,
+          kgPerWeek: null,
+          pctPerWeek: null,
+          startDate: null,
+          endDate: null,
+          confidence: 'insufficient',
+          status: 'unavailable',
+          unavailableReason: 'INSUFFICIENT_OBSERVED_WEIGHT',
+        },
+        forecast: {
+          status: 'unavailable',
+          basis: 'none',
+          projectedStartDate: null,
+          projectedCenterDate: null,
+          projectedEndDate: null,
+          projectedWeeks: null,
+          etaChangeFromGoalStartDays: null,
+          etaChangeFromLatestRevisionDays: null,
+          unavailableReason: 'INSUFFICIENT_OBSERVED_WEIGHT',
+          explanationCode: 'NO_RELIABLE_ETA',
+          points: [],
+        },
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useAdaptiveGoalTrajectory>);
+
+    render(<GoalTrajectoryWorkspace goalId="goal-1" />);
+    expect(screen.getByText(/not have enough observed weigh-ins/u)).toBeInTheDocument();
+    expect(screen.getByText('Not measured')).toBeInTheDocument();
+    expect(screen.queryByText(/Your recent trend averaged/u)).not.toBeInTheDocument();
+  });
 
   it('describes a neutral completed week without claiming movement toward the target', () => {
     vi.mocked(useAdaptiveGoalTrajectory).mockReturnValue({

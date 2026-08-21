@@ -7,6 +7,7 @@ import {
   ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
+  Scatter,
   Tooltip,
   XAxis,
   YAxis,
@@ -26,6 +27,8 @@ type ChartRow = {
   date: string;
   dateValue: number;
   trend: number | null;
+  scale: number | null;
+  segment: number | null;
   target: number | null;
   maintenanceLower: number | null;
   maintenanceUpper: number | null;
@@ -48,11 +51,15 @@ export function GoalTrajectoryChart({
   const [selection, setSelection] = useState<Selection | null>(null);
   const chartData = useMemo(() => {
     const rows = new Map<string, ChartRow>();
-    for (const point of analytics.trendPoints) {
+    let segment = 0;
+    for (const [index, point] of analytics.trendPoints.entries()) {
+      if (index > 0 && (point.gapFromPreviousDays ?? 0) > 7) segment += 1;
       rows.set(point.date, {
         date: point.date,
         dateValue: trendWeightDateCoordinate(point.date),
-        trend: convertWeightFromKg(point.trendWeightKg, unit),
+        trend: point.trendWeightKg === null ? null : convertWeightFromKg(point.trendWeightKg, unit),
+        scale: convertWeightFromKg(point.scaleWeightKg, unit),
+        segment,
         target:
           point.targetWeightKg === null ? null : convertWeightFromKg(point.targetWeightKg, unit),
         maintenanceLower:
@@ -74,6 +81,8 @@ export function GoalTrajectoryChart({
         date: point.date,
         dateValue: trendWeightDateCoordinate(point.date),
         trend: existing?.trend ?? null,
+        scale: existing?.scale ?? null,
+        segment: existing?.segment ?? null,
         target:
           existing?.target ??
           (analytics.summary.kind === 'weight_change'
@@ -88,9 +97,20 @@ export function GoalTrajectoryChart({
     }
     return [...rows.values()].sort((left, right) => left.date.localeCompare(right.date));
   }, [analytics, unit]);
+  const trendSegments = useMemo(
+    () => [
+      ...new Set(
+        chartData
+          .map((point) => point.segment)
+          .filter((segment): segment is number => segment !== null),
+      ),
+    ],
+    [chartData],
+  );
   const yValues = chartData.flatMap((point) =>
     [
       point.trend,
+      point.scale,
       point.target,
       point.maintenanceLower,
       point.maintenanceUpper,
@@ -116,8 +136,8 @@ export function GoalTrajectoryChart({
     selection?.kind === 'annotation'
       ? (analytics.annotations.find((item) => item.id === selection.annotationId) ?? null)
       : null;
-  const currentPoint = analytics.currentTrendDate
-    ? (chartData.find((point) => point.date === analytics.currentTrendDate) ?? null)
+  const currentPoint = analytics.productTrend.currentTrendDate
+    ? (chartData.find((point) => point.date === analytics.productTrend.currentTrendDate) ?? null)
     : null;
 
   return (
@@ -131,7 +151,8 @@ export function GoalTrajectoryChart({
           Goal trajectory
         </h2>
         <p className="text-sm text-muted-foreground">
-          Solid is the Adaptive model trend. Dashed sections are estimates, not promises.
+          Solid is Product Trend Weight. Adaptive model facts remain separate for strategy,
+          completion, and estimates.
         </p>
       </div>
       <div
@@ -140,7 +161,7 @@ export function GoalTrajectoryChart({
       >
         <span>
           <i className="mr-2 inline-block h-0.5 w-6 bg-primary align-middle" />
-          Adaptive model trend
+          Product Trend Weight
         </span>
         <span>
           <i className="mr-2 inline-block w-6 border-t-2 border-dashed border-primary align-middle" />
@@ -211,13 +232,13 @@ export function GoalTrajectoryChart({
                   strokeDasharray={
                     annotation.kind === 'goal_started'
                       ? undefined
-                      : annotation.kind === 'goal_revised'
+                      : annotation.kind.startsWith('goal_') && annotation.kind.endsWith('_revised')
                         ? '6 4'
-                        : annotation.kind === 'accepted_check_in'
+                        : annotation.kind.startsWith('accepted_')
                           ? '2 5'
                           : '8 3'
                   }
-                  strokeOpacity={annotation.kind === 'goal_revised' ? 0.75 : 0.5}
+                  strokeOpacity={annotation.kind.includes('revised') ? 0.75 : 0.5}
                   strokeWidth={annotation.kind === 'goal_started' ? 2 : 1.5}
                   x={trendWeightDateCoordinate(annotation.date)}
                 />
@@ -247,13 +268,32 @@ export function GoalTrajectoryChart({
                 strokeWidth={1.5}
                 type="stepAfter"
               />
-              <Line
-                dataKey="trend"
-                dot={false}
+              {trendSegments.map((segment) => (
+                <Line
+                  data={chartData.map((point) => ({
+                    ...point,
+                    segmentTrend: point.segment === segment ? point.trend : null,
+                  }))}
+                  dataKey="segmentTrend"
+                  dot={false}
+                  isAnimationActive={false}
+                  key={segment}
+                  name="trend"
+                  stroke="var(--color-primary)"
+                  strokeWidth={3}
+                  type="monotone"
+                />
+              ))}
+              <Scatter
+                dataKey="scale"
+                fill="var(--color-foreground)"
                 isAnimationActive={false}
-                stroke="var(--color-primary)"
-                strokeWidth={3}
-                type="monotone"
+                name="scale"
+                onClick={(point) => {
+                  if (typeof point.date === 'string')
+                    setSelection({ kind: 'point', date: point.date });
+                }}
+                shape="circle"
               />
               <Line
                 dataKey="forecastFaster"
@@ -314,7 +354,7 @@ export function GoalTrajectoryChart({
           <p>
             <strong>{formatTrendWeightDate(selectedRow.date)}</strong>
             {selectedPoint
-              ? ` · Adaptive model trend ${formatAdaptiveWeight(selectedPoint.trendWeightKg, unit)} · revision ${selectedPoint.revisionSequence} · ${selectedPoint.interpolated ? 'Modeled between weigh-ins' : 'Scale evidence recorded'}`
+              ? ` · Product Trend Weight ${formatAdaptiveWeight(selectedPoint.trendWeightKg, unit)} · Scale Weight ${formatAdaptiveWeight(selectedPoint.scaleWeightKg, unit)} · ${selectedPoint.evidenceState.replace('_', ' ')} · Adaptive strategy trend ${formatAdaptiveWeight(selectedPoint.adaptiveStrategyTrendWeightKg, unit)} · revision ${selectedPoint.revisionSequence}`
               : ''}
             {selectedRow.forecast !== null
               ? ` · Estimated trend ${selectedRow.forecast.toFixed(1)} ${unit} · corridor ${Math.min(selectedRow.forecastFaster ?? selectedRow.forecast, selectedRow.forecastSlower ?? selectedRow.forecast).toFixed(1)}–${Math.max(selectedRow.forecastFaster ?? selectedRow.forecast, selectedRow.forecastSlower ?? selectedRow.forecast).toFixed(1)} ${unit}`
@@ -362,7 +402,13 @@ export function GoalTrajectoryChart({
                   Date
                 </th>
                 <th className="p-3" scope="col">
-                  Adaptive model trend
+                  Product Trend Weight
+                </th>
+                <th className="p-3" scope="col">
+                  Scale Weight
+                </th>
+                <th className="p-3" scope="col">
+                  Adaptive strategy trend
                 </th>
                 <th className="p-3" scope="col">
                   Forecast and corridor
@@ -400,6 +446,12 @@ export function GoalTrajectoryChart({
                       {formatAdaptiveWeight(point?.trendWeightKg ?? null, unit)}
                     </td>
                     <td className="p-3 tabular-nums">
+                      {formatAdaptiveWeight(point?.scaleWeightKg ?? null, unit)}
+                    </td>
+                    <td className="p-3 tabular-nums">
+                      {formatAdaptiveWeight(point?.adaptiveStrategyTrendWeightKg ?? null, unit)}
+                    </td>
+                    <td className="p-3 tabular-nums">
                       {row.forecast === null
                         ? 'Not available'
                         : `${row.forecast.toFixed(1)} ${unit} (${Math.min(row.forecastFaster ?? row.forecast, row.forecastSlower ?? row.forecast).toFixed(1)}–${Math.max(row.forecastFaster ?? row.forecast, row.forecastSlower ?? row.forecast).toFixed(1)})`}
@@ -415,9 +467,7 @@ export function GoalTrajectoryChart({
                     </td>
                     <td className="p-3">
                       {point
-                        ? point.interpolated
-                          ? 'Modeled between weigh-ins'
-                          : 'Observed weigh-in'
+                        ? `${point.evidenceState.replace('_', ' ')} · ${point.observationCount} observations`
                         : 'Forecast only'}
                     </td>
                     <td className="p-3">
@@ -452,8 +502,11 @@ function TrajectoryTooltip({
 }) {
   if (!active || typeof label !== 'number') return null;
   const values = new Map(payload?.map((entry) => [entry.dataKey, entry.value]) ?? []);
+  const segmentTrend = payload?.find((entry) => entry.dataKey === 'segmentTrend')?.value;
+  if (segmentTrend !== undefined) values.set('trend', segmentTrend);
   const rows = [
-    ['trend', 'Adaptive model trend'],
+    ['trend', 'Product Trend Weight'],
+    ['scale', 'Scale Weight'],
     ['forecast', 'Estimated trend'],
     ['target', 'Goal target'],
     ['maintenanceLower', 'Maintenance lower'],

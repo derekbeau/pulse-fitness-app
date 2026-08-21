@@ -257,21 +257,17 @@ const calculateForecast = (input: {
   const unavailableReason =
     !currentTrend || targetWeightKg === null
       ? 'INSUFFICIENT_TREND'
-      : actualRate.unavailableReason === 'STALE_WEIGHT'
-        ? 'STALE_WEIGHT'
-        : actualRate.unavailableReason === 'SUSPECT_WEIGHT_DATA'
-          ? 'SUSPECT_WEIGHT_DATA'
-          : actualRate.confidence !== 'supported'
-            ? 'LIMITED_TREND_CONFIDENCE'
-            : rate === null
-              ? actualRate.unavailableReason === 'RATE_TOO_SMALL'
-                ? 'RATE_TOO_SMALL'
-                : 'INSUFFICIENT_TREND'
-              : Math.abs(rate) < ADAPTIVE_GOAL_TRAJECTORY_CONSTANTS.actualRateFlatKgPerWeek
-                ? 'RATE_TOO_SMALL'
-                : Math.sign(rate) !== Math.sign(targetWeightKg - currentTrend.trendWeightKg)
-                  ? 'MOVING_AWAY'
-                  : null;
+      : actualRate.status === 'unavailable'
+        ? actualRate.unavailableReason
+        : actualRate.confidence !== 'supported'
+          ? 'LIMITED_TREND_CONFIDENCE'
+          : rate === null
+            ? 'INSUFFICIENT_TREND'
+            : Math.abs(rate) < ADAPTIVE_GOAL_TRAJECTORY_CONSTANTS.actualRateFlatKgPerWeek
+              ? 'RATE_TOO_SMALL'
+              : Math.sign(rate) !== Math.sign(targetWeightKg - currentTrend.trendWeightKg)
+                ? 'MOVING_AWAY'
+                : null;
   if (unavailableReason) {
     return adaptiveGoalTrajectoryForecastSchema.parse({
       status: 'unavailable',
@@ -438,7 +434,12 @@ const calculateWeeklyContributions = (
               : 'away',
         observedWeightCount: observations.length,
         remainingDistanceKg: round(
-          Math.max(0, Math.abs(revision.targetWeightKg - endBoundary.trendWeightKg)),
+          Math.max(
+            0,
+            input.goal.type === 'lose'
+              ? endBoundary.trendWeightKg - revision.targetWeightKg
+              : revision.targetWeightKg - endBoundary.trendWeightKg,
+          ),
         ),
         reasonCode: null,
       }),
