@@ -2330,6 +2330,43 @@ change a nutrition target merely by being generated or read.
   revision updates and soft deletion; identity and provenance fields remain immutable. Composite
   ownership foreign keys prevent cross-user references.
 
+## 40. Goal Trajectory analytics
+
+Goal Trajectory is a read-only, goal-scoped projection over immutable goal revisions, accepted
+check-ins and targets, authoritative weigh-ins, and the Adaptive model trend. It never creates a
+check-in, changes a target, completes a goal, or applies a catch-up adjustment.
+
+- `GET /api/v1/adaptive-nutrition/goals/:id/trajectory` accepts `1m`, `3m`, `6m`, `1y`, or `all`,
+  an actual-rate lookback of 14, 21, or 28 days, and an optional historical local `end` date.
+  Range crops presentation only; it does not reseed the model or change rate/forecast facts.
+  Maintenance time-in-range is the explicit exception: its numerator and denominator describe
+  the selected visible interval, using the maintenance revision effective on each modeled date.
+- The response explicitly identifies `trendSource = adaptive_model_trend` and
+  `algorithmVersion = adaptive-tdee-v1`. Product Trend Weight remains the display/coaching trend
+  described in `trend-weight-v1.md`; goal ETA, completion review, maintenance, and accepted
+  recommendations retain the consent-sensitive Adaptive model contract.
+- `strategyAsOfDate`, `evidenceThroughDate`, and `currentTrendDate` are separate facts. Live
+  evidence ends on the last completed program-local day. Historical queries use the effective
+  program time zone and the highest goal revision effective on the requested date.
+- Desired loss/gain timelines reuse the compounded percentage-rate projection from goal setup.
+  Actual-rate estimates use dated regression over the selected lookback, report observation/span
+  sufficiency, and return no ETA for stale, flat, moving-away, or insufficient evidence.
+- Completed seven-day contributions are anchored to the original goal start. A week without both
+  modeled boundaries and at least one current observation remains null with
+  `INSUFFICIENT_WEEKLY_EVIDENCE`; it is never converted to zero. The current partial week is omitted.
+- Goal revisions do not reset the original start. Each point carries the revision effective on its
+  date, same-day revisions are ordered by immutable sequence, and revision/check-in annotations
+  remain visible even on dates without a weigh-in.
+- Loss/gain completion uses the existing tolerance `max(0.23 kg, target × 0.25%)`. Raw scale is
+  display evidence only. A supported model trend reaching tolerance requests the existing review;
+  it never completes the goal automatically.
+- Maintenance uses the Pulse-defined radius `max(0.68 kg, center × 1%)`, with near-edge beginning
+  at 80% of the radius. Time in range discloses its local interval, modeled-day denominator, and
+  evidence state. Correction policy is `review_only_no_automatic_change`.
+- Supporting calorie target and Adaptive expenditure are selected as of the trajectory date from
+  accepted effective records. JWT and AgentToken callers receive the same strict facts, but the GET
+  exposes no decision or mutation capability.
+
 ## Sources
 
 [1] https://help.macrofactorapp.com/en/articles/20-expenditure — MacroFactor: Expenditure

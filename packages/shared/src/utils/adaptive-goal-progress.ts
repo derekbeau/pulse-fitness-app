@@ -54,7 +54,7 @@ const unavailableProjection = (
   unavailableReason,
 });
 
-const availableProjection = (
+export const calculateAdaptiveGoalProjectionRange = (
   basis: AdaptiveGoalProjection['basis'],
   currentLocalDate: string,
   remainingDistanceKg: number,
@@ -235,7 +235,7 @@ export function calculateAdaptiveGoalProgress(
   const desiredProjection =
     remainingDistanceKg === null || desiredRateKgPerWeek === null
       ? unavailableProjection('desired', 'INSUFFICIENT_TREND')
-      : availableProjection(
+      : calculateAdaptiveGoalProjectionRange(
           'desired',
           rawInput.currentLocalDate,
           remainingDistanceKg,
@@ -258,7 +258,7 @@ export function calculateAdaptiveGoalProgress(
   } else if (remainingDistanceKg === null) {
     actualProjection = unavailableProjection('actual', 'INSUFFICIENT_TREND');
   } else {
-    actualProjection = availableProjection(
+    actualProjection = calculateAdaptiveGoalProjectionRange(
       'actual',
       rawInput.currentLocalDate,
       remainingDistanceKg,

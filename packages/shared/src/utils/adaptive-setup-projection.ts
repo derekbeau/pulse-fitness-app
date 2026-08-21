@@ -14,6 +14,44 @@ export type AdaptiveSetupRateStatus = 'recommended' | 'caution' | 'maintenance' 
 export type AdaptiveProteinPreset = 'moderate' | 'recommended' | 'high' | 'custom';
 export type AdaptiveFatPreference = 'higher_carb' | 'balanced' | 'higher_fat' | 'custom';
 
+export function calculatePercentageRateTimelineWeeks(input: {
+  type: 'lose' | 'gain';
+  currentWeightKg: number;
+  targetWeightKg: number;
+  ratePctPerWeek: number;
+}): number {
+  const magnitude = Math.abs(input.ratePctPerWeek) / 100;
+  if (
+    !Number.isFinite(input.currentWeightKg) ||
+    !Number.isFinite(input.targetWeightKg) ||
+    input.currentWeightKg <= 0 ||
+    input.targetWeightKg <= 0 ||
+    magnitude <= 0 ||
+    magnitude >= 1
+  ) {
+    throw new AdaptiveTdeeConfigurationError(
+      'INVALID_PROGRAM_CONFIGURATION',
+      'Goal duration requires positive weights and a non-zero percentage rate below 100%',
+    );
+  }
+  const directionalTarget =
+    input.type === 'gain'
+      ? input.targetWeightKg > input.currentWeightKg
+      : input.targetWeightKg < input.currentWeightKg;
+  if (!directionalTarget) return 0;
+  const weeks =
+    input.type === 'gain'
+      ? Math.log(input.targetWeightKg / input.currentWeightKg) / Math.log(1 + magnitude)
+      : Math.log(input.targetWeightKg / input.currentWeightKg) / Math.log(1 - magnitude);
+  if (!Number.isFinite(weeks) || weeks <= 0) {
+    throw new AdaptiveTdeeConfigurationError(
+      'INVALID_PROGRAM_CONFIGURATION',
+      'Goal duration could not be calculated from the selected inputs',
+    );
+  }
+  return weeks;
+}
+
 type GoalRateRule = {
   allowedMaximumPct: number;
   allowedMinimumPct: number;
@@ -242,13 +280,12 @@ export function calculateAdaptiveSetupProjection(
 
   let timeline: AdaptiveSetupTimeline | null = null;
   if (input.goalType !== 'maintain' && input.targetWeightKg !== null && !goal.goalReached) {
-    const fractionalWeeks =
-      input.goalType === 'gain'
-        ? Math.log(input.targetWeightKg / input.currentWeightKg) / Math.log(1 + rateMagnitude)
-        : Math.log(input.targetWeightKg / input.currentWeightKg) / Math.log(1 - rateMagnitude);
-    if (!Number.isFinite(fractionalWeeks) || fractionalWeeks <= 0) {
-      invalid('Goal duration could not be calculated from the selected inputs');
-    }
+    const fractionalWeeks = calculatePercentageRateTimelineWeeks({
+      type: input.goalType,
+      currentWeightKg: input.currentWeightKg,
+      targetWeightKg: input.targetWeightKg,
+      ratePctPerWeek: input.goalRatePctPerWeek,
+    });
     const elapsedCalendarDays = Math.ceil(fractionalWeeks * 7);
     timeline = {
       completionLocalDate: addCalendarDays(input.calculationLocalDate, elapsedCalendarDays),

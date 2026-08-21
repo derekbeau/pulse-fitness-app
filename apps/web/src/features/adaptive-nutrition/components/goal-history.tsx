@@ -7,6 +7,7 @@ import {
 } from '@pulse/shared';
 import { BarChart3, History, Search } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
+import { Link, useInRouterContext } from 'react-router';
 import {
   CartesianGrid,
   Line,
@@ -201,15 +202,29 @@ function GoalSummaryRow({
             : ` · ${formatSignedWeight(summary.netChangeKg, unit)} net`}
         </p>
       </div>
-      <Button
-        className="min-h-11 w-full sm:w-auto"
-        onClick={(event) => onOpen(event.currentTarget)}
-        type="button"
-        variant="outline"
-      >
-        <Search aria-hidden="true" /> View goal details
-      </Button>
+      <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2">
+        <Button asChild className="min-h-11 w-full sm:w-auto" variant="outline">
+          <GoalTrajectoryLink goalId={summary.goal.id} />
+        </Button>
+        <Button
+          className="min-h-11 w-full sm:w-auto"
+          onClick={(event) => onOpen(event.currentTarget)}
+          type="button"
+          variant="outline"
+        >
+          <Search aria-hidden="true" /> View goal details
+        </Button>
+      </div>
     </div>
+  );
+}
+
+function GoalTrajectoryLink({ goalId }: { goalId: string }) {
+  const inRouter = useInRouterContext();
+  return inRouter ? (
+    <Link to={`/nutrition/goals/${goalId}`}>View trajectory</Link>
+  ) : (
+    <a href={`/nutrition/goals/${goalId}`}>View trajectory</a>
   );
 }
 

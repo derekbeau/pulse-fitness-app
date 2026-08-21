@@ -19,6 +19,8 @@ import {
   adaptiveGoalQuerySchema,
   adaptiveGoalSchema,
   adaptiveGoalStartInputSchema,
+  adaptiveGoalTrajectoryQuerySchema,
+  adaptiveGoalTrajectorySchema,
   adaptiveNutritionStateSchema,
   energyBalanceAnalyticsQuerySchema,
   energyBalanceAnalyticsSchema,
@@ -46,6 +48,11 @@ import {
 } from '../../openapi.js';
 
 import { AdaptiveGoalNotFoundError, getAdaptiveGoal, listAdaptiveGoals } from './goal-store.js';
+import {
+  AdaptiveGoalTrajectoryFutureEndError,
+  AdaptiveGoalTrajectoryPreGoalEndError,
+  getAdaptiveGoalTrajectory,
+} from './goal-trajectory-store.js';
 import {
   AdaptiveAnalyticsFutureEndError,
   AdaptiveAnalyticsPreProgramEndError,
@@ -106,6 +113,12 @@ import {
 const conflictResponseSchema = apiErrorResponseSchema;
 
 const sendAdaptiveError = (reply: FastifyReply, error: unknown) => {
+  if (error instanceof AdaptiveGoalTrajectoryFutureEndError) {
+    return sendError(reply, 400, 'ADAPTIVE_GOAL_TRAJECTORY_FUTURE_END', error.message);
+  }
+  if (error instanceof AdaptiveGoalTrajectoryPreGoalEndError) {
+    return sendError(reply, 400, 'ADAPTIVE_GOAL_TRAJECTORY_PRE_GOAL_END', error.message);
+  }
   if (error instanceof AdaptiveAnalyticsFutureEndError) {
     return sendError(reply, 400, 'ADAPTIVE_ANALYTICS_FUTURE_END', error.message);
   }
@@ -676,6 +689,36 @@ export const adaptiveNutritionRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => reply.send(await listAdaptiveGoals(request.userId, request.query)),
+  );
+
+  typedApp.get(
+    '/goals/:id/trajectory',
+    {
+      schema: {
+        params: idParamsSchema,
+        querystring: adaptiveGoalTrajectoryQuerySchema,
+        response: {
+          200: apiDataResponseSchema(adaptiveGoalTrajectorySchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['adaptive-nutrition'],
+        summary: 'Get one goal’s longitudinal trajectory and forecast',
+        description:
+          'Returns a read-only, program-time-zone trajectory over the canonical Adaptive model trend. Historical revisions, weekly evidence gaps, maintenance range facts, completion review semantics, calorie targets, and expenditure provenance are server owned. AgentToken callers receive the same facts and no decision capability.',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        return reply.send({
+          data: await getAdaptiveGoalTrajectory(request.userId, request.params.id, request.query),
+        });
+      } catch (error) {
+        return sendAdaptiveError(reply, error);
+      }
+    },
   );
 
   typedApp.get(
