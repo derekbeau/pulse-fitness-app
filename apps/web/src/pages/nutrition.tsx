@@ -80,11 +80,14 @@ export function NutritionPage() {
   const coachNeedsAttention = Boolean(
     adaptiveStateQuery.data?.checkInDue || adaptiveStateQuery.data?.pendingCheckIn,
   );
-  const nutritionTimeZone =
-    adaptiveStateQuery.data?.program?.timeZone ??
-    Intl.DateTimeFormat().resolvedOptions().timeZone ??
-    'UTC';
-  const trendsReferenceDate = nutritionTrendReferenceDate(Date.now(), nutritionTimeZone);
+  const nutritionTimeZone = adaptiveStateQuery.isLoading
+    ? null
+    : (adaptiveStateQuery.data?.program?.timeZone ??
+      Intl.DateTimeFormat().resolvedOptions().timeZone ??
+      'UTC');
+  const trendsReferenceDate = nutritionTimeZone
+    ? nutritionTrendReferenceDate(Date.now(), nutritionTimeZone)
+    : null;
 
   useEffect(() => {
     if (isNutritionView(viewParam)) {
@@ -237,8 +240,17 @@ export function NutritionPage() {
           <AdaptiveCoach />
         ) : activeView === 'foods' ? (
           <FoodList />
-        ) : (
+        ) : trendsReferenceDate ? (
           <NutritionTrends referenceDate={trendsReferenceDate} />
+        ) : (
+          <section
+            aria-label="Loading nutrition trends"
+            className="space-y-4 rounded-3xl border border-border/70 bg-card p-4 sm:p-5"
+            role="status"
+          >
+            <Skeleton className="h-6 w-40 bg-muted/70" />
+            <Skeleton className="h-64 w-full rounded-2xl bg-muted/70" />
+          </section>
         )}
       </div>
     </section>
