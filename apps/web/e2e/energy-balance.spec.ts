@@ -290,7 +290,10 @@ test.describe.serial('Energy Balance & Expenditure analytics', () => {
     await expect(page.getByText('Historical view')).toBeVisible();
     await expect(page.getByText('America/Detroit')).toBeVisible();
     await expect(
-      page.getByText(`${displayDate(datePlus(historicalEnd, -29))}–${displayDate(historicalEnd)}`),
+      page.getByText(
+        `${displayDate(datePlus(historicalEnd, -29))}–${displayDate(historicalEnd)} · daily`,
+        { exact: true },
+      ),
     ).toBeVisible();
     expect(
       await page.evaluate(

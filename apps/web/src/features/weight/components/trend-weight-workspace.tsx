@@ -14,6 +14,12 @@ import {
 } from 'recharts';
 import { Activity, CircleHelp, Scale, TrendingDown, TrendingUp } from 'lucide-react';
 
+import {
+  ChartLegend,
+  ChartPointDetail,
+  ChartRangeControl,
+  ChartTooltip,
+} from '@/components/charts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useTrendWeightAnalytics } from '@/features/weight/api/weight';
@@ -283,20 +289,17 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
               are not bridged.
             </p>
           </div>
-          <div aria-label="Trend Weight range" className="flex flex-wrap gap-1" role="group">
-            {RANGE_OPTIONS.map((option) => (
-              <Button
-                aria-pressed={range === option.value}
-                className="min-h-11 min-w-11 rounded-full px-3"
-                key={option.value}
-                onClick={() => setRange(option.value)}
-                type="button"
-                variant={range === option.value ? 'default' : 'ghost'}
-              >
-                {option.label}
-              </Button>
-            ))}
-          </div>
+          <ChartRangeControl
+            aria-controls="trend-weight-chart-visual"
+            label="Trend Weight range"
+            onChange={(value) => {
+              setRange(value);
+              setSelectedPointId(null);
+            }}
+            options={RANGE_OPTIONS}
+            statusText={`${range.toUpperCase()} · ${formatTrendWeightDate(analytics.range.startDate)}–${formatTrendWeightDate(analytics.range.endDate)} · ${points.length} observations`}
+            value={range}
+          />
         </div>
 
         {markerGroups.length > 0 ? (
@@ -334,7 +337,12 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
             </div>
           </div>
         ) : (
-          <div aria-label="Trend Weight chart" className="mt-4 h-72 min-w-0 sm:h-80" role="img">
+          <div
+            aria-label="Trend Weight chart"
+            className="mt-4 h-72 min-w-0 sm:h-80"
+            id="trend-weight-chart-visual"
+            role="img"
+          >
             <ResponsiveContainer
               height="100%"
               initialDimension={{ width: 320, height: 288 }}
@@ -420,26 +428,26 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
                       | undefined;
                     if (!active || !point) return null;
                     return (
-                      <div
-                        className="rounded-xl border border-border bg-card p-3 text-sm shadow-lg"
-                        data-slot="trend-weight-tooltip"
-                      >
-                        <p className="font-medium text-foreground">
-                          {formatTrendWeightDate(point.date)}
-                        </p>
-                        <p className="mt-1 text-muted-foreground">
-                          Scale {formatWeight(point.scaleWeight, unit)}
-                        </p>
-                        <p className="text-muted-foreground">
-                          Trend{' '}
-                          {point.trendWeight === null
-                            ? 'Not available'
-                            : formatWeight(point.trendWeight, unit)}
-                        </p>
-                        <p className="text-muted-foreground">
-                          State {point.state.replace('_', ' ')}
-                        </p>
-                      </div>
+                      <ChartTooltip
+                        dataSlot="trend-weight-tooltip"
+                        date={formatTrendWeightDate(point.date)}
+                        rows={[
+                          {
+                            color: 'var(--color-foreground)',
+                            label: 'Scale',
+                            value: formatWeight(point.scaleWeight, unit),
+                          },
+                          {
+                            color: 'var(--color-primary)',
+                            label: 'Trend',
+                            value:
+                              point.trendWeight === null
+                                ? null
+                                : formatWeight(point.trendWeight, unit),
+                          },
+                          { label: 'State', value: point.state.replace('_', ' ') },
+                        ]}
+                      />
                     );
                   }}
                 />
@@ -478,38 +486,32 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
           </div>
         )}
 
-        <div className="mt-3 flex flex-wrap gap-4 text-xs font-medium text-muted-foreground">
-          <span className="inline-flex items-center gap-2">
-            <span className="size-2 rounded-full bg-foreground" />
-            Scale Weight dots
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <span className="h-0.5 w-6 bg-primary" />
-            Trend Weight line
-          </span>
-          {analytics.goal ? (
-            <span className="inline-flex items-center gap-2">
-              {analytics.goal.type === 'maintain' ? (
-                <span
-                  className="h-3 w-6 border border-primary/50"
-                  style={{
-                    backgroundImage:
-                      'repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 35%, transparent) 0 2px, transparent 2px 5px)',
-                  }}
-                />
-              ) : (
-                <span className="w-6 border-t-2 border-dashed border-muted-foreground" />
-              )}
-              {analytics.goal.type === 'maintain' ? 'Maintenance corridor' : 'Goal target'}
-            </span>
-          ) : null}
-        </div>
+        <ChartLegend
+          className="mt-3"
+          items={[
+            { color: 'var(--color-foreground)', label: 'Scale Weight dots', style: 'dot' },
+            { color: 'var(--color-primary)', label: 'Trend Weight line', style: 'line' },
+            ...(analytics.goal
+              ? [
+                  {
+                    color: 'var(--color-primary)',
+                    label:
+                      analytics.goal.type === 'maintain' ? 'Maintenance corridor' : 'Goal target',
+                    style:
+                      analytics.goal.type === 'maintain'
+                        ? ('pattern' as const)
+                        : ('dashed' as const),
+                  },
+                ]
+              : []),
+          ]}
+        />
 
         {selectedPoint ? (
-          <div
-            aria-live="polite"
-            className="mt-4 rounded-2xl bg-secondary/40 p-3"
-            data-slot="trend-weight-point-detail"
+          <ChartPointDetail
+            className="mt-4"
+            dataSlot="trend-weight-point-detail"
+            label="Selected Trend Weight point"
           >
             <p className="font-medium text-foreground">
               {formatTrendWeightDate(selectedPoint.date)}
@@ -521,7 +523,7 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
                 : formatWeight(selectedPoint.trendWeight, unit)}{' '}
               · {selectedPoint.state.replace('_', ' ')}
             </p>
-          </div>
+          </ChartPointDetail>
         ) : null}
       </figure>
 

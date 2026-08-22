@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ExerciseTrendChart } from './exercise-trend-chart';
+import { buildExerciseTrendData } from './exercise-trend-data';
 import {
   computeEstimated1RM,
   computeSessionVolume,
@@ -73,13 +74,14 @@ describe('ExerciseTrendChart', () => {
 
     expect(screen.getByRole('button', { name: 'Max Weight' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Total Volume' })).toBeInTheDocument();
-    expect(screen.getByText('Latest max weight')).toBeInTheDocument();
-    expect(screen.getByText('50 lbs')).toBeInTheDocument();
+    const summary = screen.getByLabelText('Selected exercise range summary');
+    expect(within(summary).getByText('Latest max weight')).toBeInTheDocument();
+    expect(within(summary).getAllByText('50 lbs')).not.toHaveLength(0);
 
     fireEvent.click(screen.getByRole('button', { name: 'Total Volume' }));
 
-    expect(screen.getByText('Latest total volume')).toBeInTheDocument();
-    expect(screen.getByText('875 lbs*reps')).toBeInTheDocument();
+    expect(within(summary).getByText('Latest total volume')).toBeInTheDocument();
+    expect(within(summary).getAllByText('875 lbs*reps')).not.toHaveLength(0);
   });
 
   it('filters chart history by date range', () => {
@@ -91,22 +93,41 @@ describe('ExerciseTrendChart', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Last 30 days' }));
+    fireEvent.click(screen.getByRole('button', { name: '1M' }));
 
     expect(screen.queryByText('Jan 5')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'All time' }));
+    fireEvent.click(screen.getByRole('button', { name: 'All' }));
 
     expect(screen.getByText('Jan 5')).toBeInTheDocument();
   });
 
   it('shows an empty state when an exercise has no history', () => {
-    render(<ExerciseTrendChart exerciseName="Air Bike" sessions={[]} trackingType="seconds_only" />);
+    render(
+      <ExerciseTrendChart exerciseName="Air Bike" sessions={[]} trackingType="seconds_only" />,
+    );
 
-    expect(screen.getByText('No history yet')).toBeInTheDocument();
+    expect(screen.getByText('No history in this range')).toBeInTheDocument();
     expect(
-      screen.getByText(/complete a few sessions for air bike to unlock progression trends/i),
+      screen.getByText(/complete a session with a supported max time value/i),
     ).toBeInTheDocument();
+  });
+
+  it('exposes exact values and keyboard-operable point inspection', () => {
+    render(
+      <ExerciseTrendChart
+        exerciseName="Incline Dumbbell Press"
+        sessions={sessions}
+        trackingType="weight_reps"
+      />,
+    );
+
+    fireEvent.click(screen.getByText('View exact chart values'));
+    fireEvent.click(screen.getByRole('button', { name: /Inspect Jan 5, 2026/ }));
+
+    expect(screen.getByLabelText('Selected chart point')).toHaveTextContent(
+      'Jan 5, 2026Max Weight 40 lbs',
+    );
   });
 
   it('computeEstimated1RM follows Epley formula', () => {
@@ -133,5 +154,15 @@ describe('ExerciseTrendChart', () => {
     expect(getMetricOptionsForTrackingType('seconds_only').map((metric) => metric.key)).toEqual([
       'max_time',
     ]);
+  });
+
+  it('keeps unsupported session values out of the typed series instead of converting them to zero', () => {
+    expect(
+      buildExerciseTrendData({
+        metric: 'max_weight',
+        sessions: [...sessions, { date: '2026-03-02', notes: null, sessionId: 'blank', sets: [] }],
+        trackingType: 'weight_reps',
+      }),
+    ).toHaveLength(3);
   });
 });

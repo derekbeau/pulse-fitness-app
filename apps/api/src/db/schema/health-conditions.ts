@@ -149,6 +149,6 @@ export const conditionSeverityPoints = sqliteTable(
       'condition_severity_points_date_format_check',
       sql`${table.date} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
     ),
-    check('condition_severity_points_value_check', sql`${table.value} between 1 and 10`),
+    check('condition_severity_points_value_check', sql`${table.value} between 0 and 10`),
   ],
 );
