@@ -69,6 +69,7 @@ describe('convention documentation', () => {
   const featureStructurePath = resolve(monorepoRoot, 'docs', 'conventions', 'feature-structure.md');
   const workoutDomainPath = resolve(monorepoRoot, 'docs', 'conventions', 'workout-domain.md');
   const dataModelsPath = resolve(monorepoRoot, 'docs', 'conventions', 'data-models.md');
+  const adaptiveTdeeSpecPath = resolve(monorepoRoot, 'docs', 'specs', 'adaptive-tdee-v1.md');
   const apiConventionsPath = resolve(monorepoRoot, 'docs', 'conventions', 'api-conventions.md');
 
   it('documents all design-system requirements', async () => {
@@ -308,5 +309,21 @@ describe('convention documentation', () => {
     expect(apiConventionsDoc).toContain('from');
     expect(apiConventionsDoc).toContain('to');
     expect(apiConventionsDoc).toContain('YYYY-MM-DD');
+  });
+
+  it('documents review-backed target chronology without coupling action time to resolution', async () => {
+    const chronology = '`checkIn.createdAt <= review.createdAt <= resolvedAt <= action.createdAt`';
+    const documents = await Promise.all(
+      [dataModelsPath, adaptiveTdeeSpecPath].map((path) => readFile(path, 'utf8')),
+    );
+
+    documents.forEach((document) => {
+      expect(document).toContain(chronology);
+      expect(document).toMatch(/may follow\s+resolution/u);
+      expect(document).toMatch(/target event remains recorded at `resolvedAt`/u);
+      expect(document).not.toContain('differ from the accepted resolution instant');
+      expect(document).not.toContain('occur at the accepted resolution event');
+      expect(document).not.toContain('exact accepted-resolution instant');
+    });
   });
 });

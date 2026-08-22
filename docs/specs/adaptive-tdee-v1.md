@@ -879,8 +879,9 @@ The existing unique `(userId, effectiveDate)` means accepting an adaptive target
   review action. Before filtering candidates or check-in status, it inventories every accepted
   check-in's non-null `currentTargets`, every accepted proposal, and every review action whose action
   type is `accept`. A target-bearing accept action must resolve through one same-user review/check-in
-  chain to an accepted check-in, its owned non-null target, and the exact accepted-resolution instant.
-  An accept action whose `appliedProposal` is null is the separately validated keep decision: it must
+  chain to an accepted check-in and its owned non-null target. The immutable target event is recorded
+  at the check-in's `resolvedAt`; the supporting accept action may be created later. An accept action
+  whose `appliedProposal` is null is the separately validated keep decision: it must
   resolve a declined check-in with no accepted target and is excluded from event construction.
   Target-bearing accept actions on pending, held, declined, or superseded check-ins and orphaned or
   cross-user chains abort instead of disappearing through joins. Ordinary decline and defer actions
@@ -903,10 +904,11 @@ The existing unique `(userId, effectiveDate)` means accepting an adaptive target
   `goal.createdAt <= goalRevision.createdAt`, `goalRevision.createdAt <= checkIn.createdAt`, and
   `checkIn.createdAt <= resolvedAt`. Program/user and goal/user ownership must also match exactly. A
   migrated baseline/setup check-in may legitimately keep both goal links null; a partial pair is
-  invalid. A revision cannot predate its goal or postdate immutable check-in capture. Review creation
-  cannot precede its check-in, and the final applied-proposal action cannot precede its review and must
-  occur at the accepted resolution event. The base proposal is an immutable field captured with the
-  check-in; it is not assigned an invented independent timestamp.
+  invalid. A revision cannot predate its goal or postdate immutable check-in capture. A review-backed
+  acceptance or keep decision must satisfy
+  `checkIn.createdAt <= review.createdAt <= resolvedAt <= action.createdAt`. The action may follow
+  resolution; the immutable target event remains recorded at `resolvedAt`. The base proposal is an
+  immutable field captured with the check-in; it is not assigned an invented independent timestamp.
 - The UI uses a confirmation dialog.
 
 ### 14.5 Canonical body weight migration

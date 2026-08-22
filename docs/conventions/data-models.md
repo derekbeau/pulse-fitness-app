@@ -491,7 +491,8 @@ manual or Adaptive predecessor states. Before candidate filtering, migration inv
 accepted check-in with a non-null predecessor snapshot, every accepted proposal, and every review
 action whose immutable action type is `accept`, before considering the owning check-in's status.
 Target-bearing accept actions must resolve through one same-user review/check-in chain to an accepted
-check-in, its owned non-null target, and the exact accepted-resolution instant. An accept action with
+check-in and its owned non-null target. The immutable target event is recorded at the check-in's
+`resolvedAt`; the supporting accept action may be created later. An accept action with
 `appliedProposal: null` is the separately validated keep decision: it must resolve a declined check-in
 with no accepted target and never creates an event. Orphaned or cross-user action chains and
 target-bearing accept actions on pending, held, declined, or superseded check-ins abort migration;
@@ -513,9 +514,10 @@ no later than the claimant's creation. Every relevant check-in must satisfy the 
 `program.createdAt <= goal.createdAt <= goalRevision.createdAt <= checkIn.createdAt <= resolvedAt`,
 with exact program/user and goal/user ownership at each link. A migrated baseline/setup check-in may
 legitimately have both goal links null; one null link without the other is invalid. A revision cannot
-predate its goal or postdate immutable check-in capture. A review cannot predate its check-in, and an
-accept action cannot predate its review or differ from the accepted resolution instant. A proposal has
-no independent clock: its existence at check-in creation is proven by the immutable `proposedTargets`
+predate its goal or postdate immutable check-in capture. A review-backed acceptance or keep decision
+must also satisfy `checkIn.createdAt <= review.createdAt <= resolvedAt <= action.createdAt`. The action
+may follow resolution; the immutable target event remains recorded at `resolvedAt`. A proposal has no
+independent clock: its existence at check-in creation is proven by the immutable `proposedTargets`
 snapshot, while an edited proposal is proven by the ordered review action captured at acceptance.
 
 #### `adaptive_nutrition_programs`
