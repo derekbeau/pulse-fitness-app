@@ -62,6 +62,7 @@ const seedAcceptedReplacement = (
     actionCreatedAt?: number;
     actionType?: 'accept' | 'edit' | 'defer' | 'decline';
     actionPayload?: unknown;
+    rawActionPayload?: string;
   } = {},
 ) => {
   const programCreatedAt = timestamps.programCreatedAt ?? 1;
@@ -179,9 +180,10 @@ const seedAcceptedReplacement = (
       )
       .run(
         actionType,
-        JSON.stringify(
-          timestamps.actionPayload ?? acceptedActionPayload(appliedProposalOverride ?? applied),
-        ),
+        timestamps.rawActionPayload ??
+          JSON.stringify(
+            timestamps.actionPayload ?? acceptedActionPayload(appliedProposalOverride ?? applied),
+          ),
         actionCreatedAt,
       );
   }
@@ -1581,6 +1583,90 @@ describe('nutrition target event migration', () => {
     },
   );
 
+  it.each([
+    ['target acceptance', 199, 1],
+    ['target acceptance', 200, 1],
+    ['keep decision', 199, 0],
+    ['keep decision', 200, 0],
+  ] as const)(
+    'upgrades a real 0050 %s when review creation is %i and resolution is 200',
+    (kind, reviewCreatedAt, expectedAdaptiveEvents) => {
+      const root = mkdtempSync(join(tmpdir(), 'pulse-target-event-valid-review-resolution-'));
+      temporaryDirectories.push(root);
+      const sqlite = new Database(join(root, `${kind.replaceAll(' ', '-')}-${reviewCreatedAt}.db`));
+      sqlite.pragma('foreign_keys = ON');
+      try {
+        migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
+        if (kind === 'target acceptance') {
+          seedAcceptedReplacement(sqlite, true, undefined, {
+            checkInCreatedAt: 150,
+            reviewCreatedAt,
+            resolvedAt: 200,
+            actionCreatedAt: 300,
+          });
+        } else {
+          seedKeepAction(sqlite, {
+            checkInCreatedAt: 150,
+            reviewCreatedAt,
+            resolvedAt: 200,
+            actionCreatedAt: 300,
+          });
+        }
+        const migrationCountBefore = installedMigrationCount(sqlite);
+
+        migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder });
+
+        expect(installedMigrationCount(sqlite)).toBe(migrationCountBefore + 1);
+        expect(
+          sqlite
+            .prepare(
+              'SELECT count(*) AS count FROM nutrition_target_events WHERE adaptive_check_in_id IS NOT NULL',
+            )
+            .get(),
+        ).toEqual({ count: expectedAdaptiveEvents });
+        expectHealthy(sqlite);
+      } finally {
+        sqlite.close();
+      }
+    },
+  );
+
+  it.each(['target acceptance', 'keep decision'] as const)(
+    'rolls back a real 0050 %s whose review is created after resolution',
+    (kind) => {
+      const root = mkdtempSync(join(tmpdir(), 'pulse-target-event-review-after-resolution-'));
+      temporaryDirectories.push(root);
+      const sqlite = new Database(join(root, `${kind.replaceAll(' ', '-')}.db`));
+      sqlite.pragma('foreign_keys = ON');
+      try {
+        migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
+        if (kind === 'target acceptance') {
+          seedAcceptedReplacement(sqlite, true, undefined, {
+            checkInCreatedAt: 150,
+            reviewCreatedAt: 250,
+            resolvedAt: 200,
+            actionCreatedAt: 300,
+          });
+        } else {
+          seedKeepAction(sqlite, {
+            checkInCreatedAt: 150,
+            reviewCreatedAt: 250,
+            resolvedAt: 200,
+            actionCreatedAt: 300,
+          });
+        }
+        const before = legacyState(sqlite);
+
+        expect(() =>
+          migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder }),
+        ).toThrow(/Failed to run the query|constraint/iu);
+        expectMigrationRollback(sqlite, before);
+      } finally {
+        sqlite.close();
+      }
+    },
+  );
+
   it.each(['target acceptance', 'keep decision'] as const)(
     'rolls back a real 0050 %s whose audit action predates resolution',
     (kind) => {
@@ -1694,6 +1780,38 @@ describe('nutrition target event migration', () => {
     try {
       migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
       seedAcceptedReplacement(sqlite, true, undefined, { actionPayload: payload });
+      const before = legacyState(sqlite);
+
+      expect(() => migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder })).toThrow(
+        /Failed to run the query|constraint/iu,
+      );
+      expectMigrationRollback(sqlite, before);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it.each([
+    [
+      'contradictory duplicate payload type keys',
+      `{"type":"accept","type":"decline","expectedFingerprint":"${'b'.repeat(64)}","expectedActionSequence":0,"appliedProposal":{"calories":2250,"protein":180,"carbs":242.5,"fat":62,"effectiveDate":"2026-08-18"}}`,
+    ],
+    [
+      'duplicate applied proposal keys with target and keep meanings',
+      `{"type":"accept","expectedFingerprint":"${'b'.repeat(64)}","expectedActionSequence":0,"appliedProposal":{"calories":2250,"protein":180,"carbs":242.5,"fat":62,"effectiveDate":"2026-08-18"},"appliedProposal":null}`,
+    ],
+    [
+      'duplicate calories inside the applied proposal',
+      `{"type":"accept","expectedFingerprint":"${'b'.repeat(64)}","expectedActionSequence":0,"appliedProposal":{"calories":2250,"calories":2240,"protein":180,"carbs":242.5,"fat":62,"effectiveDate":"2026-08-18"}}`,
+    ],
+  ] as const)('rolls back an accepted action with %s', (_case, rawActionPayload) => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-target-event-duplicate-action-key-'));
+    temporaryDirectories.push(root);
+    const sqlite = new Database(join(root, `${_case.replaceAll(' ', '-')}.db`));
+    sqlite.pragma('foreign_keys = ON');
+    try {
+      migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
+      seedAcceptedReplacement(sqlite, true, undefined, { rawActionPayload });
       const before = legacyState(sqlite);
 
       expect(() => migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder })).toThrow(

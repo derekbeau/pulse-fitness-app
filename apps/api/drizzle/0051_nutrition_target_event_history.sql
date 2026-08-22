@@ -259,6 +259,12 @@ SELECT CASE WHEN EXISTS (
 	END
 		OR coalesce(json_type(a.`payload`, '$.type'), 'missing') <> 'text'
 		OR json_extract(a.`payload`, '$.type') <> a.`action_type`
+		OR EXISTS (
+			SELECT 1
+			FROM json_each(a.`payload`) field
+			GROUP BY field.`key`
+			HAVING count(*) <> 1
+		)
 ) THEN 0 ELSE 1 END;
 --> statement-breakpoint
 INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
@@ -278,6 +284,7 @@ SELECT CASE WHEN EXISTS (
 		OR a.`check_in_resolved_at` is null
 		OR a.`check_in_resolved_at` <= 0
 		OR a.`review_created_at` < a.`check_in_created_at`
+		OR a.`review_created_at` > a.`check_in_resolved_at`
 		OR a.`created_at` < a.`review_created_at`
 		OR a.`created_at` < a.`check_in_created_at`
 		OR a.`created_at` < a.`check_in_resolved_at`
@@ -359,6 +366,12 @@ SELECT CASE WHEN EXISTS (
 				SELECT 1
 				FROM json_each(json_extract(a.`payload`, '$.appliedProposal')) field
 				WHERE field.`key` not in ('calories', 'protein', 'carbs', 'fat', 'effectiveDate')
+			)
+			OR EXISTS (
+				SELECT 1
+				FROM json_each(json_extract(a.`payload`, '$.appliedProposal')) field
+				GROUP BY field.`key`
+				HAVING count(*) <> 1
 			)
 		)
 ) THEN 0 ELSE 1 END;
