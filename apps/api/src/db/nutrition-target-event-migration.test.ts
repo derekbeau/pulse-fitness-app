@@ -42,12 +42,18 @@ const seedAcceptedReplacement = (
   valid = true,
   appliedProposalOverride?: unknown,
   timestamps: {
+    programCreatedAt?: number;
+    goalCreatedAt?: number;
+    revisionCreatedAt?: number;
     checkInCreatedAt?: number;
     resolvedAt?: number;
     reviewCreatedAt?: number;
     actionCreatedAt?: number;
   } = {},
 ) => {
+  const programCreatedAt = timestamps.programCreatedAt ?? 1;
+  const goalCreatedAt = timestamps.goalCreatedAt ?? 1;
+  const revisionCreatedAt = timestamps.revisionCreatedAt ?? 1;
   const checkInCreatedAt = timestamps.checkInCreatedAt ?? 150;
   const resolvedAt = timestamps.resolvedAt ?? 200;
   const reviewCreatedAt = timestamps.reviewCreatedAt ?? 175;
@@ -90,9 +96,9 @@ const seedAcceptedReplacement = (
         fat_allocation_pct, system_calorie_floor_kcal, user_calorie_floor_kcal,
         algorithm_version, created_at, updated_at
       ) VALUES ('program-1', 'user-1', 'active', 'America/Detroit', 'manual_tdee', 2500,
-        2500, 'maintain', 0, 180, 30, 1500, 1500, 'adaptive-tdee-v1', 1, 1)`,
+        2500, 'maintain', 0, 180, 30, 1500, 1500, 'adaptive-tdee-v1', ?, ?)`,
     )
-    .run();
+    .run(programCreatedAt, programCreatedAt);
   sqlite
     .prepare(
       `INSERT INTO adaptive_nutrition_goals (
@@ -100,9 +106,9 @@ const seedAcceptedReplacement = (
         start_scale_weight_kg, target_weight_kg, maintenance_center_kg,
         goal_rate_pct_per_week, started_local_date, created_at, updated_at
       ) VALUES ('goal-1', 'user-1', 'program-1', 'maintain', 'active', 80, 80,
-        NULL, 80, 0, '2026-08-01', 1, 1)`,
+        NULL, 80, 0, '2026-08-01', ?, ?)`,
     )
-    .run();
+    .run(goalCreatedAt, goalCreatedAt);
   sqlite
     .prepare(
       `INSERT INTO adaptive_nutrition_goal_revisions (
@@ -110,9 +116,9 @@ const seedAcceptedReplacement = (
         goal_rate_pct_per_week, previous_target_weight_kg, previous_center_kg,
         previous_rate_pct_per_week, reason, effective_local_date, created_at
       ) VALUES ('goal-revision-1', 'goal-1', 'user-1', 1, NULL, 80, 0, NULL, 80,
-        0, 'created', '2026-08-01', 1)`,
+        0, 'created', '2026-08-01', ?)`,
     )
-    .run();
+    .run(revisionCreatedAt);
   sqlite
     .prepare(
       `INSERT INTO adaptive_nutrition_checkins (
@@ -165,6 +171,27 @@ const seedAcceptedReplacement = (
         actionCreatedAt,
       );
   }
+};
+
+const makeAcceptedFixtureNonAccepted = (
+  sqlite: Database.Database,
+  status: 'pending' | 'held' | 'declined' | 'superseded',
+) => {
+  sqlite
+    .prepare(
+      `UPDATE adaptive_nutrition_checkins
+       SET status = ?, accepted_nutrition_target_id = NULL
+       WHERE id = 'check-in-1'`,
+    )
+    .run(status);
+  sqlite
+    .prepare(
+      `UPDATE nutrition_targets
+       SET calories = 2200, carbs = 230, macro_calories = 2198,
+           source = 'manual', adaptive_check_in_id = NULL, updated_at = 100
+       WHERE id = 'target-1'`,
+    )
+    .run();
 };
 
 type ManualSnapshot = {
@@ -321,6 +348,12 @@ const installedMigrationCount = (sqlite: Database.Database) =>
 
 const legacyState = (sqlite: Database.Database) => ({
   migrationCount: installedMigrationCount(sqlite),
+  users: sqlite.prepare('SELECT * FROM users ORDER BY id').all(),
+  programs: sqlite.prepare('SELECT * FROM adaptive_nutrition_programs ORDER BY id').all(),
+  goals: sqlite.prepare('SELECT * FROM adaptive_nutrition_goals ORDER BY id').all(),
+  goalRevisions: sqlite
+    .prepare('SELECT * FROM adaptive_nutrition_goal_revisions ORDER BY id')
+    .all(),
   targets: sqlite.prepare('SELECT * FROM nutrition_targets ORDER BY id').all(),
   checkIns: sqlite.prepare('SELECT * FROM adaptive_nutrition_checkins ORDER BY id').all(),
   reviews: sqlite.prepare('SELECT * FROM adaptive_nutrition_reviews ORDER BY id').all(),
@@ -339,6 +372,16 @@ const expectMigrationRollback = (
       .get(),
   ).toBeUndefined();
   expect(installedMigrationCount(sqlite)).toBe(before.migrationCount);
+  expect(sqlite.prepare('SELECT * FROM users ORDER BY id').all()).toEqual(before.users);
+  expect(sqlite.prepare('SELECT * FROM adaptive_nutrition_programs ORDER BY id').all()).toEqual(
+    before.programs,
+  );
+  expect(sqlite.prepare('SELECT * FROM adaptive_nutrition_goals ORDER BY id').all()).toEqual(
+    before.goals,
+  );
+  expect(
+    sqlite.prepare('SELECT * FROM adaptive_nutrition_goal_revisions ORDER BY id').all(),
+  ).toEqual(before.goalRevisions);
   expect(sqlite.prepare('SELECT * FROM nutrition_targets ORDER BY id').all()).toEqual(
     before.targets,
   );
@@ -1034,7 +1077,15 @@ describe('nutrition target event migration', () => {
     sqlite.pragma('foreign_keys = ON');
     try {
       migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
-      seedAcceptedReplacement(sqlite);
+      seedAcceptedReplacement(sqlite, true, undefined, {
+        programCreatedAt: 25,
+        goalCreatedAt: 40,
+        revisionCreatedAt: 50,
+        checkInCreatedAt: 150,
+        reviewCreatedAt: 175,
+        resolvedAt: 200,
+        actionCreatedAt: 200,
+      });
       const acceptedSnapshot = {
         id: 'target-1',
         calories: 2250,
@@ -1188,6 +1239,75 @@ describe('nutrition target event migration', () => {
     }
   });
 
+  it('rolls back an Adaptive predecessor whose source revision postdates source capture', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-target-event-invalid-adaptive-source-chain-'));
+    temporaryDirectories.push(root);
+    const sqlite = new Database(join(root, 'invalid-adaptive-source-chain.db'));
+    sqlite.pragma('foreign_keys = ON');
+    try {
+      migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
+      seedAcceptedReplacement(sqlite, true, undefined, {
+        programCreatedAt: 1,
+        goalCreatedAt: 50,
+        revisionCreatedAt: 175,
+        checkInCreatedAt: 150,
+        reviewCreatedAt: 180,
+        resolvedAt: 200,
+        actionCreatedAt: 200,
+      });
+      const acceptedSnapshot = {
+        id: 'target-1',
+        calories: 2250,
+        protein: 180,
+        carbs: 242.5,
+        fat: 62,
+        source: 'adaptive',
+        adaptiveCheckInId: 'check-in-1',
+        macroCalories: 2248,
+        effectiveDate: '2026-08-18',
+        createdAt: 100,
+        updatedAt: 200,
+      };
+      const secondProposal = {
+        calories: 2300,
+        protein: 180,
+        carbs: 255,
+        fat: 62,
+        effectiveDate: '2026-08-19',
+      };
+      sqlite
+        .prepare(
+          `INSERT INTO adaptive_nutrition_checkins (
+            id, user_id, program_id, goal_id, goal_revision_id, kind, status,
+            calculation_state, local_date, analysis_start, analysis_end, include_today,
+            algorithm_version, data_fingerprint, input_snapshot, calculation_snapshot,
+            reason_codes, current_targets, proposed_targets, accepted_nutrition_target_id,
+            resolved_at, created_at
+          ) VALUES ('check-in-2', 'user-1', 'program-1', 'goal-1', 'goal-revision-1',
+            'weekly', 'accepted', 'updating', '2026-08-19', '2026-07-29', '2026-08-18',
+            0, 'adaptive-tdee-v1', ?, '{}', '{}', '[]', ?, ?, 'target-2', 300, 250)`,
+        )
+        .run('c'.repeat(64), JSON.stringify(acceptedSnapshot), JSON.stringify(secondProposal));
+      sqlite
+        .prepare(
+          `INSERT INTO nutrition_targets (
+            id, user_id, calories, protein, carbs, fat, source, adaptive_check_in_id,
+            macro_calories, effective_date, created_at, updated_at
+          ) VALUES ('target-2', 'user-1', 2300, 180, 255, 62, 'adaptive', 'check-in-2',
+            2298, '2026-08-19', 300, 300)`,
+        )
+        .run();
+      const before = legacyState(sqlite);
+
+      expect(() => migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder })).toThrow(
+        /Failed to run the query|constraint/iu,
+      );
+      expectMigrationRollback(sqlite, before);
+    } finally {
+      sqlite.close();
+    }
+  });
+
   it('upgrades a populated real 0050 database with exact predecessor and edited acceptance facts', () => {
     const root = mkdtempSync(join(tmpdir(), 'pulse-target-event-upgrade-'));
     temporaryDirectories.push(root);
@@ -1195,7 +1315,15 @@ describe('nutrition target event migration', () => {
     sqlite.pragma('foreign_keys = ON');
     try {
       migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
-      seedAcceptedReplacement(sqlite);
+      seedAcceptedReplacement(sqlite, true, undefined, {
+        programCreatedAt: 25,
+        goalCreatedAt: 40,
+        revisionCreatedAt: 50,
+        checkInCreatedAt: 150,
+        reviewCreatedAt: 175,
+        resolvedAt: 200,
+        actionCreatedAt: 200,
+      });
       const targetBefore = sqlite
         .prepare("SELECT * FROM nutrition_targets WHERE id = 'target-1'")
         .get();
@@ -1285,6 +1413,87 @@ describe('nutrition target event migration', () => {
     }
   });
 
+  it('preserves a valid legacy baseline check-in with no goal or revision', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-target-event-baseline-without-goal-'));
+    temporaryDirectories.push(root);
+    const sqlite = new Database(join(root, 'baseline-without-goal.db'));
+    sqlite.pragma('foreign_keys = ON');
+    try {
+      migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 42) });
+      sqlite
+        .prepare(
+          "INSERT INTO users (id, username, password_hash) VALUES ('user-1', 'user-1', 'hash')",
+        )
+        .run();
+      sqlite
+        .prepare(
+          `INSERT INTO adaptive_nutrition_programs (
+            id, user_id, status, time_zone, rmr_equation, manual_baseline_tdee_kcal,
+            baseline_tdee_kcal, goal_type, goal_rate_pct_per_week, protein_grams,
+            fat_allocation_pct, system_calorie_floor_kcal, user_calorie_floor_kcal,
+            algorithm_version, created_at, updated_at
+          ) VALUES ('program-1', 'user-1', 'active', 'America/Detroit', 'manual_tdee',
+            2500, 2500, 'maintain', 0, 180, 30, 1500, 1500, 'adaptive-tdee-v1', 1, 1)`,
+        )
+        .run();
+      sqlite
+        .prepare(
+          `INSERT INTO adaptive_nutrition_checkins (
+            id, user_id, program_id, kind, status, calculation_state, local_date,
+            analysis_start, analysis_end, include_today, algorithm_version, data_fingerprint,
+            input_snapshot, calculation_snapshot, reason_codes, current_targets, proposed_targets,
+            accepted_nutrition_target_id, resolved_at, created_at
+          ) VALUES ('baseline-check-in', 'user-1', 'program-1', 'baseline', 'held',
+            'baseline', '2026-08-18', NULL, NULL, 0, 'adaptive-tdee-v1', ?, '{}', '{}',
+            '[]', NULL, NULL, NULL, 200, 150)`,
+        )
+        .run('d'.repeat(64));
+      sqlite
+        .prepare(
+          `INSERT INTO nutrition_targets (
+            id, user_id, calories, protein, carbs, fat, source, adaptive_check_in_id,
+            macro_calories, effective_date, created_at, updated_at
+          ) VALUES ('baseline-target', 'user-1', 2100, 180, 205, 62, 'manual',
+            NULL, 2098, '2026-08-18', 200, 200)`,
+        )
+        .run();
+      migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
+      expect(
+        sqlite
+          .prepare(
+            `SELECT goal_id AS goalId, goal_revision_id AS goalRevisionId
+             FROM adaptive_nutrition_checkins WHERE id = 'baseline-check-in'`,
+          )
+          .get(),
+      ).toEqual({ goalId: null, goalRevisionId: null });
+      const migrationCountBefore = installedMigrationCount(sqlite);
+
+      migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder });
+
+      expect(installedMigrationCount(sqlite)).toBe(migrationCountBefore + 1);
+      expect(
+        sqlite
+          .prepare(
+            `SELECT sequence, calories, source, adaptive_check_in_id AS adaptiveCheckInId,
+                    recorded_at AS recordedAt
+             FROM nutrition_target_events ORDER BY sequence`,
+          )
+          .all(),
+      ).toEqual([
+        {
+          sequence: 1,
+          calories: 2100,
+          source: 'manual',
+          adaptiveCheckInId: null,
+          recordedAt: 200,
+        },
+      ]);
+      expectHealthy(sqlite);
+    } finally {
+      sqlite.close();
+    }
+  });
+
   it('rolls back rather than inventing an unrecoverable accepted target', () => {
     const root = mkdtempSync(join(tmpdir(), 'pulse-target-event-invalid-'));
     temporaryDirectories.push(root);
@@ -1309,6 +1518,126 @@ describe('nutrition target event migration', () => {
     }
   });
 
+  it('excludes valid keep, decline, and defer actions from target-event construction', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-target-event-non-target-actions-'));
+    temporaryDirectories.push(root);
+    const sqlite = new Database(join(root, 'non-target-actions.db'));
+    sqlite.pragma('foreign_keys = ON');
+    try {
+      migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
+      seedManualHistory(sqlite, {
+        createdAt: 100,
+        updatedAt: 100,
+        currentCalories: 2200,
+        currentCarbs: 230,
+      });
+      const fixtures = [
+        {
+          id: 'keep',
+          status: 'declined',
+          createdAt: 150,
+          resolvedAt: 200,
+          reviewCreatedAt: 175,
+          actionCreatedAt: 200,
+          actionType: 'accept',
+          payload: { type: 'accept', appliedProposal: null },
+        },
+        {
+          id: 'decline',
+          status: 'declined',
+          createdAt: 160,
+          resolvedAt: 210,
+          reviewCreatedAt: 185,
+          actionCreatedAt: 210,
+          actionType: 'decline',
+          payload: { type: 'decline', reason: 'Keep the current plan' },
+        },
+        {
+          id: 'defer',
+          status: 'pending',
+          createdAt: 200,
+          resolvedAt: null,
+          reviewCreatedAt: 215,
+          actionCreatedAt: 220,
+          actionType: 'defer',
+          payload: {
+            type: 'defer',
+            reason: 'Wait for more evidence',
+            condition: { kind: 'until_date', localDate: '2026-08-25' },
+          },
+        },
+      ] as const;
+      for (const [index, fixture] of fixtures.entries()) {
+        const checkInId = `check-in-${fixture.id}`;
+        const reviewId = `review-${fixture.id}`;
+        sqlite
+          .prepare(
+            `INSERT INTO adaptive_nutrition_checkins (
+              id, user_id, program_id, goal_id, goal_revision_id, kind, status,
+              calculation_state, local_date, analysis_start, analysis_end, include_today,
+              algorithm_version, data_fingerprint, input_snapshot, calculation_snapshot,
+              reason_codes, current_targets, proposed_targets, accepted_nutrition_target_id,
+              resolved_at, created_at
+            ) VALUES (?, 'user-1', 'program-1', 'goal-1', 'goal-revision-1', 'weekly', ?,
+              'updating', ?, '2026-07-28', '2026-08-17', 0, 'adaptive-tdee-v1', ?,
+              '{}', '{}', '[]', NULL, NULL, NULL, ?, ?)`,
+          )
+          .run(
+            checkInId,
+            fixture.status,
+            `2026-08-${String(18 + index).padStart(2, '0')}`,
+            String(index + 4).repeat(64),
+            fixture.resolvedAt,
+            fixture.createdAt,
+          );
+        sqlite
+          .prepare(
+            `INSERT INTO adaptive_nutrition_reviews (
+              id, user_id, program_id, check_in_id, kind, review_version, source_fingerprint,
+              review_local_date, analysis_start, analysis_end, time_zone, snapshot, created_at
+            ) VALUES (?, 'user-1', 'program-1', ?, 'weekly', 1, ?, ?, '2026-07-28',
+              '2026-08-17', 'America/Detroit', '{}', ?)`,
+          )
+          .run(
+            reviewId,
+            checkInId,
+            String(index + 7).repeat(64),
+            `2026-08-${String(18 + index).padStart(2, '0')}`,
+            fixture.reviewCreatedAt,
+          );
+        sqlite
+          .prepare(
+            `INSERT INTO adaptive_nutrition_review_actions (
+              id, review_id, user_id, sequence, type, payload, actor_type, actor_label, created_at
+            ) VALUES (?, ?, 'user-1', 1, ?, ?, 'user', 'You', ?)`,
+          )
+          .run(
+            `action-${fixture.id}`,
+            reviewId,
+            fixture.actionType,
+            JSON.stringify(fixture.payload),
+            fixture.actionCreatedAt,
+          );
+      }
+
+      const migrationCountBefore = installedMigrationCount(sqlite);
+      migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder });
+
+      expect(installedMigrationCount(sqlite)).toBe(migrationCountBefore + 1);
+      expect(
+        sqlite
+          .prepare(
+            `SELECT sequence, calories, source, adaptive_check_in_id AS adaptiveCheckInId
+             FROM nutrition_target_events ORDER BY sequence`,
+          )
+          .all(),
+      ).toEqual([{ sequence: 1, calories: 2200, source: 'manual', adaptiveCheckInId: null }]);
+      expectHealthy(sqlite);
+    } finally {
+      sqlite.close();
+    }
+  });
+
   it('rolls back when an accepted review action carries a malformed applied proposal', () => {
     const root = mkdtempSync(join(tmpdir(), 'pulse-target-event-invalid-action-'));
     temporaryDirectories.push(root);
@@ -1322,6 +1651,275 @@ describe('nutrition target event migration', () => {
         fat: 62,
         effectiveDate: '2026-08-18',
       });
+      const before = legacyState(sqlite);
+
+      expect(() => migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder })).toThrow(
+        /Failed to run the query|constraint/iu,
+      );
+      expectMigrationRollback(sqlite, before);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it.each(['pending', 'held', 'declined', 'superseded'] as const)(
+    'rolls back a target-bearing accept action attached to a %s check-in',
+    (status) => {
+      const root = mkdtempSync(join(tmpdir(), `pulse-target-event-${status}-accept-action-`));
+      temporaryDirectories.push(root);
+      const sqlite = new Database(join(root, `${status}-accept-action.db`));
+      sqlite.pragma('foreign_keys = ON');
+      try {
+        migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
+        seedAcceptedReplacement(sqlite);
+        makeAcceptedFixtureNonAccepted(sqlite, status);
+        const before = legacyState(sqlite);
+
+        expect(() =>
+          migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder }),
+        ).toThrow(/Failed to run the query|constraint/iu);
+        expectMigrationRollback(sqlite, before);
+      } finally {
+        sqlite.close();
+      }
+    },
+  );
+
+  it('rolls back a target-bearing accept action whose accepted check-in has no target', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-target-event-accept-missing-target-'));
+    temporaryDirectories.push(root);
+    const sqlite = new Database(join(root, 'accept-missing-target.db'));
+    sqlite.pragma('foreign_keys = ON');
+    try {
+      migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
+      seedAcceptedReplacement(sqlite);
+      sqlite
+        .prepare(
+          `UPDATE adaptive_nutrition_checkins
+           SET accepted_nutrition_target_id = NULL
+           WHERE id = 'check-in-1'`,
+        )
+        .run();
+      sqlite
+        .prepare(
+          `UPDATE nutrition_targets
+           SET calories = 2200, carbs = 230, macro_calories = 2198,
+               source = 'manual', adaptive_check_in_id = NULL, updated_at = 100
+           WHERE id = 'target-1'`,
+        )
+        .run();
+      const before = legacyState(sqlite);
+
+      expect(() => migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder })).toThrow(
+        /Failed to run the query|constraint/iu,
+      );
+      expectMigrationRollback(sqlite, before);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('rolls back a target-bearing accept action whose check-in names a mismatched target', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-target-event-accept-mismatched-target-'));
+    temporaryDirectories.push(root);
+    const sqlite = new Database(join(root, 'accept-mismatched-target.db'));
+    sqlite.pragma('foreign_keys = ON');
+    try {
+      migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
+      seedAcceptedReplacement(sqlite);
+      sqlite
+        .prepare(
+          `UPDATE nutrition_targets
+           SET calories = 2200, carbs = 230, macro_calories = 2198,
+               source = 'manual', adaptive_check_in_id = NULL, updated_at = 100
+           WHERE id = 'target-1'`,
+        )
+        .run();
+      sqlite
+        .prepare(
+          `INSERT INTO nutrition_targets (
+            id, user_id, calories, protein, carbs, fat, source, adaptive_check_in_id,
+            macro_calories, effective_date, created_at, updated_at
+          ) VALUES ('target-2', 'user-1', 2100, 180, 205, 62, 'manual', NULL,
+            2098, '2026-08-19', 100, 200)`,
+        )
+        .run();
+      sqlite
+        .prepare(
+          `UPDATE adaptive_nutrition_checkins
+           SET accepted_nutrition_target_id = 'target-2'
+           WHERE id = 'check-in-1'`,
+        )
+        .run();
+      const before = legacyState(sqlite);
+
+      expect(() => migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder })).toThrow(
+        /Failed to run the query|constraint/iu,
+      );
+      expectMigrationRollback(sqlite, before);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('relies on real 0050 foreign keys to reject orphaned and cross-user action chains', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-target-event-action-ownership-fk-'));
+    temporaryDirectories.push(root);
+    const sqlite = new Database(join(root, 'action-ownership-fk.db'));
+    sqlite.pragma('foreign_keys = ON');
+    try {
+      migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
+      seedAcceptedReplacement(sqlite);
+      sqlite
+        .prepare(
+          "INSERT INTO users (id, username, password_hash) VALUES ('user-2', 'user-2', 'hash')",
+        )
+        .run();
+      sqlite
+        .prepare(
+          `INSERT INTO adaptive_nutrition_reviews (
+            id, user_id, program_id, check_in_id, kind, review_version, source_fingerprint,
+            review_local_date, analysis_start, analysis_end, time_zone, snapshot, created_at
+          ) VALUES ('review-ownership-probe', 'user-1', 'program-1', 'check-in-1', 'weekly',
+            1, ?, '2026-08-18', '2026-07-28', '2026-08-17', 'America/Detroit', '{}', 175)`,
+        )
+        .run('e'.repeat(64));
+      const actionPayload = JSON.stringify({
+        type: 'accept',
+        appliedProposal: {
+          calories: 2250,
+          protein: 180,
+          carbs: 242.5,
+          fat: 62,
+          effectiveDate: '2026-08-18',
+        },
+      });
+
+      expect(() =>
+        sqlite
+          .prepare(
+            `INSERT INTO adaptive_nutrition_review_actions (
+              id, review_id, user_id, sequence, type, payload, actor_type, actor_label, created_at
+            ) VALUES ('orphan-action', 'missing-review', 'user-1', 1, 'accept', ?,
+              'user', 'You', 200)`,
+          )
+          .run(actionPayload),
+      ).toThrow(/foreign key/iu);
+      expect(() =>
+        sqlite
+          .prepare(
+            `INSERT INTO adaptive_nutrition_review_actions (
+              id, review_id, user_id, sequence, type, payload, actor_type, actor_label, created_at
+            ) VALUES ('cross-user-action', 'review-ownership-probe', 'user-2', 1, 'accept', ?,
+              'user', 'You', 200)`,
+          )
+          .run(actionPayload),
+      ).toThrow(/foreign key/iu);
+      expectHealthy(sqlite);
+
+      migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder });
+      expectHealthy(sqlite);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('relies on real 0050 composite ownership to reject a revision from another goal and user', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-target-event-revision-ownership-fk-'));
+    temporaryDirectories.push(root);
+    const sqlite = new Database(join(root, 'revision-ownership-fk.db'));
+    sqlite.pragma('foreign_keys = ON');
+    try {
+      migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
+      seedAcceptedReplacement(sqlite);
+      sqlite
+        .prepare(
+          "INSERT INTO users (id, username, password_hash) VALUES ('user-2', 'user-2', 'hash')",
+        )
+        .run();
+      sqlite
+        .prepare(
+          `INSERT INTO adaptive_nutrition_programs (
+            id, user_id, status, time_zone, rmr_equation, manual_baseline_tdee_kcal,
+            baseline_tdee_kcal, goal_type, goal_rate_pct_per_week, protein_grams,
+            fat_allocation_pct, system_calorie_floor_kcal, user_calorie_floor_kcal,
+            algorithm_version, created_at, updated_at
+          ) VALUES ('program-2', 'user-2', 'active', 'America/Detroit', 'manual_tdee', 2500,
+            2500, 'maintain', 0, 180, 30, 1500, 1500, 'adaptive-tdee-v1', 1, 1)`,
+        )
+        .run();
+      sqlite
+        .prepare(
+          `INSERT INTO adaptive_nutrition_goals (
+            id, user_id, program_id, type, status, start_trend_weight_kg,
+            start_scale_weight_kg, target_weight_kg, maintenance_center_kg,
+            goal_rate_pct_per_week, started_local_date, created_at, updated_at
+          ) VALUES ('goal-2', 'user-2', 'program-2', 'maintain', 'active', 80, 80,
+            NULL, 80, 0, '2026-08-01', 1, 1)`,
+        )
+        .run();
+      sqlite
+        .prepare(
+          `INSERT INTO adaptive_nutrition_goal_revisions (
+            id, goal_id, user_id, sequence, target_weight_kg, maintenance_center_kg,
+            goal_rate_pct_per_week, previous_target_weight_kg, previous_center_kg,
+            previous_rate_pct_per_week, reason, effective_local_date, created_at
+          ) VALUES ('goal-revision-2', 'goal-2', 'user-2', 1, NULL, 80, 0, NULL, 80,
+            0, 'created', '2026-08-01', 1)`,
+        )
+        .run();
+
+      expect(() =>
+        sqlite
+          .prepare(
+            `INSERT INTO adaptive_nutrition_checkins (
+              id, user_id, program_id, goal_id, goal_revision_id, kind, status,
+              calculation_state, local_date, analysis_start, analysis_end, include_today,
+              algorithm_version, data_fingerprint, input_snapshot, calculation_snapshot,
+              reason_codes, current_targets, proposed_targets, accepted_nutrition_target_id,
+              resolved_at, created_at
+            ) VALUES ('cross-goal-check-in', 'user-1', 'program-1', 'goal-1',
+              'goal-revision-2', 'weekly', 'held', 'holding', '2026-08-20',
+              '2026-07-30', '2026-08-19', 0, 'adaptive-tdee-v1', ?, '{}', '{}', '[]',
+              NULL, NULL, NULL, 250, 200)`,
+          )
+          .run('f'.repeat(64)),
+      ).toThrow(/foreign key/iu);
+      expectHealthy(sqlite);
+
+      migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder });
+      expectHealthy(sqlite);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it.each([
+    [
+      'goal creation predates its program',
+      { programCreatedAt: 100, goalCreatedAt: 50, revisionCreatedAt: 75 },
+    ],
+    [
+      'goal revision creation predates its goal',
+      { programCreatedAt: 1, goalCreatedAt: 100, revisionCreatedAt: 50 },
+    ],
+    [
+      'goal revision creation follows check-in capture',
+      {
+        programCreatedAt: 1,
+        goalCreatedAt: 50,
+        revisionCreatedAt: 175,
+        checkInCreatedAt: 150,
+      },
+    ],
+  ])('rolls back when %s', (_label, timestamps) => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-target-event-invalid-goal-chain-'));
+    temporaryDirectories.push(root);
+    const sqlite = new Database(join(root, 'invalid-goal-chain.db'));
+    sqlite.pragma('foreign_keys = ON');
+    try {
+      migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
+      seedAcceptedReplacement(sqlite, true, undefined, timestamps);
       const before = legacyState(sqlite);
 
       expect(() => migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder })).toThrow(

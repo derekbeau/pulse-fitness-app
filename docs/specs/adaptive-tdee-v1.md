@@ -876,28 +876,37 @@ The existing unique `(userId, effectiveDate)` means accepting an adaptive target
 - Event rows are append-only outside explicit account deletion, use composite same-user foreign
   keys, and allow equal recorded timestamps only through the contiguous sequence tie-breaker.
 - Migration reconstructs an accepted event only from an immutable accepted proposal or accepted
-  review action. Before filtering candidates, it inventories every accepted check-in's non-null
-  `currentTargets`, every accepted proposal, and every accepted review action's `appliedProposal`.
-  Each source claim must have a complete valid shape, same-user target identity, nonnegative values,
-  correct 4/4/9 macro arithmetic, valid effective date and causal timestamps, valid provenance, and
-  an exact candidate mapping. Complete owned snapshots may preserve manual or Adaptive predecessor
-  states. Exact duplicate claims intentionally deduplicate to one event, while distinct equal-time
-  states retain deterministic sequence order. Keep actions are excluded because they do not accept
-  or create a target. Every reconstructed chain must begin at the materialized row's `createdAt`, end
-  with an exact match at `updatedAt`, and remain timestamp-monotonic. A malformed non-null claim, an
-  unmapped accepted proposal/action, or a mutated manual row without that complete chain aborts and
-  rolls back the migration; the current row is never backdated or used to erase an unknowable
-  interval.
+  review action. Before filtering candidates or check-in status, it inventories every accepted
+  check-in's non-null `currentTargets`, every accepted proposal, and every review action whose action
+  type is `accept`. A target-bearing accept action must resolve through one same-user review/check-in
+  chain to an accepted check-in, its owned non-null target, and the exact accepted-resolution instant.
+  An accept action whose `appliedProposal` is null is the separately validated keep decision: it must
+  resolve a declined check-in with no accepted target and is excluded from event construction.
+  Target-bearing accept actions on pending, held, declined, or superseded check-ins and orphaned or
+  cross-user chains abort instead of disappearing through joins. Ordinary decline and defer actions
+  remain outside target-event construction. Each target claim must have a complete valid shape,
+  same-user target identity, nonnegative values, correct 4/4/9 macro arithmetic, valid effective date
+  and causal timestamps, valid provenance, and an exact candidate mapping. Complete owned snapshots
+  may preserve manual or Adaptive predecessor states. Exact duplicate claims intentionally deduplicate
+  to one event, while distinct equal-time states retain deterministic sequence order. Every
+  reconstructed chain must begin at the materialized row's `createdAt`, end with an exact match at
+  `updatedAt`, and remain timestamp-monotonic. A malformed non-null claim, an unmapped accepted
+  proposal/action, or a mutated manual row without that complete chain aborts and rolls back the
+  migration; the current row is never backdated or used to erase an unknowable interval.
 - A check-in's `currentTargets` is evidence captured at check-in creation, not acceptance. Migration
   therefore requires `currentTargets.createdAt <= currentTargets.updatedAt <= checkIn.createdAt`.
   Same-millisecond capture is valid; immutable IDs and the target-event sequence are the only valid
   tie-breakers. The claiming check-in's later `resolvedAt` cannot make a future snapshot causal.
   Adaptive predecessor snapshots also require the source accepted check-in to resolve exactly at the
-  snapshot `updatedAt`, no later than the claimant was created. Check-in creation must be positive and
-  cannot precede its owned program or applicable goal; acceptance cannot precede check-in creation.
-  Review creation cannot precede its check-in, and the final applied-proposal action cannot precede
-  its review and must occur at the accepted resolution event. The base proposal is an immutable field
-  captured with the check-in; it is not assigned an invented independent timestamp.
+  snapshot `updatedAt`, no later than the claimant was created. Every relevant goal-linked check-in
+  must satisfy all of these ordered boundaries: `program.createdAt <= goal.createdAt`,
+  `goal.createdAt <= goalRevision.createdAt`, `goalRevision.createdAt <= checkIn.createdAt`, and
+  `checkIn.createdAt <= resolvedAt`. Program/user and goal/user ownership must also match exactly. A
+  migrated baseline/setup check-in may legitimately keep both goal links null; a partial pair is
+  invalid. A revision cannot predate its goal or postdate immutable check-in capture. Review creation
+  cannot precede its check-in, and the final applied-proposal action cannot precede its review and must
+  occur at the accepted resolution event. The base proposal is an immutable field captured with the
+  check-in; it is not assigned an invented independent timestamp.
 - The UI uses a confirmation dialog.
 
 ### 14.5 Canonical body weight migration

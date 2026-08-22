@@ -43,6 +43,68 @@ CREATE TEMP TABLE `__nutrition_target_backfill_validation` (
 	`valid` integer NOT NULL CHECK (`valid` = 1)
 );
 --> statement-breakpoint
+CREATE TEMP TABLE `__nutrition_target_check_in_lifecycle_claims` AS
+SELECT
+	c.`id` AS `check_in_id`,
+	c.`user_id`,
+	c.`program_id`,
+	c.`goal_id`,
+	c.`goal_revision_id`,
+	c.`status`,
+	c.`resolved_at`,
+	c.`created_at`
+FROM `adaptive_nutrition_checkins` c
+WHERE c.`status` = 'accepted'
+UNION
+SELECT
+	c.`id`,
+	c.`user_id`,
+	c.`program_id`,
+	c.`goal_id`,
+	c.`goal_revision_id`,
+	c.`status`,
+	c.`resolved_at`,
+	c.`created_at`
+FROM `adaptive_nutrition_review_actions` a
+JOIN `adaptive_nutrition_reviews` r ON r.`id` = a.`review_id`
+JOIN `adaptive_nutrition_checkins` c ON c.`id` = r.`check_in_id`
+WHERE a.`type` = 'accept';
+--> statement-breakpoint
+INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
+SELECT CASE WHEN EXISTS (
+	SELECT 1
+	FROM `__nutrition_target_check_in_lifecycle_claims` c
+	LEFT JOIN `adaptive_nutrition_programs` p ON p.`id` = c.`program_id`
+	LEFT JOIN `adaptive_nutrition_goals` g ON g.`id` = c.`goal_id`
+	LEFT JOIN `adaptive_nutrition_goal_revisions` revision
+		ON revision.`id` = c.`goal_revision_id`
+	WHERE p.`id` is null
+		OR p.`user_id` <> c.`user_id`
+		OR p.`created_at` <= 0
+		OR c.`created_at` <= 0
+		OR c.`created_at` < p.`created_at`
+		OR (c.`goal_id` is null) <> (c.`goal_revision_id` is null)
+		OR (c.`goal_id` is not null AND (
+			g.`id` is null
+			OR g.`user_id` <> c.`user_id`
+			OR g.`program_id` <> c.`program_id`
+			OR g.`created_at` <= 0
+			OR g.`created_at` < p.`created_at`
+			OR c.`created_at` < g.`created_at`
+			OR revision.`id` is null
+			OR revision.`user_id` <> c.`user_id`
+			OR revision.`goal_id` <> c.`goal_id`
+			OR revision.`created_at` <= 0
+			OR revision.`created_at` < g.`created_at`
+			OR revision.`created_at` > c.`created_at`
+		))
+		OR (c.`status` = 'accepted' AND (
+			c.`resolved_at` is null
+			OR c.`resolved_at` <= 0
+			OR c.`resolved_at` < c.`created_at`
+		))
+) THEN 0 ELSE 1 END;
+--> statement-breakpoint
 CREATE TEMP TABLE `__nutrition_target_predecessor_claims` AS
 SELECT
 	c.`id` AS `check_in_id`,
@@ -152,21 +214,54 @@ SELECT CASE WHEN EXISTS (
 CREATE TEMP TABLE `__nutrition_target_accept_action_claims` AS
 SELECT
 	a.`id` AS `action_id`,
-	r.`check_in_id`,
-	r.`user_id`,
+	a.`review_id` AS `action_review_id`,
+	a.`user_id` AS `action_user_id`,
+	r.`id` AS `review_id`,
+	r.`check_in_id` AS `review_check_in_id`,
+	r.`user_id` AS `review_user_id`,
+	r.`program_id` AS `review_program_id`,
+	c.`id` AS `check_in_id`,
+	c.`user_id` AS `user_id`,
+	c.`user_id` AS `check_in_user_id`,
+	c.`program_id` AS `check_in_program_id`,
+	c.`status` AS `check_in_status`,
+	c.`accepted_nutrition_target_id`,
 	c.`created_at` AS `check_in_created_at`,
 	c.`resolved_at` AS `check_in_resolved_at`,
 	r.`created_at` AS `review_created_at`,
+	t.`id` AS `target_id`,
+	t.`user_id` AS `target_user_id`,
+	t.`effective_date` AS `target_effective_date`,
 	a.`sequence`,
 	a.`payload`,
 	a.`created_at`
 FROM `adaptive_nutrition_review_actions` a
-JOIN `adaptive_nutrition_reviews` r
-	ON r.`id` = a.`review_id` AND r.`user_id` = a.`user_id`
-JOIN `adaptive_nutrition_checkins` c
-	ON c.`id` = r.`check_in_id` AND c.`user_id` = r.`user_id`
-WHERE a.`type` = 'accept'
-	AND c.`status` = 'accepted';
+LEFT JOIN `adaptive_nutrition_reviews` r ON r.`id` = a.`review_id`
+LEFT JOIN `adaptive_nutrition_checkins` c ON c.`id` = r.`check_in_id`
+LEFT JOIN `nutrition_targets` t ON t.`id` = c.`accepted_nutrition_target_id`
+WHERE a.`type` = 'accept';
+--> statement-breakpoint
+INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
+SELECT CASE WHEN EXISTS (
+	SELECT 1
+	FROM `__nutrition_target_accept_action_claims` a
+	WHERE a.`review_id` is null
+		OR a.`review_id` <> a.`action_review_id`
+		OR a.`review_user_id` is not a.`action_user_id`
+		OR a.`check_in_id` is null
+		OR a.`check_in_id` <> a.`review_check_in_id`
+		OR a.`check_in_user_id` is not a.`review_user_id`
+		OR a.`check_in_program_id` is not a.`review_program_id`
+		OR a.`check_in_created_at` <= 0
+		OR a.`review_created_at` <= 0
+		OR a.`created_at` <= 0
+		OR a.`check_in_resolved_at` is null
+		OR a.`check_in_resolved_at` <= 0
+		OR a.`review_created_at` < a.`check_in_created_at`
+		OR a.`created_at` < a.`review_created_at`
+		OR a.`created_at` < a.`check_in_created_at`
+		OR a.`created_at` <> a.`check_in_resolved_at`
+) THEN 0 ELSE 1 END;
 --> statement-breakpoint
 INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
 SELECT CASE WHEN EXISTS (
@@ -176,16 +271,36 @@ SELECT CASE WHEN EXISTS (
 		WHEN json_valid(a.`payload`) THEN json_type(a.`payload`) <> 'object'
 		ELSE 1
 	END
-		OR coalesce(json_type(a.`payload`, '$.appliedProposal'), 'missing') <> 'object'
+		OR coalesce(json_type(a.`payload`, '$.appliedProposal'), 'missing') not in ('null', 'object')
 ) THEN 0 ELSE 1 END;
 --> statement-breakpoint
 INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
 SELECT CASE WHEN EXISTS (
 	SELECT 1
 	FROM `__nutrition_target_accept_action_claims` a
-	JOIN `adaptive_nutrition_checkins` c
-		ON c.`id` = a.`check_in_id` AND c.`user_id` = a.`user_id`
-		WHERE coalesce(json_type(a.`payload`, '$.appliedProposal.calories'), 'missing') not in ('integer', 'real')
+	WHERE (
+		json_type(a.`payload`, '$.appliedProposal') = 'object'
+		AND (
+			a.`check_in_status` <> 'accepted'
+			OR a.`accepted_nutrition_target_id` is null
+			OR a.`target_id` is null
+			OR a.`target_user_id` is not a.`check_in_user_id`
+		)
+	) OR (
+		json_type(a.`payload`, '$.appliedProposal') = 'null'
+		AND (
+			a.`check_in_status` <> 'declined'
+			OR a.`accepted_nutrition_target_id` is not null
+		)
+	)
+) THEN 0 ELSE 1 END;
+--> statement-breakpoint
+INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
+SELECT CASE WHEN EXISTS (
+	SELECT 1
+	FROM `__nutrition_target_accept_action_claims` a
+	WHERE json_type(a.`payload`, '$.appliedProposal') = 'object'
+		AND (coalesce(json_type(a.`payload`, '$.appliedProposal.calories'), 'missing') not in ('integer', 'real')
 		OR coalesce(json_type(a.`payload`, '$.appliedProposal.protein'), 'missing') not in ('integer', 'real')
 		OR coalesce(json_type(a.`payload`, '$.appliedProposal.carbs'), 'missing') not in ('integer', 'real')
 		OR coalesce(json_type(a.`payload`, '$.appliedProposal.fat'), 'missing') not in ('integer', 'real')
@@ -201,16 +316,13 @@ SELECT CASE WHEN EXISTS (
 			 (json_extract(a.`payload`, '$.appliedProposal.fat') * 9))
 		) > 2.000001
 			OR json_extract(a.`payload`, '$.appliedProposal.effectiveDate') not glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
-			OR a.`check_in_created_at` <= 0
-			OR a.`review_created_at` < a.`check_in_created_at`
-			OR a.`created_at` < a.`review_created_at`
-			OR a.`created_at` < a.`check_in_created_at`
-			OR a.`created_at` <> a.`check_in_resolved_at`
+			OR json_extract(a.`payload`, '$.appliedProposal.effectiveDate') <> a.`target_effective_date`
 			OR EXISTS (
 				SELECT 1
 				FROM json_each(json_extract(a.`payload`, '$.appliedProposal')) field
 				WHERE field.`key` not in ('calories', 'protein', 'carbs', 'fat', 'effectiveDate')
 			)
+		)
 ) THEN 0 ELSE 1 END;
 --> statement-breakpoint
 INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
@@ -219,13 +331,15 @@ SELECT CASE WHEN EXISTS (
 	FROM `__nutrition_target_accept_action_claims` a
 	JOIN `__nutrition_target_accept_action_claims` b
 		ON b.`check_in_id` = a.`check_in_id`
-		AND b.`user_id` = a.`user_id`
+		AND b.`check_in_user_id` = a.`check_in_user_id`
 		AND b.`action_id` > a.`action_id`
-	WHERE abs(json_extract(a.`payload`, '$.appliedProposal.calories') - json_extract(b.`payload`, '$.appliedProposal.calories')) >= 0.000001
+	WHERE json_type(a.`payload`, '$.appliedProposal') = 'object'
+		AND json_type(b.`payload`, '$.appliedProposal') = 'object'
+		AND (abs(json_extract(a.`payload`, '$.appliedProposal.calories') - json_extract(b.`payload`, '$.appliedProposal.calories')) >= 0.000001
 		OR abs(json_extract(a.`payload`, '$.appliedProposal.protein') - json_extract(b.`payload`, '$.appliedProposal.protein')) >= 0.000001
 		OR abs(json_extract(a.`payload`, '$.appliedProposal.carbs') - json_extract(b.`payload`, '$.appliedProposal.carbs')) >= 0.000001
 		OR abs(json_extract(a.`payload`, '$.appliedProposal.fat') - json_extract(b.`payload`, '$.appliedProposal.fat')) >= 0.000001
-		OR json_extract(a.`payload`, '$.appliedProposal.effectiveDate') <> json_extract(b.`payload`, '$.appliedProposal.effectiveDate')
+		OR json_extract(a.`payload`, '$.appliedProposal.effectiveDate') <> json_extract(b.`payload`, '$.appliedProposal.effectiveDate'))
 ) THEN 0 ELSE 1 END;
 --> statement-breakpoint
 CREATE TEMP TABLE `__nutrition_target_accepted_backfill` AS
@@ -242,6 +356,7 @@ SELECT
 		SELECT json_extract(a.`payload`, '$.appliedProposal')
 		FROM `__nutrition_target_accept_action_claims` a
 		WHERE a.`check_in_id` = c.`id` AND a.`user_id` = c.`user_id`
+			AND json_type(a.`payload`, '$.appliedProposal') = 'object'
 		ORDER BY a.`created_at` DESC, a.`sequence` DESC, a.`action_id` DESC
 		LIMIT 1
 	) AS `action_proposal`
@@ -414,7 +529,36 @@ WHERE `id` NOT IN (
 		GROUP BY c.`target_id`, c.`user_id`, c.`effective_date`, c.`calories`, c.`protein`,
 			c.`carbs`, c.`fat`, c.`macro_calories`, c.`source`, c.`adaptive_check_in_id`,
 			c.`recorded_at`
-	);
+		);
+--> statement-breakpoint
+INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
+SELECT CASE WHEN EXISTS (
+	SELECT 1
+	FROM `__nutrition_target_accept_action_claims` a
+	WHERE json_type(a.`payload`, '$.appliedProposal') = 'object'
+		AND NOT EXISTS (
+			SELECT 1
+			FROM `__nutrition_target_event_candidates` c
+			WHERE c.`target_id` = a.`accepted_nutrition_target_id`
+				AND c.`user_id` = a.`check_in_user_id`
+				AND c.`effective_date` = json_extract(a.`payload`, '$.appliedProposal.effectiveDate')
+				AND abs(c.`calories` - json_extract(a.`payload`, '$.appliedProposal.calories')) < 0.000001
+				AND abs(c.`protein` - json_extract(a.`payload`, '$.appliedProposal.protein')) < 0.000001
+				AND abs(c.`carbs` - json_extract(a.`payload`, '$.appliedProposal.carbs')) < 0.000001
+				AND abs(c.`fat` - json_extract(a.`payload`, '$.appliedProposal.fat')) < 0.000001
+				AND c.`source` = 'adaptive'
+				AND c.`adaptive_check_in_id` = a.`check_in_id`
+				AND c.`recorded_at` = a.`created_at`
+		)
+		OR (
+			json_type(a.`payload`, '$.appliedProposal') = 'null'
+			AND EXISTS (
+				SELECT 1
+				FROM `__nutrition_target_event_candidates` c
+				WHERE c.`adaptive_check_in_id` = a.`check_in_id`
+			)
+		)
+) THEN 0 ELSE 1 END;
 --> statement-breakpoint
 INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
 SELECT CASE WHEN EXISTS (
@@ -614,6 +758,8 @@ DROP TABLE `__nutrition_target_accepted_backfill`;
 DROP TABLE `__nutrition_target_accept_action_claims`;
 --> statement-breakpoint
 DROP TABLE `__nutrition_target_predecessor_claims`;
+--> statement-breakpoint
+DROP TABLE `__nutrition_target_check_in_lifecycle_claims`;
 --> statement-breakpoint
 CREATE TRIGGER `nutrition_target_events_insert_guard`
 BEFORE INSERT ON `nutrition_target_events`

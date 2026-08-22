@@ -488,15 +488,20 @@ only inside the existing account-deletion scope. Equal timestamps use sequence a
 Migration requires each target's recoverable event chain to start at its original `createdAt` and end
 with an exact materialized-row match at `updatedAt`. Complete owned check-in snapshots may recover
 manual or Adaptive predecessor states. Before candidate filtering, migration inventories every
-accepted check-in with a non-null predecessor snapshot, every accepted proposal, and every accepted
-review action with a final applied proposal. Each claim must validate its complete shape, same-user
-identity, values, 4/4/9 macro arithmetic, effective date, causal timestamps, and provenance, then map
-to an exact event candidate. Exact duplicate claims may intentionally collapse to one event; distinct
-same-time states remain in deterministic order. A malformed non-null claim, a mutated manual row
-without an exact initial snapshot, an unmapped accepted proposal/action, or any chain with an
-unrecoverable interval aborts and rolls back the entire migration instead of inventing or omitting
-history. A keep decision is intentionally outside this inventory because it does not create an
-accepted target.
+accepted check-in with a non-null predecessor snapshot, every accepted proposal, and every review
+action whose immutable action type is `accept`, before considering the owning check-in's status.
+Target-bearing accept actions must resolve through one same-user review/check-in chain to an accepted
+check-in, its owned non-null target, and the exact accepted-resolution instant. An accept action with
+`appliedProposal: null` is the separately validated keep decision: it must resolve a declined check-in
+with no accepted target and never creates an event. Orphaned or cross-user action chains and
+target-bearing accept actions on pending, held, declined, or superseded check-ins abort migration;
+ordinary decline and defer actions remain outside target-event construction. Each target claim must
+validate its complete shape, same-user identity, values, 4/4/9 macro arithmetic, effective date,
+causal timestamps, and provenance, then map to an exact event candidate. Exact duplicate claims may
+intentionally collapse to one event; distinct same-time states remain in deterministic order. A
+malformed non-null claim, a mutated manual row without an exact initial snapshot, an unmapped accepted
+proposal/action, or any chain with an unrecoverable interval aborts and rolls back the entire
+migration instead of inventing or omitting history.
 
 Predecessor evidence is bounded by the immutable check-in that captured it: the snapshot target must
 have been created no later than its update, and its `updatedAt` must be no later than the claiming
@@ -504,12 +509,14 @@ check-in's `createdAt`. Equality is intentionally allowed because target writes 
 can share a millisecond; only real immutable event/check-in IDs and event sequence resolve equal-time
 facts. The later claiming-check-in `resolvedAt` is never substituted for capture time. Adaptive
 predecessors additionally require their source acceptance to resolve at the snapshot `updatedAt` and
-no later than the claimant's creation. Claiming and accepted check-ins must be created after their
-owned program and applicable goal, accepted resolution cannot precede check-in creation, a review
-cannot predate its check-in, and an accept action cannot predate its review or differ from the accepted
-resolution instant. A proposal has no independent clock: its existence at check-in creation is proven
-by the immutable `proposedTargets` snapshot, while an edited proposal is proven by the ordered review
-action captured at acceptance.
+no later than the claimant's creation. Every relevant check-in must satisfy the complete causal chain
+`program.createdAt <= goal.createdAt <= goalRevision.createdAt <= checkIn.createdAt <= resolvedAt`,
+with exact program/user and goal/user ownership at each link. A migrated baseline/setup check-in may
+legitimately have both goal links null; one null link without the other is invalid. A revision cannot
+predate its goal or postdate immutable check-in capture. A review cannot predate its check-in, and an
+accept action cannot predate its review or differ from the accepted resolution instant. A proposal has
+no independent clock: its existence at check-in creation is proven by the immutable `proposedTargets`
+snapshot, while an edited proposal is proven by the ordered review action captured at acceptance.
 
 #### `adaptive_nutrition_programs`
 
