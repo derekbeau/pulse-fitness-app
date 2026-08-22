@@ -498,6 +498,19 @@ unrecoverable interval aborts and rolls back the entire migration instead of inv
 history. A keep decision is intentionally outside this inventory because it does not create an
 accepted target.
 
+Predecessor evidence is bounded by the immutable check-in that captured it: the snapshot target must
+have been created no later than its update, and its `updatedAt` must be no later than the claiming
+check-in's `createdAt`. Equality is intentionally allowed because target writes and preview creation
+can share a millisecond; only real immutable event/check-in IDs and event sequence resolve equal-time
+facts. The later claiming-check-in `resolvedAt` is never substituted for capture time. Adaptive
+predecessors additionally require their source acceptance to resolve at the snapshot `updatedAt` and
+no later than the claimant's creation. Claiming and accepted check-ins must be created after their
+owned program and applicable goal, accepted resolution cannot precede check-in creation, a review
+cannot predate its check-in, and an accept action cannot predate its review or differ from the accepted
+resolution instant. A proposal has no independent clock: its existence at check-in creation is proven
+by the immutable `proposedTargets` snapshot, while an edited proposal is proven by the ordered review
+action captured at acceptance.
+
 #### `adaptive_nutrition_programs`
 
 One lifetime row per user holds adaptive-coaching configuration and stable baseline values. Ordinary

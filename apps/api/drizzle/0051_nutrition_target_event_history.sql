@@ -47,6 +47,9 @@ CREATE TEMP TABLE `__nutrition_target_predecessor_claims` AS
 SELECT
 	c.`id` AS `check_in_id`,
 	c.`user_id`,
+	c.`program_id`,
+	c.`goal_id`,
+	c.`created_at` AS `claim_created_at`,
 	c.`current_targets` AS `snapshot`
 FROM `adaptive_nutrition_checkins` c
 WHERE c.`status` = 'accepted'
@@ -93,10 +96,22 @@ SELECT CASE WHEN EXISTS (
 	FROM `__nutrition_target_predecessor_claims` p
 	LEFT JOIN `nutrition_targets` t
 		ON t.`id` = json_extract(p.`snapshot`, '$.id') AND t.`user_id` = p.`user_id`
+	LEFT JOIN `adaptive_nutrition_programs` claim_program
+		ON claim_program.`id` = p.`program_id` AND claim_program.`user_id` = p.`user_id`
+	LEFT JOIN `adaptive_nutrition_goals` claim_goal
+		ON claim_goal.`id` = p.`goal_id` AND claim_goal.`user_id` = p.`user_id`
 	LEFT JOIN `adaptive_nutrition_checkins` source_check_in
 		ON source_check_in.`id` = json_extract(p.`snapshot`, '$.adaptiveCheckInId')
 		AND source_check_in.`user_id` = p.`user_id`
 	WHERE t.`id` is null
+		OR p.`claim_created_at` <= 0
+		OR claim_program.`id` is null
+		OR p.`claim_created_at` < claim_program.`created_at`
+		OR (p.`goal_id` is not null AND (
+			claim_goal.`id` is null
+			OR claim_goal.`program_id` <> p.`program_id`
+			OR p.`claim_created_at` < claim_goal.`created_at`
+		))
 		OR json_extract(p.`snapshot`, '$.calories') < 0
 		OR json_extract(p.`snapshot`, '$.protein') < 0
 		OR json_extract(p.`snapshot`, '$.carbs') < 0
@@ -111,7 +126,9 @@ SELECT CASE WHEN EXISTS (
 		OR json_extract(p.`snapshot`, '$.effectiveDate') not glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
 		OR json_extract(p.`snapshot`, '$.effectiveDate') <> t.`effective_date`
 		OR json_extract(p.`snapshot`, '$.createdAt') <> t.`created_at`
+		OR json_extract(p.`snapshot`, '$.createdAt') > json_extract(p.`snapshot`, '$.updatedAt')
 		OR json_extract(p.`snapshot`, '$.updatedAt') not between t.`created_at` and t.`updated_at`
+		OR json_extract(p.`snapshot`, '$.updatedAt') > p.`claim_created_at`
 		OR json_extract(p.`snapshot`, '$.source') not in ('manual', 'adaptive')
 		OR (
 			json_extract(p.`snapshot`, '$.source') = 'manual'
@@ -125,6 +142,9 @@ SELECT CASE WHEN EXISTS (
 				OR source_check_in.`status` <> 'accepted'
 				OR source_check_in.`accepted_nutrition_target_id` <> t.`id`
 				OR source_check_in.`resolved_at` <> json_extract(p.`snapshot`, '$.updatedAt')
+				OR source_check_in.`created_at` <= 0
+				OR source_check_in.`resolved_at` < source_check_in.`created_at`
+				OR source_check_in.`resolved_at` > p.`claim_created_at`
 			)
 		)
 ) THEN 0 ELSE 1 END;
@@ -134,6 +154,9 @@ SELECT
 	a.`id` AS `action_id`,
 	r.`check_in_id`,
 	r.`user_id`,
+	c.`created_at` AS `check_in_created_at`,
+	c.`resolved_at` AS `check_in_resolved_at`,
+	r.`created_at` AS `review_created_at`,
 	a.`sequence`,
 	a.`payload`,
 	a.`created_at`
@@ -178,7 +201,11 @@ SELECT CASE WHEN EXISTS (
 			 (json_extract(a.`payload`, '$.appliedProposal.fat') * 9))
 		) > 2.000001
 			OR json_extract(a.`payload`, '$.appliedProposal.effectiveDate') not glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
-			OR a.`created_at` <> c.`resolved_at`
+			OR a.`check_in_created_at` <= 0
+			OR a.`review_created_at` < a.`check_in_created_at`
+			OR a.`created_at` < a.`review_created_at`
+			OR a.`created_at` < a.`check_in_created_at`
+			OR a.`created_at` <> a.`check_in_resolved_at`
 			OR EXISTS (
 				SELECT 1
 				FROM json_each(json_extract(a.`payload`, '$.appliedProposal')) field
@@ -206,6 +233,9 @@ SELECT
 	c.`id` AS `check_in_id`,
 	c.`user_id`,
 	c.`accepted_nutrition_target_id` AS `target_id`,
+	c.`program_id`,
+	c.`goal_id`,
+	c.`created_at` AS `claim_created_at`,
 	c.`resolved_at` AS `recorded_at`,
 	c.`proposed_targets` AS `base_proposal`,
 	(
@@ -224,9 +254,22 @@ SELECT CASE WHEN EXISTS (
 	FROM `__nutrition_target_accepted_backfill` a
 	LEFT JOIN `nutrition_targets` t
 		ON t.`id` = a.`target_id` AND t.`user_id` = a.`user_id`
+	LEFT JOIN `adaptive_nutrition_programs` claim_program
+		ON claim_program.`id` = a.`program_id` AND claim_program.`user_id` = a.`user_id`
+	LEFT JOIN `adaptive_nutrition_goals` claim_goal
+		ON claim_goal.`id` = a.`goal_id` AND claim_goal.`user_id` = a.`user_id`
 	WHERE a.`target_id` is null
+		OR a.`claim_created_at` <= 0
+		OR claim_program.`id` is null
+		OR a.`claim_created_at` < claim_program.`created_at`
+		OR (a.`goal_id` is not null AND (
+			claim_goal.`id` is null
+			OR claim_goal.`program_id` <> a.`program_id`
+			OR a.`claim_created_at` < claim_goal.`created_at`
+		))
 		OR a.`recorded_at` is null
 		OR a.`recorded_at` <= 0
+		OR a.`recorded_at` < a.`claim_created_at`
 		OR t.`id` is null
 		OR a.`recorded_at` not between t.`created_at` and t.`updated_at`
 		OR CASE

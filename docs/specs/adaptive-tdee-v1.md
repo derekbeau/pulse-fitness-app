@@ -888,6 +888,16 @@ The existing unique `(userId, effectiveDate)` means accepting an adaptive target
   unmapped accepted proposal/action, or a mutated manual row without that complete chain aborts and
   rolls back the migration; the current row is never backdated or used to erase an unknowable
   interval.
+- A check-in's `currentTargets` is evidence captured at check-in creation, not acceptance. Migration
+  therefore requires `currentTargets.createdAt <= currentTargets.updatedAt <= checkIn.createdAt`.
+  Same-millisecond capture is valid; immutable IDs and the target-event sequence are the only valid
+  tie-breakers. The claiming check-in's later `resolvedAt` cannot make a future snapshot causal.
+  Adaptive predecessor snapshots also require the source accepted check-in to resolve exactly at the
+  snapshot `updatedAt`, no later than the claimant was created. Check-in creation must be positive and
+  cannot precede its owned program or applicable goal; acceptance cannot precede check-in creation.
+  Review creation cannot precede its check-in, and the final applied-proposal action cannot precede
+  its review and must occur at the accepted resolution event. The base proposal is an immutable field
+  captured with the check-in; it is not assigned an invented independent timestamp.
 - The UI uses a confirmation dialog.
 
 ### 14.5 Canonical body weight migration
