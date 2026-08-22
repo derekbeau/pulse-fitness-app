@@ -22,4 +22,12 @@ export const adaptiveNutritionQueryKeys = {
   goalHistoryInfinite: (limit: number) =>
     [...adaptiveNutritionQueryKey, 'goals', 'infinite', { limit }] as const,
   goalDetail: (id: string) => [...adaptiveNutritionQueryKey, 'goals', 'detail', id] as const,
+  goalTrajectory: (id: string, range: string, lookbackDays: number, end: string | undefined) =>
+    [
+      ...adaptiveNutritionQueryKey,
+      'goals',
+      id,
+      'trajectory',
+      { end, lookbackDays, range },
+    ] as const,
 };

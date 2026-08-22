@@ -1,6 +1,15 @@
 import type { AdaptiveGoal, AdaptiveGoalProgress } from '@pulse/shared';
-import { ArrowDownRight, ArrowUpRight, CheckCircle2, Gauge, Pencil, Target } from 'lucide-react';
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  CheckCircle2,
+  Gauge,
+  Pencil,
+  Route,
+  Target,
+} from 'lucide-react';
 import type { RefObject } from 'react';
+import { Link, useInRouterContext } from 'react-router';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -145,7 +154,10 @@ export function GoalCard({
           </div>
         ) : null}
 
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Button asChild className="min-h-11" variant="outline">
+            <GoalTrajectoryLink goalId={goal.id} />
+          </Button>
           <Button ref={editButtonRef} className="min-h-11" onClick={onEdit} type="button">
             <Pencil aria-hidden="true" /> Edit goal
           </Button>
@@ -161,6 +173,20 @@ export function GoalCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function GoalTrajectoryLink({ goalId }: { goalId: string }) {
+  const inRouter = useInRouterContext();
+  const content = (
+    <>
+      <Route aria-hidden="true" /> View trajectory
+    </>
+  );
+  return inRouter ? (
+    <Link to={`/nutrition/goals/${goalId}`}>{content}</Link>
+  ) : (
+    <a href={`/nutrition/goals/${goalId}`}>{content}</a>
   );
 }
 

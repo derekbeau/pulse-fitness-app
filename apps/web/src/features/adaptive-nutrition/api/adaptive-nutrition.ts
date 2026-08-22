@@ -12,6 +12,7 @@ import {
   adaptiveCurrentGoalSchema,
   adaptiveGoalDetailSchema,
   adaptiveGoalHistorySummarySchema,
+  adaptiveGoalTrajectorySchema,
   adaptiveNutritionStateSchema,
   energyBalanceAnalyticsSchema,
   adaptiveProgramSchema,
@@ -22,6 +23,7 @@ import {
   type AdaptiveGoalCompleteInput,
   type AdaptiveGoalEditInput,
   type AdaptiveGoalStartInput,
+  type AdaptiveGoalTrajectoryQuery,
   type AdaptivePreviewInput,
   type AdaptiveProgramMutation,
   type AdaptiveReviewActionInput,
@@ -159,6 +161,22 @@ const fetchAdaptiveGoalDetail = (id: string, signal?: AbortSignal) =>
     adaptiveGoalDetailSchema.parse(value),
   );
 
+const fetchAdaptiveGoalTrajectory = (
+  id: string,
+  query: AdaptiveGoalTrajectoryQuery,
+  signal?: AbortSignal,
+) => {
+  const params = new URLSearchParams({
+    lookbackDays: String(query.lookbackDays),
+    range: query.range,
+  });
+  if (query.end) params.set('end', query.end);
+  return apiRequest<unknown>(
+    `/api/v1/adaptive-nutrition/goals/${id}/trajectory?${params.toString()}`,
+    { signal },
+  ).then((value) => adaptiveGoalTrajectorySchema.parse(value));
+};
+
 const fetchAdaptiveNutritionHistory = async (page: number, limit: number, signal?: AbortSignal) => {
   const response = await apiRequestWithMeta<unknown, unknown>(
     `/api/v1/adaptive-nutrition/check-ins?page=${page}&limit=${limit}`,
@@ -243,6 +261,18 @@ export const useAdaptiveGoalDetail = (id: string | null, enabled = true) =>
     enabled: enabled && id !== null,
     queryKey: adaptiveNutritionQueryKeys.goalDetail(id ?? 'none'),
     queryFn: ({ signal }) => fetchAdaptiveGoalDetail(id ?? '', signal),
+  });
+
+export const useAdaptiveGoalTrajectory = (id: string, query: AdaptiveGoalTrajectoryQuery) =>
+  useQuery({
+    queryKey: adaptiveNutritionQueryKeys.goalTrajectory(
+      id,
+      query.range,
+      query.lookbackDays,
+      query.end,
+    ),
+    queryFn: ({ signal }) => fetchAdaptiveGoalTrajectory(id, query, signal),
+    placeholderData: keepPreviousData,
   });
 
 export const usePutAdaptiveNutritionProgram = () => {

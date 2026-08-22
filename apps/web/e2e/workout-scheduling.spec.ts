@@ -291,9 +291,15 @@ test.describe.serial('workout scheduling flow', () => {
 
     const apiContext = await createAuthorizedApiContext();
     try {
-      const scheduledRows = await fetchScheduledWorkouts(apiContext, range.from, range.to);
-      const targetSchedule = scheduledRows.find((row) => row.templateId === seededTemplateId);
-      expect(targetSchedule).toBeUndefined();
+      await expect
+        .poll(
+          async () => {
+            const scheduledRows = await fetchScheduledWorkouts(apiContext, range.from, range.to);
+            return scheduledRows.some((row) => row.templateId === seededTemplateId);
+          },
+          { timeout: 15_000 },
+        )
+        .toBe(false);
     } finally {
       await apiContext.dispose();
     }

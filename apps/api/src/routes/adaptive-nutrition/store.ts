@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type Database from 'better-sqlite3';
-import { and, asc, count, desc, eq, gte, isNotNull, lte, ne, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, isNotNull, lte, max, ne, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 import {
@@ -40,6 +40,7 @@ import {
   convertWeightToKg,
   createAdaptiveInputFingerprint,
   evaluateEligibility,
+  nutritionTargetSchema,
   summarizeAdaptiveReadinessEvidence,
   type AdaptiveAcceptInput,
   type AdaptiveAcceptResult,
@@ -79,6 +80,7 @@ import {
   mealItems,
   meals,
   nutritionLogs,
+  nutritionTargetEvents,
   nutritionTargets,
   users,
 } from '../../db/schema/index.js';
@@ -506,6 +508,57 @@ export const createAdaptiveNutritionStore = (options: {
       )
       .limit(1)
       .get() ?? null;
+
+  const findAcceptedTargetSnapshot = (
+    userId: string,
+    checkInId: string,
+    targetId: string,
+  ): NutritionTarget | null => {
+    const materialized = db
+      .select({ id: nutritionTargets.id, createdAt: nutritionTargets.createdAt })
+      .from(nutritionTargets)
+      .where(and(eq(nutritionTargets.id, targetId), eq(nutritionTargets.userId, userId)))
+      .limit(1)
+      .get();
+    const event = db
+      .select({
+        targetId: nutritionTargetEvents.targetId,
+        calories: nutritionTargetEvents.calories,
+        protein: nutritionTargetEvents.protein,
+        carbs: nutritionTargetEvents.carbs,
+        fat: nutritionTargetEvents.fat,
+        source: nutritionTargetEvents.source,
+        adaptiveCheckInId: nutritionTargetEvents.adaptiveCheckInId,
+        macroCalories: nutritionTargetEvents.macroCalories,
+        effectiveDate: nutritionTargetEvents.effectiveDate,
+        recordedAt: nutritionTargetEvents.recordedAt,
+      })
+      .from(nutritionTargetEvents)
+      .where(
+        and(
+          eq(nutritionTargetEvents.targetId, targetId),
+          eq(nutritionTargetEvents.userId, userId),
+          eq(nutritionTargetEvents.adaptiveCheckInId, checkInId),
+        ),
+      )
+      .limit(1)
+      .get();
+    if (!materialized || !event) return null;
+
+    return nutritionTargetSchema.parse({
+      id: event.targetId,
+      calories: event.calories,
+      protein: event.protein,
+      carbs: event.carbs,
+      fat: event.fat,
+      source: event.source,
+      adaptiveCheckInId: event.adaptiveCheckInId,
+      macroCalories: event.macroCalories,
+      effectiveDate: event.effectiveDate,
+      createdAt: materialized.createdAt,
+      updatedAt: event.recordedAt,
+    });
+  };
 
   const findLatestAccepted = (
     userId: string,
@@ -1835,17 +1888,7 @@ export const createAdaptiveNutritionStore = (options: {
       if (!checkIn) throw new AdaptiveCheckInNotFoundError();
       if (checkIn.status === 'accepted') {
         const target = checkIn.acceptedNutritionTargetId
-          ? db
-              .select(targetSelection)
-              .from(nutritionTargets)
-              .where(
-                and(
-                  eq(nutritionTargets.id, checkIn.acceptedNutritionTargetId),
-                  eq(nutritionTargets.userId, userId),
-                ),
-              )
-              .limit(1)
-              .get()
+          ? findAcceptedTargetSnapshot(userId, checkIn.id, checkIn.acceptedNutritionTargetId)
           : null;
         if (!target) throw new AdaptiveCheckInNotAcceptableError();
         return { checkIn, target };
@@ -1905,6 +1948,32 @@ export const createAdaptiveNutritionStore = (options: {
             .get();
       if (!target) throw new Error('Failed to persist accepted adaptive target');
 
+      const nextTargetEventSequence =
+        (db
+          .select({ value: max(nutritionTargetEvents.sequence) })
+          .from(nutritionTargetEvents)
+          .where(eq(nutritionTargetEvents.targetId, target.id))
+          .get()?.value ?? 0) + 1;
+      db.insert(nutritionTargetEvents)
+        .values({
+          id: randomUUID(),
+          targetId: target.id,
+          userId,
+          sequence: nextTargetEventSequence,
+          effectiveDate: proposal.effectiveDate,
+          calories: proposal.calories,
+          protein: proposal.protein,
+          carbs: proposal.carbs,
+          fat: proposal.fat,
+          macroCalories,
+          source: 'adaptive',
+          adaptiveCheckInId: checkIn.id,
+          eventType: 'adaptive_accept',
+          recordedAt: timestamp,
+          createdAt: timestamp,
+        })
+        .run();
+
       db.update(adaptiveNutritionCheckIns)
         .set({
           status: 'accepted',
@@ -1921,7 +1990,9 @@ export const createAdaptiveNutritionStore = (options: {
         .run();
       const accepted = findCheckInDetail(userId, checkIn.id);
       if (!accepted) throw new Error('Failed to reload accepted adaptive check-in');
-      return { checkIn: accepted, target };
+      const acceptedTarget = findAcceptedTargetSnapshot(userId, checkIn.id, target.id);
+      if (!acceptedTarget) throw new Error('Failed to reload immutable accepted target');
+      return { checkIn: accepted, target: acceptedTarget };
     });
   };
 

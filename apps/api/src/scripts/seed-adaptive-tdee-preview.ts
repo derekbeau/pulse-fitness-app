@@ -21,6 +21,7 @@ import {
   mealItems,
   meals,
   nutritionLogs,
+  nutritionTargetEvents,
   nutritionTargets,
   users,
 } from '../db/schema/index.js';
@@ -58,7 +59,17 @@ export type AdaptivePreviewFixtureName =
   | 'review-decline'
   | 'review-defer'
   | 'review-maximal'
-  | 'review-adjust';
+  | 'review-adjust'
+  | 'trajectory-loss'
+  | 'trajectory-maintenance'
+  | 'trajectory-edited'
+  | 'trajectory-reached'
+  | 'trajectory-gain'
+  | 'trajectory-sparse'
+  | 'trajectory-maintenance-below'
+  | 'trajectory-maintenance-above'
+  | 'trajectory-scale-only'
+  | 'trajectory-historical';
 
 export type AdaptivePreviewFixtureRecord = {
   fixture: AdaptivePreviewFixtureName;
@@ -283,6 +294,86 @@ const FIXTURES: Array<
     expectedState: 'pending_recommendation',
     note: 'A dedicated bounded adjustment supports edit-then-accept browser consent coverage.',
   },
+  {
+    fixture: 'trajectory-loss',
+    usernameSuffix: 'gt-loss',
+    idSuffix: '0028',
+    name: 'Goal Trajectory · Loss',
+    expectedState: 'updating',
+    note: 'A dedicated read-only loss trajectory keeps browser tests isolated.',
+  },
+  {
+    fixture: 'trajectory-maintenance',
+    usernameSuffix: 'gt-maintain',
+    idSuffix: '0029',
+    name: 'Goal Trajectory · Maintenance',
+    expectedState: 'updating',
+    note: 'A dedicated read-only maintenance trajectory keeps browser tests isolated.',
+  },
+  {
+    fixture: 'trajectory-edited',
+    usernameSuffix: 'gt-edited',
+    idSuffix: '0030',
+    name: 'Goal Trajectory · Revised',
+    expectedState: 'updating',
+    note: 'A dedicated read-only revision trajectory keeps browser tests isolated.',
+  },
+  {
+    fixture: 'trajectory-reached',
+    usernameSuffix: 'gt-reached',
+    idSuffix: '0031',
+    name: 'Goal Trajectory · Reached',
+    expectedState: 'pending_recommendation',
+    note: 'A dedicated read-only reached trajectory keeps browser tests isolated.',
+  },
+  {
+    fixture: 'trajectory-gain',
+    usernameSuffix: 'gt-gain',
+    idSuffix: '0032',
+    name: 'Goal Trajectory · Gain',
+    expectedState: 'updating',
+    note: 'A dedicated read-only gain trajectory keeps browser tests isolated.',
+  },
+  {
+    fixture: 'trajectory-sparse',
+    usernameSuffix: 'gt-sparse',
+    idSuffix: '0033',
+    name: 'Goal Trajectory · Sparse',
+    expectedState: 'learning',
+    note: 'A dedicated sparse trajectory proves confidence limits without a fabricated ETA.',
+  },
+  {
+    fixture: 'trajectory-maintenance-below',
+    usernameSuffix: 'gt-below',
+    idSuffix: '0034',
+    name: 'Goal Trajectory · Maintenance Below',
+    expectedState: 'updating',
+    note: 'A dedicated read-only maintenance trajectory sits below the tested Pulse band.',
+  },
+  {
+    fixture: 'trajectory-maintenance-above',
+    usernameSuffix: 'gt-above',
+    idSuffix: '0035',
+    name: 'Goal Trajectory · Maintenance Above',
+    expectedState: 'updating',
+    note: 'A dedicated read-only maintenance trajectory sits above the tested Pulse band.',
+  },
+  {
+    fixture: 'trajectory-scale-only',
+    usernameSuffix: 'gt-scale',
+    idSuffix: '0036',
+    name: 'Goal Trajectory · Scale Only',
+    expectedState: 'updating',
+    note: 'A current raw scale crossing stays distinct from the completed-day model trend.',
+  },
+  {
+    fixture: 'trajectory-historical',
+    usernameSuffix: 'gt-historical',
+    idSuffix: '0037',
+    name: 'Goal Trajectory · Historical',
+    expectedState: 'updating',
+    note: 'A dedicated replaced goal proves historical trajectory copy and immutable context.',
+  },
 ];
 
 const datePlus = (date: string, days: number) => {
@@ -412,6 +503,9 @@ const cleanupExistingFixtures = (db: AdaptiveDatabase) => {
       tx.delete(adaptiveNutritionReviewContexts)
         .where(eq(adaptiveNutritionReviewContexts.userId, fixtureUser.id))
         .run();
+      tx.delete(nutritionTargetEvents)
+        .where(eq(nutritionTargetEvents.userId, fixtureUser.id))
+        .run();
       tx.delete(nutritionTargets).where(eq(nutritionTargets.userId, fixtureUser.id)).run();
       tx.delete(adaptiveNutritionGoalCompletions)
         .where(eq(adaptiveNutritionGoalCompletions.userId, fixtureUser.id))
@@ -433,14 +527,18 @@ const seedEligibleHistory = (
   anchorDate: string,
   timestamp: number,
   goalWeight = false,
+  weightSeries?: readonly number[],
 ) => {
   for (let offset = -21; offset <= -1; offset += 1) {
     const date = datePlus(anchorDate, offset);
     seedCompleteNutritionDay(db, userId, date, timestamp + offset);
   }
-  const weights = goalWeight
-    ? [81.25, 81.24, 81.23, 81.22, 81.21, 81.2, 81.2, 81.2]
-    : [82, 81.95, 81.9, 81.85, 81.8, 81.75, 81.7, 81.65];
+  const weights =
+    weightSeries ??
+    (goalWeight
+      ? [81.25, 81.24, 81.23, 81.22, 81.21, 81.2, 81.2, 81.2]
+      : [82, 81.95, 81.9, 81.85, 81.8, 81.75, 81.7, 81.65]);
+  if (weights.length !== 8) throw new Error('Eligible history requires exactly eight weights');
   [-21, -18, -15, -12, -9, -6, -3, -1].forEach((offset, index) => {
     const date = datePlus(anchorDate, offset);
     const weightKg = weights[index];
@@ -622,6 +720,119 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   store.acceptCheckIn(edited.userId, editedResult.pendingGoalChange?.id ?? '', {
     replaceSameDateTarget: true,
   });
+  clock += 1000;
+
+  const trajectoryLoss = createHistoricalBaseline(
+    'trajectory-loss',
+    programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+  );
+  seedEligibleHistory(db, trajectoryLoss.userId, anchorDate, clock);
+  clock += 1000;
+
+  const trajectoryMaintenance = createHistoricalBaseline('trajectory-maintenance');
+  seedEligibleHistory(db, trajectoryMaintenance.userId, anchorDate, clock);
+  clock += 1000;
+
+  const trajectoryEdited = createHistoricalBaseline(
+    'trajectory-edited',
+    programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+  );
+  seedEligibleHistory(db, trajectoryEdited.userId, anchorDate, clock);
+  const trajectoryEditedCurrent = store.getCurrentGoal(trajectoryEdited.userId);
+  const trajectoryEditedResult = store.editGoal(
+    trajectoryEdited.userId,
+    trajectoryEditedCurrent.goal.id,
+    {
+      type: 'lose',
+      targetWeightKg: 76,
+      maintenanceCenterKg: null,
+      goalRatePctPerWeek: -0.4,
+      expectedRevisionId: trajectoryEditedCurrent.latestRevision.id,
+      supersedePendingRecommendation: false,
+    },
+  );
+  store.acceptCheckIn(trajectoryEdited.userId, trajectoryEditedResult.pendingGoalChange?.id ?? '', {
+    replaceSameDateTarget: true,
+  });
+  clock += 1000;
+
+  const trajectoryReached = createHistoricalBaseline(
+    'trajectory-reached',
+    programInput({ goalType: 'lose', targetWeightKg: 81.2, goalRatePctPerWeek: -0.5 }),
+  );
+  seedEligibleHistory(db, trajectoryReached.userId, anchorDate, clock, true);
+  store.previewCheckIn(trajectoryReached.userId, { kind: 'manual', includeToday: false });
+  seedWeightDay(db, trajectoryReached.userId, anchorDate, 85, clock);
+  clock += 1000;
+
+  const trajectoryGain = createHistoricalBaseline(
+    'trajectory-gain',
+    programInput({ goalType: 'gain', targetWeightKg: 88, goalRatePctPerWeek: 0.25 }),
+  );
+  seedEligibleHistory(
+    db,
+    trajectoryGain.userId,
+    anchorDate,
+    clock,
+    false,
+    [82, 82.2, 82.4, 82.6, 82.8, 83, 83.2, 83.4],
+  );
+  clock += 1000;
+
+  const trajectorySparse = createHistoricalBaseline(
+    'trajectory-sparse',
+    programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+  );
+  db.delete(bodyWeight).where(eq(bodyWeight.userId, trajectorySparse.userId)).run();
+  seedWeightDay(db, trajectorySparse.userId, datePlus(anchorDate, -7), 82, clock);
+  seedWeightDay(db, trajectorySparse.userId, datePlus(anchorDate, -1), 81.8, clock + 1);
+  clock += 1000;
+
+  const shiftWeights = (userId: string, deltaKg: number) => {
+    const entries = db.select().from(bodyWeight).where(eq(bodyWeight.userId, userId)).all();
+    for (const entry of entries) {
+      const weightKg = Number(entry.weightKg) + deltaKg;
+      db.update(bodyWeight)
+        .set({ weightKg, weight: poundsFromKg(weightKg) })
+        .where(eq(bodyWeight.id, entry.id))
+        .run();
+    }
+  };
+  const trajectoryBelow = createHistoricalBaseline('trajectory-maintenance-below');
+  seedEligibleHistory(db, trajectoryBelow.userId, anchorDate, clock);
+  shiftWeights(trajectoryBelow.userId, -3);
+  clock += 1000;
+
+  const trajectoryAbove = createHistoricalBaseline('trajectory-maintenance-above');
+  seedEligibleHistory(db, trajectoryAbove.userId, anchorDate, clock);
+  shiftWeights(trajectoryAbove.userId, 3);
+  clock += 1000;
+
+  const trajectoryScaleOnly = createHistoricalBaseline(
+    'trajectory-scale-only',
+    programInput({ goalType: 'lose', targetWeightKg: 81.2, goalRatePctPerWeek: -0.5 }),
+  );
+  seedEligibleHistory(db, trajectoryScaleOnly.userId, anchorDate, clock);
+  seedWeightDay(db, trajectoryScaleOnly.userId, anchorDate, 80, clock + 1);
+  clock += 1000;
+
+  const trajectoryHistorical = createHistoricalBaseline(
+    'trajectory-historical',
+    programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+  );
+  seedEligibleHistory(db, trajectoryHistorical.userId, anchorDate, clock);
+  const historicalReplacement = store.startGoal(trajectoryHistorical.userId, {
+    type: 'gain',
+    targetWeightKg: 88,
+    maintenanceCenterKg: null,
+    goalRatePctPerWeek: 0.25,
+    supersedePendingRecommendation: false,
+  });
+  store.acceptCheckIn(
+    trajectoryHistorical.userId,
+    historicalReplacement.pendingGoalChange?.id ?? '',
+    { replaceSameDateTarget: true },
+  );
   clock += 1000;
 
   const history = createHistoricalBaseline(

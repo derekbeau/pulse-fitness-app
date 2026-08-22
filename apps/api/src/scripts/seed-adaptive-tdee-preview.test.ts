@@ -113,6 +113,16 @@ describe('Adaptive TDEE preview fixtures', () => {
       'review-defer': 'pending_recommendation',
       'review-maximal': 'learning',
       'review-adjust': 'pending_recommendation',
+      'trajectory-loss': 'updating',
+      'trajectory-maintenance': 'updating',
+      'trajectory-edited': 'updating',
+      'trajectory-reached': 'pending_recommendation',
+      'trajectory-gain': 'updating',
+      'trajectory-sparse': 'learning',
+      'trajectory-maintenance-below': 'updating',
+      'trajectory-maintenance-above': 'updating',
+      'trajectory-scale-only': 'updating',
+      'trajectory-historical': 'updating',
     });
     for (const fixture of first) {
       expect(store.getState(fixture.userId).state).toBe(fixture.expectedState);

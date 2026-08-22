@@ -22,6 +22,7 @@ import {
   mealItems,
   meals,
   nutritionLogs,
+  nutritionTargetEvents,
   nutritionTargets,
   sessionSets,
   users,
@@ -201,6 +202,7 @@ beforeEach(() => {
     DELETE FROM adaptive_nutrition_review_actions;
     DELETE FROM adaptive_nutrition_reviews;
     DELETE FROM adaptive_nutrition_review_contexts;
+    DELETE FROM nutrition_target_events;
     DELETE FROM nutrition_targets;
     DELETE FROM adaptive_nutrition_checkins;
     DELETE FROM adaptive_nutrition_programs;
@@ -1256,6 +1258,23 @@ describe('adaptive weekly review store', () => {
     ).toEqual({ calories: editedProposal.calories, carbs: editedProposal.carbs });
     expect(accepted.actions.map((action) => action.type)).toEqual(['edit', 'accept']);
     expect(accepted.actions.at(-1)?.payload).toMatchObject({ appliedProposal: editedProposal });
+    expect(
+      db
+        .select()
+        .from(nutritionTargetEvents)
+        .where(eq(nutritionTargetEvents.adaptiveCheckInId, review.checkInId))
+        .get(),
+    ).toMatchObject({
+      calories: editedProposal.calories,
+      protein: editedProposal.protein,
+      carbs: editedProposal.carbs,
+      fat: editedProposal.fat,
+      macroCalories: editedProposal.protein * 4 + editedProposal.carbs * 4 + editedProposal.fat * 9,
+      effectiveDate: editedProposal.effectiveDate,
+      source: 'adaptive',
+      eventType: 'adaptive_accept',
+      recordedAt: nowMs,
+    });
   });
 
   it('requires explicit replacement when a same-date target already exists', () => {

@@ -867,7 +867,48 @@ The existing unique `(userId, effectiveDate)` means accepting an adaptive target
 - Preview reports `sameDateTargetExists`.
 - Accept request requires `replaceSameDateTarget: true` when a row exists.
 - Replacement updates the same row’s values and provenance inside the accept transaction.
-- The check-in snapshot preserves the replaced target.
+- Every manual write and accepted Adaptive replacement appends a `nutrition_target_events` row in
+  the same transaction. The event freezes the target ID, effective date, exact calories/macros and
+  derived macro calories, source, accepted check-in relation, causal recorded time, and a contiguous
+  per-target sequence. The live `nutrition_targets` row remains the materialized current value.
+- Accepted events use the final applied proposal. If a weekly review edits the proposal before the
+  user accepts it, the event stores the edited values rather than the original check-in proposal.
+- Event rows are append-only outside explicit account deletion, use composite same-user foreign
+  keys, and allow equal recorded timestamps only through the contiguous sequence tie-breaker.
+- Migration reconstructs an accepted event only from an immutable accepted proposal or accepted
+  review action. Before filtering candidates or check-in status, it inventories every accepted
+  check-in's non-null `currentTargets`, every accepted proposal, and every review action whose action
+  type is `accept`. A target-bearing accept action must resolve through one same-user review/check-in
+  chain to an accepted check-in and its owned non-null target. The immutable target event is recorded
+  at the check-in's `resolvedAt`; the supporting accept action may be created later. An accept action
+  whose `appliedProposal` is null is the separately validated keep decision: it must
+  resolve a declined check-in with no accepted target and is excluded from event construction.
+  Target-bearing accept actions on pending, held, declined, or superseded check-ins and orphaned or
+  cross-user chains abort instead of disappearing through joins. Ordinary decline and defer actions
+  remain outside target-event construction. Each target claim must have a complete valid shape,
+  same-user target identity, nonnegative values, correct 4/4/9 macro arithmetic, valid effective date
+  and causal timestamps, valid provenance, and an exact candidate mapping. Complete owned snapshots
+  may preserve manual or Adaptive predecessor states. Exact duplicate claims intentionally deduplicate
+  to one event, while distinct equal-time states retain deterministic sequence order. Every
+  reconstructed chain must begin at the materialized row's `createdAt`, end with an exact match at
+  `updatedAt`, and remain timestamp-monotonic. A malformed non-null claim, an unmapped accepted
+  proposal/action, or a mutated manual row without that complete chain aborts and rolls back the
+  migration; the current row is never backdated or used to erase an unknowable interval.
+- A check-in's `currentTargets` is evidence captured at check-in creation, not acceptance. Migration
+  therefore requires `currentTargets.createdAt <= currentTargets.updatedAt <= checkIn.createdAt`.
+  Same-millisecond capture is valid; immutable IDs and the target-event sequence are the only valid
+  tie-breakers. The claiming check-in's later `resolvedAt` cannot make a future snapshot causal.
+  Adaptive predecessor snapshots also require the source accepted check-in to resolve exactly at the
+  snapshot `updatedAt`, no later than the claimant was created. Every relevant goal-linked check-in
+  must satisfy all of these ordered boundaries: `program.createdAt <= goal.createdAt`,
+  `goal.createdAt <= goalRevision.createdAt`, `goalRevision.createdAt <= checkIn.createdAt`, and
+  `checkIn.createdAt <= resolvedAt`. Program/user and goal/user ownership must also match exactly. A
+  migrated baseline/setup check-in may legitimately keep both goal links null; a partial pair is
+  invalid. A revision cannot predate its goal or postdate immutable check-in capture. A review-backed
+  acceptance or keep decision must satisfy
+  `checkIn.createdAt <= review.createdAt <= resolvedAt <= action.createdAt`. The action may follow
+  resolution; the immutable target event remains recorded at `resolvedAt`. The base proposal is an
+  immutable field captured with the check-in; it is not assigned an invented independent timestamp.
 - The UI uses a confirmation dialog.
 
 ### 14.5 Canonical body weight migration
@@ -990,7 +1031,10 @@ Body:
 
 Transaction:
 
-1. Verify ownership and branch on status: `pending` continues; `accepted` returns 200 with its existing accepted target; `declined`, `superseded`, or `held` returns `409 CHECKIN_NOT_ACCEPTABLE`.
+1. Verify ownership and branch on status: `pending` continues; `accepted` returns 200 with the exact
+   immutable target event accepted by that check-in, even if a later same-date acceptance reused and
+   changed the materialized target row; `declined`, `superseded`, or `held` returns
+   `409 CHECKIN_NOT_ACCEPTABLE`.
 2. Verify program algorithm version still matches.
 3. Recompute the fingerprint using the check-in's persisted `localDate`, `analysisStart`, `analysisEnd`, `includeToday`, algorithm constants, and prior reference while re-reading mutable source rows for those exact ranges. Crossing local midnight alone must not stale a preview.
 4. If fingerprint changed, return `409 CHECKIN_STALE` and do not write a target.
@@ -2329,6 +2373,66 @@ change a nutrition target merely by being generated or read.
   explicit account-deletion scope. `adaptive_nutrition_review_contexts` permits only contiguous
   revision updates and soft deletion; identity and provenance fields remain immutable. Composite
   ownership foreign keys prevent cross-user references.
+
+## 40. Goal Trajectory analytics
+
+Goal Trajectory is a read-only, goal-scoped composition of Product Trend Weight display evidence
+and consent-sensitive Adaptive strategy facts. It never creates a check-in, changes a target,
+completes a goal, or applies a catch-up adjustment.
+
+- `GET /api/v1/adaptive-nutrition/goals/:id/trajectory` accepts `1m`, `3m`, `6m`, `1y`, or `all`,
+  an actual-rate lookback of 14, 21, or 28 days, and an optional historical local `end` date.
+  Range crops presentation only; it does not reseed the model or change rate/forecast facts.
+  Maintenance time-in-range is the explicit exception: its numerator and denominator describe
+  the selected visible interval, using the maintenance revision effective on each modeled date.
+- The primary historical line and exact-value rows identify
+  `trendSource = product_trend_weight_v1` and use the observation-only, 30-day, alpha-0.1 Product
+  Trend Weight contract from `trend-weight-v1.md`. They are computed from full canonical evidence
+  before being cropped to the selected range. Raw scale observations stay discrete and gaps longer
+  than seven days start a new line segment.
+- The response separately identifies `strategyTrendSource = adaptive_model_trend` and
+  `algorithmVersion = adaptive-tdee-v1`. Stored goal start/final values, completed and remaining
+  distance, weekly contributions, recent strategy pace, ETA, forecast origin, maintenance
+  position/time-in-range, completion review, Adaptive expenditure, and accepted recommendations
+  remain Adaptive facts. A stored Adaptive start is never relabeled as Product Trend Weight.
+- `strategyAsOfDate`, `evidenceThroughDate`, and `currentTrendDate` are separate facts. Live
+  evidence ends on the last completed program-local day. Historical queries use the effective
+  program time zone and the highest goal revision effective on the requested date.
+- An explicit historical `end` has an acceptance-causal cutoff at the end of that program-local
+  calendar day. A check-in is accepted only when `resolvedAt` precedes that cutoff; backdated
+  target effective dates, goal revisions, program revisions, completion rows, and goal lifecycle
+  changes are invisible until their real creation/resolution instant. A later accept, decline,
+  supersession, revision, completion, or target creation cannot rewrite an earlier response.
+- Closed-goal responses described as “at goal end” recompute the program-local causal cutoff from
+  the clamped goal-end strategy date. Omitted ends and explicit dates after closure therefore cannot
+  pull a later-resolved, pre-dated acceptance into the immutable goal-end record.
+- Desired loss/gain timelines reuse the compounded percentage-rate projection from goal setup.
+  Actual-rate estimates use dated regression over the selected lookback, report observation/span
+  sufficiency, and return no ETA for stale, flat, moving-away, or insufficient evidence.
+- Completed seven-day contributions are anchored to the original goal start. A week without both
+  modeled boundaries and at least one current observation remains null with
+  `INSUFFICIENT_WEEKLY_EVIDENCE`; it is never converted to zero. The current partial week is omitted.
+- Goal revisions do not reset the original start. Each point carries the revision effective on its
+  date, same-day revisions are ordered by immutable sequence, and revision/check-in annotations
+  remain visible even on dates without a weigh-in. A revision date without Product evidence emits a
+  strategy-only chart row: target or maintenance-band values change on that exact date while Product
+  Trend Weight, scale weight, source entry, and Adaptive strategy trend remain null. Exact-value and
+  screen-reader text identify the row as a strategy event, never a weigh-in.
+- Annotation kinds state what actually happened. Accepted target-change labels require an accepted
+  target relation; expenditure-only and no-target-change reviews are labeled separately, as are
+  goal-reached reviews, target/rate revisions, and completion. Same-date ordering is deterministic.
+- Loss/gain completion uses the existing tolerance `max(0.23 kg, target × 0.25%)`. Raw scale is
+  display evidence only. A supported model trend reaching tolerance requests the existing review;
+  it never completes the goal automatically.
+- Maintenance uses the Pulse-defined radius `max(0.68 kg, center × 1%)`, with near-edge beginning
+  at 80% of the radius. Time in range discloses its local interval, modeled-day denominator, and
+  evidence state. Correction policy is `review_only_no_automatic_change`.
+- Supporting calorie targets are selected from immutable `nutrition_target_events`: the latest
+  causally visible event effective on or before the strategy date, with sequence breaking equal-time
+  same-date ties. Accepted-target annotations read the same immutable event rather than the mutable
+  current row. Adaptive expenditure remains selected from causally accepted check-ins. Live facts
+  must agree with the materialized current target. JWT and AgentToken callers receive the same strict
+  facts, but the GET exposes no decision or mutation capability.
 
 ## Sources
 

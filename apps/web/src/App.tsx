@@ -76,6 +76,11 @@ const EnergyBalancePage = lazy(async () => {
   return { default: module.EnergyBalancePage };
 });
 
+const GoalTrajectoryPage = lazy(async () => {
+  const module = await import('./pages/goal-trajectory');
+  return { default: module.GoalTrajectoryPage };
+});
+
 const AdaptiveWeeklyReviewPage = lazy(async () => {
   const module = await import('./pages/adaptive-weekly-review');
   return { default: module.AdaptiveWeeklyReviewPage };
@@ -194,6 +199,10 @@ function AppRoutes() {
         <Route
           element={renderWithPageFallback(<AdaptiveWeeklyReviewPage />)}
           path="nutrition/reviews/:reviewId"
+        />
+        <Route
+          element={renderWithPageFallback(<GoalTrajectoryPage />)}
+          path="nutrition/goals/:goalId"
         />
         <Route element={renderWithPageFallback(<HabitsPage />)} path="habits" />
         <Route element={renderWithPageFallback(<ActivityPage />)} path="activity" />

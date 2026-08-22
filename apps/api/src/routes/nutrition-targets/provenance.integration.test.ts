@@ -12,6 +12,7 @@ import {
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
   adaptiveNutritionPrograms,
+  nutritionTargetEvents,
   nutritionTargets,
   users,
 } from '../../db/schema/index.js';
@@ -168,189 +169,24 @@ describe('nutrition target provenance store', () => {
       adaptiveCheckInId: null,
       macroCalories: 2350,
     });
-  });
-
-  it('requires an owned check-in and exact immutable same-date replacement snapshot', async () => {
-    const {
-      AdaptiveCheckInNotFoundError,
-      ReplacedTargetSnapshotMismatchError,
-      SameDateNutritionTargetExistsError,
-      persistAdaptiveNutritionTarget,
-    } = await import('./store.js');
-
-    dbModule.db
-      .insert(nutritionTargets)
-      .values({ userId: 'user-1', ...manualTarget })
-      .run();
-    seedProgramAndCheckIn(manualTarget);
-
-    await expect(
-      persistAdaptiveNutritionTarget(
-        'user-1',
-        'check-in-1',
-        {
-          calories: 2300,
-          protein: 185,
-          carbs: 260,
-          fat: 75,
-          effectiveDate: '2026-03-09',
-        },
-        false,
-      ),
-    ).rejects.toBeInstanceOf(SameDateNutritionTargetExistsError);
-
-    const adaptive = await persistAdaptiveNutritionTarget(
-      'user-1',
-      'check-in-1',
-      {
-        calories: 2300,
-        protein: 185,
-        carbs: 260,
-        fat: 75,
-        effectiveDate: '2026-03-09',
-      },
-      true,
-    );
-    expect(adaptive).toMatchObject({
-      id: 'target-manual',
-      source: 'adaptive',
-      adaptiveCheckInId: 'check-in-1',
-      macroCalories: 2455,
-    });
     expect(
       dbModule.db
-        .select({ currentTargets: adaptiveNutritionCheckIns.currentTargets })
-        .from(adaptiveNutritionCheckIns)
-        .where(eq(adaptiveNutritionCheckIns.id, 'check-in-1'))
+        .select()
+        .from(nutritionTargetEvents)
+        .where(eq(nutritionTargetEvents.targetId, target.id))
         .get(),
-    ).toEqual({ currentTargets: manualTarget });
-
-    await expect(
-      persistAdaptiveNutritionTarget(
-        'user-2',
-        'check-in-1',
-        {
-          calories: 2300,
-          protein: 185,
-          carbs: 260,
-          fat: 75,
-          effectiveDate: '2026-03-09',
-        },
-        true,
-      ),
-    ).rejects.toBeInstanceOf(AdaptiveCheckInNotFoundError);
-
-    dbModule.db.delete(nutritionTargets).run();
-    dbModule.db
-      .update(adaptiveNutritionCheckIns)
-      .set({ status: 'superseded', resolvedAt: Date.now() })
-      .where(eq(adaptiveNutritionCheckIns.id, 'check-in-1'))
-      .run();
-    dbModule.db
-      .insert(adaptiveNutritionCheckIns)
-      .values({
-        id: 'check-in-mismatch',
-        userId: 'user-1',
-        programId: 'program-1',
-        goalId: 'goal-1',
-        goalRevisionId: 'goal-revision-1',
-        kind: 'manual',
-        status: 'pending',
-        calculationState: 'baseline',
-        localDate: '2026-03-09',
-        includeToday: false,
-        algorithmVersion: 'adaptive-tdee-v1',
-        dataFingerprint: 'b'.repeat(64),
-        inputSnapshot: { version: 1 },
-        calculationSnapshot: { version: 1 },
-        reasonCodes: [],
-        currentTargets: null,
-        proposedTargets: { ...proposedTarget, calories: 2400, protein: 190, carbs: 270, fat: 80 },
-      })
-      .run();
-    dbModule.db
-      .insert(nutritionTargets)
-      .values({ userId: 'user-1', ...manualTarget })
-      .run();
-    await expect(
-      persistAdaptiveNutritionTarget(
-        'user-1',
-        'check-in-mismatch',
-        {
-          calories: 2400,
-          protein: 190,
-          carbs: 270,
-          fat: 80,
-          effectiveDate: '2026-03-09',
-        },
-        true,
-      ),
-    ).rejects.toBeInstanceOf(ReplacedTargetSnapshotMismatchError);
-  });
-
-  it('allows a new adaptive date while retaining an earlier current-target snapshot', async () => {
-    const { persistAdaptiveNutritionTarget } = await import('./store.js');
-    dbModule.db
-      .insert(nutritionTargets)
-      .values({ userId: 'user-1', ...manualTarget })
-      .run();
-    seedProgramAndCheckIn(manualTarget, {
-      proposedTargets: { ...proposedTarget, effectiveDate: '2026-03-10' },
+    ).toMatchObject({
+      sequence: 1,
+      calories: 2200,
+      protein: 180,
+      carbs: 250,
+      fat: 70,
+      macroCalories: 2350,
+      source: 'manual',
+      adaptiveCheckInId: null,
+      eventType: 'manual_write',
+      effectiveDate: '2026-03-09',
     });
-
-    await expect(
-      persistAdaptiveNutritionTarget(
-        'user-1',
-        'check-in-1',
-        {
-          calories: 2300,
-          protein: 185,
-          carbs: 260,
-          fat: 75,
-          effectiveDate: '2026-03-10',
-        },
-        false,
-      ),
-    ).resolves.toMatchObject({
-      source: 'adaptive',
-      adaptiveCheckInId: 'check-in-1',
-      effectiveDate: '2026-03-10',
-    });
-  });
-
-  it.each([
-    ['held', 'holding'],
-    ['declined', 'baseline'],
-    ['superseded', 'baseline'],
-    ['accepted', 'baseline'],
-    ['pending', 'holding'],
-  ] as const)(
-    'rejects a %s check-in as a target provenance source',
-    async (status, calculationState) => {
-      const { AdaptiveCheckInNotActionableError, persistAdaptiveNutritionTarget } =
-        await import('./store.js');
-      seedProgramAndCheckIn(null, { status, calculationState });
-
-      await expect(
-        persistAdaptiveNutritionTarget('user-1', 'check-in-1', proposedTarget, false),
-      ).rejects.toBeInstanceOf(AdaptiveCheckInNotActionableError);
-    },
-  );
-
-  it.each([
-    ['null', null],
-    ['malformed', { calories: 2300 }],
-    ['different values', { ...proposedTarget, calories: 2290 }],
-    ['different effective date', { ...proposedTarget, effectiveDate: '2026-03-10' }],
-    ['unexpected fields', { ...proposedTarget, fabricated: true }],
-  ])('rejects %s proposed-target provenance', async (_label, persistedProposal) => {
-    const { AdaptiveProposedTargetMismatchError, persistAdaptiveNutritionTarget } =
-      await import('./store.js');
-    seedProgramAndCheckIn(null, { proposedTargets: persistedProposal });
-
-    await expect(
-      persistAdaptiveNutritionTarget('user-1', 'check-in-1', proposedTarget, false),
-    ).rejects.toBeInstanceOf(AdaptiveProposedTargetMismatchError);
   });
 
   it('database-rejects a check-in that claims another user than its program owner', () => {

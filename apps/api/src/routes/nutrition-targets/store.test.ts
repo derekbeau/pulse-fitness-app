@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { nutritionTargets } from '../../db/schema/index.js';
+import { nutritionTargetEvents, nutritionTargets } from '../../db/schema/index.js';
 
 const testState = vi.hoisted(() => {
   const insertReturningGet = vi.fn();
@@ -12,6 +12,7 @@ const testState = vi.hoisted(() => {
   }));
   const insertValues = vi.fn(() => ({
     onConflictDoUpdate: insertOnConflictDoUpdate,
+    run: vi.fn(),
   }));
   const insert = vi.fn(() => ({
     values: insertValues,
@@ -27,6 +28,7 @@ const testState = vi.hoisted(() => {
     limit: selectLimit,
   }));
   const selectWhere = vi.fn(() => ({
+    get: selectGet,
     orderBy: selectOrderBy,
     limit: selectLimit,
   }));
@@ -37,11 +39,14 @@ const testState = vi.hoisted(() => {
     from: selectFrom,
   }));
 
+  const db = {
+    insert,
+    select,
+    transaction: vi.fn((callback: (tx: unknown) => unknown) => callback(db)),
+  };
+
   return {
-    db: {
-      insert,
-      select,
-    },
+    db,
     reset() {
       insert.mockClear();
       insertValues.mockClear();
@@ -55,6 +60,7 @@ const testState = vi.hoisted(() => {
       selectLimit.mockClear();
       selectAll.mockClear();
       selectGet.mockClear();
+      db.transaction.mockClear();
     },
     insert,
     insertValues,
@@ -126,6 +132,7 @@ describe('nutrition targets store', () => {
     });
     expect(testState.insert).toHaveBeenCalledWith(nutritionTargets);
     expect(testState.insertValues).toHaveBeenCalledWith({
+      id: expect.any(String),
       userId: 'user-1',
       calories: 2200,
       protein: 180,
@@ -135,6 +142,8 @@ describe('nutrition targets store', () => {
       adaptiveCheckInId: null,
       macroCalories: 2350,
       effectiveDate: '2026-03-07',
+      createdAt: updatedAt,
+      updatedAt,
     });
     expect(testState.insertOnConflictDoUpdate).toHaveBeenCalledWith({
       target: [nutritionTargets.userId, nutritionTargets.effectiveDate],
@@ -150,6 +159,25 @@ describe('nutrition targets store', () => {
       },
     });
     expect(testState.insertReturning).toHaveBeenCalledOnce();
+    expect(testState.insert).toHaveBeenCalledWith(nutritionTargetEvents);
+    expect(testState.insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetId: 'target-1',
+        userId: 'user-1',
+        sequence: 1,
+        effectiveDate: '2026-03-07',
+        calories: 2200,
+        protein: 180,
+        carbs: 250,
+        fat: 70,
+        macroCalories: 2350,
+        source: 'manual',
+        adaptiveCheckInId: null,
+        eventType: 'manual_write',
+        recordedAt: updatedAt,
+        createdAt: updatedAt,
+      }),
+    );
   });
 
   it('throws when an upsert does not yield a persisted row', async () => {

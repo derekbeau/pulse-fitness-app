@@ -16,6 +16,11 @@ import {
   AdaptiveAnalyticsPreProgramEndError,
   getAdaptiveEnergyBalanceAnalytics,
 } from './analytics-store.js';
+import {
+  AdaptiveGoalTrajectoryFutureEndError,
+  AdaptiveGoalTrajectoryPreGoalEndError,
+  getAdaptiveGoalTrajectory,
+} from './goal-trajectory-store.js';
 
 import {
   acceptAdaptiveNutritionCheckIn,
@@ -78,6 +83,11 @@ vi.mock('./analytics-store.js', async (importOriginal) => {
     ...actual,
     getAdaptiveEnergyBalanceAnalytics: vi.fn(),
   };
+});
+
+vi.mock('./goal-trajectory-store.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./goal-trajectory-store.js')>();
+  return { ...actual, getAdaptiveGoalTrajectory: vi.fn() };
 });
 
 vi.mock('./review-store.js', async (importOriginal) => {
@@ -262,6 +272,108 @@ const energyBalanceAnalytics = {
     headline: 'Complete nutrition days will unlock your energy balance',
     detail: 'Incomplete days are visible but excluded.',
     reasonCodes: ['LEARNING_ESTIMATE' as const, 'NO_COMPLETE_NUTRITION' as const],
+  },
+};
+const goalTrajectory = {
+  algorithmVersion: 'adaptive-tdee-v1' as const,
+  trendSource: 'product_trend_weight_v1' as const,
+  strategyTrendSource: 'adaptive_model_trend' as const,
+  productTrend: {
+    currentTrendWeightKg: 82,
+    currentTrendDate: '2026-06-01',
+    state: 'developing' as const,
+  },
+  timeZone: 'America/Detroit',
+  isHistorical: true,
+  goal: goalRecord,
+  activeRevision: goalRevision,
+  range: { preset: '3m' as const, startDate: '2026-06-01', endDate: '2026-06-01' },
+  strategyAsOfDate: '2026-06-01',
+  evidenceThroughDate: '2026-06-01',
+  currentTrendDate: '2026-06-01',
+  summary: {
+    kind: 'maintenance' as const,
+    startTrendWeightKg: 82,
+    currentTrendWeightKg: 82,
+    currentTrendDate: '2026-06-01',
+    latestScale: { entryId: 'weight-1', date: '2026-06-01', weightKg: 82 },
+    centerWeightKg: 82,
+    rangeRadiusKg: 0.82,
+    rangeLowerKg: 81.18,
+    rangeUpperKg: 82.82,
+    signedDistanceFromCenterKg: 0,
+    rangeStatus: 'within' as const,
+    correctionPolicy: 'review_only_no_automatic_change' as const,
+    timeInRange: {
+      intervalStartDate: '2026-06-01',
+      intervalEndDate: '2026-06-01',
+      modeledDays: 1,
+      daysWithinRange: 1,
+      timeInRangeFraction: 1,
+      evidenceStatus: 'supported' as const,
+    },
+  },
+  actualRate: {
+    lookbackDays: 21 as const,
+    kgPerWeek: null,
+    pctPerWeek: null,
+    startDate: null,
+    endDate: null,
+    trendPointCount: 1,
+    observedWeightCount: 1,
+    spanDays: 0,
+    confidence: 'insufficient' as const,
+    status: 'unavailable' as const,
+    unavailableReason: 'INSUFFICIENT_TREND' as const,
+  },
+  forecast: null,
+  context: {
+    calorieTargetKcal: 2500,
+    calorieTargetEffectiveDate: '2026-06-01',
+    adaptiveExpenditureKcal: 2500,
+    expenditureSourceCheckInId: null,
+    expenditureSourceInputFingerprint: null,
+  },
+  trendPoints: [
+    {
+      date: '2026-06-01',
+      trendWeightKg: 82,
+      scaleWeightKg: 82,
+      sourceEntryId: 'weight-1',
+      evidenceState: 'developing' as const,
+      observationCount: 2,
+      spanDays: 7,
+      gapFromPreviousDays: null,
+      corrected: false,
+      adaptiveStrategyTrendWeightKg: 82,
+      goalRevisionId: 'revision-1',
+      revisionSequence: 1,
+      targetWeightKg: null,
+      maintenanceCenterKg: 82,
+      maintenanceLowerKg: 81.18,
+      maintenanceUpperKg: 82.82,
+      section: 'current' as const,
+    },
+  ],
+  weeklyContributions: [],
+  annotations: [
+    {
+      id: 'goal-start-goal-1',
+      date: '2026-06-01',
+      kind: 'goal_started' as const,
+      label: 'Goal started',
+      goalRevisionId: 'revision-1',
+      revisionSequence: 1,
+      checkInId: null,
+    },
+  ],
+  completionReview: {
+    toleranceKg: 0.23,
+    trendTargetStatus: 'unavailable' as const,
+    scaleTargetStatus: 'unavailable' as const,
+    completionReviewRequired: false,
+    completionAllowed: false,
+    reasonCode: 'MAINTENANCE_NOT_APPLICABLE' as const,
   },
 };
 const goal = {
@@ -472,6 +584,7 @@ describe('adaptive nutrition routes', () => {
       goalActionRequired: null,
     });
     vi.mocked(getAdaptiveEnergyBalanceAnalytics).mockResolvedValue(energyBalanceAnalytics);
+    vi.mocked(getAdaptiveGoalTrajectory).mockResolvedValue(goalTrajectory);
     vi.mocked(getPendingAdaptiveWeeklyReview).mockResolvedValue(weeklyReview);
     vi.mocked(refreshAdaptiveWeeklyReview).mockResolvedValue(weeklyReview);
     vi.mocked(getAdaptiveWeeklyReview).mockResolvedValue(weeklyReview);
@@ -786,6 +899,110 @@ describe('adaptive nutrition routes', () => {
         { bearerAuth: [] },
         { agentToken: [] },
       ]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns identical strict goal trajectory facts to JWT and AgentToken callers', async () => {
+    const app = buildServer();
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({ id: 'agent-1', userId: 'jwt-user' });
+    try {
+      await app.ready();
+      const jwt = app.jwt.sign(
+        { sub: 'jwt-user', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const url =
+        '/api/v1/adaptive-nutrition/goals/goal-1/trajectory?range=3m&lookbackDays=21&end=2026-06-01';
+      const [jwtResponse, agentResponse] = await Promise.all([
+        app.inject({ method: 'GET', url, headers: { authorization: `Bearer ${jwt}` } }),
+        app.inject({
+          method: 'GET',
+          url,
+          headers: { authorization: 'AgentToken plain-agent-token' },
+        }),
+      ]);
+
+      expect(jwtResponse.statusCode, jwtResponse.body).toBe(200);
+      expect(agentResponse.statusCode, agentResponse.body).toBe(200);
+      expect(agentResponse.json()).toEqual(jwtResponse.json());
+      expect(jwtResponse.json()).toEqual({ data: goalTrajectory });
+      expect(vi.mocked(getAdaptiveGoalTrajectory)).toHaveBeenNthCalledWith(
+        1,
+        'jwt-user',
+        'goal-1',
+        {
+          range: '3m',
+          lookbackDays: 21,
+          end: '2026-06-01',
+        },
+      );
+      expect(vi.mocked(getAdaptiveGoalTrajectory)).toHaveBeenNthCalledWith(
+        2,
+        'jwt-user',
+        'goal-1',
+        {
+          range: '3m',
+          lookbackDays: 21,
+          end: '2026-06-01',
+        },
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('validates goal trajectory queries and maps bounded date errors without writes', async () => {
+    const app = buildServer();
+    try {
+      await app.ready();
+      const jwt = app.jwt.sign(
+        { sub: 'jwt-user', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const headers = { authorization: `Bearer ${jwt}` };
+      const invalid = await app.inject({
+        method: 'GET',
+        url: '/api/v1/adaptive-nutrition/goals/goal-1/trajectory?range=2m&lookbackDays=15',
+        headers,
+      });
+      expect(invalid.statusCode).toBe(400);
+      expect(getAdaptiveGoalTrajectory).not.toHaveBeenCalled();
+
+      vi.mocked(getAdaptiveGoalTrajectory).mockRejectedValueOnce(
+        new AdaptiveGoalTrajectoryFutureEndError(),
+      );
+      const future = await app.inject({
+        method: 'GET',
+        url: '/api/v1/adaptive-nutrition/goals/goal-1/trajectory?end=2099-01-01',
+        headers,
+      });
+      expect(future.statusCode).toBe(400);
+      expect(future.json()).toMatchObject({
+        error: { code: 'ADAPTIVE_GOAL_TRAJECTORY_FUTURE_END' },
+      });
+
+      vi.mocked(getAdaptiveGoalTrajectory).mockRejectedValueOnce(
+        new AdaptiveGoalTrajectoryPreGoalEndError(),
+      );
+      const beforeGoal = await app.inject({
+        method: 'GET',
+        url: '/api/v1/adaptive-nutrition/goals/goal-1/trajectory?end=2000-01-01',
+        headers,
+      });
+      expect(beforeGoal.statusCode).toBe(400);
+      expect(beforeGoal.json()).toMatchObject({
+        error: { code: 'ADAPTIVE_GOAL_TRAJECTORY_PRE_GOAL_END' },
+      });
+
+      const openApi = await app.inject({ method: 'GET', url: '/api/docs/json' });
+      expect(
+        openApi.json().paths['/api/v1/adaptive-nutrition/goals/{id}/trajectory'].get.security,
+      ).toEqual([{ bearerAuth: [] }, { agentToken: [] }]);
+      expect(
+        openApi.json().paths['/api/v1/adaptive-nutrition/goals/{id}/trajectory'].get.description,
+      ).toMatch(/read-only/u);
     } finally {
       await app.close();
     }
