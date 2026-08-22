@@ -229,6 +229,7 @@ SELECT
 	c.`created_at` AS `check_in_created_at`,
 	c.`resolved_at` AS `check_in_resolved_at`,
 	r.`created_at` AS `review_created_at`,
+	r.`source_fingerprint` AS `review_source_fingerprint`,
 	t.`id` AS `target_id`,
 	t.`user_id` AS `target_user_id`,
 	t.`effective_date` AS `target_effective_date`,
@@ -240,6 +241,25 @@ LEFT JOIN `adaptive_nutrition_reviews` r ON r.`id` = a.`review_id`
 LEFT JOIN `adaptive_nutrition_checkins` c ON c.`id` = r.`check_in_id`
 LEFT JOIN `nutrition_targets` t ON t.`id` = c.`accepted_nutrition_target_id`
 WHERE a.`type` = 'accept';
+--> statement-breakpoint
+CREATE TEMP TABLE `__nutrition_target_review_action_claims` AS
+SELECT
+	a.`id` AS `action_id`,
+	a.`type` AS `action_type`,
+	a.`payload`
+FROM `adaptive_nutrition_review_actions` a;
+--> statement-breakpoint
+INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
+SELECT CASE WHEN EXISTS (
+	SELECT 1
+	FROM `__nutrition_target_review_action_claims` a
+	WHERE CASE
+		WHEN json_valid(a.`payload`) THEN json_type(a.`payload`) <> 'object'
+		ELSE 1
+	END
+		OR coalesce(json_type(a.`payload`, '$.type'), 'missing') <> 'text'
+		OR json_extract(a.`payload`, '$.type') <> a.`action_type`
+) THEN 0 ELSE 1 END;
 --> statement-breakpoint
 INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
 SELECT CASE WHEN EXISTS (
@@ -260,7 +280,7 @@ SELECT CASE WHEN EXISTS (
 		OR a.`review_created_at` < a.`check_in_created_at`
 		OR a.`created_at` < a.`review_created_at`
 		OR a.`created_at` < a.`check_in_created_at`
-		OR a.`created_at` <> a.`check_in_resolved_at`
+		OR a.`created_at` < a.`check_in_resolved_at`
 ) THEN 0 ELSE 1 END;
 --> statement-breakpoint
 INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
@@ -271,7 +291,25 @@ SELECT CASE WHEN EXISTS (
 		WHEN json_valid(a.`payload`) THEN json_type(a.`payload`) <> 'object'
 		ELSE 1
 	END
+		OR coalesce(json_type(a.`payload`, '$.type'), 'missing') <> 'text'
+		OR json_extract(a.`payload`, '$.type') <> 'accept'
+		OR coalesce(json_type(a.`payload`, '$.expectedFingerprint'), 'missing') <> 'text'
+		OR length(json_extract(a.`payload`, '$.expectedFingerprint')) <> 64
+		OR json_extract(a.`payload`, '$.expectedFingerprint') GLOB '*[^0-9a-f]*'
+		OR json_extract(a.`payload`, '$.expectedFingerprint') <> a.`review_source_fingerprint`
+		OR coalesce(json_type(a.`payload`, '$.expectedActionSequence'), 'missing') <> 'integer'
+		OR json_extract(a.`payload`, '$.expectedActionSequence') < 0
+		OR json_extract(a.`payload`, '$.expectedActionSequence') <> a.`sequence` - 1
+		OR coalesce(json_type(a.`payload`, '$.replaceSameDateTarget'), 'missing') not in ('missing', 'true', 'false')
 		OR coalesce(json_type(a.`payload`, '$.appliedProposal'), 'missing') not in ('null', 'object')
+		OR EXISTS (
+			SELECT 1
+			FROM json_each(a.`payload`) field
+			WHERE field.`key` not in (
+				'type', 'expectedFingerprint', 'expectedActionSequence',
+				'replaceSameDateTarget', 'appliedProposal'
+			)
+		)
 ) THEN 0 ELSE 1 END;
 --> statement-breakpoint
 INSERT INTO `__nutrition_target_backfill_validation` (`valid`)
@@ -548,7 +586,7 @@ SELECT CASE WHEN EXISTS (
 				AND abs(c.`fat` - json_extract(a.`payload`, '$.appliedProposal.fat')) < 0.000001
 				AND c.`source` = 'adaptive'
 				AND c.`adaptive_check_in_id` = a.`check_in_id`
-				AND c.`recorded_at` = a.`created_at`
+				AND c.`recorded_at` = a.`check_in_resolved_at`
 		)
 		OR (
 			json_type(a.`payload`, '$.appliedProposal') = 'null'
@@ -756,6 +794,8 @@ DROP TABLE `__nutrition_target_backfill_validation`;
 DROP TABLE `__nutrition_target_accepted_backfill`;
 --> statement-breakpoint
 DROP TABLE `__nutrition_target_accept_action_claims`;
+--> statement-breakpoint
+DROP TABLE `__nutrition_target_review_action_claims`;
 --> statement-breakpoint
 DROP TABLE `__nutrition_target_predecessor_claims`;
 --> statement-breakpoint
