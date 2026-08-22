@@ -32,7 +32,7 @@ import { getToday, toDateKey } from '@/lib/date';
 
 import { getDistanceUnit } from '../lib/tracking';
 import type { ActiveWorkoutPerformanceHistorySession } from '../types';
-import { buildExerciseTrendData } from './exercise-trend-data';
+import { buildExerciseTrendData, type ExerciseTrendDatum } from './exercise-trend-data';
 import { getMetricOptionsForTrackingType, type TrendMetricKey } from './exercise-trend-metrics';
 
 type ExerciseTrendChartProps = {
@@ -64,7 +64,7 @@ export function ExerciseTrendChart({
   weightUnit = 'lbs',
 }: ExerciseTrendChartProps) {
   const [selectedRange, setSelectedRange] = useState<DateRange>('3m');
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const metricOptions = useMemo(
     () => getMetricOptionsForTrackingType(trackingType),
     [trackingType],
@@ -76,7 +76,11 @@ export function ExerciseTrendChart({
     ? selectedMetric
     : (metricOptions[0]?.key ?? 'max_reps');
   const sortedSessions = useMemo(
-    () => [...sessions].sort((left, right) => left.date.localeCompare(right.date)),
+    () =>
+      [...sessions].sort(
+        (left, right) =>
+          left.date.localeCompare(right.date) || left.sessionId.localeCompare(right.sessionId),
+      ),
     [sessions],
   );
   const referenceDate = sortedSessions.at(-1)?.date ?? toDateKey(getToday());
@@ -105,9 +109,10 @@ export function ExerciseTrendChart({
   const selectedMetricLabel =
     metricOptions.find((metric) => metric.key === activeMetric)?.label ?? 'Max Reps';
   const metricUnit = getMetricUnit(activeMetric, trackingType, weightUnit);
-  const selectedPoint = selectedDate
-    ? (chartData.find((point) => point.date === selectedDate) ?? null)
+  const selectedPoint = selectedSessionId
+    ? (chartData.find((point) => point.sessionId === selectedSessionId) ?? null)
     : null;
+  const sessionPositions = useMemo(() => buildSessionPositions(chartData), [chartData]);
   const firstValue = chartData[0]?.value ?? null;
   const latestValue = chartData.at(-1)?.value ?? null;
   const change = firstValue === null || latestValue === null ? null : latestValue - firstValue;
@@ -129,7 +134,7 @@ export function ExerciseTrendChart({
               key={metric.key}
               onClick={() => {
                 setSelectedMetric(metric.key);
-                setSelectedDate(null);
+                setSelectedSessionId(null);
               }}
               type="button"
               variant={activeMetric === metric.key ? 'default' : 'ghost'}
@@ -146,7 +151,7 @@ export function ExerciseTrendChart({
           label="Trend date range"
           onChange={(value) => {
             setSelectedRange(value);
-            setSelectedDate(null);
+            setSelectedSessionId(null);
           }}
           options={dateRangeOptions}
           statusText={`${selectedRange.toUpperCase()} · ${formatChartDate(dateRange.startDate)}–${formatChartDate(dateRange.endDate)} · ${chartData.length} sessions`}
@@ -158,6 +163,12 @@ export function ExerciseTrendChart({
         selectedPoint ? (
           <ChartPointDetail>
             <p className="font-medium text-foreground">{formatChartDate(selectedPoint.date)}</p>
+            {(sessionPositions.get(selectedPoint.sessionId)?.count ?? 1) > 1 ? (
+              <p className="mt-1 text-muted-foreground">
+                Session {sessionPositions.get(selectedPoint.sessionId)?.position} of{' '}
+                {sessionPositions.get(selectedPoint.sessionId)?.count}
+              </p>
+            ) : null}
             <p className="mt-1 text-muted-foreground">
               {selectedMetricLabel} {formatMetricValue(selectedPoint.value, metricUnit)}
             </p>
@@ -207,10 +218,13 @@ export function ExerciseTrendChart({
               render: (point) => formatMetricValue(point.value, metricUnit),
             },
           ]}
-          getRowKey={(point) => point.date}
-          onSelectRow={(point) => setSelectedDate(point.date)}
+          getRowKey={(point) => point.sessionId}
+          onSelectRow={(point) => setSelectedSessionId(point.sessionId)}
           rows={chartData}
-          selectionLabel={(point) => `Inspect ${formatChartDate(point.date)}`}
+          selectionLabel={(point) => {
+            const position = sessionPositions.get(point.sessionId);
+            return `Inspect ${formatChartDate(point.date)}${position && position.count > 1 ? ` · session ${position.position} of ${position.count}` : ''}`;
+          }}
         />
       }
       title={exerciseName}
@@ -222,7 +236,7 @@ export function ExerciseTrendChart({
           title="No history in this range"
         />
       ) : (
-        <div className="space-y-3" id="exercise-trend-visual">
+        <div className="space-y-3">
           <ChartLegend
             items={[
               {
@@ -246,16 +260,21 @@ export function ExerciseTrendChart({
                 data={chartData}
                 margin={{ top: 12, right: 12, bottom: 4, left: 0 }}
                 onClick={(state) => {
-                  if (typeof state?.activeLabel === 'string') setSelectedDate(state.activeLabel);
+                  if (typeof state?.activeLabel === 'string') {
+                    setSelectedSessionId(state.activeLabel);
+                  }
                 }}
               >
                 <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
                 <XAxis
                   axisLine={false}
-                  dataKey="date"
+                  dataKey="sessionId"
                   minTickGap={24}
                   tick={{ fill: 'var(--color-muted)', fontSize: 12 }}
-                  tickFormatter={formatChartAxisDate}
+                  tickFormatter={(sessionId: string) => {
+                    const point = chartData.find((datum) => datum.sessionId === sessionId);
+                    return point ? formatChartAxisDate(point.date) : '';
+                  }}
                   tickLine={false}
                 />
                 <YAxis
@@ -267,10 +286,12 @@ export function ExerciseTrendChart({
                   width={60}
                 />
                 <Tooltip
-                  content={({ active, label, payload }) =>
-                    active && typeof label === 'string' ? (
+                  content={({ active, payload }) => {
+                    const point = payload?.[0]?.payload as ExerciseTrendDatum | undefined;
+                    const position = point ? sessionPositions.get(point.sessionId) : undefined;
+                    return active && point ? (
                       <ChartTooltip
-                        date={formatChartDate(label)}
+                        date={`${formatChartDate(point.date)}${position && position.count > 1 ? ` · Session ${position.position} of ${position.count}` : ''}`}
                         rows={[
                           {
                             color: 'var(--color-primary)',
@@ -282,8 +303,8 @@ export function ExerciseTrendChart({
                           },
                         ]}
                       />
-                    ) : null
-                  }
+                    ) : null;
+                  }}
                 />
                 <Line
                   dataKey="value"
@@ -303,6 +324,21 @@ export function ExerciseTrendChart({
       )}
     </ChartFrame>
   );
+}
+
+function buildSessionPositions(points: ExerciseTrendDatum[]) {
+  const pointsByDate = new Map<string, ExerciseTrendDatum[]>();
+  for (const point of points) {
+    pointsByDate.set(point.date, [...(pointsByDate.get(point.date) ?? []), point]);
+  }
+
+  const positions = new Map<string, { count: number; position: number }>();
+  for (const sameDatePoints of pointsByDate.values()) {
+    sameDatePoints.forEach((point, index) => {
+      positions.set(point.sessionId, { count: sameDatePoints.length, position: index + 1 });
+    });
+  }
+  return positions;
 }
 
 function getMetricUnit(

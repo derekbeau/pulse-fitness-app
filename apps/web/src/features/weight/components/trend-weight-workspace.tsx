@@ -15,6 +15,7 @@ import {
 import { Activity, CircleHelp, Scale, TrendingDown, TrendingUp } from 'lucide-react';
 
 import {
+  ChartDataTable,
   ChartLegend,
   ChartPointDetail,
   ChartRangeControl,
@@ -524,6 +525,43 @@ export function TrendWeightWorkspace({ compact = false, end }: TrendWeightWorksp
               · {selectedPoint.state.replace('_', ' ')}
             </p>
           </ChartPointDetail>
+        ) : null}
+
+        {compact ? (
+          <ChartDataTable
+            caption="Exact compact Scale and Trend Weight values"
+            className="mt-4"
+            columns={[
+              {
+                key: 'date',
+                header: 'Date',
+                render: (point) => formatTrendWeightDate(point.date),
+              },
+              {
+                key: 'scale',
+                header: 'Scale',
+                render: (point) => formatWeight(point.scaleWeight, unit),
+              },
+              {
+                key: 'trend',
+                header: 'Trend',
+                render: (point) =>
+                  point.trendWeight === null
+                    ? 'Not available'
+                    : formatWeight(point.trendWeight, unit),
+              },
+              {
+                key: 'state',
+                header: 'State',
+                render: (point) => point.state.replace('_', ' '),
+              },
+            ]}
+            getRowKey={(point) => point.sourceEntryId}
+            onSelectRow={(point) => setSelectedPointId(point.sourceEntryId)}
+            rows={points}
+            selectionLabel={(point) => `Inspect ${formatTrendWeightDate(point.date)}`}
+            summary="View exact Trend Weight values"
+          />
         ) : null}
       </figure>
 

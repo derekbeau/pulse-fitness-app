@@ -227,8 +227,14 @@ test('explores exercise history with exact units and reference-date ranges', asy
           {
             date: '2026-03-01',
             notes: null,
-            sessionId: 'chart-session-3',
+            sessionId: 'chart-session-3a',
             sets: [{ reps: 7, setNumber: 1, weight: 55 }],
+          },
+          {
+            date: '2026-03-01',
+            notes: null,
+            sessionId: 'chart-session-3b',
+            sets: [{ reps: 7, setNumber: 1, weight: 60 }],
           },
         ],
       },
@@ -244,7 +250,7 @@ test('explores exercise history with exact units and reference-date ranges', asy
   await page.getByRole('button', { exact: true, name: exerciseName }).click();
   await page.getByRole('tab', { name: 'Trends' }).click();
   await expect(page.getByRole('figure', { name: exerciseName })).toBeVisible();
-  await expect(page.getByLabel('Selected exercise range summary')).toContainText('55 lbs');
+  await expect(page.getByLabel('Selected exercise range summary')).toContainText('60 lbs');
   await expectRangeTargets(page, 'Trend date range');
 
   const firstDot = page.locator('.recharts-line-dots circle').first();
@@ -255,6 +261,13 @@ test('explores exercise history with exact units and reference-date ranges', asy
   await page.getByText('View exact chart values').click();
   await page.getByRole('button', { name: /Inspect Jan 5, 2026/ }).press('Enter');
   await expect(page.getByLabel('Selected chart point')).toContainText('Max Weight 40 lbs');
+  const secondSameDateSession = page.getByRole('button', {
+    name: /Inspect Mar 1, 2026 · session 2 of 2/,
+  });
+  await secondSameDateSession.focus();
+  await secondSameDateSession.press('Enter');
+  await expect(page.getByLabel('Selected chart point')).toContainText('Session 2 of 2');
+  await expect(page.getByLabel('Selected chart point')).toContainText('Max Weight 60 lbs');
   await page.setViewportSize({ height: 900, width: 768 });
   await expectNoOverflow(page);
   await capture(page, 'chart-exploration-exercise-768.png');
@@ -262,44 +275,68 @@ test('explores exercise history with exact units and reference-date ranges', asy
   diagnostics();
 });
 
-test('renders injury annotations, a zero observation, themes, and exact modeled rows', async ({
-  page,
-}) => {
-  const diagnostics = monitorPage(page);
-  const user = await registerUser('chart-injury');
-  await openAuthenticated(page, user.token, '/profile/injuries/shoulder-slap-tear-right');
+test.describe('injury severity inspection', () => {
+  test.use({ hasTouch: true });
 
-  await expect(page.getByRole('figure', { name: 'Pain / Severity Over Time' })).toBeVisible();
-  await expect(page.getByLabel('Selected severity range summary')).toContainText(
-    'Latest severity0 / 10',
-  );
-  await expectRangeTargets(page, 'Severity date range');
-  await page.getByRole('button', { name: 'All' }).click();
-  const annotation = page.getByRole('button', { name: /Flare: Short flare-up/ });
-  await annotation.focus();
-  await annotation.press('Enter');
-  await expect(page.getByLabel('Selected chart point')).toContainText('Flare');
-  await page.getByText('View exact chart values').click();
-  await expect(page.getByRole('cell', { name: '0 / 10' })).toBeVisible();
+  test('renders injury annotations, exact severity inspection, themes, and modeled rows', async ({
+    page,
+  }) => {
+    const diagnostics = monitorPage(page);
+    const user = await registerUser('chart-injury');
+    await openAuthenticated(page, user.token, '/profile/injuries/shoulder-slap-tear-right');
 
-  for (const [theme, width] of [
-    ['light', 320],
-    ['dark', 430],
-    ['midnight', 1280],
-  ] as const) {
-    await page.evaluate((value) => window.localStorage.setItem('pulse-theme', value), theme);
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.setViewportSize({ height: 900, width });
     await expect(page.getByRole('figure', { name: 'Pain / Severity Over Time' })).toBeVisible();
-    await expectNoOverflow(page);
-    await capture(page, `chart-exploration-injury-${theme}-${width}.png`);
-    await captureElement(
-      page,
-      page.getByRole('figure', { name: 'Pain / Severity Over Time' }),
-      `chart-exploration-injury-chart-${theme}-${width}.png`,
+    await expect(page.getByLabel('Selected severity range summary')).toContainText(
+      'Latest severity0 / 10',
     );
-  }
-  diagnostics();
+    await expectRangeTargets(page, 'Severity date range');
+    await page.getByRole('button', { name: 'All' }).click();
+    const ordinaryPoint = page.locator(
+      '[data-slot="severity-point-marker"][data-date="2025-03-18"] circle[tabindex="0"]',
+    );
+    await ordinaryPoint.hover();
+    await expect(page.getByRole('tooltip')).toContainText('Mar 18, 2025');
+    await expect(page.getByRole('tooltip')).toContainText('Severity 7 / 10');
+    await expect(page.getByRole('tooltip')).toContainText('State Recorded check-in');
+
+    const eventPoint = page.locator(
+      '[data-slot="severity-point-marker"][data-date="2025-08-21"] circle[tabindex="0"]',
+    );
+    await eventPoint.hover();
+    await expect(page.getByRole('tooltip')).toContainText('Severity 5 / 10');
+    await expect(page.getByRole('tooltip')).toContainText(
+      'Short flare-up after pushing a high-volume chest day too aggressively.',
+    );
+    await eventPoint.tap();
+    await expect(page.getByLabel('Selected chart point')).toContainText('Severity 5 of 10');
+    await expect(page.getByLabel('Selected chart point')).toContainText('Flare');
+
+    const annotation = page.getByRole('button', { name: /Flare: Short flare-up/ });
+    await annotation.focus();
+    await annotation.press('Enter');
+    await expect(page.getByLabel('Selected chart point')).toContainText('Flare');
+    await page.getByText('View exact chart values').click();
+    await expect(page.getByRole('cell', { name: '0 / 10' })).toBeVisible();
+
+    for (const [theme, width] of [
+      ['light', 320],
+      ['dark', 430],
+      ['midnight', 1280],
+    ] as const) {
+      await page.evaluate((value) => window.localStorage.setItem('pulse-theme', value), theme);
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.setViewportSize({ height: 900, width });
+      await expect(page.getByRole('figure', { name: 'Pain / Severity Over Time' })).toBeVisible();
+      await expectNoOverflow(page);
+      await capture(page, `chart-exploration-injury-${theme}-${width}.png`);
+      await captureElement(
+        page,
+        page.getByRole('figure', { name: 'Pain / Severity Over Time' }),
+        `chart-exploration-injury-chart-${theme}-${width}.png`,
+      );
+    }
+    diagnostics();
+  });
 });
 
 test('keeps the dashboard Trend Weight wrapper on shared controls at desktop width', async ({
@@ -324,6 +361,18 @@ test('keeps the dashboard Trend Weight wrapper on shared controls at desktop wid
   const chart = page.locator('[data-slot="weight-trend-chart"]');
   await expect(chart.getByRole('figure', { name: 'Scale and Trend Weight' })).toBeVisible();
   await expectRangeTargets(page, 'Trend Weight range');
+  const exactValues = chart.getByText('View exact Trend Weight values');
+  await exactValues.focus();
+  await exactValues.press('Enter');
+  const earliestPoint = chart.getByRole('button', {
+    name: new RegExp(`Inspect ${uiDate(addDays(today, -2))}`),
+  });
+  await earliestPoint.focus();
+  await earliestPoint.press('Enter');
+  await expect(chart.getByLabel('Selected Trend Weight point')).toContainText(
+    uiDate(addDays(today, -2)),
+  );
+  await expect(earliestPoint).toBeFocused();
   await page.setViewportSize({ height: 900, width: 1280 });
   await expectNoOverflow(page);
   await capture(page, 'chart-exploration-dashboard-1280.png');

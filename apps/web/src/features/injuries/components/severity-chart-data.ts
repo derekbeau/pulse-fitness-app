@@ -8,7 +8,7 @@ export type SeverityChartDatum = {
   observed: boolean;
   primaryEventType?: TimelineEventType;
   timestamp: number;
-  value: number;
+  value: number | null;
 };
 
 export function buildSeverityChartData(
@@ -46,10 +46,10 @@ export function buildSeverityChartData(
 function interpolateSeverity(
   history: Array<{ timestamp: number; value: number }>,
   timestamp: number,
-): number {
+): number | null {
   const firstPoint = history[0];
   const lastPoint = history.at(-1);
-  if (!firstPoint || !lastPoint) return 0;
+  if (!firstPoint || !lastPoint) return null;
   if (timestamp <= firstPoint.timestamp) return firstPoint.value;
   if (timestamp >= lastPoint.timestamp) return lastPoint.value;
 

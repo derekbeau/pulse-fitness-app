@@ -18,6 +18,7 @@ import {
   NutritionDayStatusControl,
   useAdaptiveNutritionState,
 } from '@/features/adaptive-nutrition';
+import { nutritionTrendReferenceDate } from '@/features/nutrition/components/nutrition-trend-reference';
 import { NutritionTrends } from '@/features/nutrition/components/nutrition-trends';
 import { MealCard, NutritionMacroRings, NutritionWeekStrip } from '@/features/nutrition';
 import {
@@ -79,6 +80,11 @@ export function NutritionPage() {
   const coachNeedsAttention = Boolean(
     adaptiveStateQuery.data?.checkInDue || adaptiveStateQuery.data?.pendingCheckIn,
   );
+  const nutritionTimeZone =
+    adaptiveStateQuery.data?.program?.timeZone ??
+    Intl.DateTimeFormat().resolvedOptions().timeZone ??
+    'UTC';
+  const trendsReferenceDate = nutritionTrendReferenceDate(Date.now(), nutritionTimeZone);
 
   useEffect(() => {
     if (isNutritionView(viewParam)) {
@@ -232,7 +238,7 @@ export function NutritionPage() {
         ) : activeView === 'foods' ? (
           <FoodList />
         ) : (
-          <NutritionTrends />
+          <NutritionTrends referenceDate={trendsReferenceDate} />
         )}
       </div>
     </section>

@@ -23,7 +23,6 @@ import {
   formatChartDate,
 } from '@/components/charts';
 import { useMacroTrend } from '@/hooks/use-macro-trend';
-import { getToday, toDateKey } from '@/lib/date';
 import { formatCalories, formatGrams } from '@/lib/format-utils';
 import {
   buildNutritionTrendData,
@@ -48,7 +47,7 @@ type NutritionTrendRange = (typeof NUTRITION_TREND_RANGES)[number]['value'];
 type MacroSeriesKey = (typeof MACRO_SERIES)[number]['key'];
 
 type NutritionTrendsProps = {
-  referenceDate?: string;
+  referenceDate: string;
 };
 
 function formatMacroValue(metric: MacroSeriesKey, value: number) {
@@ -85,7 +84,7 @@ function NutritionTooltip({
   );
 }
 
-export function NutritionTrends({ referenceDate = toDateKey(getToday()) }: NutritionTrendsProps) {
+export function NutritionTrends({ referenceDate }: NutritionTrendsProps) {
   const [range, setRange] = useState<NutritionTrendRange>('1m');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const dateRange = useMemo(
@@ -193,7 +192,7 @@ export function NutritionTrends({ referenceDate = toDateKey(getToday()) }: Nutri
           title="No nutrition data in range"
         />
       ) : (
-        <div className="space-y-3" id="nutrition-trend-visual">
+        <div className="space-y-3">
           <ChartLegend
             items={MACRO_SERIES.map((series) => ({ ...series, style: 'line' as const }))}
           />

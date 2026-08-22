@@ -39,6 +39,8 @@ Named presets are inclusive trailing calendar-date windows ending on the supplie
 
 The chart system never reads browser "today" while resolving a range. A live domain may first derive
 its reference date from an instant and an IANA time zone, then pass that date key explicitly.
+Nutrition Macro Trends uses the Adaptive program time zone when available and the explicit browser
+IANA zone only when no program exists; the production component never invents its own ambient date.
 
 ## 3. Aggregation contract
 
@@ -71,6 +73,10 @@ Shared web primitives live under `apps/web/src/components/charts/`:
 - `ChartPointDetail`: persistent `aria-live` inspection result
 - `ChartDataTable`: keyboard-operable exact-value fallback
 
+`ChartFrame` alone owns `<frame id>-visual`. Nested chart children must not repeat that ID, and every
+range control's `aria-controls` must resolve to exactly one element. Exact table rows use stable
+domain identity rather than dates because multiple observations may legitimately share a date.
+
 The primitives accept React composition slots and narrow typed data. They do not accept an arbitrary
 chart configuration object and do not calculate Trend Weight, TDEE, workout progression, injury
 severity, goal pace, or nutrition summaries.
@@ -81,10 +87,13 @@ severity, goal pace, or nutrition summaries.
 - Tap selection persists below the visual chart. Escape clears the selection where the visual chart
   owns focus.
 - The visual Recharts subtree is not the sole accessible representation. Every full analytical chart
-  exposes the same values in a semantic table or an equivalent domain-specific list.
+  exposes the same values in a semantic table or an equivalent domain-specific list. Compact
+  dashboard charts retain that exact-value path rather than becoming pointer-only.
 - Range and series controls are native buttons with `aria-pressed` and 44 px minimum targets.
 - Annotation meaning is available as selectable text and never color-only.
 - Missing, partial, unknown, and stale states use words as well as visual styling.
+- Missing numeric observations remain null. In particular, a missing exercise weight and an
+  event-only injury date are never converted to zero; an explicitly recorded zero remains valid.
 - Animation respects reduced-motion preferences; analytical lines default to no entrance animation.
 
 ## 6. Incremental migration plan

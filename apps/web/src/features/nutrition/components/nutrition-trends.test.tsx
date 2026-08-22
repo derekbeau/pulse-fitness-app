@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { useMacroTrend } from '@/hooks/use-macro-trend';
 import { buildNutritionTrendData, computeNutritionDailyAverages } from './nutrition-trend-data';
+import { nutritionTrendReferenceDate } from './nutrition-trend-reference';
 import { NutritionTrends } from './nutrition-trends';
 
 vi.mock('@/hooks/use-macro-trend', () => ({ useMacroTrend: vi.fn() }));
@@ -38,7 +39,14 @@ describe('NutritionTrends', () => {
       refetch: vi.fn(),
     } as unknown as ReturnType<typeof useMacroTrend>);
 
-    render(<NutritionTrends referenceDate="2026-08-22" />);
+    const { container } = render(<NutritionTrends referenceDate="2026-08-22" />);
+
+    const controlledId = screen.getByRole('button', { name: '1M' }).getAttribute('aria-controls');
+    expect(controlledId).toBe('nutrition-trend-visual');
+    expect(container.querySelectorAll(`#${controlledId}`)).toHaveLength(1);
+    expect(new Set([...container.querySelectorAll('[id]')].map((node) => node.id)).size).toBe(
+      container.querySelectorAll('[id]').length,
+    );
 
     expect(screen.getByLabelText('Selected nutrition range summary')).toHaveTextContent(
       'Average calories2100 kcal2 logged days',
@@ -95,5 +103,17 @@ describe('NutritionTrends', () => {
     expect(screen.getByRole('button', { name: '1M' })).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it('derives the production reference date from the relevant IANA zone, not the browser date', () => {
+    expect(
+      nutritionTrendReferenceDate(new Date('2026-03-08T04:30:00.000Z'), 'America/Detroit'),
+    ).toBe('2026-03-07');
+    expect(
+      nutritionTrendReferenceDate(new Date('2026-03-08T05:30:00.000Z'), 'America/Detroit'),
+    ).toBe('2026-03-08');
+    expect(nutritionTrendReferenceDate(new Date('2026-03-08T04:30:00.000Z'), 'Asia/Tokyo')).toBe(
+      '2026-03-08',
+    );
   });
 });

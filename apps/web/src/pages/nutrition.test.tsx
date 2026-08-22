@@ -699,6 +699,70 @@ describe('NutritionPage', () => {
     expect(screen.getByRole('heading', { name: 'Macro trends' })).toBeInTheDocument();
   });
 
+  it('uses the program zone for the production trend reference date across Detroit midnight', async () => {
+    vi.setSystemTime(new Date('2026-03-08T04:30:00.000Z'));
+    const { fetchMock: baseFetchMock } = createNutritionApiMock({});
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === 'string' ? input : input.toString(), 'http://localhost');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/adaptive-nutrition' && method === 'GET') {
+        return createJsonResponse({
+          state: 'baseline',
+          program: {
+            activityLevel: null,
+            activityMultiplier: null,
+            algorithmVersion: 'adaptive-tdee-v1',
+            baselineTdeeKcal: 2400,
+            birthDate: null,
+            calculatedBaselineTdeeKcal: null,
+            createdAt: 1,
+            estimatedRmrKcal: null,
+            fatAllocationPct: 30,
+            goalRatePctPerWeek: 0,
+            goalType: 'maintain',
+            heightCm: null,
+            id: 'program-1',
+            manualBaselineTdeeKcal: 2400,
+            proteinGrams: 180,
+            rmrEquation: 'manual_tdee',
+            status: 'active',
+            systemCalorieFloorKcal: 1440,
+            targetWeightKg: null,
+            timeZone: 'America/Detroit',
+            updatedAt: 1,
+            userCalorieFloorKcal: 1440,
+          },
+          currentTarget: null,
+          latestAcceptedCheckIn: null,
+          pendingCheckIn: null,
+          checkInDue: false,
+          nextCheckInDate: null,
+          eligibility: null,
+          activeGoal: null,
+          goalProgress: null,
+          pendingGoalChange: null,
+          goalActionRequired: null,
+        });
+      }
+      if (url.pathname === '/api/v1/dashboard/trends/macros' && method === 'GET') {
+        return createJsonResponse([]);
+      }
+      return baseFetchMock(input, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage('/nutrition?view=trends');
+    await vi.advanceTimersByTimeAsync(1000);
+    await Promise.resolve();
+
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).includes('/api/v1/dashboard/trends/macros?from=2026-02-06&to=2026-03-07'),
+      ),
+    ).toBe(true);
+  });
+
   it('loads today from API, shows empty state, and blocks future navigation', async () => {
     const { fetchMock } = createNutritionApiMock({
       '2026-03-06': {

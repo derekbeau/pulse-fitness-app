@@ -4,7 +4,15 @@ import {
   resolveChartDateRange,
   type ChartRangePreset,
 } from '@pulse/shared';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } from 'recharts';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 import {
   ChartAnnotationLayer,
@@ -15,10 +23,10 @@ import {
   ChartRangeControl,
   ChartState,
   ChartSummary,
+  ChartTooltip,
   formatChartAxisDate,
   formatChartDate,
 } from '@/components/charts';
-import { Badge } from '@/components/ui/badge';
 import type { SeverityPoint, TimelineEvent, TimelineEventType } from '../types';
 import { buildSeverityChartData, type SeverityChartDatum } from './severity-chart-data';
 
@@ -27,16 +35,10 @@ type SeverityChartProps = {
   timeline: TimelineEvent[];
 };
 
-type EventMarkerDotProps = {
+type SeverityMarkerDotProps = {
   cx?: number;
   cy?: number;
   payload?: SeverityChartDatum;
-};
-
-type HoveredEventState = {
-  datum: SeverityChartDatum;
-  x: number;
-  y: number;
 };
 
 type SeverityRange = Extract<ChartRangePreset, '1m' | '3m' | '6m' | '1y' | 'all'>;
@@ -85,47 +87,9 @@ const EVENT_META: Record<
   },
 };
 
-function EventTooltip({ hoveredEvent }: { hoveredEvent: HoveredEventState }) {
-  return (
-    <div
-      className="pointer-events-none absolute z-10 max-w-xs rounded-2xl border border-border/70 bg-card/95 px-3 py-3 shadow-lg backdrop-blur"
-      role="tooltip"
-      style={{
-        left: hoveredEvent.x,
-        top: hoveredEvent.y - 16,
-        transform: 'translate(-50%, -100%)',
-      }}
-    >
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        {formatChartDate(hoveredEvent.datum.date)}
-      </p>
-      <div className="mt-2 grid gap-2">
-        {hoveredEvent.datum.events.map((event) => (
-          <div className="space-y-1" key={event.id}>
-            <Badge
-              className="border-transparent"
-              style={{
-                backgroundColor: EVENT_META[event.type].dotFill,
-                color: EVENT_META[event.type].badgeTextColor,
-              }}
-            >
-              {EVENT_META[event.type].label}
-            </Badge>
-            <p className="text-sm font-medium leading-5 text-foreground">{event.event}</p>
-            {event.notes ? (
-              <p className="text-xs leading-5 text-muted-foreground">{event.notes}</p>
-            ) : null}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function SeverityChart({ severityHistory, timeline }: SeverityChartProps) {
   const chartId = useId();
   const [range, setRange] = useState<SeverityRange>('3m');
-  const [hoveredEvent, setHoveredEvent] = useState<HoveredEventState | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const allDates = useMemo(
     () =>
@@ -149,52 +113,43 @@ export function SeverityChart({ severityHistory, timeline }: SeverityChartProps)
   const selectedPoint = selectedDate
     ? (data.find((point) => point.date === selectedDate) ?? null)
     : null;
-  const values = observedPoints.map((point) => point.value);
+  const values = observedPoints.flatMap((point) => (point.value === null ? [] : [point.value]));
   const firstValue = values[0] ?? null;
   const latestValue = values.at(-1) ?? null;
   const gradientId = `severity-gradient-${chartId.replace(/:/g, '-')}`;
 
-  const renderEventDot = useCallback(({ cx, cy, payload }: EventMarkerDotProps) => {
-    if (
-      typeof cx !== 'number' ||
-      typeof cy !== 'number' ||
-      !payload?.primaryEventType ||
-      payload.events.length === 0
-    ) {
-      return null;
-    }
-    const eventMeta = EVENT_META[payload.primaryEventType];
+  const renderSeverityDot = useCallback(({ cx, cy, payload }: SeverityMarkerDotProps) => {
+    if (typeof cx !== 'number' || typeof cy !== 'number' || !payload) return null;
+    const eventMeta = payload.primaryEventType ? EVENT_META[payload.primaryEventType] : null;
+    const severity = payload.value === null ? 'not available' : `${payload.value} of 10`;
     return (
-      <g>
+      <g data-date={payload.date} data-slot="severity-point-marker">
         <circle
-          aria-label={`${eventMeta.label} event on ${formatChartDate(payload.date)}`}
+          aria-label={`${formatChartDate(payload.date)} · Severity ${severity}${eventMeta ? ` · ${eventMeta.label} event` : ''}`}
           className="cursor-pointer outline-none"
           cx={cx}
           cy={cy}
-          data-slot="severity-event-marker"
-          fill={eventMeta.dotFill}
-          onBlur={() => setHoveredEvent(null)}
-          onFocus={() => {
-            setHoveredEvent({ datum: payload, x: cx, y: cy });
-            setSelectedDate(payload.date);
-          }}
-          onMouseEnter={() => setHoveredEvent({ datum: payload, x: cx, y: cy })}
-          onMouseLeave={() => setHoveredEvent(null)}
-          r={6}
-          stroke={eventMeta.dotStroke}
+          data-slot={eventMeta ? 'severity-event-marker' : undefined}
+          fill={eventMeta?.dotFill ?? 'var(--color-primary)'}
+          onClick={() => setSelectedDate(payload.date)}
+          onFocus={() => setSelectedDate(payload.date)}
+          r={eventMeta ? 6 : 4}
+          stroke={eventMeta?.dotStroke ?? 'var(--color-card)'}
           strokeWidth={2}
           tabIndex={0}
         />
-        <circle
-          cx={cx}
-          cy={cy}
-          fill="none"
-          pointerEvents="none"
-          r={10}
-          stroke={eventMeta.dotFill}
-          strokeOpacity={0.2}
-          strokeWidth={6}
-        />
+        {eventMeta ? (
+          <circle
+            cx={cx}
+            cy={cy}
+            fill="none"
+            pointerEvents="none"
+            r={10}
+            stroke={eventMeta.dotFill}
+            strokeOpacity={0.2}
+            strokeWidth={6}
+          />
+        ) : null}
       </g>
     );
   }, []);
@@ -227,14 +182,19 @@ export function SeverityChart({ severityHistory, timeline }: SeverityChartProps)
           value={range}
         />
       }
-      description="Severity uses a 0–10 scale, where 10 is the worst. Event-only dates show an interpolated line position and are labeled as modeled."
+      description="Severity uses a 0–10 scale, where 10 is the worst. Event-only dates are modeled only when a recorded severity provides a basis; otherwise severity remains unavailable."
       detail={
         selectedPoint ? (
           <ChartPointDetail>
             <p className="font-medium text-foreground">{formatChartDate(selectedPoint.date)}</p>
             <p className="mt-1 text-muted-foreground">
-              Severity {selectedPoint.value} of 10 ·{' '}
-              {selectedPoint.observed ? 'Recorded check-in' : 'Modeled event position'}
+              Severity{' '}
+              {selectedPoint.value === null ? 'not available' : `${selectedPoint.value} of 10`} ·{' '}
+              {selectedPoint.observed
+                ? 'Recorded check-in'
+                : selectedPoint.value === null
+                  ? 'Event annotation only'
+                  : 'Modeled event position'}
             </p>
             {selectedPoint.events.map((event) => (
               <p className="mt-1 text-muted-foreground" key={event.id}>
@@ -280,11 +240,20 @@ export function SeverityChart({ severityHistory, timeline }: SeverityChartProps)
           caption="Exact severity values and recovery events"
           columns={[
             { key: 'date', header: 'Date', render: (point) => formatChartDate(point.date) },
-            { key: 'severity', header: 'Severity', render: (point) => `${point.value} / 10` },
+            {
+              key: 'severity',
+              header: 'Severity',
+              render: (point) => (point.value === null ? 'Not available' : `${point.value} / 10`),
+            },
             {
               key: 'source',
               header: 'State',
-              render: (point) => (point.observed ? 'Recorded check-in' : 'Modeled event position'),
+              render: (point) =>
+                point.observed
+                  ? 'Recorded check-in'
+                  : point.value === null
+                    ? 'Event annotation only'
+                    : 'Modeled event position',
             },
             {
               key: 'events',
@@ -312,7 +281,7 @@ export function SeverityChart({ severityHistory, timeline }: SeverityChartProps)
           title="Not enough data to show a trend yet"
         />
       ) : (
-        <div className="space-y-3" id="severity-chart-visual">
+        <div className="space-y-3">
           <ChartLegend
             items={[
               {
@@ -328,7 +297,6 @@ export function SeverityChart({ severityHistory, timeline }: SeverityChartProps)
             ]}
           />
           <div className="relative">
-            {hoveredEvent ? <EventTooltip hoveredEvent={hoveredEvent} /> : null}
             <div
               aria-label="Pain / Severity Over Time chart"
               className="aspect-[16/9] min-h-64 w-full"
@@ -348,7 +316,6 @@ export function SeverityChart({ severityHistory, timeline }: SeverityChartProps)
                       setSelectedDate(chartCoordinateDateKey(state.activeLabel));
                     }
                   }}
-                  onMouseLeave={() => setHoveredEvent(null)}
                 >
                   <defs>
                     <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
@@ -389,9 +356,44 @@ export function SeverityChart({ severityHistory, timeline }: SeverityChartProps)
                     ticks={[0, 2, 4, 6, 8, 10]}
                     width={46}
                   />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      const point = payload?.[0]?.payload as SeverityChartDatum | undefined;
+                      if (!active || !point) return null;
+                      return (
+                        <ChartTooltip
+                          dataSlot="severity-tooltip"
+                          date={formatChartDate(point.date)}
+                          rows={[
+                            {
+                              color: 'var(--color-primary)',
+                              label: 'Severity',
+                              value: point.value === null ? null : `${point.value} / 10`,
+                            },
+                            {
+                              label: 'State',
+                              value: point.observed
+                                ? 'Recorded check-in'
+                                : point.value === null
+                                  ? 'Event annotation only'
+                                  : 'Modeled event position',
+                            },
+                            ...point.events.map((event, index) => ({
+                              color: EVENT_META[event.type].dotFill,
+                              label:
+                                point.events.length > 1
+                                  ? `${EVENT_META[event.type].label} ${index + 1}`
+                                  : EVENT_META[event.type].label,
+                              value: event.notes ? `${event.event} · ${event.notes}` : event.event,
+                            })),
+                          ]}
+                        />
+                      );
+                    }}
+                  />
                   <Area
                     dataKey="value"
-                    dot={renderEventDot}
+                    dot={renderSeverityDot}
                     fill={`url(#${gradientId})`}
                     isAnimationActive={false}
                     stroke="var(--color-primary)"
