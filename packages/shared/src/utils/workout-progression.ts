@@ -128,12 +128,10 @@ export function evaluateWorkoutProgression(
     );
   }
 
-  const effortRequired =
-    policy.family === 'rpe_regulated' ||
-    policy.family === 'rehab_capacity' ||
-    policy.effortCeiling !== null;
   const rpeValues = performance.map((set) => set.rpe).filter((value) => value !== null);
-  if (effortRequired && rpeValues.length !== performance.length) {
+  const missingEffort = rpeValues.length !== performance.length;
+  const effortRequired = policy.family === 'rpe_regulated' || policy.family === 'rehab_capacity';
+  if (effortRequired && missingEffort) {
     return hold(
       evidence,
       'limited',
@@ -143,6 +141,25 @@ export function evaluateWorkoutProgression(
       ],
     );
   }
+
+  const withOptionalEffortContext = (
+    result: WorkoutProgressionEvaluation,
+  ): WorkoutProgressionEvaluation => {
+    if (!missingEffort) {
+      return result;
+    }
+    return {
+      ...result,
+      confidence: result.confidence === 'unavailable' ? 'unavailable' : 'limited',
+      facts: [
+        ...result.facts,
+        'Effort was not logged for every completed set; the completion rule still applies with limited confidence.',
+      ],
+      reasonCodes: result.reasonCodes.includes('MISSING_EFFORT')
+        ? result.reasonCodes
+        : [...result.reasonCodes, 'MISSING_EFFORT'],
+    };
+  };
 
   const effortCeiling = policy.effortCeiling;
   const highEffort = effortCeiling !== null && rpeValues.some((value) => value > effortCeiling);
@@ -159,13 +176,15 @@ export function evaluateWorkoutProgression(
         recommendedTargets: adjustLoads(priorTargets, policy, -1),
       };
     }
-    return hold(
-      evidence,
-      'supported',
-      ['HIGH_EFFORT'],
-      [
-        `Logged effort exceeded the policy ceiling of RPE ${policy.effortCeiling}, so load is held.`,
-      ],
+    return withOptionalEffortContext(
+      hold(
+        evidence,
+        'supported',
+        ['HIGH_EFFORT'],
+        [
+          `Logged effort exceeded the policy ceiling of RPE ${policy.effortCeiling}, so load is held.`,
+        ],
+      ),
     );
   }
 
@@ -180,26 +199,30 @@ export function evaluateWorkoutProgression(
 
   if (policy.family === 'double_progression') {
     if (policy.repRangeMax === null || policy.loadIncrement === null) {
-      return hold(
-        evidence,
-        'unavailable',
-        ['MISSING_PRIOR_PRESCRIPTION'],
-        ['The rep-range or equipment increment is missing, so the prescription cannot progress.'],
+      return withOptionalEffortContext(
+        hold(
+          evidence,
+          'unavailable',
+          ['MISSING_PRIOR_PRESCRIPTION'],
+          ['The rep-range or equipment increment is missing, so the prescription cannot progress.'],
+        ),
       );
     }
     const rangeMax = policy.repRangeMax;
     const everySetAtTop = performance.every((set) => set.reps !== null && set.reps >= rangeMax);
     if (!everySetAtTop) {
-      return hold(
-        evidence,
-        'supported',
-        ['BELOW_RANGE_TOP'],
-        [
-          `Not every required set reached the top of the ${policy.repRangeMin ?? '?'}–${policy.repRangeMax} rep range.`,
-        ],
+      return withOptionalEffortContext(
+        hold(
+          evidence,
+          'supported',
+          ['BELOW_RANGE_TOP'],
+          [
+            `Not every required set reached the top of the ${policy.repRangeMin ?? '?'}–${policy.repRangeMax} rep range.`,
+          ],
+        ),
       );
     }
-    return {
+    return withOptionalEffortContext({
       confidence: 'supported',
       decision: 'increase',
       facts: [
@@ -208,19 +231,23 @@ export function evaluateWorkoutProgression(
       ],
       reasonCodes: ['ALL_SETS_AT_RANGE_TOP', 'ROUNDED_TO_INCREMENT'],
       recommendedTargets: adjustLoads(priorTargets, policy, 1),
-    };
+    });
   }
 
   if (policy.family === 'strength_load') {
     if (policy.loadIncrement === null || policy.loadIncreasePercent === null) {
-      return hold(
-        evidence,
-        'unavailable',
-        ['MISSING_PRIOR_PRESCRIPTION'],
-        ['The strength percentage or equipment increment is missing, so the prescription is held.'],
+      return withOptionalEffortContext(
+        hold(
+          evidence,
+          'unavailable',
+          ['MISSING_PRIOR_PRESCRIPTION'],
+          [
+            'The strength percentage or equipment increment is missing, so the prescription is held.',
+          ],
+        ),
       );
     }
-    return {
+    return withOptionalEffortContext({
       confidence: 'supported',
       decision: 'increase',
       facts: [
@@ -229,7 +256,7 @@ export function evaluateWorkoutProgression(
       ],
       reasonCodes: ['ALL_TARGETS_COMPLETED', 'ROUNDED_TO_INCREMENT'],
       recommendedTargets: increaseStrengthLoads(priorTargets, policy),
-    };
+    });
   }
 
   if (policy.family === 'rpe_regulated') {
@@ -262,11 +289,13 @@ export function evaluateWorkoutProgression(
 
   if (policy.family === 'time_distance') {
     if (policy.secondsStep === null && policy.distanceStep === null) {
-      return hold(
-        evidence,
-        'unavailable',
-        ['MISSING_PRIOR_PRESCRIPTION'],
-        ['No time or distance progression step is configured, so the prescription is held.'],
+      return withOptionalEffortContext(
+        hold(
+          evidence,
+          'unavailable',
+          ['MISSING_PRIOR_PRESCRIPTION'],
+          ['No time or distance progression step is configured, so the prescription is held.'],
+        ),
       );
     }
     const zoneCeiling = policy.zoneCeiling;
@@ -274,20 +303,22 @@ export function evaluateWorkoutProgression(
       zoneCeiling !== null &&
       performance.some((set) => set.zone !== null && set.zone > zoneCeiling);
     if (zoneTooHigh) {
-      return hold(
-        evidence,
-        'supported',
-        ['HIGH_EFFORT'],
-        [`Logged zone exceeded the policy ceiling of Zone ${policy.zoneCeiling}.`],
+      return withOptionalEffortContext(
+        hold(
+          evidence,
+          'supported',
+          ['HIGH_EFFORT'],
+          [`Logged zone exceeded the policy ceiling of Zone ${policy.zoneCeiling}.`],
+        ),
       );
     }
-    return {
+    return withOptionalEffortContext({
       confidence: 'supported',
       decision: 'increase',
       facts: ['All required work was completed within the configured effort zone.'],
       reasonCodes: ['ALL_TARGETS_COMPLETED'],
       recommendedTargets: increaseTimeDistanceTargets(priorTargets, policy),
-    };
+    });
   }
 
   return hold(

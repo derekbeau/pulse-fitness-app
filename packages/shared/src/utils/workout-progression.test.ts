@@ -117,9 +117,24 @@ describe('evaluateWorkoutProgression', () => {
     expect(result.recommendedTargets).toEqual(evidence().priorTargets);
   });
 
-  it('holds rather than inferring easy work when effort is missing', () => {
+  it('uses the rep-completion rule with limited confidence when optional effort is missing', () => {
     const result = evaluateWorkoutProgression(
       evidence({ performance: evidence().performance.map((set) => ({ ...set, rpe: null })) }),
+    );
+
+    expect(result).toMatchObject({
+      confidence: 'limited',
+      decision: 'increase',
+      reasonCodes: ['ALL_SETS_AT_RANGE_TOP', 'ROUNDED_TO_INCREMENT', 'MISSING_EFFORT'],
+    });
+  });
+
+  it('holds when effort is missing for an effort-regulated policy', () => {
+    const result = evaluateWorkoutProgression(
+      evidence({
+        performance: evidence().performance.map((set) => ({ ...set, rpe: null })),
+        policy: { ...basePolicy, family: 'rpe_regulated' },
+      }),
     );
 
     expect(result).toMatchObject({

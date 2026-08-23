@@ -45,13 +45,13 @@ explicit accept, edit, keep, or hold action.
 
 Every result names a policy family and version. V1 supports:
 
-| Family               | Intended evidence              | Deterministic v1 rule                                                                                                                                                       |
-| -------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `double_progression` | Load plus rep range            | Increase one configured load increment only after every required set reaches the top of the range without high effort. Otherwise hold.                                      |
-| `strength_load`      | Exact load/reps                | Increase by the configured percentage, rounded to the configured increment, only after every required set is completed at or below the effort ceiling.                      |
-| `rpe_regulated`      | Load/reps plus RPE             | High effort reduces one increment; clearly low effort with all work completed increases one increment; otherwise hold. Missing effort always holds with limited confidence. |
-| `time_distance`      | Seconds, distance, and/or zone | Increase the configured time or distance step only when every required effort is completed and the zone/RPE ceiling is respected.                                           |
-| `rehab_capacity`     | Conservative capacity work     | Never silently increases. It holds after successful work and reduces only when the explicit policy permits reduction after high effort or missed work.                      |
+| Family               | Intended evidence              | Deterministic v1 rule                                                                                                                                                                                      |
+| -------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `double_progression` | Load plus rep range            | Increase one configured load increment after every required set reaches the top of the range. Known high effort holds; missing optional effort lowers confidence without blocking the rep-completion rule. |
+| `strength_load`      | Exact load/reps                | Increase by the configured percentage, rounded to the configured increment, after every required set is completed. Known high effort holds; missing optional effort lowers confidence.                     |
+| `rpe_regulated`      | Load/reps plus RPE             | High effort reduces one increment; clearly low effort with all work completed increases one increment; otherwise hold. Missing effort always holds with limited confidence.                                |
+| `time_distance`      | Seconds, distance, and/or zone | Increase the configured time or distance step when every required effort is completed and any logged zone/RPE ceiling is respected. Missing optional RPE lowers confidence.                                |
+| `rehab_capacity`     | Conservative capacity work     | Never silently increases. It holds after successful work and reduces only when the explicit policy permits reduction after high effort or missed work.                                                     |
 
 The selected policy is stored in the recommendation snapshot; later policy-version changes do not
 rewrite older advice. Weight increments are explicit input (including non-standard equipment
