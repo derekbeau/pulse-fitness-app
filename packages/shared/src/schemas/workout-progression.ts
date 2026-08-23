@@ -260,16 +260,39 @@ export const workoutMuscleContributionSchema = z
 
 export const workoutMuscleAnalyticsRangeSchema = z.enum(['7d', '30d', '90d']);
 
-export const workoutMuscleAnalyticsSourceSchema = z
+const workoutMuscleAnalyticsSourceBaseSchema = z
   .object({
-    sessionId: idSchema,
     setId: idSchema,
     exerciseId: idSchema,
+    exerciseName: z.string().trim().min(1).max(255),
     contributionId: idSchema,
+    muscle: z.string().trim().min(1).max(100),
+    role: workoutMuscleRoleSchema,
     date: dateSchema,
     factor: z.number().positive().max(1).finite(),
-    completed: z.boolean(),
-    planned: z.boolean(),
+    volumeLoad: z.number().finite().nonnegative().nullable(),
+  })
+  .strict();
+
+export const workoutMuscleAnalyticsSourceSchema = z.discriminatedUnion('sourceType', [
+  workoutMuscleAnalyticsSourceBaseSchema.extend({
+    sourceType: z.literal('completed'),
+    sessionId: idSchema,
+    scheduledWorkoutId: idSchema.nullable(),
+  }),
+  workoutMuscleAnalyticsSourceBaseSchema.extend({
+    sourceType: z.literal('planned'),
+    sessionId: z.null(),
+    scheduledWorkoutId: idSchema,
+  }),
+]);
+
+export const workoutMuscleAnalyticsSeriesPointSchema = z
+  .object({
+    date: dateSchema,
+    muscle: z.string().trim().min(1).max(100),
+    qualifyingSetEquivalents: z.number().finite().nonnegative(),
+    plannedSetEquivalents: z.number().finite().nonnegative(),
     volumeLoad: z.number().finite().nonnegative().nullable(),
   })
   .strict();
@@ -284,18 +307,47 @@ export const workoutMuscleAnalyticsRowSchema = z
     volumeLoad: z.number().finite().nonnegative().nullable(),
     previousQualifyingSetEquivalents: z.number().finite().nonnegative(),
     change: z.enum(['increased', 'stable', 'decreased', 'no_comparison']),
+    priority: z.boolean(),
     sourceIds: z.array(idSchema).max(500),
   })
   .strict();
+
+const workoutMuscleTimeZoneSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine((value) => {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: value }).format(0);
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'Invalid IANA time zone');
+
+export const workoutMuscleAnalyticsQuerySchema = z
+  .object({
+    range: workoutMuscleAnalyticsRangeSchema.default('30d'),
+    end: dateSchema.optional(),
+    timeZone: workoutMuscleTimeZoneSchema.optional(),
+  })
+  .strict()
+  .refine((value) => value.end !== undefined || value.timeZone !== undefined, {
+    message: 'timeZone is required when end is omitted',
+    path: ['timeZone'],
+  });
 
 export const workoutMuscleAnalyticsSchema = z
   .object({
     range: workoutMuscleAnalyticsRangeSchema,
     startDate: dateSchema,
     endDate: dateSchema,
+    timeZone: workoutMuscleTimeZoneSchema,
+    weightUnit: z.enum(['kg', 'lbs']),
     contributionVersion: z.literal(1),
     rows: z.array(workoutMuscleAnalyticsRowSchema).max(200),
     sources: z.array(workoutMuscleAnalyticsSourceSchema).max(5000),
+    series: z.array(workoutMuscleAnalyticsSeriesPointSchema).max(20_000),
   })
   .strict()
   .refine((value) => value.startDate <= value.endDate, {
@@ -318,6 +370,9 @@ export type PreviewWorkoutProgressionInput = z.infer<typeof previewWorkoutProgre
 export type ApplyWorkoutProgressionActionInput = z.infer<
   typeof applyWorkoutProgressionActionInputSchema
 >;
+export type WorkoutProgressionActionType = z.infer<typeof workoutProgressionActionTypeSchema>;
 export type WorkoutProgressionAction = z.infer<typeof workoutProgressionActionSchema>;
 export type WorkoutMuscleContribution = z.infer<typeof workoutMuscleContributionSchema>;
 export type WorkoutMuscleAnalytics = z.infer<typeof workoutMuscleAnalyticsSchema>;
+export type WorkoutMuscleAnalyticsQuery = z.infer<typeof workoutMuscleAnalyticsQuerySchema>;
+export type WorkoutMuscleAnalyticsRange = z.infer<typeof workoutMuscleAnalyticsRangeSchema>;

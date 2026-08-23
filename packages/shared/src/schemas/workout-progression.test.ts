@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   applyWorkoutProgressionActionInputSchema,
+  workoutMuscleAnalyticsQuerySchema,
+  workoutMuscleAnalyticsSchema,
   workoutMuscleContributionSchema,
   workoutProgressionPolicySchema,
   workoutProgressionRecommendationSchema,
@@ -69,6 +71,76 @@ describe('workout progression schemas', () => {
         muscle: 'chest',
         role: 'secondary',
         version: 1,
+      }),
+    ).toThrow();
+  });
+
+  it('keeps muscle analytics sources typed and requires a live calendar zone', () => {
+    expect(workoutMuscleAnalyticsQuerySchema.parse({ timeZone: 'UTC' })).toEqual({
+      range: '30d',
+      timeZone: 'UTC',
+    });
+    expect(() => workoutMuscleAnalyticsQuerySchema.parse({})).toThrow();
+    expect(() => workoutMuscleAnalyticsQuerySchema.parse({ timeZone: 'Detroit' })).toThrow();
+
+    const analytics = {
+      contributionVersion: 1 as const,
+      endDate: '2026-08-23',
+      range: '7d' as const,
+      rows: [
+        {
+          change: 'increased' as const,
+          completedSessionCount: 1,
+          exerciseCount: 1,
+          muscle: 'chest',
+          plannedSetEquivalents: 2,
+          previousQualifyingSetEquivalents: 1,
+          priority: true,
+          qualifyingSetEquivalents: 2,
+          sourceIds: ['set-1'],
+          volumeLoad: 400,
+        },
+      ],
+      series: [
+        {
+          date: '2026-08-23',
+          muscle: 'chest',
+          plannedSetEquivalents: 2,
+          qualifyingSetEquivalents: 2,
+          volumeLoad: 400,
+        },
+      ],
+      sources: [
+        {
+          contributionId: 'contribution-1',
+          date: '2026-08-23',
+          exerciseId: 'exercise-1',
+          exerciseName: 'Press',
+          factor: 1,
+          muscle: 'chest',
+          role: 'primary' as const,
+          scheduledWorkoutId: null,
+          sessionId: 'session-1',
+          setId: 'set-1',
+          sourceType: 'completed' as const,
+          volumeLoad: 400,
+        },
+      ],
+      startDate: '2026-08-17',
+      timeZone: 'UTC',
+      weightUnit: 'lbs' as const,
+    };
+    expect(workoutMuscleAnalyticsSchema.parse(analytics)).toEqual(analytics);
+    expect(() =>
+      workoutMuscleAnalyticsSchema.parse({
+        ...analytics,
+        sources: [
+          {
+            ...analytics.sources[0],
+            scheduledWorkoutId: 'scheduled-1',
+            sourceType: 'planned',
+          },
+        ],
       }),
     ).toThrow();
   });
