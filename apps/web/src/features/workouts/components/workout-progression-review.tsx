@@ -191,7 +191,7 @@ export function WorkoutProgressionReview({
                       const proposed = recommendation.recommendedTargets[index];
                       return (
                         <div
-                          className="grid min-w-0 grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-xl bg-secondary/35 p-3 text-sm sm:grid-cols-[auto_1fr_auto_1fr]"
+                          className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-1 rounded-xl bg-secondary/35 p-3 text-sm sm:grid-cols-[auto_1fr_auto_1fr]"
                           key={current.setNumber}
                         >
                           <span className="font-medium">Set {current.setNumber}</span>

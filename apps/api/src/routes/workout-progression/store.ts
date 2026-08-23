@@ -303,19 +303,45 @@ function loadAction(client: DatabaseClient, recommendationId: string) {
     .get();
 }
 
+function evidenceMatchesDecision(
+  current: WorkoutProgressionEvidence,
+  snapshot: WorkoutProgressionRecommendation,
+  action: typeof workoutProgressionActions.$inferSelect,
+) {
+  const expectedTargets = resolveAppliedTargets(action.payload, snapshot);
+  const stablePolicy = (policy: WorkoutProgressionPolicy) => ({
+    allowReduction: policy.allowReduction,
+    distanceStep: policy.distanceStep,
+    effortCeiling: policy.effortCeiling,
+    family: policy.family,
+    loadIncrement: policy.loadIncrement,
+    loadIncreasePercent: policy.loadIncreasePercent,
+    lowEffortThreshold: policy.lowEffortThreshold,
+    secondsStep: policy.secondsStep,
+    version: policy.version,
+    zoneCeiling: policy.zoneCeiling,
+  });
+  return (
+    current.scheduledWorkoutId === snapshot.evidence.scheduledWorkoutId &&
+    current.scheduledWorkoutDate === snapshot.evidence.scheduledWorkoutDate &&
+    current.scheduledWorkoutExerciseId === snapshot.evidence.scheduledWorkoutExerciseId &&
+    current.exerciseId === snapshot.evidence.exerciseId &&
+    current.exerciseName === snapshot.evidence.exerciseName &&
+    current.trackingType === snapshot.evidence.trackingType &&
+    current.sourceSessionId === snapshot.evidence.sourceSessionId &&
+    current.sourceSessionDate === snapshot.evidence.sourceSessionDate &&
+    stableJson(current.performance) === stableJson(snapshot.evidence.performance) &&
+    stableJson(current.priorTargets) === stableJson(expectedTargets) &&
+    stableJson(stablePolicy(current.policy)) === stableJson(stablePolicy(snapshot.evidence.policy))
+  );
+}
+
 async function projectRecommendation(
   client: DatabaseClient,
   row: typeof workoutProgressionRecommendations.$inferSelect,
 ): Promise<WorkoutProgressionRecommendation> {
   const snapshot = workoutProgressionRecommendationSchema.parse(row.snapshot);
   const action = loadAction(client, row.id);
-  if (action) {
-    return workoutProgressionRecommendationSchema.parse({
-      ...snapshot,
-      staleAt: null,
-      state: mapDecisionState(action.type),
-    });
-  }
   const currentEvidence = await buildEvidenceForScheduledWorkout(
     client,
     row.userId,
@@ -324,6 +350,13 @@ async function projectRecommendation(
   const matchingEvidence = currentEvidence?.find(
     (evidence) => evidence.scheduledWorkoutExerciseId === row.scheduledWorkoutExerciseId,
   );
+  if (action && matchingEvidence && evidenceMatchesDecision(matchingEvidence, snapshot, action)) {
+    return workoutProgressionRecommendationSchema.parse({
+      ...snapshot,
+      staleAt: null,
+      state: mapDecisionState(action.type),
+    });
+  }
   if (!matchingEvidence || fingerprint(matchingEvidence) !== row.sourceFingerprint) {
     return workoutProgressionRecommendationSchema.parse({
       ...snapshot,
@@ -352,12 +385,38 @@ export async function previewWorkoutProgression({
 
   const recommendations: WorkoutProgressionRecommendation[] = [];
   for (const evidence of evidenceRows) {
+    const latest = db
+      .select()
+      .from(workoutProgressionRecommendations)
+      .where(
+        and(
+          eq(workoutProgressionRecommendations.userId, userId),
+          eq(
+            workoutProgressionRecommendations.scheduledWorkoutExerciseId,
+            evidence.scheduledWorkoutExerciseId,
+          ),
+        ),
+      )
+      .orderBy(
+        desc(workoutProgressionRecommendations.generatedAt),
+        desc(workoutProgressionRecommendations.id),
+      )
+      .limit(1)
+      .get();
+    if (latest) {
+      const projected = await projectRecommendation(db, latest);
+      if (projected.state !== 'stale' && projected.state !== 'current') {
+        recommendations.push(projected);
+        continue;
+      }
+    }
     const sourceFingerprint = fingerprint(evidence);
     const existing = db
       .select()
       .from(workoutProgressionRecommendations)
       .where(
         and(
+          eq(workoutProgressionRecommendations.userId, userId),
           eq(
             workoutProgressionRecommendations.scheduledWorkoutExerciseId,
             evidence.scheduledWorkoutExerciseId,

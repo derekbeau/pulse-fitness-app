@@ -240,6 +240,13 @@ describe('workout progression store', () => {
     expect(
       await store.getWorkoutProgressionRecommendation('user-1', recommendation?.id ?? ''),
     ).toMatchObject({ state: 'accepted' });
+    expect(
+      await store.previewWorkoutProgression({
+        generatedAt: 950,
+        scheduledWorkoutId: 'scheduled-1',
+        userId: 'user-1',
+      }),
+    ).toEqual([expect.objectContaining({ id: recommendation?.id, state: 'accepted' })]);
 
     const verificationDb = new Database(databaseUrl);
     expect(
@@ -257,6 +264,46 @@ describe('workout progression store', () => {
       verificationDb.prepare('SELECT count(*) AS count FROM workout_progression_actions').get(),
     ).toEqual({ count: 1 });
     verificationDb.close();
+  });
+
+  it('stales a decided recommendation after source correction and creates one replacement', async () => {
+    const databaseUrl = prepareDatabase();
+    const store = await loadStore();
+    const recommendation = (
+      await store.previewWorkoutProgression({
+        generatedAt: 500,
+        scheduledWorkoutId: 'scheduled-1',
+        userId: 'user-1',
+      })
+    )?.[0];
+    await store.applyWorkoutProgressionAction({
+      actor: { id: 'user-1', label: 'You', type: 'user' },
+      input: {
+        action: 'accept',
+        editedTargets: null,
+        expectedFingerprint: recommendation?.sourceFingerprint ?? '',
+        idempotencyKey: 'accepted-before-correction',
+        reason: null,
+      },
+      now: 600,
+      recommendationId: recommendation?.id ?? '',
+      userId: 'user-1',
+    });
+
+    const correctionDb = new Database(databaseUrl);
+    correctionDb.prepare("UPDATE session_sets SET reps = 7 WHERE id = 'session-set-2'").run();
+    correctionDb.close();
+
+    expect(
+      await store.getWorkoutProgressionRecommendation('user-1', recommendation?.id ?? ''),
+    ).toMatchObject({ state: 'stale' });
+    const replacement = await store.previewWorkoutProgression({
+      generatedAt: 700,
+      scheduledWorkoutId: 'scheduled-1',
+      userId: 'user-1',
+    });
+    expect(replacement).toEqual([expect.objectContaining({ decision: 'hold', state: 'current' })]);
+    expect(replacement?.[0]?.id).not.toBe(recommendation?.id);
   });
 
   it('rejects changed idempotency payloads and unbounded edits without writes', async () => {

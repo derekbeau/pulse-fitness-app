@@ -219,13 +219,32 @@ describe('0053 workout progression migration', () => {
     insertRecommendation(sqlite);
     sqlite
       .prepare(
+        `INSERT INTO agent_tokens (id, user_id, name, token_hash, created_at)
+         VALUES ('agent-token-1', 'user-1', 'Progression agent', 'token-hash-1', 350)`,
+      )
+      .run();
+    sqlite
+      .prepare(
         `INSERT INTO workout_progression_actions (
-          id, recommendation_id, user_id, sequence, type, payload, actor_type, actor_label,
-          idempotency_key, request_fingerprint, created_at
+          id, recommendation_id, user_id, sequence, type, payload, actor_type, agent_token_id,
+          actor_label, idempotency_key, request_fingerprint, created_at
         ) VALUES ('action-1', 'recommendation-user-1', 'user-1', 1, 'keep', '{}',
-          'user', 'You', 'action-key-1', ?, 400)`,
+          'agent_token', 'agent-token-1', 'Progression agent', 'action-key-1', ?, 400)`,
       )
       .run('b'.repeat(64));
+
+    sqlite.prepare("DELETE FROM agent_tokens WHERE id = 'agent-token-1'").run();
+    expect(
+      sqlite
+        .prepare(
+          "SELECT actor_type, agent_token_id, actor_label FROM workout_progression_actions WHERE id = 'action-1'",
+        )
+        .get(),
+    ).toEqual({
+      actor_label: 'Progression agent',
+      actor_type: 'agent_token',
+      agent_token_id: 'agent-token-1',
+    });
 
     expect(() =>
       sqlite.prepare("DELETE FROM workout_progression_actions WHERE user_id = 'user-1'").run(),

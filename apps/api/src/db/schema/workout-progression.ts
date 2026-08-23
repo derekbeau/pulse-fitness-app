@@ -16,7 +16,6 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
 
-import { agentTokens } from './agent-tokens.js';
 import { exercises } from './exercises.js';
 import { scheduledWorkoutExercises } from './scheduled-workout-exercises.js';
 import { scheduledWorkouts } from './scheduled-workouts.js';
@@ -129,9 +128,9 @@ export const workoutProgressionActions = sqliteTable(
       .$type<ApplyWorkoutProgressionActionInput>()
       .notNull(),
     actorType: text('actor_type').$type<'user' | 'agent_token'>().notNull(),
-    agentTokenId: text('agent_token_id').references(() => agentTokens.id, {
-      onDelete: 'restrict',
-    }),
+    // Immutable audit provenance must survive token revocation. This intentionally stores the
+    // server-stamped token identifier without a live foreign key to the revocable credential row.
+    agentTokenId: text('agent_token_id'),
     actorLabel: text('actor_label').notNull(),
     idempotencyKey: text('idempotency_key').notNull(),
     requestFingerprint: text('request_fingerprint').notNull(),

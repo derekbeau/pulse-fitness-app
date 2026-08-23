@@ -1653,7 +1653,7 @@ describe('workout progression schema', () => {
     ]);
 
     const config = getTableConfig(workoutProgressionActions);
-    expect(config.foreignKeys).toHaveLength(4);
+    expect(config.foreignKeys).toHaveLength(3);
     expect(config.indexes.map((index) => index.config.name).sort()).toEqual([
       'workout_progression_actions_recommendation_sequence_unique',
       'workout_progression_actions_user_created_idx',

@@ -68,7 +68,6 @@ CREATE TABLE `workout_progression_actions` (
 	`created_at` integer NOT NULL,
 	FOREIGN KEY (`recommendation_id`) REFERENCES `workout_progression_recommendations`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`agent_token_id`) REFERENCES `agent_tokens`(`id`) ON UPDATE no action ON DELETE restrict,
 	CONSTRAINT `workout_progression_actions_recommendation_user_fk`
 		FOREIGN KEY (`recommendation_id`, `user_id`)
 		REFERENCES `workout_progression_recommendations`(`id`, `user_id`)
@@ -275,4 +274,3 @@ WHEN OLD.`owner_user_id` IS NULL
 BEGIN
 	SELECT RAISE(ABORT, 'exercise muscle contributions may only be deleted in account deletion scope');
 END;
-
