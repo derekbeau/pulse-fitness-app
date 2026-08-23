@@ -9,6 +9,7 @@ import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
 import { nutritionQueryKeys } from '@/features/nutrition/api/keys';
 
 export const adaptiveNutritionQueryKey = ['adaptive-nutrition'] as const;
+export const dataQualityQueryKey = ['data-quality'] as const;
 export const nutritionTargetQueryKey = ['nutrition-targets'] as const;
 
 /**
@@ -28,13 +29,17 @@ export const nutritionTargetQueryKey = ['nutrition-targets'] as const;
  */
 export const crossFeatureInvalidationMap = {
   activeWorkoutSessionMutation: () =>
-    [dashboardSnapshotQueryKeys.all] as const satisfies readonly QueryKey[],
-  adaptiveProgramMutation: () => [adaptiveNutritionQueryKey] as const satisfies readonly QueryKey[],
-  adaptiveGoalMutation: () => [adaptiveNutritionQueryKey] as const satisfies readonly QueryKey[],
-  adaptivePreviewMutation: () => [adaptiveNutritionQueryKey] as const satisfies readonly QueryKey[],
+    [dashboardSnapshotQueryKeys.all, dataQualityQueryKey] as const satisfies readonly QueryKey[],
+  adaptiveProgramMutation: () =>
+    [adaptiveNutritionQueryKey, dataQualityQueryKey] as const satisfies readonly QueryKey[],
+  adaptiveGoalMutation: () =>
+    [adaptiveNutritionQueryKey, dataQualityQueryKey] as const satisfies readonly QueryKey[],
+  adaptivePreviewMutation: () =>
+    [adaptiveNutritionQueryKey, dataQualityQueryKey] as const satisfies readonly QueryKey[],
   adaptiveResolutionMutation: () =>
     [
       adaptiveNutritionQueryKey,
+      dataQualityQueryKey,
       nutritionTargetQueryKey,
       nutritionQueryKeys.all,
       dashboardSnapshotQueryKeys.all,
@@ -50,6 +55,7 @@ export const crossFeatureInvalidationMap = {
   mealMutation: () =>
     [
       adaptiveNutritionQueryKey,
+      dataQualityQueryKey,
       dashboardSnapshotQueryKeys.all,
       macroTrendQueryKeys.all,
       habitQueryKeys.list(),
@@ -59,6 +65,7 @@ export const crossFeatureInvalidationMap = {
   nutritionTargetMutation: () =>
     [
       adaptiveNutritionQueryKey,
+      dataQualityQueryKey,
       nutritionQueryKeys.all,
       dashboardSnapshotQueryKeys.all,
       macroTrendQueryKeys.all,
@@ -66,6 +73,7 @@ export const crossFeatureInvalidationMap = {
   weightMutation: () =>
     [
       adaptiveNutritionQueryKey,
+      dataQualityQueryKey,
       dashboardSnapshotQueryKeys.all,
       dashboardWeightTrendQueryKeys.all,
       habitQueryKeys.list(),
@@ -73,12 +81,13 @@ export const crossFeatureInvalidationMap = {
       habitChainQueryKeys.all,
     ] as const satisfies readonly QueryKey[],
   scheduledWorkoutMutation: () =>
-    [dashboardSnapshotQueryKeys.all] as const satisfies readonly QueryKey[],
+    [dashboardSnapshotQueryKeys.all, dataQualityQueryKey] as const satisfies readonly QueryKey[],
   workoutTemplateMutation: () =>
     [dashboardSnapshotQueryKeys.all] as const satisfies readonly QueryKey[],
   workoutSessionChange: () =>
     [
       dashboardSnapshotQueryKeys.all,
+      dataQualityQueryKey,
       recentWorkoutQueryKeys.all,
       habitQueryKeys.list(),
       habitQueryKeys.entryList(),

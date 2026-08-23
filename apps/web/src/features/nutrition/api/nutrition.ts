@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import {
   adaptiveNutritionQueryKey,
   crossFeatureInvalidationMap,
+  dataQualityQueryKey,
   invalidateQueryKeys,
 } from '@/lib/query-invalidation';
 import { apiRequest } from '@/lib/api-client';
@@ -233,6 +234,7 @@ export const useUpdateNutritionStatus = () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: nutritionQueryKeys.day(variables.date) }),
         queryClient.invalidateQueries({ queryKey: adaptiveNutritionQueryKey }),
+        queryClient.invalidateQueries({ queryKey: dataQualityQueryKey }),
       ]);
     },
   });

@@ -10,6 +10,7 @@ export * from './schemas/agent-tokens.js';
 export * from './schemas/common.js';
 export * from './schemas/dashboard-config.js';
 export * from './schemas/dashboard.js';
+export * from './schemas/data-quality-calendar.js';
 export * from './schemas/entity-links.js';
 export * from './schemas/equipment.js';
 export * from './schemas/exercises.js';
