@@ -25,15 +25,19 @@ function adjustLoads(
   direction: 1 | -1,
 ): WorkoutProgressionTarget[] {
   return targets.map((target) => {
-    if (target.weight === null || policy.loadIncrement === null) {
+    const increment = policy.loadIncrement;
+    if (increment === null) {
       return target;
     }
+    const adjust = (value: number | null) =>
+      value === null
+        ? null
+        : Math.max(0, roundToIncrement(value + direction * increment, increment));
     return {
       ...target,
-      weight: Math.max(
-        0,
-        roundToIncrement(target.weight + direction * policy.loadIncrement, policy.loadIncrement),
-      ),
+      weight: adjust(target.weight),
+      weightMax: adjust(target.weightMax),
+      weightMin: adjust(target.weightMin),
     };
   });
 }
@@ -43,19 +47,18 @@ function increaseStrengthLoads(
   policy: WorkoutProgressionPolicy,
 ): WorkoutProgressionTarget[] {
   return targets.map((target) => {
-    if (
-      target.weight === null ||
-      policy.loadIncrement === null ||
-      policy.loadIncreasePercent === null
-    ) {
+    const increment = policy.loadIncrement;
+    const increasePercent = policy.loadIncreasePercent;
+    if (increment === null || increasePercent === null) {
       return target;
     }
+    const increase = (value: number | null) =>
+      value === null ? null : roundToIncrement(value * (1 + increasePercent / 100), increment);
     return {
       ...target,
-      weight: roundToIncrement(
-        target.weight * (1 + policy.loadIncreasePercent / 100),
-        policy.loadIncrement,
-      ),
+      weight: increase(target.weight),
+      weightMax: increase(target.weightMax),
+      weightMin: increase(target.weightMin),
     };
   });
 }

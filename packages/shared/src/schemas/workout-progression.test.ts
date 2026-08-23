@@ -82,6 +82,8 @@ describe('workout progression schemas', () => {
       seconds: null,
       setNumber: 1,
       weight: 20,
+      weightMax: null,
+      weightMin: null,
       zone: null,
     };
     const recommendation = {
@@ -94,6 +96,7 @@ describe('workout progression schemas', () => {
         performance: [],
         policy,
         priorTargets: [target],
+        scheduledWorkoutDate: '2026-08-23',
         scheduledWorkoutExerciseId: 'scheduled-exercise-1',
         scheduledWorkoutId: 'scheduled-1',
         sourceSessionDate: null,

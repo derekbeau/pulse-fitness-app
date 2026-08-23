@@ -87,6 +87,8 @@ export const workoutProgressionTargetSchema = z
   .object({
     setNumber: z.number().int().positive(),
     weight: nullableMetricSchema,
+    weightMin: nullableMetricSchema,
+    weightMax: nullableMetricSchema,
     repsMin: z.number().int().positive().nullable(),
     repsMax: z.number().int().positive().nullable(),
     reps: z.number().int().nonnegative().nullable(),
@@ -95,6 +97,11 @@ export const workoutProgressionTargetSchema = z
     zone: z.number().int().min(1).max(5).nullable(),
   })
   .strict()
+  .refine(
+    (value) =>
+      value.weightMin === null || value.weightMax === null || value.weightMin <= value.weightMax,
+    { message: 'weightMin must be less than or equal to weightMax', path: ['weightMax'] },
+  )
   .refine(
     (value) => value.repsMin === null || value.repsMax === null || value.repsMin <= value.repsMax,
     { message: 'repsMin must be less than or equal to repsMax', path: ['repsMax'] },
@@ -122,6 +129,7 @@ export const workoutProgressionPerformanceSetSchema = z
 export const workoutProgressionEvidenceSchema = z
   .object({
     scheduledWorkoutId: idSchema,
+    scheduledWorkoutDate: dateSchema,
     scheduledWorkoutExerciseId: idSchema,
     exerciseId: idSchema,
     exerciseName: z.string().trim().min(1).max(255),
