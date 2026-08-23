@@ -77,8 +77,8 @@ const calendar: DataQualityCalendar = {
   ],
   summary: {
     nutrition: { complete: 0, partial: 0, unknown: 0, missing: 1, pending: 0, excluded: 0 },
-    weight: { logged: 0, missing: 1, pending: 0, excluded: 0, corrected: 0 },
-    workout: { planned: 0, active: 0, completed: 0, cancelled: 0, corrected: 0 },
+    weight: { logged: 0, missing: 1, pending: 0, excluded: 0 },
+    workout: { planned: 0, active: 0, completed: 0, cancelled: 0 },
     algorithm: { learning: 0, updating: 0, holding: 0, pendingReview: 0 },
     contextDays: 0,
     intervalLabel: 'Visible calendar grid',

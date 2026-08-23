@@ -178,7 +178,6 @@ const summaryFor = (days: DataQualityCalendarDay[]): DataQualityCalendar['summar
     missing: days.filter((day) => day.weight.entryId === null).length,
     pending: days.filter((day) => day.weight.evidenceState === 'pending_cutoff').length,
     excluded: days.filter((day) => day.weight.evidenceState === 'excluded').length,
-    corrected: days.filter((day) => day.weight.correctionState === 'confirmed').length,
   },
   workout: {
     planned: days.flatMap((day) => day.workouts).filter((item) => item.state === 'planned').length,
@@ -188,8 +187,6 @@ const summaryFor = (days: DataQualityCalendarDay[]): DataQualityCalendar['summar
     completed: days.flatMap((day) => day.workouts).filter((item) => item.state === 'completed')
       .length,
     cancelled: days.flatMap((day) => day.workouts).filter((item) => item.state === 'cancelled')
-      .length,
-    corrected: days.flatMap((day) => day.workouts).filter((item) => item.state === 'corrected')
       .length,
   },
   algorithm: {

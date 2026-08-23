@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   dataQualityCalendarQuerySchema,
   dataQualityCalendarSchema,
+  dataQualityCorrectionStateSchema,
   type DataQualityCalendar,
 } from './data-quality-calendar.js';
 
@@ -70,8 +71,8 @@ const response = (): DataQualityCalendar => ({
   days: [day('2026-03-07'), day('2026-03-08'), day('2026-03-09')],
   summary: {
     nutrition: { complete: 0, partial: 0, unknown: 0, missing: 3, pending: 0, excluded: 0 },
-    weight: { logged: 0, missing: 3, pending: 0, excluded: 0, corrected: 0 },
-    workout: { planned: 0, active: 0, completed: 0, cancelled: 0, corrected: 0 },
+    weight: { logged: 0, missing: 3, pending: 0, excluded: 0 },
+    workout: { planned: 0, active: 0, completed: 0, cancelled: 0 },
     algorithm: { learning: 0, updating: 0, holding: 0, pendingReview: 0 },
     contextDays: 0,
     intervalLabel: 'Visible calendar grid',
@@ -134,6 +135,22 @@ describe('dataQualityCalendarSchema', () => {
 
   it('parses one strict day for every literal local date', () => {
     expect(dataQualityCalendarSchema.parse(response())).toEqual(response());
+  });
+
+  it('rejects correction claims and counters when no correction ledger exists', () => {
+    expect(() => dataQualityCorrectionStateSchema.parse('confirmed')).toThrow();
+    expect(() => dataQualityCorrectionStateSchema.parse('not_corrected')).toThrow();
+
+    const value = response();
+    expect(() =>
+      dataQualityCalendarSchema.parse({
+        ...value,
+        summary: {
+          ...value.summary,
+          weight: { ...value.summary.weight, corrected: 1 },
+        },
+      }),
+    ).toThrow(/Unrecognized key/);
   });
 
   it('rejects fabricated nutrition and partial weight source precision', () => {

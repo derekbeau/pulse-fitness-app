@@ -118,12 +118,7 @@ export const dataQualityProvenanceSchema = z
     }
   });
 
-export const dataQualityCorrectionStateSchema = z.enum([
-  'not_applicable',
-  'confirmed',
-  'not_corrected',
-  'history_unavailable',
-]);
+export const dataQualityCorrectionStateSchema = z.enum(['not_applicable', 'history_unavailable']);
 
 export const dataQualityNutritionSchema = z
   .object({
@@ -222,7 +217,6 @@ export const dataQualityWorkoutItemSchema = z
       'paused',
       'completed',
       'cancelled',
-      'corrected',
     ]),
     name: labelSchema,
     sessionStatus: workoutSessionStatusSchema.nullable(),
@@ -340,7 +334,6 @@ export const dataQualityCalendarSchema = z
             missing: z.number().int().nonnegative(),
             pending: z.number().int().nonnegative(),
             excluded: z.number().int().nonnegative(),
-            corrected: z.number().int().nonnegative(),
           })
           .strict(),
         workout: z
@@ -349,7 +342,6 @@ export const dataQualityCalendarSchema = z
             active: z.number().int().nonnegative(),
             completed: z.number().int().nonnegative(),
             cancelled: z.number().int().nonnegative(),
-            corrected: z.number().int().nonnegative(),
           })
           .strict(),
         algorithm: z

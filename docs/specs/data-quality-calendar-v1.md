@@ -57,6 +57,8 @@ trend estimates stay null.
 `body_weight.updated_at` is a generic row timestamp: a notes-only edit changes it. Pulse has no
 measurement-correction ledger, so Data Quality and Trend Weight report correction history as
 unavailable and do not create a correction marker from that timestamp.
+The calendar therefore exposes only `not_applicable` and `history_unavailable` correction states;
+it does not publish corrected-record summary counters that the source model cannot substantiate.
 
 Pulse currently has no deleted-weight event ledger, so the calendar does not claim to reconstruct a
 deleted measurement. If such a ledger is added later, it may be composed without changing this

@@ -286,8 +286,8 @@ describe('Data Quality calendar store', () => {
     ]);
     expect(calendar.summary).toMatchObject({
       nutrition: { complete: 1, missing: 1 },
-      weight: { logged: 2, corrected: 0, pending: 1 },
-      workout: { planned: 1, corrected: 0 },
+      weight: { logged: 2, pending: 1 },
+      workout: { planned: 1 },
       contextDays: 1,
     });
 

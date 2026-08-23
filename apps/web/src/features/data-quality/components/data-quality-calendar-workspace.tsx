@@ -109,7 +109,6 @@ const weightLabel = (day: DataQualityCalendarDay) => {
   if (day.weight.evidenceState === 'pending_cutoff') return 'Pending cutoff';
   if (day.weight.suspect) return 'Suspect';
   if (day.weight.evidenceState === 'excluded') return 'Excluded';
-  if (day.weight.correctionState === 'confirmed') return 'Corrected';
   return day.weight.entryId ? 'Logged' : 'No weigh-in';
 };
 const workoutLabel = (day: DataQualityCalendarDay) => {
