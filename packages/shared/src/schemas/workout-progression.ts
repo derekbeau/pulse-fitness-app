@@ -307,6 +307,7 @@ export const workoutMuscleAnalyticsRowSchema = z
     volumeLoad: z.number().finite().nonnegative().nullable(),
     previousQualifyingSetEquivalents: z.number().finite().nonnegative(),
     change: z.enum(['increased', 'stable', 'decreased', 'no_comparison']),
+    exposureState: z.enum(['fully_completed', 'missed', 'no_plan']),
     priority: z.boolean(),
     sourceIds: z.array(idSchema).max(500),
   })
@@ -345,6 +346,7 @@ export const workoutMuscleAnalyticsSchema = z
     timeZone: workoutMuscleTimeZoneSchema,
     weightUnit: z.enum(['kg', 'lbs']),
     contributionVersion: z.literal(1),
+    qualifyingSetPolicyVersion: z.literal(1),
     rows: z.array(workoutMuscleAnalyticsRowSchema).max(200),
     sources: z.array(workoutMuscleAnalyticsSourceSchema).max(5000),
     series: z.array(workoutMuscleAnalyticsSeriesPointSchema).max(20_000),

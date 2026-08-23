@@ -86,12 +86,14 @@ describe('workout progression schemas', () => {
     const analytics = {
       contributionVersion: 1 as const,
       endDate: '2026-08-23',
+      qualifyingSetPolicyVersion: 1 as const,
       range: '7d' as const,
       rows: [
         {
           change: 'increased' as const,
           completedSessionCount: 1,
           exerciseCount: 1,
+          exposureState: 'fully_completed' as const,
           muscle: 'chest',
           plannedSetEquivalents: 2,
           previousQualifyingSetEquivalents: 1,

@@ -114,6 +114,7 @@ const action: WorkoutProgressionAction = {
 const muscles: WorkoutMuscleAnalytics = {
   contributionVersion: 1,
   endDate: '2026-08-23',
+  qualifyingSetPolicyVersion: 1,
   range: '7d',
   rows: [],
   series: [],

@@ -287,14 +287,21 @@ export async function getWorkoutMuscleAnalytics(
     const completed = muscleSources.filter((source) => source.sourceType === 'completed');
     const planned = muscleSources.filter((source) => source.sourceType === 'planned');
     const qualifyingSetEquivalents = completed.reduce((sum, source) => sum + source.factor, 0);
+    const plannedSetEquivalents = planned.reduce((sum, source) => sum + source.factor, 0);
     const previousQualifyingSetEquivalents = previousByMuscle.get(muscle) ?? 0;
     const volumeSources = completed.filter((source) => source.volumeLoad !== null);
     return {
       change: changeState(qualifyingSetEquivalents, previousQualifyingSetEquivalents),
       completedSessionCount: new Set(completed.map((source) => source.sessionId)).size,
       exerciseCount: new Set(muscleSources.map((source) => source.exerciseId)).size,
+      exposureState:
+        planned.length === 0
+          ? ('no_plan' as const)
+          : qualifyingSetEquivalents + 0.001 >= plannedSetEquivalents
+            ? ('fully_completed' as const)
+            : ('missed' as const),
       muscle,
-      plannedSetEquivalents: planned.reduce((sum, source) => sum + source.factor, 0),
+      plannedSetEquivalents,
       previousQualifyingSetEquivalents,
       priority: planned.length > 0,
       qualifyingSetEquivalents,
@@ -332,6 +339,7 @@ export async function getWorkoutMuscleAnalytics(
     contributionVersion: 1,
     endDate,
     range: query.range,
+    qualifyingSetPolicyVersion: 1,
     rows,
     series,
     sources,

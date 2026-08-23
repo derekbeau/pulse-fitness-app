@@ -127,6 +127,7 @@ describe('workout muscle analytics store', () => {
 
     expect(analytics).toMatchObject({
       endDate: '2026-08-23',
+      qualifyingSetPolicyVersion: 1,
       startDate: '2026-08-17',
       timeZone: 'UTC',
       weightUnit: 'lbs',
@@ -136,6 +137,7 @@ describe('workout muscle analytics store', () => {
         change: 'increased',
         completedSessionCount: 1,
         exerciseCount: 1,
+        exposureState: 'fully_completed',
         muscle: 'chest',
         plannedSetEquivalents: 2,
         previousQualifyingSetEquivalents: 1,
@@ -148,6 +150,7 @@ describe('workout muscle analytics store', () => {
         change: 'increased',
         completedSessionCount: 1,
         exerciseCount: 1,
+        exposureState: 'fully_completed',
         muscle: 'triceps',
         plannedSetEquivalents: 1,
         previousQualifyingSetEquivalents: 0.5,
