@@ -23,7 +23,7 @@ import { Link, useSearchParams } from 'react-router';
 import { NutritionDayStatusControl } from '@/features/adaptive-nutrition/components/nutrition-day-status-control';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -589,7 +589,7 @@ export function DataQualityCalendarWorkspace() {
           <CardHeader className="border-b border-border/70">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <CardTitle>{formatDate(selectedDay.date)}</CardTitle>
+                <h2 className="text-xl font-semibold">{formatDate(selectedDay.date)}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Exact source facts and algorithm treatment in {calendar.timeZone}.
                 </p>
@@ -833,7 +833,14 @@ export function DataQualityCalendarWorkspace() {
                       <li className="rounded-xl border border-border/60 p-3" key={context.id}>
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="font-medium capitalize">{humanize(context.category)}</p>
-                          <Badge variant="outline">{context.provenance.label}</Badge>
+                          <Badge variant="outline">
+                            {context.provenance.type === 'agent_token'
+                              ? 'AgentToken'
+                              : context.provenance.type === 'system'
+                                ? 'Pulse system'
+                                : 'You'}{' '}
+                            · {context.provenance.label}
+                          </Badge>
                         </div>
                         <p className="mt-2 leading-6">{context.note}</p>
                         {context.resolution ? (

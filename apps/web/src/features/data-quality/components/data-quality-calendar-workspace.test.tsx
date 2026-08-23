@@ -199,7 +199,7 @@ describe('DataQualityCalendarWorkspace', () => {
     expect(screen.getByText('Upper strength')).toBeInTheDocument();
     expect(screen.getByText('weekly review · deferred')).toBeInTheDocument();
     expect(screen.getByText('Recovery day after a cold')).toBeInTheDocument();
-    expect(screen.getByText('Coach Agent')).toBeInTheDocument();
+    expect(screen.getByText('AgentToken · Coach Agent')).toBeInTheDocument();
     expect(screen.getByTestId('nutrition-status-control')).toHaveTextContent('2026-08-18');
     expect(screen.getAllByText('pending cutoff').length).toBeGreaterThan(0);
   });

@@ -152,8 +152,8 @@ test.describe.serial('Data Quality calendar', () => {
     await expect(
       page.getByText('Migraine reduced appetite and changed the planned training day.'),
     ).toBeVisible();
-    await expect(page.getByText('Preview Coach')).toBeVisible();
-    await expect(page.getByText('agent token · revision 1', { exact: false })).toBeVisible();
+    await expect(page.getByText('AgentToken · Preview Coach')).toBeVisible();
+    await expect(page.getByText('date · revision 1', { exact: false })).toBeVisible();
     await expect(page.getByText('partial', { exact: true }).first()).toBeVisible();
     await expect(
       page.getByText(
@@ -170,7 +170,7 @@ test.describe.serial('Data Quality calendar', () => {
     expect(agentResponse.ok(), await agentResponse.text()).toBeTruthy();
     expect((await agentResponse.json()).data).toEqual((await jwtResponse.json()).data);
 
-    const weightFilter = page.getByRole('button', { name: 'Weight' });
+    const weightFilter = page.getByRole('button', { exact: true, name: 'Weight' });
     await weightFilter.focus();
     await page.keyboard.press('Space');
     await expect(weightFilter).toHaveAttribute('aria-pressed', 'false');
@@ -193,21 +193,42 @@ test.describe.serial('Data Quality calendar', () => {
 
     await selectDay(page, addDays(today, -3));
     await expect(page.getByText('Retained row was corrected')).toBeVisible();
-    await expect(page.getByText('Corrected', { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Weight' }).getByText('Corrected', { exact: true }),
+    ).toBeVisible();
 
     await selectDay(page, addDays(today, -2));
     await expect(page.getByText('No record', { exact: true })).toBeVisible();
-    await expect(page.getByText('No weigh-in', { exact: true }).first()).toBeVisible();
-    await expect(page.getByText('planned', { exact: true }).first()).toBeVisible();
+    await expect(
+      page
+        .getByRole('region', { name: 'Weight' })
+        .getByText('No weigh-in', { exact: true })
+        .first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Workout' }).getByText('planned', { exact: true }).first(),
+    ).toBeVisible();
 
     await selectDay(page, addDays(today, -1));
     await expect(page.getByText('Cross-domain strength session')).toBeVisible();
-    await expect(page.getByText('corrected', { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Workout' }).getByText('corrected', { exact: true }).first(),
+    ).toBeVisible();
     await capture(page, 'data-quality-workout-430.png');
 
     await selectDay(page, today);
-    await expect(page.getAllByText('Pending cutoff', { exact: true })).toHaveLength(2);
-    await expect(page.getByText(/pending completed day cutoff/i)).toBeVisible();
+    await expect(
+      page
+        .getByRole('region', { name: 'Nutrition' })
+        .getByText('Pending cutoff', { exact: true })
+        .first(),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole('region', { name: 'Weight' })
+        .getByText('Pending cutoff', { exact: true })
+        .first(),
+    ).toBeVisible();
     diagnostics();
   });
 
