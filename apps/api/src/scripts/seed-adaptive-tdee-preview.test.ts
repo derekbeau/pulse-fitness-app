@@ -19,6 +19,7 @@ import {
 import { createAdaptiveNutritionStore } from '../routes/adaptive-nutrition/store.js';
 import { createAdaptiveWeeklyReviewStore } from '../routes/adaptive-nutrition/review-store.js';
 import { createAdaptiveGoalReadStore } from '../routes/adaptive-nutrition/goal-store.js';
+import { createDataQualityCalendarStore } from '../routes/data-quality/store.js';
 
 import {
   ADAPTIVE_PREVIEW_USERNAME_PREFIX,
@@ -123,10 +124,53 @@ describe('Adaptive TDEE preview fixtures', () => {
       'trajectory-maintenance-above': 'updating',
       'trajectory-scale-only': 'updating',
       'trajectory-historical': 'updating',
+      'data-quality-calendar': 'updating',
     });
     for (const fixture of first) {
       expect(store.getState(fixture.userId).state).toBe(fixture.expectedState);
     }
+    const dataQualityFixture = first.find((fixture) => fixture.fixture === 'data-quality-calendar');
+    if (!dataQualityFixture) throw new Error('Missing Data Quality calendar fixture');
+    const qualityCalendar = createDataQualityCalendarStore({
+      db,
+      sqlite,
+      now: () => new Date('2026-08-13T16:30:00.000Z'),
+    }).getCalendar(dataQualityFixture.userId, {
+      start: '2026-08-09',
+      end: '2026-08-13',
+    });
+    expect(qualityCalendar.days.map((day) => day.nutrition.qualityState)).toEqual([
+      'partial',
+      'unknown',
+      'no_records',
+      'complete',
+      'complete',
+    ]);
+    expect(qualityCalendar.days.map((day) => day.nutrition.evidenceState)).toEqual([
+      'excluded',
+      'excluded',
+      'missing',
+      'usable',
+      'pending_cutoff',
+    ]);
+    expect(qualityCalendar.days[0]?.contexts).toEqual([
+      expect.objectContaining({
+        category: 'illness',
+        provenance: expect.objectContaining({ type: 'agent_token', label: 'Preview Coach' }),
+      }),
+    ]);
+    expect(qualityCalendar.days[1]?.weight.correctionState).toBe('history_unavailable');
+    expect(qualityCalendar.days[2]?.workouts).toEqual([
+      expect.objectContaining({ state: 'planned' }),
+    ]);
+    expect(qualityCalendar.days[3]?.workouts).toEqual([
+      expect.objectContaining({ state: 'completed', correctionState: 'history_unavailable' }),
+    ]);
+    expect(qualityCalendar.days[4]?.algorithm).toMatchObject({
+      state: 'learning',
+      nutritionEvidenceState: 'pending_cutoff',
+      weightEvidenceState: 'pending_cutoff',
+    });
     const reviewStore = createAdaptiveWeeklyReviewStore({
       db,
       sqlite,

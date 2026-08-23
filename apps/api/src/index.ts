@@ -20,6 +20,7 @@ import { habitEntryCollectionRoutes } from './routes/habit-entries/index.js';
 import { habitRoutes } from './routes/habits/index.js';
 import { mealRoutes } from './routes/meals/index.js';
 import { nutritionRoutes } from './routes/nutrition/index.js';
+import { dataQualityRoutes } from './routes/data-quality/index.js';
 import { nutritionTargetRoutes } from './routes/nutrition-targets/index.js';
 import { scheduledWorkoutRoutes } from './routes/scheduled-workouts/index.js';
 import { trashRoutes } from './routes/trash/index.js';
@@ -230,6 +231,7 @@ export const buildServer = () => {
 
   app.get('/health', async () => ({ status: 'ok' }));
   app.register(authRoutes, { prefix: '/api/v1/auth' });
+  app.register(dataQualityRoutes, { prefix: '/api/v1/data-quality' });
   app.register(adaptiveNutritionRoutes, { prefix: '/api/v1/adaptive-nutrition' });
   app.register(agentTokenRoutes, { prefix: '/api/v1/agent-tokens' });
   app.register(exerciseRoutes, { prefix: '/api/v1/exercises' });

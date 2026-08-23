@@ -63,6 +63,7 @@ function renderBottomNav(initialPath = '/', store = createAuthStore()) {
         <Route element={<h1>Workouts Route</h1>} path="/workouts" />
         <Route element={<h1>Nutrition Route</h1>} path="/nutrition" />
         <Route element={<h1>Habits Route</h1>} path="/habits" />
+        <Route element={<h1>Data Quality Route</h1>} path="/data-quality" />
         <Route element={<h1>Activity Route</h1>} path="/activity" />
         <Route element={<h1>Journal Route</h1>} path="/journal" />
         <Route element={<h1>Profile Route</h1>} path="/profile" />
@@ -76,7 +77,7 @@ describe('BottomNav', () => {
     vi.clearAllMocks();
   });
 
-  it('opens the More menu with activity, journal, and profile links', () => {
+  it('opens the More menu with data-quality, activity, journal, and profile links', () => {
     renderBottomNav('/');
 
     const nav = screen.getByRole('navigation', { name: 'Mobile navigation' });
@@ -94,6 +95,10 @@ describe('BottomNav', () => {
 
     expect(screen.getByRole('menu')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveClass('cursor-pointer');
+    expect(screen.getByRole('menuitem', { name: 'Data Quality' })).toHaveAttribute(
+      'href',
+      '/data-quality',
+    );
     expect(screen.getByRole('menuitem', { name: 'Activity' })).toHaveAttribute('href', '/activity');
     expect(screen.getByRole('menuitem', { name: 'Activity' })).toHaveClass('cursor-pointer');
     expect(screen.getByRole('menuitem', { name: 'Journal' })).toHaveAttribute('href', '/journal');

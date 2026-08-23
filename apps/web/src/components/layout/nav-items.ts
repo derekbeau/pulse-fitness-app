@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
+  ShieldCheck,
   Dumbbell,
   Ellipsis,
   NotebookPen,
@@ -42,6 +43,11 @@ export const primaryNavItems: NavItem[] = [
 ];
 
 export const moreNavItems: NavItem[] = [
+  {
+    icon: ShieldCheck,
+    label: 'Data Quality',
+    to: '/data-quality',
+  },
   {
     icon: Activity,
     label: 'Activity',

@@ -166,7 +166,9 @@ export function calculateCanonicalTrendWeightPoint(
     gapFromPreviousDays: previous
       ? trendWeightCalendarDaysBetween(previous.date, latest.date)
       : null,
-    corrected: latest.updatedAt > latest.createdAt,
+    // Body-weight rows retain a generic update timestamp, not a measurement-correction ledger.
+    // Notes-only edits must never be presented as confirmed measurement corrections.
+    corrected: false,
   };
 }
 

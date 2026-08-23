@@ -425,9 +425,32 @@ export const createAdaptiveWeeklyReviewStore = (options: {
         .all() as ActionRow[]
     ).map(parseAction);
 
-  const hydrateReview = (row: ReviewRow): AdaptiveWeeklyReview => {
+  const loadProjectionActions = (reviewId: string, userId: string): AdaptiveReviewAction[] =>
+    (
+      db
+        .select(actionSelection)
+        .from(adaptiveNutritionReviewActions)
+        .where(
+          and(
+            eq(adaptiveNutritionReviewActions.reviewId, reviewId),
+            eq(adaptiveNutritionReviewActions.userId, userId),
+            sql`${adaptiveNutritionReviewActions.sequence} in (
+              coalesce((select max(a.sequence) from adaptive_nutrition_review_actions a where a.review_id = ${reviewId} and a.user_id = ${userId}), -1),
+              coalesce((select max(a.sequence) from adaptive_nutrition_review_actions a where a.review_id = ${reviewId} and a.user_id = ${userId} and a.type in ('accept', 'decline', 'supersede')), -1),
+              coalesce((select max(a.sequence) from adaptive_nutrition_review_actions a where a.review_id = ${reviewId} and a.user_id = ${userId} and a.type = 'edit'), -1),
+              coalesce((select max(a.sequence) from adaptive_nutrition_review_actions a where a.review_id = ${reviewId} and a.user_id = ${userId} and a.type = 'defer'), -1)
+            )`,
+          ),
+        )
+        .orderBy(asc(adaptiveNutritionReviewActions.sequence))
+        .all() as ActionRow[]
+    ).map(parseAction);
+
+  const hydrateReview = (
+    row: ReviewRow,
+    actions: AdaptiveReviewAction[] = loadActions(row.id, row.userId),
+  ): AdaptiveWeeklyReview => {
     const snapshot = adaptiveWeeklyReviewSnapshotSchema.parse(row.snapshot);
-    const actions = loadActions(row.id, row.userId);
     const state = stateFromActions(actions);
     const recommendation = snapshot.modules.find((module) => module.kind === 'recommendation');
     const outcome = recommendation?.kind === 'recommendation' ? recommendation.outcome : 'defer';
@@ -1504,8 +1527,11 @@ export const createAdaptiveWeeklyReviewStore = (options: {
       .limit(1)
       .get() as ReviewRow | undefined) ?? null;
 
-  const projectCurrentReview = (row: ReviewRow): AdaptiveWeeklyReview => {
-    const hydrated = hydrateReview(row);
+  const projectCurrentReview = (
+    row: ReviewRow,
+    actions?: AdaptiveReviewAction[],
+  ): AdaptiveWeeklyReview => {
+    const hydrated = hydrateReview(row, actions);
     if (['accepted', 'declined', 'superseded'].includes(hydrated.state)) return hydrated;
     const checkIn = adaptiveStore.findCheckInDetail(row.userId, row.checkInId);
     const fresh =
@@ -1553,8 +1579,21 @@ export const createAdaptiveWeeklyReviewStore = (options: {
     const rows = db
       .select(reviewRowSelection)
       .from(adaptiveNutritionReviews)
-      .where(eq(adaptiveNutritionReviews.userId, userId))
+      .where(
+        and(
+          eq(adaptiveNutritionReviews.userId, userId),
+          sql`coalesce((
+            select latest.type
+              from adaptive_nutrition_review_actions latest
+             where latest.review_id = ${adaptiveNutritionReviews.id}
+               and latest.user_id = ${userId}
+             order by latest.sequence desc
+             limit 1
+          ), 'pending') in ('pending', 'edit', 'ask_agent', 'answer', 'defer')`,
+        ),
+      )
       .orderBy(desc(adaptiveNutritionReviews.createdAt))
+      .limit(64)
       .all() as ReviewRow[];
     return (
       rows
@@ -1575,6 +1614,46 @@ export const createAdaptiveWeeklyReviewStore = (options: {
         .find((review) => ['pending', 'awaiting_clarification', 'stale'].includes(review.state)) ??
       null
     );
+  };
+
+  const getPendingProjection = (
+    userId: string,
+  ): Pick<AdaptiveWeeklyReview, 'id' | 'snapshot' | 'state'> | null => {
+    const rows = db
+      .select(reviewRowSelection)
+      .from(adaptiveNutritionReviews)
+      .where(
+        and(
+          eq(adaptiveNutritionReviews.userId, userId),
+          sql`coalesce((
+            select latest.type
+              from adaptive_nutrition_review_actions latest
+             where latest.review_id = ${adaptiveNutritionReviews.id}
+               and latest.user_id = ${userId}
+             order by latest.sequence desc
+             limit 1
+          ), 'pending') in ('pending', 'edit', 'ask_agent', 'answer', 'defer')`,
+        ),
+      )
+      .orderBy(desc(adaptiveNutritionReviews.createdAt))
+      .limit(64)
+      .all() as ReviewRow[];
+    for (const row of rows) {
+      const current = projectCurrentReview(row, loadProjectionActions(row.id, row.userId));
+      if (current.state === 'deferred') continue;
+      const sourceStatus = adaptiveStore.findCheckInDetail(row.userId, row.checkInId)?.status;
+      if (
+        current.state === 'stale' &&
+        sourceStatus !== undefined &&
+        ['accepted', 'declined', 'held', 'superseded'].includes(sourceStatus)
+      ) {
+        continue;
+      }
+      if (['pending', 'awaiting_clarification', 'stale'].includes(current.state)) {
+        return { id: current.id, snapshot: current.snapshot, state: current.state };
+      }
+    }
+    return null;
   };
 
   const get = (userId: string, reviewId: string) => {
@@ -1599,7 +1678,7 @@ export const createAdaptiveWeeklyReviewStore = (options: {
         .from(adaptiveNutritionReviews)
         .where(eq(adaptiveNutritionReviews.userId, userId))
         .get()?.value ?? 0;
-    return { data: rows.map(projectCurrentReview), meta: { ...query, total } };
+    return { data: rows.map((row) => projectCurrentReview(row)), meta: { ...query, total } };
   };
 
   const appendAction = (
@@ -1994,6 +2073,7 @@ export const createAdaptiveWeeklyReviewStore = (options: {
     deleteContext,
     get,
     getPending,
+    getPendingProjection,
     list,
     preview,
     refresh,

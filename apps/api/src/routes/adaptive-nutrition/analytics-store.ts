@@ -124,7 +124,9 @@ export const resolveEffectiveProgramRevisions = (
 const acceptedExpenditureEffectiveDate = (checkIn: AdaptiveCheckInDetail) =>
   checkIn.proposedTargets?.effectiveDate ?? checkIn.localDate;
 
-const stateForCheckIn = (checkIn: AdaptiveCheckInDetail): EnergyBalanceState | null => {
+export const adaptiveAnalyticsStateForCheckIn = (
+  checkIn: Pick<AdaptiveCheckInDetail, 'status' | 'calculationState'>,
+): EnergyBalanceState | null => {
   if (checkIn.status === 'pending') return 'review_needed';
   if (checkIn.status === 'held' || checkIn.calculationState === 'holding') return 'holding';
   if (checkIn.status !== 'accepted') return null;
@@ -132,11 +134,11 @@ const stateForCheckIn = (checkIn: AdaptiveCheckInDetail): EnergyBalanceState | n
   return 'learning';
 };
 
-const stateForPoint = (
-  checkIn: AdaptiveCheckInDetail | null,
+export const adaptiveAnalyticsStateForPoint = (
+  checkIn: Pick<AdaptiveCheckInDetail, 'status' | 'calculationState'> | null,
   calculationState: AdaptiveCheckInDetail['calculationState'],
 ): EnergyBalanceState => {
-  if (checkIn) return stateForCheckIn(checkIn) ?? 'learning';
+  if (checkIn) return adaptiveAnalyticsStateForCheckIn(checkIn) ?? 'learning';
   if (calculationState === 'holding') return 'holding';
   if (calculationState === 'updating') return 'updating';
   return 'learning';
@@ -459,7 +461,7 @@ export const createAdaptiveAnalyticsStore = (dependencies: {
           nutritionStatus = 'complete';
         }
 
-        let pointState = stateForPoint(stateSource, calculationState);
+        let pointState = adaptiveAnalyticsStateForPoint(stateSource, calculationState);
         let pointCalculationState = calculationState;
         let pointCalculationReasonCodes = stateSource?.reasonCodes ?? [];
         if (pointProgram?.status === 'paused') {
@@ -698,7 +700,7 @@ export const createAdaptiveAnalyticsStore = (dependencies: {
             inputFingerprint: checkIn.dataFingerprint,
             goalId: checkIn.goalId,
             goalRevisionId: checkIn.goalRevisionId,
-            state: stateForCheckIn(checkIn),
+            state: adaptiveAnalyticsStateForCheckIn(checkIn),
           })),
         ...revisions
           .filter((revision) => revision.effectiveLocalDate >= range.startDate)

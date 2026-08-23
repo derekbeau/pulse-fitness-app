@@ -11,6 +11,7 @@ import { nutritionQueryKeys } from '@/features/nutrition/api/keys';
 import {
   adaptiveNutritionQueryKey,
   crossFeatureInvalidationMap,
+  dataQualityQueryKey,
   nutritionTargetQueryKey,
 } from './query-invalidation';
 
@@ -18,6 +19,7 @@ describe('crossFeatureInvalidationMap', () => {
   it('returns the expected workout-session invalidations', () => {
     expect(crossFeatureInvalidationMap.workoutSessionChange()).toEqual([
       dashboardSnapshotQueryKeys.all,
+      dataQualityQueryKey,
       recentWorkoutQueryKeys.all,
       habitQueryKeys.list(),
       habitQueryKeys.entryList(),
@@ -28,6 +30,7 @@ describe('crossFeatureInvalidationMap', () => {
   it('returns the expected meal invalidations', () => {
     expect(crossFeatureInvalidationMap.mealMutation()).toEqual([
       adaptiveNutritionQueryKey,
+      dataQualityQueryKey,
       dashboardSnapshotQueryKeys.all,
       macroTrendQueryKeys.all,
       habitQueryKeys.list(),
@@ -39,6 +42,7 @@ describe('crossFeatureInvalidationMap', () => {
   it('returns all target-dependent invalidations', () => {
     expect(crossFeatureInvalidationMap.nutritionTargetMutation()).toEqual([
       adaptiveNutritionQueryKey,
+      dataQualityQueryKey,
       nutritionQueryKeys.all,
       dashboardSnapshotQueryKeys.all,
       macroTrendQueryKeys.all,
@@ -55,6 +59,7 @@ describe('crossFeatureInvalidationMap', () => {
   it('returns the expected weight invalidations', () => {
     expect(crossFeatureInvalidationMap.weightMutation()).toEqual([
       adaptiveNutritionQueryKey,
+      dataQualityQueryKey,
       dashboardSnapshotQueryKeys.all,
       dashboardWeightTrendQueryKeys.all,
       habitQueryKeys.list(),
@@ -66,13 +71,19 @@ describe('crossFeatureInvalidationMap', () => {
   it('returns complete adaptive lifecycle invalidations', () => {
     expect(crossFeatureInvalidationMap.adaptiveProgramMutation()).toEqual([
       adaptiveNutritionQueryKey,
+      dataQualityQueryKey,
     ]);
-    expect(crossFeatureInvalidationMap.adaptiveGoalMutation()).toEqual([adaptiveNutritionQueryKey]);
+    expect(crossFeatureInvalidationMap.adaptiveGoalMutation()).toEqual([
+      adaptiveNutritionQueryKey,
+      dataQualityQueryKey,
+    ]);
     expect(crossFeatureInvalidationMap.adaptivePreviewMutation()).toEqual([
       adaptiveNutritionQueryKey,
+      dataQualityQueryKey,
     ]);
     expect(crossFeatureInvalidationMap.adaptiveResolutionMutation()).toEqual([
       adaptiveNutritionQueryKey,
+      dataQualityQueryKey,
       nutritionTargetQueryKey,
       nutritionQueryKeys.all,
       dashboardSnapshotQueryKeys.all,

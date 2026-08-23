@@ -23,7 +23,9 @@ import {
   nutritionLogs,
   nutritionTargetEvents,
   nutritionTargets,
+  scheduledWorkouts,
   users,
+  workoutSessions,
 } from '../db/schema/index.js';
 import { createAdaptiveNutritionStore } from '../routes/adaptive-nutrition/store.js';
 import { createAdaptiveWeeklyReviewStore } from '../routes/adaptive-nutrition/review-store.js';
@@ -69,7 +71,8 @@ export type AdaptivePreviewFixtureName =
   | 'trajectory-maintenance-below'
   | 'trajectory-maintenance-above'
   | 'trajectory-scale-only'
-  | 'trajectory-historical';
+  | 'trajectory-historical'
+  | 'data-quality-calendar';
 
 export type AdaptivePreviewFixtureRecord = {
   fixture: AdaptivePreviewFixtureName;
@@ -374,6 +377,14 @@ const FIXTURES: Array<
     expectedState: 'updating',
     note: 'A dedicated replaced goal proves historical trajectory copy and immutable context.',
   },
+  {
+    fixture: 'data-quality-calendar',
+    usernameSuffix: 'dq-calendar',
+    idSuffix: '0038',
+    name: 'Data Quality · Cross-domain Calendar',
+    expectedState: 'updating',
+    note: 'A dedicated read-only month combines complete, partial, unknown, missing, pending, corrected, workout, algorithm, and agent-context evidence.',
+  },
 ];
 
 const datePlus = (date: string, days: number) => {
@@ -438,6 +449,7 @@ const seedWeightDay = (
       weight: poundsFromKg(weightKg),
       weightKg,
       unitAtEntry: 'kg',
+      createdAt: timestamp,
       updatedAt: timestamp,
     })
     .onConflictDoUpdate({
@@ -550,6 +562,7 @@ const seedEligibleHistory = (
         weight: poundsFromKg(weightKg),
         weightKg,
         unitAtEntry: 'kg',
+        createdAt: timestamp + index,
         updatedAt: timestamp + index,
       })
       .onConflictDoUpdate({
@@ -994,6 +1007,77 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
     .where(like(mealItems.id, `${adjustReview.userId}-item-%`))
     .run();
   reviewStore.preview(adjustReview.userId, { kind: 'weekly' });
+
+  const dataQuality = createHistoricalBaseline('data-quality-calendar');
+  seedEligibleHistory(db, dataQuality.userId, anchorDate, clock);
+  db.update(nutritionLogs)
+    .set({ status: 'partial', statusUpdatedAt: clock + 1, updatedAt: clock + 1 })
+    .where(
+      and(
+        eq(nutritionLogs.userId, dataQuality.userId),
+        eq(nutritionLogs.date, datePlus(anchorDate, -4)),
+      ),
+    )
+    .run();
+  db.update(nutritionLogs)
+    .set({ status: 'unknown', statusUpdatedAt: clock + 2, updatedAt: clock + 2 })
+    .where(
+      and(
+        eq(nutritionLogs.userId, dataQuality.userId),
+        eq(nutritionLogs.date, datePlus(anchorDate, -3)),
+      ),
+    )
+    .run();
+  db.delete(nutritionLogs)
+    .where(
+      and(
+        eq(nutritionLogs.userId, dataQuality.userId),
+        eq(nutritionLogs.date, datePlus(anchorDate, -2)),
+      ),
+    )
+    .run();
+  seedCompleteNutritionDay(db, dataQuality.userId, anchorDate, clock + 3);
+  seedWeightDay(db, dataQuality.userId, anchorDate, 81.55, clock + 4);
+  db.update(bodyWeight)
+    .set({ weightKg: 81.5, weight: poundsFromKg(81.5), updatedAt: clock + 50 })
+    .where(
+      and(eq(bodyWeight.userId, dataQuality.userId), eq(bodyWeight.date, datePlus(anchorDate, -3))),
+    )
+    .run();
+  db.insert(scheduledWorkouts)
+    .values({
+      id: `${dataQuality.userId}-schedule-${datePlus(anchorDate, -2)}`,
+      userId: dataQuality.userId,
+      templateId: null,
+      date: datePlus(anchorDate, -2),
+      createdAt: clock + 6,
+      updatedAt: clock + 6,
+    })
+    .run();
+  db.insert(workoutSessions)
+    .values({
+      id: `${dataQuality.userId}-session-${datePlus(anchorDate, -1)}`,
+      userId: dataQuality.userId,
+      scheduledWorkoutId: null,
+      name: 'Cross-domain strength session',
+      date: datePlus(anchorDate, -1),
+      status: 'completed',
+      startedAt: clock + 7,
+      completedAt: clock + 8,
+      updatedAt: clock + 9,
+    })
+    .run();
+  reviewStore.createContext(
+    dataQuality.userId,
+    {
+      subject: { kind: 'date', localDate: datePlus(anchorDate, -4) },
+      category: 'illness',
+      note: 'Migraine reduced appetite and changed the planned training day.',
+      resolution: null,
+    },
+    { type: 'agent_token', agentTokenId: 'preview-agent', label: 'Preview Coach' },
+  );
+  clock += 1000;
 
   for (const fixture of records) {
     const state = store.getState(fixture.userId);

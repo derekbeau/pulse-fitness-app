@@ -365,7 +365,7 @@ describe('Trend Weight analytics store', () => {
     expect(second.timeZone).toBe('America/Detroit');
   });
 
-  it('recomputes corrections and deletions while preserving correction provenance', async () => {
+  it('recomputes edits and deletions without fabricating correction provenance', async () => {
     seedWeight('user-1', '2026-08-01', 180);
     seedWeight('user-1', '2026-08-10', 179);
     seedWeight('user-1', '2026-08-19', 178);
@@ -384,18 +384,29 @@ describe('Trend Weight analytics store', () => {
     const corrected = store.getAnalytics('user-1', { range: '1m', end: '2026-08-19' });
 
     expect(corrected.current.trendWeight).not.toBe(original.current.trendWeight);
-    expect(corrected.markers).toContainEqual({
-      id: 'correction-user-1-2026-08-19',
-      date: '2026-08-19',
-      kind: 'correction',
-      label: 'Corrected weigh-in',
-    });
-    expect(corrected.points.at(-1)?.corrected).toBe(true);
+    expect(corrected.markers.filter((marker) => marker.kind === 'correction')).toEqual([]);
+    expect(corrected.points.at(-1)).toMatchObject({ corrected: false, annotation: null });
 
     dbModule.db.delete(bodyWeight).where(eq(bodyWeight.id, 'user-1-2026-08-19')).run();
     const deleted = store.getAnalytics('user-1', { range: '1m', end: '2026-08-19' });
     expect(deleted.points.map((point) => point.date)).not.toContain('2026-08-19');
     expect(deleted.current.latestScale?.date).toBe('2026-08-10');
+  });
+
+  it('keeps a notes-only edit out of Trend Weight correction markers', async () => {
+    seedWeight('user-1', '2026-08-10', 179);
+    seedWeight('user-1', '2026-08-19', 178);
+    const store = await getStore();
+    const before = store.getAnalytics('user-1', { range: '1m', end: '2026-08-19' });
+    dbModule.db
+      .update(bodyWeight)
+      .set({ notes: 'Clarified note only.', updatedAt: Date.parse('2026-08-20T12:00:00.000Z') })
+      .where(eq(bodyWeight.id, 'user-1-2026-08-19'))
+      .run();
+    const after = store.getAnalytics('user-1', { range: '1m', end: '2026-08-19' });
+    expect(after.current.trendWeight).toBe(before.current.trendWeight);
+    expect(after.markers.filter((marker) => marker.kind === 'correction')).toEqual([]);
+    expect(after.points.at(-1)).toMatchObject({ corrected: false, annotation: null });
   });
 
   it('returns explicit no-data and scale-only states without trend precision', async () => {
