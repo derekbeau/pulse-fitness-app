@@ -15,6 +15,7 @@ vi.mock('../../middleware/store.js', () => ({
 
 const calendar: DataQualityCalendar = {
   range: { startDate: '2026-08-18', endDate: '2026-08-18' },
+  today: '2026-08-18',
   timeZone: 'America/Detroit',
   days: [
     {
@@ -28,8 +29,15 @@ const calendar: DataQualityCalendar = {
         totals: null,
         mealCount: null,
         itemCount: null,
+        createdAt: null,
         statusUpdatedAt: null,
         updatedAt: null,
+        provenance: {
+          type: 'not_recorded',
+          label: 'Not recorded',
+          agentTokenId: null,
+          limitation: 'No record.',
+        },
         reasonCodes: [],
         actions: [],
       },
@@ -39,11 +47,17 @@ const calendar: DataQualityCalendar = {
         weight: null,
         unit: null,
         trendWeight: null,
-        corrected: false,
+        correctionState: 'not_applicable',
         suspect: false,
         stale: false,
         createdAt: null,
         updatedAt: null,
+        provenance: {
+          type: 'not_recorded',
+          label: 'Not recorded',
+          agentTokenId: null,
+          limitation: 'No record.',
+        },
         reasonCodes: [],
         actions: [],
       },
@@ -54,8 +68,11 @@ const calendar: DataQualityCalendar = {
         weightEvidenceState: 'not_applicable',
         reasonCodes: [],
         events: [],
+        omittedEventCount: 0,
       },
       contexts: [],
+      omittedWorkoutCount: 0,
+      omittedContextCount: 0,
     },
   ],
   summary: {
@@ -64,6 +81,7 @@ const calendar: DataQualityCalendar = {
     workout: { planned: 0, active: 0, completed: 0, cancelled: 0, corrected: 0 },
     algorithm: { learning: 0, updating: 0, holding: 0, pendingReview: 0 },
     contextDays: 0,
+    intervalLabel: 'Visible calendar grid',
   },
 };
 
@@ -126,6 +144,27 @@ describe('Data Quality calendar route', () => {
       expect(response.statusCode).toBe(400);
       expect(response.json()).toMatchObject({ error: { code: 'VALIDATION_ERROR' } });
       expect(getDataQualityCalendar).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('allows an empty query so the server can bootstrap the authoritative local month', async () => {
+    vi.mocked(getDataQualityCalendar).mockResolvedValue(calendar);
+    const app = buildServer();
+    try {
+      await app.ready();
+      const token = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/data-quality/calendar',
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(vi.mocked(getDataQualityCalendar)).toHaveBeenCalledWith('user-1', {});
     } finally {
       await app.close();
     }

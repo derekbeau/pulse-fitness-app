@@ -13,12 +13,12 @@ the full series before cropping it to the selected display range. A date therefo
 Product Trend Weight in `1M`, `3M`, `6M`, `1Y`, and `All` views.
 
 Persistence allows one authoritative body-weight row per user and local date. A same-date POST
-replaces that row, a PATCH correction recomputes every affected response, and DELETE removes the
+replaces that row, a PATCH edit recomputes every affected response, and DELETE removes the
 observation. Responses fingerprint the strict, rounded response facts (with the fingerprint field
 omitted), so identical user-visible analytics have an identical fingerprint while any visible
 measurement, provenance, state, goal, marker, or explanation change produces a new one. An explicit
 historical `end` excludes later rows; a later-dated write cannot alter that historical response,
-while a correction or deletion inside the historical evidence window intentionally does.
+while a measurement edit or deletion inside the historical evidence window intentionally does.
 
 Historical requests supply an explicit local `end`. Live requests omit `end` and must supply the
 caller's IANA time zone; the server does not derive local “today” from its host time zone. The
@@ -69,7 +69,7 @@ intervals are null with a reason; they are never displayed as zero.
 
 Raw scale observations are discrete dots. Only Product Trend Weight is a connected line, and a gap
 of more than seven days starts a new visible segment. The accessible table is the exact-value
-equivalent of the chart. Goal, revision, check-in, and correction markers use continuous date
+equivalent of the chart. Goal, revision, and check-in markers use continuous date
 coordinates, group same-date labels, and remain available as dated text even when no weigh-in exists
 on the marker date.
 

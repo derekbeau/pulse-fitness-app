@@ -43,6 +43,16 @@ function uiDate(date: string) {
   }).format(new Date(`${date}T00:00:00.000Z`));
 }
 
+function monthGridRange(date: string) {
+  const first = `${date.slice(0, 7)}-01`;
+  const firstValue = new Date(`${first}T00:00:00.000Z`);
+  const start = addDays(first, -((firstValue.getUTCDay() + 6) % 7));
+  const next = new Date(firstValue);
+  next.setUTCMonth(next.getUTCMonth() + 1);
+  const last = addDays(next.toISOString().slice(0, 10), -1);
+  return { start, end: addDays(last, (7 - new Date(`${last}T00:00:00.000Z`).getUTCDay()) % 7) };
+}
+
 function monitorPage(page: Page) {
   const failures: string[] = [];
   page.on('console', (message) => {
@@ -98,11 +108,39 @@ async function capture(page: Page, filename: string) {
 }
 
 async function expectNoOverflowAndTouchTargets(page: Page, width: number) {
+  const calendarAncestors = await page
+    .getByTestId('data-quality-calendar-scroller')
+    .evaluate((element) => {
+      const values: Array<Record<string, unknown>> = [];
+      for (let current: HTMLElement | null = element; current; current = current.parentElement) {
+        const style = getComputedStyle(current);
+        values.push({
+          className: current.className,
+          overflowX: style.overflowX,
+          rect: current.getBoundingClientRect().toJSON(),
+          scrollWidth: current.scrollWidth,
+          tag: current.tagName,
+        });
+      }
+      return values;
+    });
+  const overflowingElements = await page.evaluate(() => {
+    const viewportWidth = document.documentElement.clientWidth;
+    return [...document.body.querySelectorAll<HTMLElement>('*')]
+      .map((element) => ({
+        className: element.className,
+        name: element.getAttribute('aria-label') ?? element.textContent?.trim().slice(0, 80),
+        rect: element.getBoundingClientRect().toJSON(),
+        tag: element.tagName,
+      }))
+      .filter(({ rect }) => rect.left < -1 || rect.right > viewportWidth + 1)
+      .slice(0, 10);
+  });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
     ),
-    `${width}px page overflow`,
+    `${width}px page overflow: ${JSON.stringify({ calendarAncestors, overflowingElements })}`,
   ).toBe(true);
   const domainGroup = page.getByRole('group', { name: 'Calendar domains' });
   for (const control of await domainGroup.getByRole('button').all()) {
@@ -111,6 +149,12 @@ async function expectNoOverflowAndTouchTargets(page: Page, width: number) {
       box?.height ?? 0,
       `${width}px ${await control.textContent()} touch target`,
     ).toBeGreaterThanOrEqual(44);
+  }
+  for (const day of await page.locator('button[data-date]').all()) {
+    const box = await day.boundingBox();
+    if (!box || box.x + box.width <= 0 || box.x >= width) continue;
+    expect(box.width, `${width}px visible day width`).toBeGreaterThanOrEqual(44);
+    expect(box.height, `${width}px visible day height`).toBeGreaterThanOrEqual(44);
   }
 }
 
@@ -183,7 +227,7 @@ test.describe.serial('Data Quality calendar', () => {
     diagnostics();
   });
 
-  test('keeps missing, cutoff, corrected, planned, and completed evidence distinct', async ({
+  test('keeps missing, cutoff, correction limitations, planned, and completed evidence distinct', async ({
     page,
   }) => {
     const diagnostics = monitorPage(page);
@@ -192,9 +236,9 @@ test.describe.serial('Data Quality calendar', () => {
     const today = calendar.days.find((day) => day.isToday)?.date ?? dateKeyInDetroit();
 
     await selectDay(page, addDays(today, -3));
-    await expect(page.getByText('Retained row was corrected')).toBeVisible();
+    await expect(page.getByText('Correction history unavailable').first()).toBeVisible();
     await expect(
-      page.getByRole('region', { name: 'Weight' }).getByText('Corrected', { exact: true }),
+      page.getByRole('region', { name: 'Weight' }).getByText('Logged', { exact: true }),
     ).toBeVisible();
 
     await selectDay(page, addDays(today, -2));
@@ -212,7 +256,10 @@ test.describe.serial('Data Quality calendar', () => {
     await selectDay(page, addDays(today, -1));
     await expect(page.getByText('Cross-domain strength session')).toBeVisible();
     await expect(
-      page.getByRole('region', { name: 'Workout' }).getByText('corrected', { exact: true }).first(),
+      page.getByRole('region', { name: 'Workout' }).getByText('completed', { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Workout' }).getByText('Correction history unavailable'),
     ).toBeVisible();
     await capture(page, 'data-quality-workout-430.png');
 
@@ -284,11 +331,68 @@ test.describe.serial('Data Quality calendar', () => {
     const calendar = await openCalendar(page);
     const today = calendar.days.find((day) => day.isToday)?.date ?? dateKeyInDetroit();
     await selectDay(page, today);
-    for (const width of [768, 1280]) {
+    for (const width of [320, 390, 430, 768, 1280]) {
       await page.setViewportSize({ height: 1000, width });
       await expectNoOverflowAndTouchTargets(page, width);
       await capture(page, `data-quality-calendar-${width}.png`);
     }
     diagnostics();
+  });
+
+  test('bootstraps the authoritative program-local month in opposite browser zones and DST boundaries', async ({
+    browser,
+  }) => {
+    const cases = [
+      { timezoneId: 'Pacific/Kiritimati', today: '2026-08-31' },
+      { timezoneId: 'Etc/GMT+12', today: '2027-01-01' },
+      { timezoneId: 'Asia/Tokyo', today: '2026-03-08' },
+      { timezoneId: 'America/Detroit', today: '2026-11-01' },
+    ] as const;
+    const webBaseURL = process.env.BASE_URL ?? `http://127.0.0.1:${process.env.E2E_PORT ?? '4173'}`;
+
+    for (const testCase of cases) {
+      const range = monthGridRange(testCase.today);
+      const sourceResponse = await api.get(
+        `/api/v1/data-quality/calendar?start=${range.start}&end=${range.end}`,
+        { headers: { authorization: `Bearer ${token}` } },
+      );
+      expect(sourceResponse.ok(), await sourceResponse.text()).toBeTruthy();
+      const fixed = ((await sourceResponse.json()) as { data: DataQualityCalendar }).data;
+      fixed.today = testCase.today;
+      fixed.days = fixed.days.map((day) => ({ ...day, isToday: day.date === testCase.today }));
+
+      const context = await browser.newContext({
+        baseURL: webBaseURL,
+        timezoneId: testCase.timezoneId,
+      });
+      const page = await context.newPage();
+      const diagnostics = monitorPage(page);
+      const requestUrls: string[] = [];
+      await page.route('**/api/v1/data-quality/calendar*', async (route) => {
+        requestUrls.push(route.request().url());
+        await route.fulfill({ status: 200, json: { data: fixed } });
+      });
+      try {
+        await setAuthenticatedSession(page, token);
+        await page.goto('/data-quality', { waitUntil: 'domcontentloaded' });
+        await expect(
+          page.getByRole('heading', {
+            name: new Intl.DateTimeFormat('en-US', {
+              month: 'long',
+              timeZone: 'UTC',
+              year: 'numeric',
+            }).format(new Date(`${testCase.today.slice(0, 7)}-01T00:00:00.000Z`)),
+          }),
+        ).toBeVisible();
+        await expect(page.getByLabel('Jump to date')).toHaveValue(testCase.today);
+        await page.waitForLoadState('networkidle');
+        expect(new URL(requestUrls[0] ?? '').searchParams.has('start')).toBe(false);
+        expect(requestUrls).toHaveLength(1);
+        expect(fixed.range).toEqual({ startDate: range.start, endDate: range.end });
+        diagnostics();
+      } finally {
+        await context.close();
+      }
+    }
   });
 });

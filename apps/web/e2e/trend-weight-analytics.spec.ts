@@ -155,16 +155,6 @@ async function reviseGoal(api: APIRequestContext, authorization: string) {
   expect(response.ok(), await response.text()).toBeTruthy();
 }
 
-async function chartDotX(dot: ReturnType<Page['locator']>) {
-  const path = dot.locator('path');
-  const coordinate = await path.getAttribute('cx');
-  if (coordinate !== null) return Number(coordinate);
-  const transform = await path.getAttribute('transform');
-  const match = transform?.match(/^translate\(([-\d.]+)/);
-  if (!match) throw new Error('Trend Weight point did not expose an x coordinate');
-  return Number(match[1]);
-}
-
 async function trendWeightAxisLabels(page: Page) {
   return page
     .locator('.recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value')
@@ -362,7 +352,7 @@ test('shows server-owned Trend Weight, raw spike, exact table, ranges, and respo
     const updatePayload = (await updateHttpResponse.json()) as { data: { updatedAt: number } };
     await expect(page.getByText('Weight entry updated')).toBeVisible();
     await expect(page.locator('[data-slot="trend-weight-latest-scale"]')).toHaveText('188 lbs');
-    await expect(page.getByText(/Corrected weigh-in/).first()).toBeVisible();
+    await expect(page.getByText(/Corrected weigh-in/)).toHaveCount(0);
     await expect(
       page.getByText(uiUpdatedAt(updatePayload.data.updatedAt), { exact: true }),
     ).toBeVisible();
@@ -912,7 +902,7 @@ for (const scenario of dateZoneCases) {
 test.describe('Trend Weight literal dates across Detroit DST', () => {
   test.use({ timezoneId: 'America/Detroit' });
 
-  test('keeps spring-forward points and a correction marker on their literal dates', async ({
+  test('keeps spring-forward points literal without fabricating a correction marker', async ({
     page,
   }) => {
     const endDate = dateKeyInDetroit();
@@ -958,6 +948,7 @@ test.describe('Trend Weight literal dates across Detroit DST', () => {
       await expectLiteralAxisRange(page, analytics.range);
       const marchDates = ['2026-03-07', '2026-03-08', '2026-03-09'];
       expect(analytics.points.slice(0, 3).map((point) => point.date)).toEqual(marchDates);
+      expect(analytics.markers.filter((marker) => marker.kind === 'correction')).toEqual([]);
 
       const march8Index = analytics.points.findIndex((point) => point.date === '2026-03-08');
       expect(march8Index).toBeGreaterThanOrEqual(0);
@@ -977,13 +968,8 @@ test.describe('Trend Weight literal dates across Detroit DST', () => {
       const correctionMarker = page.locator(
         '[data-slot="trend-weight-marker-lane"] [data-date="2026-03-08"]',
       );
-      await expect(correctionMarker).toContainText('Mar 8, 2026');
-      await expect(correctionMarker).toContainText('Corrected weigh-in');
-
-      const correctionLine = page.locator('.trend-weight-marker-line line').first();
-      const correctionX = Number(await correctionLine.getAttribute('x1'));
-      const dotX = await chartDotX(march8Dot);
-      expect(Math.abs(correctionX - dotX)).toBeLessThanOrEqual(0.5);
+      await expect(correctionMarker).toHaveCount(0);
+      await expect(page.getByText(/Corrected weigh-in/)).toHaveCount(0);
 
       await page.setViewportSize({ width: 430, height: 900 });
       expect(

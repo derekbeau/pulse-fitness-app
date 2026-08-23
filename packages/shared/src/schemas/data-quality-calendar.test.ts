@@ -17,8 +17,15 @@ const day = (date: string): DataQualityCalendar['days'][number] => ({
     totals: null,
     mealCount: null,
     itemCount: null,
+    createdAt: null,
     statusUpdatedAt: null,
     updatedAt: null,
+    provenance: {
+      type: 'not_recorded',
+      label: 'Not recorded',
+      agentTokenId: null,
+      limitation: 'No source.',
+    },
     reasonCodes: [],
     actions: [],
   },
@@ -28,11 +35,17 @@ const day = (date: string): DataQualityCalendar['days'][number] => ({
     weight: null,
     unit: null,
     trendWeight: null,
-    corrected: false,
+    correctionState: 'not_applicable',
     suspect: false,
     stale: false,
     createdAt: null,
     updatedAt: null,
+    provenance: {
+      type: 'not_recorded',
+      label: 'Not recorded',
+      agentTokenId: null,
+      limitation: 'No source.',
+    },
     reasonCodes: [],
     actions: [],
   },
@@ -43,12 +56,16 @@ const day = (date: string): DataQualityCalendar['days'][number] => ({
     weightEvidenceState: 'not_applicable',
     reasonCodes: [],
     events: [],
+    omittedEventCount: 0,
   },
   contexts: [],
+  omittedWorkoutCount: 0,
+  omittedContextCount: 0,
 });
 
 const response = (): DataQualityCalendar => ({
   range: { startDate: '2026-03-07', endDate: '2026-03-09' },
+  today: '2026-03-08',
   timeZone: 'America/Detroit',
   days: [day('2026-03-07'), day('2026-03-08'), day('2026-03-09')],
   summary: {
@@ -57,11 +74,13 @@ const response = (): DataQualityCalendar => ({
     workout: { planned: 0, active: 0, completed: 0, cancelled: 0, corrected: 0 },
     algorithm: { learning: 0, updating: 0, holding: 0, pendingReview: 0 },
     contextDays: 0,
+    intervalLabel: 'Visible calendar grid',
   },
 });
 
 describe('dataQualityCalendarQuerySchema', () => {
   it('accepts a bounded DST-spanning range and supported IANA zone', () => {
+    expect(dataQualityCalendarQuerySchema.parse({})).toEqual({});
     expect(
       dataQualityCalendarQuerySchema.parse({
         start: '2026-03-07',
@@ -148,10 +167,81 @@ describe('dataQualityCalendarSchema', () => {
       totals: { calories: 900, protein: 50, carbs: 90, fat: 20 },
       mealCount: 2,
       itemCount: 4,
+      createdAt: 9,
       updatedAt: 10,
     };
     expect(() => dataQualityCalendarSchema.parse(value)).toThrow(
       /Only an explicitly complete day can be flagged as suspected partial/,
+    );
+  });
+
+  it('requires honest source provenance in every calendar domain', () => {
+    for (const domain of ['nutrition', 'weight'] as const) {
+      const value = response();
+      firstDay(value)[domain].provenance = {
+        type: 'agent_token',
+        label: 'Connected agent',
+        agentTokenId: null,
+        limitation: null,
+      };
+      expect(() => dataQualityCalendarSchema.parse(value)).toThrow(
+        /Only AgentToken provenance may include an agent token ID/,
+      );
+    }
+
+    const withWorkout = response();
+    firstDay(withWorkout).workouts = [
+      {
+        id: 'session-1',
+        kind: 'workout_session',
+        state: 'completed',
+        name: 'Strength',
+        sessionStatus: 'completed',
+        scheduledWorkoutId: null,
+        sessionId: 'session-1',
+        plannedDate: null,
+        sessionDate: '2026-03-07',
+        relation: 'unlinked',
+        relationLimitation: null,
+        correctionState: 'history_unavailable',
+        startedAt: 1,
+        completedAt: 2,
+        createdAt: 1,
+        updatedAt: 2,
+        provenance: {
+          type: 'not_recorded',
+          label: 'Not recorded',
+          agentTokenId: null,
+          limitation: null,
+        },
+        reasonCodes: [],
+        actions: [],
+      },
+    ];
+    expect(() => dataQualityCalendarSchema.parse(withWorkout)).toThrow(
+      /Unrecorded provenance must explain its limitation/,
+    );
+
+    const withAlgorithm = response();
+    firstDay(withAlgorithm).algorithm.events = [
+      {
+        id: 'check-in-1',
+        kind: 'check_in',
+        state: 'accepted',
+        effectiveDate: '2026-03-07',
+        createdAt: 1,
+        reasonCodes: [],
+        provenance: {
+          type: 'system_derived',
+          label: 'Pulse algorithm',
+          agentTokenId: 'token-1',
+          limitation: null,
+        },
+        actions: [],
+      },
+    ];
+    expect(() => dataQualityCalendarSchema.parse(withAlgorithm)).toThrow(
+      /Only AgentToken provenance may include an agent token ID/,
     );
   });
 

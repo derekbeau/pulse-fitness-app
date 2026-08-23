@@ -133,6 +133,7 @@ describe('Adaptive TDEE preview fixtures', () => {
     if (!dataQualityFixture) throw new Error('Missing Data Quality calendar fixture');
     const qualityCalendar = createDataQualityCalendarStore({
       db,
+      sqlite,
       now: () => new Date('2026-08-13T16:30:00.000Z'),
     }).getCalendar(dataQualityFixture.userId, {
       start: '2026-08-09',
@@ -158,15 +159,15 @@ describe('Adaptive TDEE preview fixtures', () => {
         provenance: expect.objectContaining({ type: 'agent_token', label: 'Preview Coach' }),
       }),
     ]);
-    expect(qualityCalendar.days[1]?.weight.corrected).toBe(true);
+    expect(qualityCalendar.days[1]?.weight.correctionState).toBe('history_unavailable');
     expect(qualityCalendar.days[2]?.workouts).toEqual([
       expect.objectContaining({ state: 'planned' }),
     ]);
     expect(qualityCalendar.days[3]?.workouts).toEqual([
-      expect.objectContaining({ state: 'corrected' }),
+      expect.objectContaining({ state: 'completed', correctionState: 'history_unavailable' }),
     ]);
     expect(qualityCalendar.days[4]?.algorithm).toMatchObject({
-      state: 'updating',
+      state: 'learning',
       nutritionEvidenceState: 'pending_cutoff',
       weightEvidenceState: 'pending_cutoff',
     });

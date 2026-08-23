@@ -1,7 +1,6 @@
 import {
   adaptiveProgramCalculationSchema,
   adaptiveRecommendationSchema,
-  adaptiveWeeklyReviewSnapshotSchema,
   calculateAdaptiveDateBoundaries,
   calculateCanonicalTrendWeightSeries,
   convertWeightFromKg,
@@ -16,6 +15,7 @@ import {
   type DataQualityEvidenceState,
   type WeightUnit,
 } from '@pulse/shared';
+import type Database from 'better-sqlite3';
 import { and, asc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
@@ -37,10 +37,12 @@ import {
   workoutTemplates,
 } from '../../db/schema/index.js';
 import {
+  adaptiveAnalyticsStateForPoint,
   getDateKeyInTimeZone,
   resolveEffectiveProgramRevisions,
   type EffectiveProgramRevision,
 } from '../adaptive-nutrition/analytics-store.js';
+import { createAdaptiveWeeklyReviewStore } from '../adaptive-nutrition/review-store.js';
 
 type DataQualityDatabase = BetterSQLite3Database<typeof schema>;
 
@@ -75,6 +77,20 @@ const preferenceTimeZone = (preferences: unknown) => {
 
 const unique = <T>(values: readonly T[]) => [...new Set(values)];
 
+const notRecordedProvenance = (limitation: string) => ({
+  type: 'not_recorded' as const,
+  label: 'Not recorded',
+  agentTokenId: null,
+  limitation,
+});
+
+const systemProvenance = {
+  type: 'system_derived' as const,
+  label: 'Pulse algorithm',
+  agentTokenId: null,
+  limitation: null,
+};
+
 const nutritionStatusAction = (date: string) => ({
   kind: 'set_nutrition_status' as const,
   label: 'Review nutrition day status',
@@ -101,6 +117,16 @@ const reviewActionState = (
   return 'pending';
 };
 
+const monthGridRange = (date: string) => {
+  const monthStart = `${date.slice(0, 7)}-01`;
+  const first = new Date(`${monthStart}T00:00:00.000Z`);
+  const start = addDays(monthStart, -((first.getUTCDay() + 6) % 7));
+  const next = new Date(first);
+  next.setUTCMonth(next.getUTCMonth() + 1);
+  const last = addDays(next.toISOString().slice(0, 10), -1);
+  return { start, end: addDays(last, (7 - new Date(`${last}T00:00:00.000Z`).getUTCDay()) % 7) };
+};
+
 const programRevisionForDate = (
   revisions: EffectiveProgramRevision[],
   date: string,
@@ -121,17 +147,20 @@ const algorithmStateForDate = (
   const revision = programRevisionForDate(revisions, date);
   if (!revision) return revisions.length === 0 ? 'no_program' : 'pre_program';
   if (revision.snapshot.status === 'paused') return 'holding';
-  if (eligible) return 'updating';
   const latest = checkIns
-    .filter((checkIn) => checkIn.localDate <= date)
+    .filter(
+      (checkIn) =>
+        checkIn.localDate <= date && ['accepted', 'held', 'pending'].includes(checkIn.status),
+    )
     .sort(
       (left, right) =>
         left.localDate.localeCompare(right.localDate) || left.createdAt - right.createdAt,
     )
     .at(-1);
   if (!latest) return 'learning';
-  if (latest.status === 'held' || latest.calculationState === 'holding') return 'holding';
-  if (latest.status === 'accepted' && latest.calculationState === 'updating') return 'holding';
+  const state = adaptiveAnalyticsStateForPoint(latest, latest.calculationState);
+  if (state === 'holding') return 'holding';
+  if (state === 'updating') return eligible ? 'updating' : 'holding';
   return 'learning';
 };
 
@@ -149,7 +178,7 @@ const summaryFor = (days: DataQualityCalendarDay[]): DataQualityCalendar['summar
     missing: days.filter((day) => day.weight.entryId === null).length,
     pending: days.filter((day) => day.weight.evidenceState === 'pending_cutoff').length,
     excluded: days.filter((day) => day.weight.evidenceState === 'excluded').length,
-    corrected: days.filter((day) => day.weight.corrected).length,
+    corrected: days.filter((day) => day.weight.correctionState === 'confirmed').length,
   },
   workout: {
     planned: days.flatMap((day) => day.workouts).filter((item) => item.state === 'planned').length,
@@ -174,19 +203,24 @@ const summaryFor = (days: DataQualityCalendarDay[]): DataQualityCalendar['summar
     ).length,
   },
   contextDays: days.filter((day) => day.contexts.length > 0).length,
+  intervalLabel: 'Visible calendar grid',
 });
 
 export const createDataQualityCalendarStore = (dependencies: {
   db: DataQualityDatabase;
+  sqlite?: Database.Database;
   now?: () => Date;
   onQuery?: (source: string) => void;
 }) => {
   const { db } = dependencies;
   const now = dependencies.now ?? (() => new Date());
   const observe = dependencies.onQuery ?? (() => undefined);
+  const reviewStore = dependencies.sqlite
+    ? createAdaptiveWeeklyReviewStore({ db, sqlite: dependencies.sqlite, now })
+    : null;
 
   const getCalendar = (userId: string, rawQuery: DataQualityCalendarQuery): DataQualityCalendar => {
-    const query = dataQualityCalendarQuerySchema.parse(rawQuery);
+    const parsedQuery = dataQualityCalendarQuerySchema.parse(rawQuery);
     observe('user');
     const user = db
       .select({ weightUnit: users.weightUnit, preferences: users.preferences })
@@ -229,13 +263,25 @@ export const createDataQualityCalendarStore = (dependencies: {
         ))
       : [];
     const timeZone =
-      query.timeZone ??
+      parsedQuery.timeZone ??
       programRevisions.at(-1)?.snapshot.timeZone ??
       preferenceTimeZone(user.preferences) ??
       'UTC';
     const today = getDateKeyInTimeZone(now(), timeZone);
+    const bootstrapRange = monthGridRange(today);
+    const query = {
+      start: parsedQuery.start ?? bootstrapRange.start,
+      end: parsedQuery.end ?? bootstrapRange.end,
+      timeZone: parsedQuery.timeZone,
+    };
     const dates = datesBetween(query.start, query.end);
-    const evidenceStart = calculateAdaptiveDateBoundaries(query.start, false).analysisStart;
+    const earliestBoundaries = calculateAdaptiveDateBoundaries(query.start, false);
+    const evidenceStart = earliestBoundaries.analysisStart;
+    const canonicalTrendStart = addDays(query.start, -29);
+    const weightEvidenceStart =
+      earliestBoundaries.warmupStart < canonicalTrendStart
+        ? earliestBoundaries.warmupStart
+        : canonicalTrendStart;
 
     observe('nutrition');
     const nutritionRows = db
@@ -243,6 +289,7 @@ export const createDataQualityCalendarStore = (dependencies: {
         id: nutritionLogs.id,
         date: nutritionLogs.date,
         status: nutritionLogs.status,
+        createdAt: nutritionLogs.createdAt,
         statusUpdatedAt: nutritionLogs.statusUpdatedAt,
         updatedAt: nutritionLogs.updatedAt,
         calories: sql<number>`coalesce(sum(${mealItems.calories}), 0)`,
@@ -279,7 +326,13 @@ export const createDataQualityCalendarStore = (dependencies: {
         updatedAt: bodyWeight.updatedAt,
       })
       .from(bodyWeight)
-      .where(and(eq(bodyWeight.userId, userId), lte(bodyWeight.date, query.end)))
+      .where(
+        and(
+          eq(bodyWeight.userId, userId),
+          gte(bodyWeight.date, weightEvidenceStart),
+          lte(bodyWeight.date, query.end),
+        ),
+      )
       .orderBy(asc(bodyWeight.date), asc(bodyWeight.id))
       .all()
       .map((row) => ({ ...row, weightKg: Number(row.weightKg) }));
@@ -305,7 +358,7 @@ export const createDataQualityCalendarStore = (dependencies: {
     );
 
     observe('scheduled-workouts');
-    const scheduledRows = db
+    const visibleScheduledRows = db
       .select({
         id: scheduledWorkouts.id,
         date: scheduledWorkouts.date,
@@ -324,9 +377,10 @@ export const createDataQualityCalendarStore = (dependencies: {
         ),
       )
       .orderBy(asc(scheduledWorkouts.date), asc(scheduledWorkouts.createdAt))
+      .limit(2_100)
       .all();
     observe('workout-sessions');
-    const sessionRows = db
+    const visibleSessionRows = db
       .select({
         id: workoutSessions.id,
         scheduledWorkoutId: workoutSessions.scheduledWorkoutId,
@@ -348,15 +402,89 @@ export const createDataQualityCalendarStore = (dependencies: {
         ),
       )
       .orderBy(asc(workoutSessions.date), asc(workoutSessions.startedAt))
+      .limit(2_100)
       .all();
+    const linkedScheduleIds = unique(
+      visibleSessionRows
+        .map((session) => session.scheduledWorkoutId)
+        .filter((value): value is string => value !== null),
+    );
+    const relatedScheduledRows = linkedScheduleIds.length
+      ? (observe('related-scheduled-workouts'),
+        db
+          .select({
+            id: scheduledWorkouts.id,
+            date: scheduledWorkouts.date,
+            sessionId: scheduledWorkouts.sessionId,
+            templateName: workoutTemplates.name,
+            createdAt: scheduledWorkouts.createdAt,
+            updatedAt: scheduledWorkouts.updatedAt,
+          })
+          .from(scheduledWorkouts)
+          .leftJoin(workoutTemplates, eq(workoutTemplates.id, scheduledWorkouts.templateId))
+          .where(
+            and(
+              eq(scheduledWorkouts.userId, userId),
+              inArray(scheduledWorkouts.id, linkedScheduleIds),
+            ),
+          )
+          .orderBy(asc(scheduledWorkouts.date), asc(scheduledWorkouts.createdAt))
+          .limit(2_100)
+          .all())
+      : [];
+    const linkedSessionIds = unique(
+      visibleScheduledRows
+        .map((schedule) => schedule.sessionId)
+        .filter((value): value is string => value !== null),
+    );
+    const relatedSessionRows = linkedSessionIds.length
+      ? (observe('related-workout-sessions'),
+        db
+          .select({
+            id: workoutSessions.id,
+            scheduledWorkoutId: workoutSessions.scheduledWorkoutId,
+            name: workoutSessions.name,
+            date: workoutSessions.date,
+            status: workoutSessions.status,
+            startedAt: workoutSessions.startedAt,
+            completedAt: workoutSessions.completedAt,
+            createdAt: workoutSessions.createdAt,
+            updatedAt: workoutSessions.updatedAt,
+          })
+          .from(workoutSessions)
+          .where(
+            and(
+              eq(workoutSessions.userId, userId),
+              isNull(workoutSessions.deletedAt),
+              inArray(workoutSessions.id, linkedSessionIds),
+            ),
+          )
+          .orderBy(
+            asc(workoutSessions.date),
+            asc(workoutSessions.startedAt),
+            asc(workoutSessions.id),
+          )
+          .limit(2_100)
+          .all())
+      : [];
+    const scheduledRows = [
+      ...new Map(
+        [...visibleScheduledRows, ...relatedScheduledRows].map((row) => [row.id, row]),
+      ).values(),
+    ];
+    const sessionRows = [
+      ...new Map(
+        [...visibleSessionRows, ...relatedSessionRows].map((row) => [row.id, row]),
+      ).values(),
+    ];
     const sessionsByDate = new Map<string, typeof sessionRows>();
-    for (const row of sessionRows) {
+    for (const row of visibleSessionRows) {
       const existing = sessionsByDate.get(row.date) ?? [];
       existing.push(row);
       sessionsByDate.set(row.date, existing);
     }
     const schedulesByDate = new Map<string, typeof scheduledRows>();
-    for (const row of scheduledRows) {
+    for (const row of visibleScheduledRows) {
       const existing = schedulesByDate.get(row.date) ?? [];
       existing.push(row);
       schedulesByDate.set(row.date, existing);
@@ -390,14 +518,20 @@ export const createDataQualityCalendarStore = (dependencies: {
             and(
               eq(adaptiveNutritionCheckIns.userId, userId),
               eq(adaptiveNutritionCheckIns.programId, program.id),
-              gte(adaptiveNutritionCheckIns.localDate, query.start),
-              lte(adaptiveNutritionCheckIns.localDate, query.end),
+              or(
+                and(
+                  gte(adaptiveNutritionCheckIns.localDate, query.start),
+                  lte(adaptiveNutritionCheckIns.localDate, query.end),
+                ),
+                sql`json_extract(${adaptiveNutritionCheckIns.proposedTargets}, '$.effectiveDate') between ${query.start} and ${query.end}`,
+              ),
             ),
           )
           .orderBy(
             asc(adaptiveNutritionCheckIns.localDate),
             asc(adaptiveNutritionCheckIns.createdAt),
           )
+          .limit(2_100)
           .all())
       : [];
     const checkIns = priorCheckIn
@@ -445,6 +579,17 @@ export const createDataQualityCalendarStore = (dependencies: {
       existing.push(action);
       actionsByReview.set(action.reviewId, existing);
     }
+    const projectedReview = reviewStore
+      ? ([...overlappingReviews]
+          .reverse()
+          .filter((review) =>
+            ['pending', 'awaiting_clarification', 'deferred'].includes(
+              reviewActionState(actionsByReview.get(review.id) ?? []),
+            ),
+          )
+          .slice(0, 1)
+          .map((review) => reviewStore.get(userId, review.id))[0] ?? null)
+      : null;
 
     const nutritionEvidence = new Map<
       string,
@@ -484,36 +629,10 @@ export const createDataQualityCalendarStore = (dependencies: {
         });
       }
     }
-    for (const review of overlappingReviews) {
-      const snapshot = adaptiveWeeklyReviewSnapshotSchema.parse(review.snapshot);
-      const recommendation = snapshot.modules.find((module) => module.kind === 'recommendation');
-      if (recommendation?.kind === 'recommendation') {
-        for (const date of recommendation.causalBreakdown.includedNutritionDates) {
-          nutritionEvidence.set(date, {
-            state: 'usable',
-            reasonCodes: [],
-            suspectedPartial: false,
-          });
-        }
-        for (const item of recommendation.causalBreakdown.excludedNutrition) {
-          nutritionEvidence.set(item.localDate, {
-            state: 'excluded',
-            reasonCodes: item.reasonCodes,
-            suspectedPartial: false,
-          });
-        }
-        for (const date of recommendation.causalBreakdown.includedWeightDates) {
-          weightEvidence.set(date, { state: 'usable', reasonCodes: [], suspect: false });
-        }
-        for (const item of recommendation.causalBreakdown.excludedWeight) {
-          weightEvidence.set(item.localDate, {
-            state: 'excluded',
-            reasonCodes: item.reasonCodes,
-            suspect: item.reasonCodes.some((code) => code.includes('SUSPECT')),
-          });
-        }
-      }
-      const dataQuality = snapshot.modules.find((module) => module.kind === 'data_quality');
+    if (projectedReview && projectedReview.state !== 'stale') {
+      const dataQuality = projectedReview.snapshot.modules.find(
+        (module) => module.kind === 'data_quality',
+      );
       if (dataQuality?.kind === 'data_quality') {
         for (const evidence of dataQuality.evidence) {
           if (evidence.kind !== 'nutrition') continue;
@@ -596,6 +715,7 @@ export const createDataQualityCalendarStore = (dependencies: {
             asc(adaptiveNutritionReviewContexts.createdAt),
             asc(adaptiveNutritionReviewContexts.id),
           )
+          .limit(4_201)
           .all())
       : [];
 
@@ -638,6 +758,8 @@ export const createDataQualityCalendarStore = (dependencies: {
       existing.push(review);
       reviewsByDate.set(review.reviewLocalDate, existing);
     }
+    const scheduleById = new Map(scheduledRows.map((row) => [row.id, row]));
+    const sessionById = new Map(sessionRows.map((row) => [row.id, row]));
 
     const days: DataQualityCalendarDay[] = dates.map((date) => {
       const nutrition = nutritionByDate.get(date);
@@ -662,22 +784,39 @@ export const createDataQualityCalendarStore = (dependencies: {
       const unit = user.weightUnit as WeightUnit;
 
       const sessions = sessionsByDate.get(date) ?? [];
-      const sessionIds = new Set(sessions.map((session) => session.id));
-      const workoutItems: DataQualityCalendarDay['workouts'] = [
-        ...(schedulesByDate.get(date) ?? [])
-          .filter((schedule) => schedule.sessionId === null || !sessionIds.has(schedule.sessionId))
-          .map((schedule) => ({
+      const allWorkoutItems: DataQualityCalendarDay['workouts'] = [
+        ...(schedulesByDate.get(date) ?? []).map((schedule) => {
+          const linkedSession = schedule.sessionId
+            ? sessionById.get(schedule.sessionId)
+            : undefined;
+          const moved = linkedSession !== undefined && linkedSession.date !== schedule.date;
+          return {
             id: schedule.id,
             kind: 'scheduled_workout' as const,
-            state: 'planned' as const,
+            state: moved ? ('moved' as const) : ('planned' as const),
             name: schedule.templateName ?? 'Unavailable scheduled workout',
-            sessionStatus: null,
+            sessionStatus: linkedSession?.status ?? null,
             scheduledWorkoutId: schedule.id,
             sessionId: schedule.sessionId,
+            plannedDate: schedule.date,
+            sessionDate: linkedSession?.date ?? null,
+            relation:
+              linkedSession === undefined
+                ? ('unlinked' as const)
+                : moved
+                  ? ('linked_different_date' as const)
+                  : ('linked_same_date' as const),
+            relationLimitation: moved
+              ? 'Pulse retains the linked plan and session dates, but no immutable movement event is recorded.'
+              : null,
+            correctionState: 'not_applicable' as const,
             startedAt: null,
             completedAt: null,
             createdAt: schedule.createdAt,
             updatedAt: schedule.updatedAt,
+            provenance: notRecordedProvenance(
+              'Historical creator provenance is not retained for scheduled workouts.',
+            ),
             reasonCodes: [],
             actions: [
               {
@@ -687,21 +826,22 @@ export const createDataQualityCalendarStore = (dependencies: {
                 method: 'navigate' as const,
               },
             ],
-          })),
+          };
+        }),
         ...sessions.map((session) => {
-          const corrected =
-            session.status === 'completed' &&
-            session.completedAt !== null &&
-            session.updatedAt > session.completedAt;
-          const state = corrected
-            ? ('corrected' as const)
-            : session.status === 'completed'
+          const linkedSchedule = session.scheduledWorkoutId
+            ? scheduleById.get(session.scheduledWorkoutId)
+            : undefined;
+          const state =
+            session.status === 'completed'
               ? ('completed' as const)
               : session.status === 'cancelled'
                 ? ('cancelled' as const)
                 : session.status === 'paused'
                   ? ('paused' as const)
-                  : ('in_progress' as const);
+                  : session.status === 'scheduled'
+                    ? ('scheduled' as const)
+                    : ('in_progress' as const);
           return {
             id: session.id,
             kind: 'workout_session' as const,
@@ -710,15 +850,34 @@ export const createDataQualityCalendarStore = (dependencies: {
             sessionStatus: session.status,
             scheduledWorkoutId: session.scheduledWorkoutId,
             sessionId: session.id,
+            plannedDate: linkedSchedule?.date ?? null,
+            sessionDate: session.date,
+            relation:
+              linkedSchedule === undefined
+                ? ('unlinked' as const)
+                : linkedSchedule.date === session.date
+                  ? ('linked_same_date' as const)
+                  : ('linked_different_date' as const),
+            relationLimitation:
+              linkedSchedule && linkedSchedule.date !== session.date
+                ? 'Pulse retains the linked plan and session dates, but no immutable movement event is recorded.'
+                : null,
+            correctionState:
+              session.status === 'completed'
+                ? ('history_unavailable' as const)
+                : ('not_applicable' as const),
             startedAt: session.startedAt,
             completedAt: session.completedAt,
             createdAt: session.createdAt,
             updatedAt: session.updatedAt,
-            reasonCodes: corrected ? ['SESSION_CORRECTED_AFTER_COMPLETION'] : [],
+            provenance: notRecordedProvenance(
+              'Historical creator provenance is not retained for workout sessions.',
+            ),
+            reasonCodes: [],
             actions: [
               {
                 kind: 'correct_workout' as const,
-                label: corrected ? 'Review corrected workout' : 'Review workout',
+                label: 'Review workout',
                 href: `/workouts/session/${session.id}`,
                 method: 'navigate' as const,
               },
@@ -726,6 +885,9 @@ export const createDataQualityCalendarStore = (dependencies: {
           };
         }),
       ];
+      const workoutItems = allWorkoutItems
+        .sort((left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id))
+        .slice(0, 50);
 
       const checkInEvents: DataQualityCalendarDay['algorithm']['events'] = rangeCheckIns
         .filter((checkIn) => {
@@ -749,6 +911,7 @@ export const createDataQualityCalendarStore = (dependencies: {
             effectiveDate,
             createdAt: checkIn.createdAt,
             reasonCodes: checkIn.reasonCodes,
+            provenance: systemProvenance,
             actions: [
               {
                 kind: 'view_check_in' as const,
@@ -762,7 +925,8 @@ export const createDataQualityCalendarStore = (dependencies: {
       const reviewEvents: DataQualityCalendarDay['algorithm']['events'] = (
         reviewsByDate.get(date) ?? []
       ).map((review) => {
-        const state = reviewActionState(actionsByReview.get(review.id) ?? []);
+        const current = projectedReview?.id === review.id ? projectedReview : null;
+        const state = current?.state ?? reviewActionState(actionsByReview.get(review.id) ?? []);
         return {
           id: review.id,
           kind: 'weekly_review' as const,
@@ -770,6 +934,7 @@ export const createDataQualityCalendarStore = (dependencies: {
           effectiveDate: review.reviewLocalDate,
           createdAt: review.createdAt,
           reasonCodes: [],
+          provenance: systemProvenance,
           actions: [
             {
               kind: 'view_review' as const,
@@ -777,9 +942,22 @@ export const createDataQualityCalendarStore = (dependencies: {
               href: `/nutrition/reviews/${review.id}`,
               method: 'navigate' as const,
             },
+            ...(state === 'stale'
+              ? [
+                  {
+                    kind: 'refresh_review' as const,
+                    label: 'Refresh stale weekly review',
+                    href: `/nutrition/reviews/${review.id}`,
+                    method: 'navigate' as const,
+                  },
+                ]
+              : []),
           ],
         };
       });
+      const allAlgorithmEvents = [...checkInEvents, ...reviewEvents].sort(
+        (left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id),
+      );
       const eligibility = eligibilityByDate.get(date);
       const state =
         date > today && programRevisions.length > 0
@@ -812,8 +990,14 @@ export const createDataQualityCalendarStore = (dependencies: {
             : null,
           mealCount: nutrition ? Number(nutrition.mealCount) : null,
           itemCount: nutrition ? Number(nutrition.itemCount) : null,
+          createdAt: nutrition?.createdAt ?? null,
           statusUpdatedAt: nutrition?.statusUpdatedAt ?? null,
           updatedAt: nutrition?.updatedAt ?? null,
+          provenance: nutrition
+            ? notRecordedProvenance(
+                'Historical creator provenance is not retained for nutrition logs.',
+              )
+            : notRecordedProvenance('No nutrition source record exists for this date.'),
           reasonCodes: recordedNutritionState?.reasonCodes ?? [],
           actions: [nutritionStatusAction(date), addContextAction(date)],
         },
@@ -823,7 +1007,7 @@ export const createDataQualityCalendarStore = (dependencies: {
           weight: weight ? convertWeightFromKg(weight.weightKg, unit) : null,
           unit: weight ? unit : null,
           trendWeight: trendWeightKg === null ? null : convertWeightFromKg(trendWeightKg, unit),
-          corrected: weight ? weight.updatedAt > weight.createdAt : false,
+          correctionState: weight ? 'history_unavailable' : 'not_applicable',
           suspect: recordedWeightState?.suspect ?? false,
           stale:
             weight !== undefined &&
@@ -831,6 +1015,11 @@ export const createDataQualityCalendarStore = (dependencies: {
             visibleWeightRows.at(-1)?.date === date,
           createdAt: weight?.createdAt ?? null,
           updatedAt: weight?.updatedAt ?? null,
+          provenance: weight
+            ? notRecordedProvenance(
+                'Historical creator provenance is not retained for weight measurements.',
+              )
+            : notRecordedProvenance('No weight source record exists for this date.'),
           reasonCodes: recordedWeightState?.reasonCodes ?? [],
           actions: weight
             ? [
@@ -857,11 +1046,10 @@ export const createDataQualityCalendarStore = (dependencies: {
             ...(recordedNutritionState?.reasonCodes ?? []),
             ...(recordedWeightState?.reasonCodes ?? []),
           ]),
-          events: [...checkInEvents, ...reviewEvents].sort(
-            (left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id),
-          ),
+          events: allAlgorithmEvents.slice(0, 50),
+          omittedEventCount: Math.max(0, allAlgorithmEvents.length - 50),
         },
-        contexts: (contextsByDate.get(date) ?? []).map((context) => ({
+        contexts: (contextsByDate.get(date) ?? []).slice(0, 100).map((context) => ({
           id: context.id,
           category: context.category,
           note: context.note,
@@ -884,11 +1072,14 @@ export const createDataQualityCalendarStore = (dependencies: {
             },
           ],
         })),
+        omittedWorkoutCount: Math.max(0, allWorkoutItems.length - workoutItems.length),
+        omittedContextCount: Math.max(0, (contextsByDate.get(date) ?? []).length - 100),
       };
     });
 
     return dataQualityCalendarSchema.parse({
       range: { startDate: query.start, endDate: query.end },
+      today,
       timeZone,
       days,
       summary: summaryFor(days),
@@ -899,6 +1090,6 @@ export const createDataQualityCalendarStore = (dependencies: {
 };
 
 export const getDataQualityCalendar = async (userId: string, query: DataQualityCalendarQuery) => {
-  const { db } = await import('../../db/index.js');
-  return createDataQualityCalendarStore({ db }).getCalendar(userId, query);
+  const { db, sqlite } = await import('../../db/index.js');
+  return createDataQualityCalendarStore({ db, sqlite }).getCalendar(userId, query);
 };

@@ -74,14 +74,18 @@ function monitorPage(page: Page) {
 }
 
 async function expectNoOverflow(page: Page) {
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
-  ).toBeTruthy();
-  for (const frame of await page.locator('[data-slot="chart-frame"]').all()) {
-    expect(await frame.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(
-      true,
-    );
-  }
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1))
+    .toBe(true);
+  await expect
+    .poll(() =>
+      page
+        .locator('[data-slot="chart-frame"]')
+        .evaluateAll((frames) =>
+          frames.every((frame) => frame.scrollWidth <= frame.clientWidth + 1),
+        ),
+    )
+    .toBe(true);
 }
 
 async function expectRangeTargets(page: Page, label: string) {

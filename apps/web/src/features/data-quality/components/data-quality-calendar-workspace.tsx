@@ -73,14 +73,6 @@ const monthGridRange = (date: string) => {
   const sundayOffset = (7 - parseDateKey(last).getUTCDay()) % 7;
   return { start, end: addDays(last, sundayOffset) };
 };
-const browserToday = () => {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date());
-  return `${parts.find((part) => part.type === 'year')?.value}-${parts.find((part) => part.type === 'month')?.value}-${parts.find((part) => part.type === 'day')?.value}`;
-};
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: 'UTC',
   weekday: 'long',
@@ -101,6 +93,12 @@ const formatTimestamp = (value: number, timeZone: string) =>
     timeStyle: 'short',
   }).format(new Date(value));
 const humanize = (value: string) => value.replaceAll('_', ' ');
+const provenanceLabel = (value: { label: string; limitation: string | null }) => (
+  <>
+    {value.label}
+    {value.limitation ? ` · ${value.limitation}` : ''}
+  </>
+);
 
 const nutritionLabel = (day: DataQualityCalendarDay) => {
   if (day.nutrition.evidenceState === 'pending_cutoff') return 'Pending cutoff';
@@ -111,7 +109,7 @@ const weightLabel = (day: DataQualityCalendarDay) => {
   if (day.weight.evidenceState === 'pending_cutoff') return 'Pending cutoff';
   if (day.weight.suspect) return 'Suspect';
   if (day.weight.evidenceState === 'excluded') return 'Excluded';
-  if (day.weight.corrected) return 'Corrected';
+  if (day.weight.correctionState === 'confirmed') return 'Corrected';
   return day.weight.entryId ? 'Logged' : 'No weigh-in';
 };
 const workoutLabel = (day: DataQualityCalendarDay) => {
@@ -326,17 +324,22 @@ export function DataQualityCalendarWorkspace() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedDate = searchParams.get('date');
   const initialDate =
-    requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : browserToday();
-  const [visibleMonth, setVisibleMonth] = useState(() => monthStart(initialDate));
-  const [selectedDate, setSelectedDate] = useState(initialDate);
+    requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : null;
+  const [visibleMonth, setVisibleMonth] = useState<string | null>(() =>
+    initialDate ? monthStart(initialDate) : null,
+  );
+  const [selectedDate, setSelectedDate] = useState<string | null>(initialDate);
   const [domains, setDomains] = useState<Set<Domain>>(
     () => new Set(['nutrition', 'weight', 'workout', 'algorithm', 'context']),
   );
   const [contextOpen, setContextOpen] = useState(searchParams.get('action') === 'context');
-  const range = useMemo(() => monthGridRange(visibleMonth), [visibleMonth]);
-  const calendarQuery = useDataQualityCalendar({ start: range.start, end: range.end });
+  const range = useMemo(() => (visibleMonth ? monthGridRange(visibleMonth) : null), [visibleMonth]);
+  const calendarQuery = useDataQualityCalendar(range ? { start: range.start, end: range.end } : {});
   const calendar = calendarQuery.data;
-  const selectedDay = calendar?.days.find((day) => day.date === selectedDate) ?? calendar?.days[0];
+  const resolvedVisibleMonth = visibleMonth ?? (calendar ? monthStart(calendar.today) : null);
+  const resolvedSelectedDate = selectedDate ?? calendar?.today ?? null;
+  const selectedDay =
+    calendar?.days.find((day) => day.date === resolvedSelectedDate) ?? calendar?.days[0];
 
   const selectDate = (date: string) => {
     setSelectedDate(date);
@@ -347,7 +350,8 @@ export function DataQualityCalendarWorkspace() {
   };
 
   const changeMonth = (amount: number) => {
-    const nextMonth = addMonths(visibleMonth, amount);
+    if (!resolvedVisibleMonth) return;
+    const nextMonth = addMonths(resolvedVisibleMonth, amount);
     setVisibleMonth(nextMonth);
     selectDate(nextMonth);
   };
@@ -396,6 +400,7 @@ export function DataQualityCalendarWorkspace() {
               <Button
                 aria-label="Previous month"
                 className="min-h-11 min-w-11"
+                disabled={!resolvedVisibleMonth}
                 onClick={() => changeMonth(-1)}
                 size="icon"
                 type="button"
@@ -407,11 +412,14 @@ export function DataQualityCalendarWorkspace() {
                 className="min-w-40 text-center text-lg font-semibold"
                 id="data-quality-month-heading"
               >
-                {monthFormatter.format(parseDateKey(visibleMonth))}
+                {resolvedVisibleMonth
+                  ? monthFormatter.format(parseDateKey(resolvedVisibleMonth))
+                  : 'Loading…'}
               </h2>
               <Button
                 aria-label="Next month"
                 className="min-h-11 min-w-11"
+                disabled={!resolvedVisibleMonth}
                 onClick={() => changeMonth(1)}
                 size="icon"
                 type="button"
@@ -429,7 +437,7 @@ export function DataQualityCalendarWorkspace() {
                 id="data-quality-jump-date"
                 onChange={(event) => jumpTo(event.target.value)}
                 type="date"
-                value={selectedDate}
+                value={resolvedSelectedDate ?? ''}
               />
             </div>
           </div>
@@ -486,9 +494,13 @@ export function DataQualityCalendarWorkspace() {
           </div>
         ) : calendar ? (
           <CardContent className="space-y-5 p-3 sm:p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {calendar.summary.intervalLabel} summary · {formatDate(calendar.range.startDate)}–
+              {formatDate(calendar.range.endDate)}
+            </p>
             <div
               className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6"
-              aria-label="Month summary"
+              aria-label={calendar.summary.intervalLabel}
             >
               {[
                 ['Complete nutrition', calendar.summary.nutrition.complete],
@@ -517,67 +529,77 @@ export function DataQualityCalendarWorkspace() {
             <section
               aria-labelledby="data-quality-month-heading"
               aria-busy={calendarQuery.isFetching}
+              className="min-w-0 max-w-full overflow-hidden [contain:inline-size_layout_paint]"
             >
-              <div className="grid grid-cols-7 gap-1 sm:gap-2">
-                {DAY_LABELS.map((label) => (
-                  <p
-                    className="py-1 text-center text-[0.65rem] font-bold uppercase tracking-[0.16em] text-muted-foreground"
-                    key={label}
-                  >
-                    {label}
-                  </p>
-                ))}
-                {calendar.days.map((day) => {
-                  const inMonth = day.date.slice(0, 7) === visibleMonth.slice(0, 7);
-                  const selected = day.date === selectedDay?.date;
-                  return (
-                    <button
-                      aria-current={day.isToday ? 'date' : undefined}
-                      aria-label={`${formatDate(day.date)}. Nutrition ${nutritionLabel(day)}. Weight ${weightLabel(day)}. Workout ${workoutLabel(day)}. Algorithm ${algorithmLabel(day)}. ${day.contexts.length} context record${day.contexts.length === 1 ? '' : 's'}.`}
-                      aria-pressed={selected}
-                      className={cn(
-                        'min-h-20 min-w-0 rounded-xl border border-border/70 p-1.5 text-left transition-colors sm:min-h-28 sm:p-2',
-                        inMonth ? 'bg-card hover:border-primary/45' : 'bg-secondary/20 opacity-55',
-                        selected && 'border-primary bg-primary/8 ring-2 ring-primary/20',
-                        day.isToday && 'outline outline-2 outline-offset-1 outline-primary/35',
-                      )}
-                      data-date={day.date}
-                      key={day.date}
-                      onClick={() => selectDate(day.date)}
-                      type="button"
+              <div
+                className="w-full min-w-0 max-w-full overflow-x-auto pb-2"
+                data-testid="data-quality-calendar-scroller"
+              >
+                <div className="grid min-w-[336px] grid-cols-7 gap-1 sm:min-w-0 sm:gap-2">
+                  {DAY_LABELS.map((label) => (
+                    <p
+                      className="py-1 text-center text-[0.65rem] font-bold uppercase tracking-[0.16em] text-muted-foreground"
+                      key={label}
                     >
-                      <span className="block text-xs font-semibold tabular-nums sm:text-sm">
-                        {Number(day.date.slice(-2))}
-                      </span>
-                      <span className="mt-1 flex flex-col items-start gap-0.5 sm:gap-1">
-                        {domains.has('nutrition') ? (
-                          <Indicator domain="nutrition" label={nutritionLabel(day)} />
-                        ) : null}
-                        {domains.has('weight') ? (
-                          <Indicator domain="weight" label={weightLabel(day)} />
-                        ) : null}
-                        {domains.has('workout') ? (
-                          <Indicator domain="workout" label={workoutLabel(day)} />
-                        ) : null}
-                        {domains.has('algorithm') ? (
-                          <Indicator domain="algorithm" label={algorithmLabel(day)} />
-                        ) : null}
-                        {domains.has('context') && day.contexts.length > 0 ? (
-                          <Indicator
-                            domain="context"
-                            label={`${day.contexts.length} note${day.contexts.length === 1 ? '' : 's'}`}
-                          />
-                        ) : null}
-                      </span>
-                    </button>
-                  );
-                })}
+                      {label}
+                    </p>
+                  ))}
+                  {calendar.days.map((day) => {
+                    const inMonth = day.date.slice(0, 7) === resolvedVisibleMonth?.slice(0, 7);
+                    const selected = day.date === selectedDay?.date;
+                    return (
+                      <button
+                        aria-current={day.isToday ? 'date' : undefined}
+                        aria-label={`${formatDate(day.date)}. Nutrition ${nutritionLabel(day)}. Weight ${weightLabel(day)}. Workout ${workoutLabel(day)}. Algorithm ${algorithmLabel(day)}. ${day.contexts.length} context record${day.contexts.length === 1 ? '' : 's'}.`}
+                        aria-pressed={selected}
+                        className={cn(
+                          'min-h-20 min-w-11 rounded-xl border border-border/70 p-1.5 text-left transition-colors sm:min-h-28 sm:p-2',
+                          inMonth
+                            ? 'bg-card hover:border-primary/45'
+                            : 'bg-secondary/20 opacity-55',
+                          selected && 'border-primary bg-primary/8 ring-2 ring-primary/20',
+                          day.isToday && 'outline outline-2 outline-offset-1 outline-primary/35',
+                        )}
+                        data-date={day.date}
+                        key={day.date}
+                        onClick={() => selectDate(day.date)}
+                        type="button"
+                      >
+                        <span className="block text-xs font-semibold tabular-nums sm:text-sm">
+                          {Number(day.date.slice(-2))}
+                        </span>
+                        <span className="mt-1 flex flex-col items-start gap-0.5 sm:gap-1">
+                          {domains.has('nutrition') ? (
+                            <Indicator domain="nutrition" label={nutritionLabel(day)} />
+                          ) : null}
+                          {domains.has('weight') ? (
+                            <Indicator domain="weight" label={weightLabel(day)} />
+                          ) : null}
+                          {domains.has('workout') ? (
+                            <Indicator domain="workout" label={workoutLabel(day)} />
+                          ) : null}
+                          {domains.has('algorithm') ? (
+                            <Indicator domain="algorithm" label={algorithmLabel(day)} />
+                          ) : null}
+                          {domains.has('context') && day.contexts.length > 0 ? (
+                            <Indicator
+                              domain="context"
+                              label={`${day.contexts.length} note${day.contexts.length === 1 ? '' : 's'}`}
+                            />
+                          ) : null}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <p className="mt-3 text-sm text-muted-foreground" aria-live="polite">
                 {calendar.timeZone} · {calendar.days.length} dates ·{' '}
                 {calendarQuery.isFetching
                   ? 'Checking for updates…'
-                  : `Selected ${formatDate(selectedDay?.date ?? selectedDate)}`}
+                  : selectedDay
+                    ? `Selected ${formatDate(selectedDay.date)}`
+                    : 'No date selected'}
               </p>
             </section>
           </CardContent>
@@ -646,6 +668,21 @@ export function DataQualityCalendarWorkspace() {
                         : 'Not available',
                     },
                     {
+                      label: 'Nutrition log ID',
+                      value: selectedDay.nutrition.logId ?? 'Not recorded',
+                    },
+                    {
+                      label: 'Source',
+                      value: provenanceLabel(selectedDay.nutrition.provenance),
+                    },
+                    {
+                      label: 'Recorded',
+                      value:
+                        selectedDay.nutrition.createdAt === null
+                          ? 'Not available'
+                          : formatTimestamp(selectedDay.nutrition.createdAt, calendar.timeZone),
+                    },
+                    {
                       label: 'Last updated',
                       value:
                         selectedDay.nutrition.updatedAt === null
@@ -686,10 +723,19 @@ export function DataQualityCalendarWorkspace() {
                       value: humanize(selectedDay.weight.evidenceState),
                     },
                     {
+                      label: 'Weight entry ID',
+                      value: selectedDay.weight.entryId ?? 'Not recorded',
+                    },
+                    {
+                      label: 'Source',
+                      value: provenanceLabel(selectedDay.weight.provenance),
+                    },
+                    {
                       label: 'Correction state',
-                      value: selectedDay.weight.corrected
-                        ? 'Retained row was corrected'
-                        : 'No retained correction',
+                      value:
+                        selectedDay.weight.correctionState === 'history_unavailable'
+                          ? 'Correction history unavailable'
+                          : humanize(selectedDay.weight.correctionState),
                     },
                     {
                       label: 'Suspect / stale',
@@ -735,6 +781,39 @@ export function DataQualityCalendarWorkspace() {
                             ? ` · Updated ${formatTimestamp(workout.updatedAt, calendar.timeZone)}`
                             : ''}
                         </p>
+                        <dl className="mt-2 grid gap-1 text-xs text-muted-foreground">
+                          <div>
+                            <dt className="inline font-medium text-foreground">Relation IDs:</dt>{' '}
+                            <dd className="inline">
+                              plan {workout.scheduledWorkoutId ?? 'Not recorded'} · session{' '}
+                              {workout.sessionId ?? 'Not recorded'}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="inline font-medium text-foreground">Dates:</dt>{' '}
+                            <dd className="inline">
+                              planned {workout.plannedDate ?? 'Not recorded'} · session{' '}
+                              {workout.sessionDate ?? 'Not recorded'}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="inline font-medium text-foreground">Source:</dt>{' '}
+                            <dd className="inline">{provenanceLabel(workout.provenance)}</dd>
+                          </div>
+                          <div>
+                            <dt className="inline font-medium text-foreground">Correction:</dt>{' '}
+                            <dd className="inline">
+                              {workout.correctionState === 'history_unavailable'
+                                ? 'Correction history unavailable'
+                                : humanize(workout.correctionState)}
+                            </dd>
+                          </div>
+                        </dl>
+                        {workout.relationLimitation ? (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {workout.relationLimitation}
+                          </p>
+                        ) : null}
                         <ReasonList codes={workout.reasonCodes} />
                         <Button asChild className="mt-3 min-h-11" size="sm" variant="outline">
                           <Link
@@ -751,6 +830,12 @@ export function DataQualityCalendarWorkspace() {
                     ))}
                   </ul>
                 )}
+                {selectedDay.omittedWorkoutCount > 0 ? (
+                  <p className="text-muted-foreground">
+                    {selectedDay.omittedWorkoutCount} additional workout records are omitted from
+                    this bounded view.
+                  </p>
+                ) : null}
               </DomainSection>
             ) : null}
 
@@ -771,7 +856,12 @@ export function DataQualityCalendarWorkspace() {
                       label: 'Weight evidence',
                       value: humanize(selectedDay.algorithm.weightEvidenceState),
                     },
-                    { label: 'Decision events', value: selectedDay.algorithm.events.length },
+                    {
+                      label: 'Decision events',
+                      value:
+                        selectedDay.algorithm.events.length +
+                        selectedDay.algorithm.omittedEventCount,
+                    },
                   ]}
                 />
                 <ReasonList codes={selectedDay.algorithm.reasonCodes} />
@@ -787,20 +877,23 @@ export function DataQualityCalendarWorkspace() {
                             {humanize(event.kind)} · {humanize(event.state)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Effective {formatDate(event.effectiveDate)}
+                            ID {event.id} · Effective {formatDate(event.effectiveDate)} · Source{' '}
+                            {event.provenance.label}
                           </p>
                         </div>
-                        <Button asChild className="min-h-11" size="sm" variant="outline">
-                          <Link
-                            to={
-                              event.kind === 'weekly_review'
-                                ? `/nutrition/reviews/${event.id}`
-                                : '/nutrition?view=coach'
-                            }
-                          >
-                            View evidence
-                          </Link>
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          {event.actions.map((action) => (
+                            <Button
+                              asChild
+                              className="min-h-11"
+                              key={`${event.id}-${action.kind}`}
+                              size="sm"
+                              variant="outline"
+                            >
+                              <Link to={action.href}>{action.label}</Link>
+                            </Button>
+                          ))}
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -809,6 +902,12 @@ export function DataQualityCalendarWorkspace() {
                     No check-in or weekly-review decision is effective on this date.
                   </p>
                 )}
+                {selectedDay.algorithm.omittedEventCount > 0 ? (
+                  <p className="text-muted-foreground">
+                    {selectedDay.algorithm.omittedEventCount} additional decision events are omitted
+                    from this bounded view.
+                  </p>
+                ) : null}
               </DomainSection>
             ) : null}
 
@@ -856,6 +955,12 @@ export function DataQualityCalendarWorkspace() {
                     ))}
                   </ul>
                 )}
+                {selectedDay.omittedContextCount > 0 ? (
+                  <p className="text-muted-foreground">
+                    {selectedDay.omittedContextCount} additional context records are omitted from
+                    this bounded view.
+                  </p>
+                ) : null}
               </DomainSection>
             ) : null}
           </CardContent>

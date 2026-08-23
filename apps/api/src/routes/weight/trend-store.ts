@@ -275,14 +275,6 @@ export const createTrendWeightStore = (dependencies: { db: TrendDatabase; now?: 
       ...checkIns
         .filter((checkIn) => checkIn.date >= startDate)
         .map((checkIn) => ({ ...checkIn, kind: 'check_in' as const, label: 'Check-in' })),
-      ...entries
-        .filter((entry) => entry.date >= startDate && entry.updatedAt > entry.createdAt)
-        .map((entry) => ({
-          id: `correction-${entry.id}`,
-          date: entry.date,
-          kind: 'correction' as const,
-          label: 'Corrected weigh-in',
-        })),
     ].sort(
       (left, right) =>
         left.date.localeCompare(right.date) ||

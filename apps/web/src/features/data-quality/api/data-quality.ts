@@ -15,12 +15,14 @@ export const dataQualityQueryKeys = {
     [
       ...dataQualityQueryKeys.all,
       'calendar',
-      { start: query.start, end: query.end, timeZone: query.timeZone ?? null },
+      { start: query.start ?? null, end: query.end ?? null, timeZone: query.timeZone ?? null },
     ] as const,
 };
 
 const fetchDataQualityCalendar = (query: DataQualityCalendarQuery, signal?: AbortSignal) => {
-  const params = new URLSearchParams({ start: query.start, end: query.end });
+  const params = new URLSearchParams();
+  if (query.start) params.set('start', query.start);
+  if (query.end) params.set('end', query.end);
   if (query.timeZone) params.set('timeZone', query.timeZone);
   return apiRequest<unknown>(`/api/v1/data-quality/calendar?${params.toString()}`, {
     signal,

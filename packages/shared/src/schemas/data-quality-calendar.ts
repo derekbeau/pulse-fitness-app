@@ -34,12 +34,21 @@ const calendarDaysBetween = (start: string, end: string) => {
 
 export const dataQualityCalendarQuerySchema = z
   .object({
-    start: dateSchema,
-    end: dateSchema,
+    start: dateSchema.optional(),
+    end: dateSchema.optional(),
     timeZone: timeZoneSchema.optional(),
   })
   .strict()
   .superRefine((value, context) => {
+    if ((value.start === undefined) !== (value.end === undefined)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'start and end must be supplied together',
+        path: value.start === undefined ? ['start'] : ['end'],
+      });
+      return;
+    }
+    if (value.start === undefined || value.end === undefined) return;
     if (value.start > value.end) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -84,6 +93,38 @@ export const dataQualityActionSchema = z
   })
   .strict();
 
+export const dataQualityProvenanceSchema = z
+  .object({
+    type: z.enum(['user', 'agent_token', 'imported', 'system_derived', 'not_recorded']),
+    label: labelSchema,
+    agentTokenId: idSchema.nullable(),
+    limitation: z.string().trim().min(1).max(500).nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if ((value.type === 'agent_token') !== (value.agentTokenId !== null)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Only AgentToken provenance may include an agent token ID',
+        path: ['agentTokenId'],
+      });
+    }
+    if (value.type === 'not_recorded' && value.limitation === null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Unrecorded provenance must explain its limitation',
+        path: ['limitation'],
+      });
+    }
+  });
+
+export const dataQualityCorrectionStateSchema = z.enum([
+  'not_applicable',
+  'confirmed',
+  'not_corrected',
+  'history_unavailable',
+]);
+
 export const dataQualityNutritionSchema = z
   .object({
     qualityState: z.enum(['no_records', 'unknown', 'partial', 'complete', 'suspected_partial']),
@@ -93,8 +134,10 @@ export const dataQualityNutritionSchema = z
     totals: nutritionMacroTotalsSchema.nullable(),
     mealCount: z.number().int().nonnegative().nullable(),
     itemCount: z.number().int().nonnegative().nullable(),
+    createdAt: z.number().int().nonnegative().nullable(),
     statusUpdatedAt: z.number().int().nonnegative().nullable(),
     updatedAt: z.number().int().nonnegative().nullable(),
+    provenance: dataQualityProvenanceSchema,
     reasonCodes: z.array(reasonCodeSchema).max(50),
     actions: z.array(dataQualityActionSchema).max(10),
   })
@@ -132,11 +175,12 @@ export const dataQualityWeightSchema = z
     weight: z.number().positive().finite().nullable(),
     unit: weightUnitSchema.nullable(),
     trendWeight: z.number().positive().finite().nullable(),
-    corrected: z.boolean(),
+    correctionState: dataQualityCorrectionStateSchema,
     suspect: z.boolean(),
     stale: z.boolean(),
     createdAt: z.number().int().nonnegative().nullable(),
     updatedAt: z.number().int().nonnegative().nullable(),
+    provenance: dataQualityProvenanceSchema,
     reasonCodes: z.array(reasonCodeSchema).max(50),
     actions: z.array(dataQualityActionSchema).max(10),
   })
@@ -157,7 +201,7 @@ export const dataQualityWeightSchema = z
         path: ['entryId'],
       });
     }
-    if (sourceCount === 0 && (value.corrected || value.suspect)) {
+    if (sourceCount === 0 && (value.correctionState !== 'not_applicable' || value.suspect)) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'A missing weight cannot be corrected or suspect',
@@ -173,6 +217,7 @@ export const dataQualityWorkoutItemSchema = z
     state: z.enum([
       'planned',
       'moved',
+      'scheduled',
       'in_progress',
       'paused',
       'completed',
@@ -183,10 +228,16 @@ export const dataQualityWorkoutItemSchema = z
     sessionStatus: workoutSessionStatusSchema.nullable(),
     scheduledWorkoutId: idSchema.nullable(),
     sessionId: idSchema.nullable(),
+    plannedDate: dateSchema.nullable(),
+    sessionDate: dateSchema.nullable(),
+    relation: z.enum(['unlinked', 'linked_same_date', 'linked_different_date']),
+    relationLimitation: z.string().trim().min(1).max(500).nullable(),
+    correctionState: dataQualityCorrectionStateSchema,
     startedAt: z.number().int().nonnegative().nullable(),
     completedAt: z.number().int().nonnegative().nullable(),
     createdAt: z.number().int().nonnegative(),
     updatedAt: z.number().int().nonnegative(),
+    provenance: dataQualityProvenanceSchema,
     reasonCodes: z.array(reasonCodeSchema).max(50),
     actions: z.array(dataQualityActionSchema).max(10),
   })
@@ -209,6 +260,7 @@ export const dataQualityAlgorithmEventSchema = z
     effectiveDate: dateSchema,
     createdAt: z.number().int().nonnegative(),
     reasonCodes: z.array(reasonCodeSchema).max(50),
+    provenance: dataQualityProvenanceSchema,
     actions: z.array(dataQualityActionSchema).max(10),
   })
   .strict();
@@ -220,6 +272,7 @@ export const dataQualityAlgorithmSchema = z
     weightEvidenceState: dataQualityEvidenceStateSchema,
     reasonCodes: z.array(reasonCodeSchema).max(100),
     events: z.array(dataQualityAlgorithmEventSchema).max(50),
+    omittedEventCount: z.number().int().nonnegative(),
   })
   .strict();
 
@@ -256,6 +309,8 @@ export const dataQualityCalendarDaySchema = z
     workouts: z.array(dataQualityWorkoutItemSchema).max(50),
     algorithm: dataQualityAlgorithmSchema,
     contexts: z.array(dataQualityContextSchema).max(100),
+    omittedWorkoutCount: z.number().int().nonnegative(),
+    omittedContextCount: z.number().int().nonnegative(),
   })
   .strict();
 
@@ -273,6 +328,7 @@ const countSummarySchema = z
 export const dataQualityCalendarSchema = z
   .object({
     range: z.object({ startDate: dateSchema, endDate: dateSchema }).strict(),
+    today: dateSchema,
     timeZone: timeZoneSchema,
     days: z.array(dataQualityCalendarDaySchema).min(1).max(42),
     summary: z
@@ -305,6 +361,7 @@ export const dataQualityCalendarSchema = z
           })
           .strict(),
         contextDays: z.number().int().nonnegative(),
+        intervalLabel: z.string().trim().min(1).max(100),
       })
       .strict(),
   })

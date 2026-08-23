@@ -35,8 +35,15 @@ const emptyDay = (date: string): DataQualityCalendarDay => ({
     totals: null,
     mealCount: null,
     itemCount: null,
+    createdAt: null,
     statusUpdatedAt: null,
     updatedAt: null,
+    provenance: {
+      type: 'not_recorded',
+      label: 'Not recorded',
+      agentTokenId: null,
+      limitation: 'No record.',
+    },
     reasonCodes: [],
     actions: [],
   },
@@ -46,11 +53,17 @@ const emptyDay = (date: string): DataQualityCalendarDay => ({
     weight: null,
     unit: null,
     trendWeight: null,
-    corrected: false,
+    correctionState: 'not_applicable',
     suspect: false,
     stale: false,
     createdAt: null,
     updatedAt: null,
+    provenance: {
+      type: 'not_recorded',
+      label: 'Not recorded',
+      agentTokenId: null,
+      limitation: 'No record.',
+    },
     reasonCodes: [],
     actions: [],
   },
@@ -61,8 +74,11 @@ const emptyDay = (date: string): DataQualityCalendarDay => ({
     weightEvidenceState: 'missing',
     reasonCodes: ['INSUFFICIENT_NUTRITION'],
     events: [],
+    omittedEventCount: 0,
   },
   contexts: [],
+  omittedWorkoutCount: 0,
+  omittedContextCount: 0,
 });
 
 const calendar = (): DataQualityCalendar => {
@@ -77,8 +93,15 @@ const calendar = (): DataQualityCalendar => {
     totals: { calories: 2410, protein: 168, carbs: 265, fat: 71 },
     mealCount: 4,
     itemCount: 12,
+    createdAt: 1_777_000_000_000,
     statusUpdatedAt: 1_777_000_000_000,
     updatedAt: 1_777_000_000_000,
+    provenance: {
+      type: 'not_recorded',
+      label: 'Not recorded',
+      agentTokenId: null,
+      limitation: 'Unavailable.',
+    },
     reasonCodes: ['COMPLETE_NUTRITION_PENDING_COMPLETED_DAY_CUTOFF'],
     actions: [],
   };
@@ -88,11 +111,17 @@ const calendar = (): DataQualityCalendar => {
     weight: 176.8,
     unit: 'lbs',
     trendWeight: 175.9,
-    corrected: true,
+    correctionState: 'history_unavailable',
     suspect: false,
     stale: false,
     createdAt: 1_777_000_000_000,
     updatedAt: 1_777_000_001_000,
+    provenance: {
+      type: 'not_recorded',
+      label: 'Not recorded',
+      agentTokenId: null,
+      limitation: 'Unavailable.',
+    },
     reasonCodes: ['WEIGH_INS_PENDING_COMPLETED_DAY_CUTOFF'],
     actions: [],
   };
@@ -101,14 +130,25 @@ const calendar = (): DataQualityCalendar => {
       id: 'workout-18',
       kind: 'workout_session',
       name: 'Upper strength',
-      state: 'corrected',
+      state: 'completed',
       scheduledWorkoutId: null,
       sessionId: 'workout-18',
       sessionStatus: 'completed',
+      plannedDate: null,
+      sessionDate: '2026-08-18',
+      relation: 'unlinked',
+      relationLimitation: null,
+      correctionState: 'history_unavailable',
       startedAt: 1_777_000_000_000,
       completedAt: 1_777_000_000_500,
       createdAt: 1_777_000_000_000,
       updatedAt: 1_777_000_001_000,
+      provenance: {
+        type: 'not_recorded',
+        label: 'Not recorded',
+        agentTokenId: null,
+        limitation: 'Unavailable.',
+      },
       reasonCodes: ['WORKOUT_RECORD_CORRECTED'],
       actions: [],
     },
@@ -126,9 +166,16 @@ const calendar = (): DataQualityCalendar => {
         effectiveDate: '2026-08-18',
         createdAt: 1_777_000_000_000,
         reasonCodes: [],
+        provenance: {
+          type: 'system_derived',
+          label: 'Pulse algorithm',
+          agentTokenId: null,
+          limitation: null,
+        },
         actions: [],
       },
     ],
+    omittedEventCount: 0,
   };
   selected.contexts = [
     {
@@ -146,6 +193,7 @@ const calendar = (): DataQualityCalendar => {
   ];
   return {
     range: { startDate: '2026-07-27', endDate: '2026-09-06' },
+    today: '2026-08-18',
     timeZone: 'America/Detroit',
     days,
     summary: {
@@ -154,6 +202,7 @@ const calendar = (): DataQualityCalendar => {
       workout: { planned: 0, active: 0, completed: 0, cancelled: 0, corrected: 1 },
       algorithm: { learning: 41, updating: 0, holding: 1, pendingReview: 1 },
       contextDays: 1,
+      intervalLabel: 'Visible calendar grid',
     },
   };
 };
@@ -187,12 +236,38 @@ const renderWorkspace = () =>
   );
 
 describe('DataQualityCalendarWorkspace', () => {
+  it('renders the authoritative bootstrap month without a browser-local range request', async () => {
+    const tokyo = calendar();
+    tokyo.today = '2027-01-01';
+    tokyo.timeZone = 'Asia/Tokyo';
+    vi.mocked(useDataQualityCalendar).mockReturnValue({
+      data: tokyo,
+      isPending: false,
+      isError: false,
+      isFetching: false,
+      refetch,
+    } as unknown as ReturnType<typeof useDataQualityCalendar>);
+
+    render(
+      <MemoryRouter initialEntries={['/data-quality']}>
+        <DataQualityCalendarWorkspace />
+      </MemoryRouter>,
+    );
+
+    expect(vi.mocked(useDataQualityCalendar).mock.calls[0]?.[0]).toEqual({});
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'January 2027' })).toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText('Jump to date')).toHaveValue('2027-01-01');
+    expect(vi.mocked(useDataQualityCalendar)).toHaveBeenCalledTimes(1);
+  });
+
   it('renders honest cross-domain facts, provenance, and exact algorithm treatment', () => {
     renderWorkspace();
 
     expect(screen.getByRole('heading', { name: 'August 2026' })).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /Tuesday, August 18, 2026.*Pending cutoff.*Corrected/i }),
+      screen.getByRole('button', { name: /Tuesday, August 18, 2026.*Pending cutoff/i }),
     ).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText('2410 kcal')).toBeInTheDocument();
     expect(screen.getByText('176.8 lbs')).toBeInTheDocument();
@@ -215,6 +290,43 @@ describe('DataQualityCalendarWorkspace', () => {
     expect(screen.queryByRole('heading', { name: 'Context' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Nutrition' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Tuesday, August 18, 2026/ })).toBeInTheDocument();
+  });
+
+  it('shows the authoritative refresh path for stale review evidence', () => {
+    const stale = calendar();
+    const today = stale.days.find((day) => day.date === stale.today);
+    if (!today) throw new Error('Expected today fixture');
+    const review = today.algorithm.events[0];
+    if (!review) throw new Error('Expected review fixture');
+    review.state = 'stale';
+    review.actions = [
+      {
+        kind: 'view_review',
+        label: 'View weekly review',
+        href: `/nutrition/reviews/${review.id}`,
+        method: 'navigate',
+      },
+      {
+        kind: 'refresh_review',
+        label: 'Refresh stale weekly review',
+        href: `/nutrition/reviews/${review.id}`,
+        method: 'navigate',
+      },
+    ];
+    vi.mocked(useDataQualityCalendar).mockReturnValue({
+      data: stale,
+      isPending: false,
+      isError: false,
+      isFetching: false,
+      refetch,
+    } as unknown as ReturnType<typeof useDataQualityCalendar>);
+
+    renderWorkspace();
+    expect(screen.getByText('weekly review · stale')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Refresh stale weekly review' })).toHaveAttribute(
+      'href',
+      `/nutrition/reviews/${review.id}`,
+    );
   });
 
   it('submits bounded date context through the shared form schema', async () => {
