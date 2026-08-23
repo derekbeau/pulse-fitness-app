@@ -30,6 +30,7 @@ export * from './schemas/weight.js';
 export * from './schemas/workout-sessions.js';
 export * from './schemas/users.js';
 export * from './schemas/workout-templates.js';
+export * from './schemas/workout-progression.js';
 export * from './utils/adaptive-tdee.js';
 export * from './utils/adaptive-setup-projection.js';
 export * from './utils/adaptive-goal-progress.js';
@@ -39,6 +40,7 @@ export * from './utils/energy-balance.js';
 export * from './utils/ewma.js';
 export * from './utils/habit-scheduling.js';
 export * from './utils/weight-unit.js';
+export * from './utils/workout-progression.js';
 
 export const userSchema = z.object({
   id: z.string(),
