@@ -29,16 +29,25 @@ function adjustLoads(
     if (increment === null) {
       return target;
     }
-    const adjust = (value: number | null) =>
-      value === null
-        ? null
-        : Math.max(0, roundToIncrement(value + direction * increment, increment));
-    return {
+    const adjust = (value: number | null) => {
+      if (value === null) return null;
+      const adjusted = roundToIncrement(value + direction * increment, increment);
+      return adjusted > 0 ? adjusted : value;
+    };
+    const adjusted = {
       ...target,
       weight: adjust(target.weight),
       weightMax: adjust(target.weightMax),
       weightMin: adjust(target.weightMin),
     };
+    if (
+      adjusted.weightMin !== null &&
+      adjusted.weightMax !== null &&
+      adjusted.weightMin > adjusted.weightMax
+    ) {
+      return target;
+    }
+    return adjusted;
   });
 }
 
@@ -95,6 +104,24 @@ function hold(
   };
 }
 
+function requireMaterialChange(
+  evidence: WorkoutProgressionEvidence,
+  result: WorkoutProgressionEvaluation,
+): WorkoutProgressionEvaluation {
+  if (
+    result.decision === 'hold' ||
+    JSON.stringify(result.recommendedTargets) !== JSON.stringify(evidence.priorTargets)
+  ) {
+    return result;
+  }
+  return hold(
+    evidence,
+    'unavailable',
+    ['MISSING_PRIOR_PRESCRIPTION'],
+    ['The configured policy cannot produce a valid change for the current prescription.'],
+  );
+}
+
 export function evaluateWorkoutProgression(
   evidence: WorkoutProgressionEvidence,
 ): WorkoutProgressionEvaluation {
@@ -143,7 +170,7 @@ export function evaluateWorkoutProgression(
 
   if (performance.some((set) => set.skipped || !set.completed)) {
     if (policy.family === 'rehab_capacity' && policy.allowReduction) {
-      return {
+      return requireMaterialChange(evidence, {
         confidence: 'supported',
         decision: 'reduce',
         facts: [
@@ -151,7 +178,7 @@ export function evaluateWorkoutProgression(
         ],
         reasonCodes: ['MISSED_OR_SKIPPED_SETS'],
         recommendedTargets: adjustLoads(priorTargets, policy, -1),
-      };
+      });
     }
     return hold(
       evidence,
@@ -223,13 +250,13 @@ export function evaluateWorkoutProgression(
       policy.family === 'rpe_regulated' ||
       (policy.family === 'rehab_capacity' && policy.allowReduction)
     ) {
-      return {
+      return requireMaterialChange(evidence, {
         confidence: 'supported',
         decision: 'reduce',
         facts: [`Logged effort exceeded the policy ceiling of RPE ${policy.effortCeiling}.`],
         reasonCodes: ['HIGH_EFFORT'],
         recommendedTargets: adjustLoads(priorTargets, policy, -1),
-      };
+      });
     }
     return withOptionalEffortContext(
       hold(
@@ -277,16 +304,19 @@ export function evaluateWorkoutProgression(
         ),
       );
     }
-    return withOptionalEffortContext({
-      confidence: 'supported',
-      decision: 'increase',
-      facts: [
-        'Every required set reached the top of its previous prescribed rep range.',
-        `Load increases by ${policy.loadIncrement} using the configured equipment increment.`,
-      ],
-      reasonCodes: ['ALL_SETS_AT_RANGE_TOP', 'ROUNDED_TO_INCREMENT'],
-      recommendedTargets: adjustLoads(priorTargets, policy, 1),
-    });
+    return requireMaterialChange(
+      evidence,
+      withOptionalEffortContext({
+        confidence: 'supported',
+        decision: 'increase',
+        facts: [
+          'Every required set reached the top of its previous prescribed rep range.',
+          `Load increases by ${policy.loadIncrement} using the configured equipment increment.`,
+        ],
+        reasonCodes: ['ALL_SETS_AT_RANGE_TOP', 'ROUNDED_TO_INCREMENT'],
+        recommendedTargets: adjustLoads(priorTargets, policy, 1),
+      }),
+    );
   }
 
   if (policy.family === 'strength_load') {
@@ -302,16 +332,19 @@ export function evaluateWorkoutProgression(
         ),
       );
     }
-    return withOptionalEffortContext({
-      confidence: 'supported',
-      decision: 'increase',
-      facts: [
-        `All required work was completed within the effort ceiling.`,
-        `The configured ${policy.loadIncreasePercent}% increase is rounded to a ${policy.loadIncrement} increment.`,
-      ],
-      reasonCodes: ['ALL_TARGETS_COMPLETED', 'ROUNDED_TO_INCREMENT'],
-      recommendedTargets: increaseStrengthLoads(priorTargets, policy),
-    });
+    return requireMaterialChange(
+      evidence,
+      withOptionalEffortContext({
+        confidence: 'supported',
+        decision: 'increase',
+        facts: [
+          `All required work was completed within the effort ceiling.`,
+          `The configured ${policy.loadIncreasePercent}% increase is rounded to a ${policy.loadIncrement} increment.`,
+        ],
+        reasonCodes: ['ALL_TARGETS_COMPLETED', 'ROUNDED_TO_INCREMENT'],
+        recommendedTargets: increaseStrengthLoads(priorTargets, policy),
+      }),
+    );
   }
 
   if (policy.family === 'rpe_regulated') {
@@ -333,13 +366,13 @@ export function evaluateWorkoutProgression(
         ['All work was completed, but effort did not support a load change.'],
       );
     }
-    return {
+    return requireMaterialChange(evidence, {
       confidence: 'supported',
       decision: 'increase',
       facts: [`All completed sets were at or below RPE ${policy.lowEffortThreshold}.`],
       reasonCodes: ['LOW_EFFORT', 'ROUNDED_TO_INCREMENT'],
       recommendedTargets: adjustLoads(priorTargets, policy, 1),
-    };
+    });
   }
 
   if (policy.family === 'time_distance') {
@@ -367,13 +400,16 @@ export function evaluateWorkoutProgression(
         ),
       );
     }
-    return withOptionalEffortContext({
-      confidence: 'supported',
-      decision: 'increase',
-      facts: ['All required work was completed within the configured effort zone.'],
-      reasonCodes: ['ALL_TARGETS_COMPLETED'],
-      recommendedTargets: increaseTimeDistanceTargets(priorTargets, policy),
-    });
+    return requireMaterialChange(
+      evidence,
+      withOptionalEffortContext({
+        confidence: 'supported',
+        decision: 'increase',
+        facts: ['All required work was completed within the configured effort zone.'],
+        reasonCodes: ['ALL_TARGETS_COMPLETED'],
+        recommendedTargets: increaseTimeDistanceTargets(priorTargets, policy),
+      }),
+    );
   }
 
   return hold(

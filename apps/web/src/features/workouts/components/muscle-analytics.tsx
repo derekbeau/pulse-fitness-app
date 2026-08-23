@@ -326,8 +326,8 @@ export function MuscleAnalytics() {
             </div>
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
-            Showing {selectedSources.length} of {analytics.sourceCount} source records
-            {analytics.sourcesTruncated
+            Showing {selectedSources.length} of {muscle.sourceCount} source records
+            {selectedSources.length < muscle.sourceCount
               ? '. The source list is truncated; totals and chart values still include the full interval.'
               : '. The source list is complete for this interval.'}
           </p>

@@ -109,8 +109,8 @@ describe('MuscleAnalytics', () => {
     expect(screen.getByLabelText('chest exposure summary')).toHaveTextContent(
       'Completed exposure21 completed sessionsPlanned exposure22 linked equivalents fulfilled · explicit programming priority',
     );
-    expect(screen.getByText(/Showing 1 of 1 source records/)).toHaveTextContent(
-      'The source list is complete for this interval.',
+    expect(screen.getByText(/Showing 1 of 2 source records/)).toHaveTextContent(
+      'The source list is truncated; totals and chart values still include the full interval.',
     );
     expect(screen.getByText('contribution policy v1')).toBeInTheDocument();
     expect(screen.getByText('qualifying-set policy v1')).toBeInTheDocument();

@@ -174,13 +174,12 @@ describe('0053 workout progression migration', () => {
       exerciseName: 'Incline press',
       trackingType: 'weight_reps',
     });
-    expect(
-      sqlite
-        .prepare(
-          "SELECT snapshot FROM workout_progression_recommendations WHERE id = 'recommendation-legacy'",
-        )
-        .get(),
-    ).toEqual({ snapshot: legacySnapshot });
+    const migratedLegacy = sqlite
+      .prepare(
+        "SELECT snapshot FROM workout_progression_recommendations WHERE id = 'recommendation-legacy'",
+      )
+      .get() as { snapshot: string };
+    expect(migratedLegacy).toEqual({ snapshot: legacySnapshot });
     expect(() =>
       sqlite.prepare("UPDATE session_sets SET target_zone = 6 WHERE id = 'session-set-1'").run(),
     ).toThrow(/invalid session progression target/u);
@@ -297,6 +296,72 @@ describe('0053 workout progression migration', () => {
       /ownership mismatch/u,
     );
 
+    assertHealthy(sqlite);
+    sqlite.close();
+  });
+
+  it('backfills immutable recommendation priority from the 0054 programming configuration', () => {
+    const { root, sqlite } = createDatabase();
+    migrateFolder(sqlite, stageThrough(root, 54));
+    seedLegacyWorkout(sqlite);
+    sqlite
+      .prepare(
+        `INSERT INTO workout_progression_configurations (
+          id, user_id, scheduled_workout_id, scheduled_workout_exercise_id, revision,
+          snapshot, actor_type, actor_label, updated_at
+        ) VALUES ('configuration-priority', 'user-1', 'scheduled-1', 'scheduled-exercise-1', 1,
+          '{"priority":true}', 'user', 'You', 400)`,
+      )
+      .run();
+    sqlite
+      .prepare(
+        `INSERT INTO workout_progression_recommendations (
+          id, user_id, scheduled_workout_id, scheduled_workout_exercise_id, exercise_id,
+          policy_family, policy_version, source_fingerprint, effective_date, snapshot, generated_at
+        ) VALUES ('recommendation-priority', 'user-1', 'scheduled-1', 'scheduled-exercise-1',
+          'exercise-1', 'double_progression', 1, ?, '2026-08-24',
+          '{"evidence":{"policySource":{"configurationId":"configuration-priority","revision":1}}}', 300)`,
+      )
+      .run('d'.repeat(64));
+    sqlite
+      .prepare(
+        `INSERT INTO workout_progression_recommendations (
+          id, user_id, scheduled_workout_id, scheduled_workout_exercise_id, exercise_id,
+          policy_family, policy_version, source_fingerprint, effective_date, snapshot, generated_at
+        ) VALUES ('recommendation-priority-mismatch', 'user-1', 'scheduled-1',
+          'scheduled-exercise-1', 'exercise-1', 'double_progression', 1, ?, '2026-08-24',
+          '{"evidence":{"policySource":{"configurationId":"configuration-priority","revision":2}}}', 301)`,
+      )
+      .run('e'.repeat(64));
+
+    migrateFolder(sqlite, sourceMigrationsFolder);
+
+    const migrated = sqlite
+      .prepare(
+        "SELECT snapshot FROM workout_progression_recommendations WHERE id = 'recommendation-priority'",
+      )
+      .get() as { snapshot: string };
+    expect(JSON.parse(migrated.snapshot)).toEqual({
+      evidence: {
+        policySource: { configurationId: 'configuration-priority', revision: 1 },
+        priority: 1,
+      },
+    });
+    const mismatched = sqlite
+      .prepare(
+        "SELECT snapshot FROM workout_progression_recommendations WHERE id = 'recommendation-priority-mismatch'",
+      )
+      .get() as { snapshot: string };
+    expect(JSON.parse(mismatched.snapshot)).toEqual({
+      evidence: { policySource: { configurationId: 'configuration-priority', revision: 2 } },
+    });
+    expect(() =>
+      sqlite
+        .prepare(
+          "UPDATE workout_progression_recommendations SET effective_date = '2026-08-25' WHERE id = 'recommendation-priority'",
+        )
+        .run(),
+    ).toThrow(/immutable/u);
     assertHealthy(sqlite);
     sqlite.close();
   });

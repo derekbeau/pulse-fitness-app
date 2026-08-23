@@ -97,6 +97,7 @@ const recommendation: WorkoutProgressionRecommendation = {
       type: 'programming_config',
     },
     context: { availability: 'available', facts: [] },
+    priority: true,
     scheduledWorkoutDate: '2026-08-24',
     scheduledWorkoutExerciseId: 'scheduled-exercise-1',
     scheduledWorkoutId: 'scheduled-1',

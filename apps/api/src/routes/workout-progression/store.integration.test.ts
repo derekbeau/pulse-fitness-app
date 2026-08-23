@@ -57,8 +57,12 @@ function seedWorkout(sqlite: Database.Database) {
   sqlite
     .prepare(
       `INSERT INTO scheduled_workout_exercises (
-        id, scheduled_workout_id, exercise_id, section, order_index, created_at, updated_at
-      ) VALUES ('scheduled-exercise-1', 'scheduled-1', 'exercise-1', 'main', 0, 200, 200)`,
+        id, scheduled_workout_id, exercise_id, exercise_name_snapshot, tracking_type_snapshot,
+        section, order_index, created_at, updated_at
+      ) VALUES (
+        'scheduled-exercise-1', 'scheduled-1', 'exercise-1', 'Incline press', 'weight_reps',
+        'main', 0, 200, 200
+      )`,
     )
     .run();
   for (const setNumber of [1, 2]) {
@@ -253,6 +257,7 @@ describe('workout progression store', () => {
         },
       ],
       policySource: { configurationId: 'configuration-1', revision: 1 },
+      priority: true,
     });
     expect(repeated?.[0]?.id).toBe(first?.[0]?.id);
     expect(
@@ -537,7 +542,13 @@ describe('workout progression store', () => {
       })
     )?.[0];
     const correctionDb = new Database(databaseUrl);
-    correctionDb.prepare(`UPDATE exercises SET tags = '["rehab"]' WHERE id = 'exercise-1'`).run();
+    correctionDb
+      .prepare(
+        `UPDATE exercises
+         SET name = 'Renamed incline press', tracking_type = 'reps_only', tags = '["rehab"]'
+         WHERE id = 'exercise-1'`,
+      )
+      .run();
     correctionDb.close();
     expect(
       (
@@ -843,6 +854,143 @@ describe('workout progression store', () => {
     ).toMatchObject({
       evidence: { sourceSessionId: 'session-1' },
       state: 'kept',
+    });
+  });
+
+  it('preserves progression snapshots and set identity through normal session updates', async () => {
+    const databaseUrl = prepareDatabase();
+    const sessionStore = await import('../workout-sessions/store.js');
+    await sessionStore.updateWorkoutSession({
+      id: 'session-1',
+      userId: 'user-1',
+      input: {
+        completedAt: 500,
+        date: '2026-08-20',
+        duration: null,
+        feedback: null,
+        name: 'Upper',
+        notes: 'Updated without replacing evidence',
+        sets: [1, 2].map((setNumber) => ({
+          completed: true,
+          distance: null,
+          exerciseId: 'exercise-1',
+          notes: null,
+          orderIndex: setNumber - 1,
+          reps: 10,
+          rpe: 8,
+          section: 'main' as const,
+          seconds: null,
+          setNumber,
+          skipped: false,
+          supersetGroup: null,
+          targetDistance: 3,
+          targetSeconds: 999,
+          targetWeight: 999,
+          targetWeightMax: null,
+          targetWeightMin: null,
+          weight: 20,
+          zone: null,
+        })),
+        startedAt: 300,
+        status: 'completed',
+        templateId: null,
+        timeSegments: [],
+      },
+    });
+
+    const verificationDb = new Database(databaseUrl);
+    expect(
+      verificationDb
+        .prepare(
+          `SELECT id, source_scheduled_set_id AS sourceScheduledSetId,
+                  exercise_name_snapshot AS exerciseName,
+                  tracking_type_snapshot AS trackingType,
+                  target_reps_min AS targetRepsMin, target_reps_max AS targetRepsMax,
+                  target_weight AS targetWeight, target_seconds AS targetSeconds,
+                  target_distance AS targetDistance
+           FROM session_sets WHERE session_id = 'session-1' ORDER BY set_number`,
+        )
+        .all(),
+    ).toEqual([
+      {
+        exerciseName: 'Incline press',
+        id: 'session-set-1',
+        sourceScheduledSetId: 'source-scheduled-set-1',
+        targetDistance: null,
+        targetRepsMax: 10,
+        targetRepsMin: 8,
+        targetSeconds: null,
+        targetWeight: 20,
+        trackingType: 'weight_reps',
+      },
+      {
+        exerciseName: 'Incline press',
+        id: 'session-set-2',
+        sourceScheduledSetId: 'source-scheduled-set-2',
+        targetDistance: null,
+        targetRepsMax: 10,
+        targetRepsMin: 8,
+        targetSeconds: null,
+        targetWeight: 20,
+        trackingType: 'weight_reps',
+      },
+    ]);
+    verificationDb.close();
+
+    const progressionStore = await loadStore();
+    expect(
+      await progressionStore.previewWorkoutProgression({
+        generatedAt: 600,
+        scheduledWorkoutId: 'scheduled-1',
+        userId: 'user-1',
+      }),
+    ).toEqual([expect.objectContaining({ decision: 'increase', state: 'current' })]);
+  });
+
+  it('preserves unmatched 0054 policy provenance while marking priority unavailable', async () => {
+    const databaseUrl = prepareDatabase();
+    const store = await loadStore();
+    const current = (
+      await store.previewWorkoutProgression({
+        generatedAt: 500,
+        scheduledWorkoutId: 'scheduled-1',
+        userId: 'user-1',
+      })
+    )?.[0];
+    expect(current).toBeDefined();
+    if (!current) return;
+    const evidenceWithoutPriority = Object.fromEntries(
+      Object.entries(current.evidence).filter(([key]) => key !== 'priority'),
+    );
+    const fingerprint = 'c'.repeat(64);
+    const snapshot = {
+      ...current,
+      evidence: evidenceWithoutPriority,
+      id: 'unmatched-0054-recommendation',
+      sourceFingerprint: fingerprint,
+    };
+    const legacyDb = new Database(databaseUrl);
+    legacyDb
+      .prepare(
+        `INSERT INTO workout_progression_recommendations (
+          id, user_id, scheduled_workout_id, scheduled_workout_exercise_id, exercise_id,
+          source_session_id, policy_family, policy_version, source_fingerprint, effective_date,
+          snapshot, generated_at
+        ) VALUES ('unmatched-0054-recommendation', 'user-1', 'scheduled-1',
+          'scheduled-exercise-1', 'exercise-1', 'session-1', 'double_progression', 1, ?,
+          '2026-08-24', ?, 401)`,
+      )
+      .run(fingerprint, JSON.stringify(snapshot));
+    legacyDb.close();
+
+    expect(
+      await store.getWorkoutProgressionRecommendation('user-1', 'unmatched-0054-recommendation'),
+    ).toMatchObject({
+      evidence: {
+        policySource: { configurationId: 'configuration-1', revision: 1 },
+        priority: null,
+      },
+      state: 'stale',
     });
   });
 

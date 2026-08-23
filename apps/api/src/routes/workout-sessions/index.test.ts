@@ -5238,8 +5238,12 @@ describe('workout session routes', () => {
     const persistedSetRows = context.db
       .select({
         exerciseId: sessionSets.exerciseId,
+        exerciseNameSnapshot: sessionSets.exerciseNameSnapshot,
+        id: sessionSets.id,
         setNumber: sessionSets.setNumber,
         notes: sessionSets.notes,
+        sourceScheduledSetId: sessionSets.sourceScheduledSetId,
+        trackingTypeSnapshot: sessionSets.trackingTypeSnapshot,
       })
       .from(sessionSets)
       .where(eq(sessionSets.sessionId, 'session-1'))
@@ -5248,13 +5252,21 @@ describe('workout session routes', () => {
     expect(persistedSetRows).toEqual([
       {
         exerciseId: 'user-1-lat-pulldown',
+        exerciseNameSnapshot: 'Lat Pulldown',
+        id: expect.not.stringMatching(/^set-1$/u),
         setNumber: 1,
         notes: null,
+        sourceScheduledSetId: null,
+        trackingTypeSnapshot: 'weight_reps',
       },
       {
         exerciseId: 'user-1-lat-pulldown',
+        exerciseNameSnapshot: 'Lat Pulldown',
+        id: expect.any(String),
         setNumber: 2,
         notes: 'Slowed down',
+        sourceScheduledSetId: null,
+        trackingTypeSnapshot: 'weight_reps',
       },
     ]);
 
@@ -5721,7 +5733,7 @@ describe('workout session routes', () => {
     });
   });
 
-  it('allows patch updates without sets when existing session sets reference now-deleted exercises', async () => {
+  it('preserves immutable orphaned sets when patching after an exercise is force-purged', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
       { expiresIn: '7d' },
@@ -5749,10 +5761,19 @@ describe('workout session routes', () => {
       section: 'main',
     });
     context.db
-      .update(exercises)
-      .set({ deletedAt: '2026-03-13T00:00:00.000Z' })
-      .where(eq(exercises.id, 'user-1-soft-delete-lift'))
+      .update(sessionSets)
+      .set({
+        exerciseIdSnapshot: 'user-1-soft-delete-lift',
+        exerciseNameSnapshot: 'Temporary Lift',
+        sourceScheduledSetId: 'purged-source-set',
+        targetRepsMax: 10,
+        targetRepsMin: 8,
+        targetWeight: 50,
+        trackingTypeSnapshot: 'weight_reps',
+      })
+      .where(eq(sessionSets.id, 'set-soft-delete-lift'))
       .run();
+    context.db.delete(exercises).where(eq(exercises.id, 'user-1-soft-delete-lift')).run();
 
     const response = await context.app.inject({
       method: 'PATCH',
@@ -5769,6 +5790,33 @@ describe('workout session routes', () => {
         id: 'session-with-deleted-exercise',
         status: 'completed',
       }),
+    });
+    expect(
+      context.db
+        .select({
+          exerciseId: sessionSets.exerciseId,
+          exerciseIdSnapshot: sessionSets.exerciseIdSnapshot,
+          exerciseNameSnapshot: sessionSets.exerciseNameSnapshot,
+          id: sessionSets.id,
+          sourceScheduledSetId: sessionSets.sourceScheduledSetId,
+          targetRepsMax: sessionSets.targetRepsMax,
+          targetRepsMin: sessionSets.targetRepsMin,
+          targetWeight: sessionSets.targetWeight,
+          trackingTypeSnapshot: sessionSets.trackingTypeSnapshot,
+        })
+        .from(sessionSets)
+        .where(eq(sessionSets.id, 'set-soft-delete-lift'))
+        .get(),
+    ).toEqual({
+      exerciseId: null,
+      exerciseIdSnapshot: 'user-1-soft-delete-lift',
+      exerciseNameSnapshot: 'Temporary Lift',
+      id: 'set-soft-delete-lift',
+      sourceScheduledSetId: 'purged-source-set',
+      targetRepsMax: 10,
+      targetRepsMin: 8,
+      targetWeight: 50,
+      trackingTypeSnapshot: 'weight_reps',
     });
   });
 

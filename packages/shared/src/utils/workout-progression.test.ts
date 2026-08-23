@@ -80,6 +80,7 @@ function evidence(overrides: Partial<WorkoutProgressionEvidence> = {}): WorkoutP
       revision: 1,
       type: 'programming_config',
     },
+    priority: false,
     priorTargets: [prescribed(1, 'scheduled-set-1'), prescribed(2, 'scheduled-set-2')],
     scheduledWorkoutDate: '2026-08-24',
     scheduledWorkoutExerciseId: 'scheduled-exercise-1',
@@ -368,5 +369,65 @@ describe('evaluateWorkoutProgression', () => {
       reasonCodes: ['MISSING_POLICY'],
     });
     expect(result.recommendedTargets).toEqual(input.priorTargets);
+  });
+
+  it('fails closed when a configured increase cannot change a compatible target', () => {
+    const input = evidence({
+      priorTargets: evidence().priorTargets.map((target) => ({ ...target, weight: null })),
+      trackingType: 'bodyweight_reps',
+    });
+
+    expect(evaluateWorkoutProgression(input)).toMatchObject({
+      confidence: 'unavailable',
+      decision: 'hold',
+      reasonCodes: ['MISSING_PRIOR_PRESCRIPTION'],
+      recommendedTargets: input.priorTargets,
+    });
+  });
+
+  it('holds instead of inverting a light load range during reduction', () => {
+    const rangeTarget = (target: WorkoutProgressionEvidence['priorTargets'][number]) => ({
+      ...target,
+      weight: null,
+      weightMax: 20,
+      weightMin: 14,
+    });
+    const input = evidence({
+      performance: evidence().performance.map((set) => ({
+        ...set,
+        prescribed: rangeTarget(set.prescribed),
+        rpe: 9,
+        weight: 14,
+      })),
+      policy: { ...basePolicy, family: 'rpe_regulated', loadIncrement: 10 },
+      priorTargets: evidence().priorTargets.map(rangeTarget),
+    });
+
+    expect(evaluateWorkoutProgression(input)).toMatchObject({
+      confidence: 'unavailable',
+      decision: 'hold',
+      reasonCodes: ['MISSING_PRIOR_PRESCRIPTION'],
+      recommendedTargets: input.priorTargets,
+    });
+  });
+
+  it('holds instead of producing an invalid zero-load reduction', () => {
+    const input = evidence({
+      performance: evidence().performance.map((set) => ({
+        ...set,
+        prescribed: { ...set.prescribed, weight: 2.5 },
+        rpe: 9,
+        weight: 2.5,
+      })),
+      policy: { ...basePolicy, family: 'rpe_regulated', loadIncrement: 5 },
+      priorTargets: evidence().priorTargets.map((target) => ({ ...target, weight: 2.5 })),
+    });
+
+    expect(evaluateWorkoutProgression(input)).toMatchObject({
+      confidence: 'unavailable',
+      decision: 'hold',
+      reasonCodes: ['MISSING_PRIOR_PRESCRIPTION'],
+      recommendedTargets: input.priorTargets,
+    });
   });
 });

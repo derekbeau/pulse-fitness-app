@@ -71,6 +71,8 @@ never select policy. Without configuration, the result is an unavailable hold. T
 is stored in the recommendation snapshot; later configuration or exercise-metadata changes do not
 rewrite older advice. Weight increments are explicit input (including non-standard equipment
 increments), never guessed from display units. Rounding occurs once at the recommendation boundary.
+A configured rule that cannot produce a positive, materially different, tracking-compatible target
+fails closed as an unavailable hold.
 
 V1 context facts are bounded to pain, symptoms, form failure, and explicit programming hold, with a
 programming-configuration or session-feedback source. Any observed adverse fact overrides an
@@ -129,10 +131,11 @@ expected exposure. Priority is true only for an explicit current programming con
 Exercise name, identity, and tracking type required for historical qualification are snapshotted
 when a schedule/session set is created. Rename, tracking-type edit, merge, or deletion therefore
 cannot rewrite completed history. Contribution lookup returns the revision active at each date and
-loads only the baseline revision plus revisions inside the compared ranges. Aggregate truth is
-never truncated; exact source references are deterministically capped at 5,000 globally and 500 per
-muscle row with explicit total counts and truncation flags. The UI discloses both the shown count
-and total count while retaining the full aggregate values.
+streams range-bounded source rows directly into date/muscle aggregates instead of materializing the
+full expanded set-by-contribution history in application memory. Aggregate truth is never
+truncated; exact source references are deterministically capped at 5,000 globally and 500 per muscle
+row with explicit total counts and truncation flags. The UI discloses both the shown count and total
+count while retaining the full aggregate values.
 
 ## API and authorization
 

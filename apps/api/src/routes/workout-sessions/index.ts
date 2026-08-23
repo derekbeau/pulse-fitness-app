@@ -458,6 +458,11 @@ const buildScheduledSnapshotSessionSeed = ({
           targetRepsMax: set.repsMax,
           targetRepsMin: set.repsMin,
           targetZone: set.targetZone,
+          targetWeight: set.targetWeight,
+          targetWeightMin: set.targetWeightMin,
+          targetWeightMax: set.targetWeightMax,
+          targetSeconds: set.targetSeconds,
+          targetDistance: set.targetDistance,
           trackingTypeSnapshot: exercise.trackingTypeSnapshot ?? 'reps_only',
         },
       ]),
@@ -1874,6 +1879,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       id: params.id,
       userId: request.userId,
       input,
+      replaceSetSnapshots: request.method === 'PUT' && body.sets !== undefined,
     });
     if (!session) {
       return sendError(

@@ -71,6 +71,7 @@ const recommendation: WorkoutProgressionRecommendation = {
       revision: 1,
       type: 'programming_config',
     },
+    priority: true,
     priorTargets: [
       {
         distance: null,
@@ -161,6 +162,9 @@ describe('WorkoutProgressionReview', () => {
     );
     expect(screen.getByText('Every required set reached 10 reps.')).toBeInTheDocument();
     expect(screen.getByText(/completed session 2026-08-20/)).toBeInTheDocument();
+    expect(screen.getByText(/Policy source:/i)).toHaveTextContent(
+      'You · revision 1 · priority exercise',
+    );
     expect(mutate).not.toHaveBeenCalled();
   });
 
@@ -212,7 +216,19 @@ describe('WorkoutProgressionReview', () => {
     expect(screen.getByRole('button', { name: 'Hold with reason' })).toBeDisabled();
   });
 
-  it('does not offer target application when policy evidence is unavailable', () => {
+  it('discloses unavailable historical priority without erasing policy provenance', () => {
+    setup({
+      ...recommendation,
+      evidence: { ...recommendation.evidence, priority: null },
+      state: 'stale',
+    });
+
+    expect(screen.getByText(/Policy source:/i)).toHaveTextContent(
+      'You · revision 1 · historical priority unavailable',
+    );
+  });
+
+  it('disables target changes when policy evidence is unavailable', () => {
     setup({
       ...recommendation,
       confidence: 'unavailable',

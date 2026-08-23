@@ -313,6 +313,97 @@ describe('workout muscle analytics store', () => {
     expect(analytics.rows.every((row) => row.sourceIds.length === 500)).toBe(true);
   });
 
+  it('does not fulfill a plan from a linked but non-qualifying completion', async () => {
+    const databaseUrl = prepareDatabase();
+    const invalidDb = new Database(databaseUrl);
+    invalidDb
+      .prepare("UPDATE session_sets SET weight = NULL, reps = NULL WHERE id = 'current-set-1'")
+      .run();
+    invalidDb.close();
+
+    const { getWorkoutMuscleAnalytics } = await import('./muscle-store.js');
+    const analytics = await getWorkoutMuscleAnalytics('user-1', {
+      end: '2026-08-23',
+      range: '7d',
+    });
+
+    expect(analytics.rows.find((row) => row.muscle === 'chest')).toMatchObject({
+      exposureState: 'partially_completed',
+      fulfilledPlannedSetEquivalents: 1,
+      plannedSetEquivalents: 2,
+      qualifyingSetEquivalents: 1,
+    });
+  });
+
+  it('resolves contribution revisions on the requested local date', async () => {
+    const databaseUrl = prepareDatabase();
+    const revisionDb = new Database(databaseUrl);
+    const effectiveAt = Date.parse('2026-08-24T03:30:00.000Z');
+    revisionDb
+      .prepare(
+        `INSERT INTO exercise_muscle_contributions (
+          id, exercise_id, owner_user_id, revision, muscle, role, factor, version,
+          effective_at, created_at
+        ) VALUES
+          ('contribution-chest-zone-v2', 'exercise-1', 'user-1', 2, 'chest', 'secondary', 0.5, 1, ?, ?),
+          ('contribution-triceps-zone-v2', 'exercise-1', 'user-1', 2, 'triceps', 'primary', 1, 1, ?, ?)`,
+      )
+      .run(effectiveAt, effectiveAt, effectiveAt, effectiveAt);
+    revisionDb.close();
+
+    const { getWorkoutMuscleAnalytics } = await import('./muscle-store.js');
+    const detroit = await getWorkoutMuscleAnalytics('user-1', {
+      end: '2026-08-23',
+      range: '7d',
+      timeZone: 'America/Detroit',
+    });
+    const utc = await getWorkoutMuscleAnalytics('user-1', {
+      end: '2026-08-23',
+      range: '7d',
+      timeZone: 'UTC',
+    });
+
+    expect(detroit.rows.find((row) => row.muscle === 'chest')?.plannedSetEquivalents).toBe(1);
+    expect(utc.rows.find((row) => row.muscle === 'chest')?.plannedSetEquivalents).toBe(2);
+  });
+
+  it('uses planned contribution factors when attribution changes before fulfillment', async () => {
+    const databaseUrl = prepareDatabase();
+    const revisionDb = new Database(databaseUrl);
+    const effectiveAt = Date.parse('2026-08-22T12:00:00.000Z');
+    revisionDb
+      .prepare(
+        `INSERT INTO exercise_muscle_contributions (
+          id, exercise_id, owner_user_id, revision, muscle, role, factor, version,
+          effective_at, created_at
+        ) VALUES
+          ('contribution-chest-v2', 'exercise-1', 'user-1', 2, 'chest', 'secondary', 0.5, 1, ?, ?),
+          ('contribution-triceps-v2', 'exercise-1', 'user-1', 2, 'triceps', 'primary', 1, 1, ?, ?)`,
+      )
+      .run(effectiveAt, effectiveAt, effectiveAt, effectiveAt);
+    revisionDb.close();
+
+    const { getWorkoutMuscleAnalytics } = await import('./muscle-store.js');
+    const analytics = await getWorkoutMuscleAnalytics('user-1', {
+      end: '2026-08-23',
+      range: '7d',
+      timeZone: 'America/Detroit',
+    });
+
+    expect(analytics.rows.find((row) => row.muscle === 'chest')).toMatchObject({
+      exposureState: 'fully_completed',
+      fulfilledPlannedSetEquivalents: 1,
+      plannedSetEquivalents: 1,
+      qualifyingSetEquivalents: 2,
+    });
+    expect(analytics.rows.find((row) => row.muscle === 'triceps')).toMatchObject({
+      exposureState: 'fully_completed',
+      fulfilledPlannedSetEquivalents: 2,
+      plannedSetEquivalents: 2,
+      qualifyingSetEquivalents: 1,
+    });
+  });
+
   it('reconciles only exact linked plan sets and excludes cancelled plans', async () => {
     const databaseUrl = prepareDatabase();
     const { getWorkoutMuscleAnalytics } = await import('./muscle-store.js');

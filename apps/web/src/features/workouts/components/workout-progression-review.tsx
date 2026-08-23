@@ -293,7 +293,7 @@ export function WorkoutProgressionReview({
                     <p className="mt-1 text-xs text-muted-foreground">
                       Policy source:{' '}
                       {recommendation.evidence.policySource.type === 'programming_config'
-                        ? `${recommendation.evidence.policySource.actorLabel} · revision ${recommendation.evidence.policySource.revision}`
+                        ? `${recommendation.evidence.policySource.actorLabel} · revision ${recommendation.evidence.policySource.revision} · ${recommendation.evidence.priority === null ? 'historical priority unavailable' : recommendation.evidence.priority ? 'priority exercise' : 'standard priority'}`
                         : 'No explicit programming policy'}
                     </p>
                   </div>

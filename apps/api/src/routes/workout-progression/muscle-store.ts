@@ -1,150 +1,18 @@
 import {
   addChartCalendarDays,
   chartDateKeyInTimeZone,
-  chartDateCoordinate,
   workoutMuscleAnalyticsSchema,
-  workoutProgressionConfigurationSchema,
-  type ExerciseTrackingType,
   type WorkoutMuscleAnalytics,
   type WorkoutMuscleAnalyticsQuery,
 } from '@pulse/shared';
-import { and, asc, between, eq, inArray, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import { db, sqlite } from '../../db/index.js';
-import {
-  exerciseMuscleContributions,
-  scheduledWorkoutExerciseSets,
-  scheduledWorkoutExercises,
-  scheduledWorkouts,
-  sessionSets,
-  users,
-  workoutProgressionConfigurations,
-  workoutSessions,
-} from '../../db/schema/index.js';
+import { users } from '../../db/schema/index.js';
 
 const RANGE_DAYS = { '7d': 7, '30d': 30, '90d': 90 } as const;
-
-type ContributionRow = typeof exerciseMuscleContributions.$inferSelect;
-
-type CompletedSet = {
-  date: string;
-  exerciseId: string;
-  exerciseName: string;
-  sessionId: string;
-  scheduledWorkoutId: string | null;
-  sourceScheduledSetId: string | null;
-  setId: string;
-  trackingType: ExerciseTrackingType;
-  weight: number | null;
-  reps: number | null;
-  seconds: number | null;
-  distance: number | null;
-};
-
-type PlannedSet = {
-  date: string;
-  exerciseId: string;
-  exerciseName: string;
-  scheduledWorkoutId: string;
-  scheduledWorkoutExerciseId: string;
-  linkedSessionId: string | null;
-  setId: string;
-  trackingType: ExerciseTrackingType;
-  weight: number | null;
-  reps: number | null;
-  repsMin: number | null;
-  repsMax: number | null;
-  seconds: number | null;
-  distance: number | null;
-};
-
-function isQualifyingMeasurement(
-  trackingType: CompletedSet['trackingType'],
-  value: Pick<CompletedSet, 'distance' | 'reps' | 'seconds' | 'weight'>,
-) {
-  switch (trackingType) {
-    case 'weight_reps':
-      return value.weight !== null && value.reps !== null;
-    case 'weight_seconds':
-      return value.weight !== null && value.seconds !== null;
-    case 'bodyweight_reps':
-    case 'reps_only':
-      return value.reps !== null;
-    case 'reps_seconds':
-      return value.reps !== null && value.seconds !== null;
-    case 'seconds_only':
-    case 'duration':
-      return value.seconds !== null;
-    case 'distance':
-    case 'cardio':
-      return value.distance !== null || value.seconds !== null;
-  }
-}
-
-function isQualifyingPlannedMeasurement(value: PlannedSet) {
-  return isQualifyingMeasurement(value.trackingType, {
-    distance: value.distance,
-    reps: value.reps ?? value.repsMin ?? value.repsMax,
-    seconds: value.seconds,
-    weight: value.weight,
-  });
-}
-
-function effectiveContributions(rows: ContributionRow[], date: string) {
-  const endOfDate = chartDateCoordinate(addChartCalendarDays(date, 1)) - 1;
-  const eligible = rows.filter((row) => row.effectiveAt <= endOfDate);
-  const revision = Math.max(0, ...eligible.map((row) => row.revision));
-  return eligible.filter((row) => row.revision === revision);
-}
-
 const SOURCE_LIMIT = 5_000;
 const ROW_SOURCE_ID_LIMIT = 500;
-
-function loadBoundedContributions({
-  endDate,
-  exerciseIds,
-  startDate,
-  userId,
-}: {
-  endDate: string;
-  exerciseIds: string[];
-  startDate: string;
-  userId: string;
-}): ContributionRow[] {
-  if (exerciseIds.length === 0) return [];
-  const placeholders = exerciseIds.map(() => '?').join(', ');
-  const startAt = chartDateCoordinate(startDate);
-  const endExclusive = chartDateCoordinate(addChartCalendarDays(endDate, 1));
-  return sqlite
-    .prepare(
-      `SELECT current.id,
-              current.exercise_id AS exerciseId,
-              current.owner_user_id AS ownerUserId,
-              current.revision,
-              current.muscle,
-              current.role,
-              current.factor,
-              current.version,
-              current.effective_at AS effectiveAt,
-              current.created_at AS createdAt
-       FROM exercise_muscle_contributions AS current
-       WHERE current.exercise_id IN (${placeholders})
-         AND (current.owner_user_id IS NULL OR current.owner_user_id = ?)
-         AND current.effective_at < ?
-         AND (
-           current.effective_at >= ?
-           OR current.revision = (
-             SELECT max(previous.revision)
-             FROM exercise_muscle_contributions AS previous
-             WHERE previous.exercise_id = current.exercise_id
-               AND coalesce(previous.owner_user_id, '') = coalesce(current.owner_user_id, '')
-               AND previous.effective_at < ?
-           )
-         )
-       ORDER BY current.exercise_id, current.revision, current.muscle`,
-    )
-    .all(...exerciseIds, userId, endExclusive, startAt, startAt) as ContributionRow[];
-}
 
 function changeState(current: number, previous: number) {
   if (previous === 0) return 'no_comparison' as const;
@@ -159,6 +27,12 @@ export async function getWorkoutMuscleAnalytics(
   now = Date.now(),
 ): Promise<WorkoutMuscleAnalytics> {
   const timeZone = query.timeZone ?? 'UTC';
+  sqlite.function(
+    'pulse_progression_date_key',
+    { deterministic: true },
+    (effectiveAt: number, zone: string) =>
+      chartDateKeyInTimeZone(Number(effectiveAt), String(zone)),
+  );
   const endDate = query.end ?? chartDateKeyInTimeZone(now, timeZone);
   const days = RANGE_DAYS[query.range];
   const startDate = addChartCalendarDays(endDate, -(days - 1));
@@ -172,284 +46,316 @@ export async function getWorkoutMuscleAnalytics(
     .get();
   if (!user) throw new RangeError('Workout muscle analytics user not found');
 
-  const completedRows = db
-    .select({
-      date: workoutSessions.date,
-      distance: sessionSets.distance,
-      exerciseId: sessionSets.exerciseIdSnapshot,
-      exerciseName: sessionSets.exerciseNameSnapshot,
-      reps: sessionSets.reps,
-      scheduledWorkoutId: workoutSessions.scheduledWorkoutId,
-      seconds: sessionSets.seconds,
-      sessionId: workoutSessions.id,
-      setId: sessionSets.id,
-      sourceScheduledSetId: sessionSets.sourceScheduledSetId,
-      trackingType: sessionSets.trackingTypeSnapshot,
-      weight: sessionSets.weight,
-    })
-    .from(sessionSets)
-    .innerJoin(workoutSessions, eq(workoutSessions.id, sessionSets.sessionId))
-    .where(
-      and(
-        eq(workoutSessions.userId, userId),
-        eq(workoutSessions.status, 'completed'),
-        isNull(workoutSessions.deletedAt),
-        eq(sessionSets.completed, true),
-        eq(sessionSets.skipped, false),
-        inArray(sessionSets.section, ['main', 'supplemental']),
-        between(workoutSessions.date, previousStartDate, endDate),
-      ),
-    )
-    .orderBy(asc(workoutSessions.date), asc(workoutSessions.id), asc(sessionSets.id))
-    .all()
-    .filter(
-      (row): row is CompletedSet =>
-        row.exerciseId !== null && row.exerciseName !== null && row.trackingType !== null,
-    )
-    .filter((row) => isQualifyingMeasurement(row.trackingType, row));
+  type JoinedSource = {
+    contributionId: string;
+    date: string;
+    exerciseId: string;
+    exerciseName: string;
+    factor: number;
+    muscle: string;
+    role: 'primary' | 'secondary';
+    scheduledWorkoutId: string | null;
+    sessionId: string | null;
+    setId: string;
+    sourceScheduledSetId: string | null;
+    sourceType: 'completed' | 'planned';
+    volumeLoad: number | null;
+    fulfilled: number;
+    priority: number;
+  };
+  type MuscleAggregate = {
+    completed: number;
+    fulfilled: number;
+    planned: number;
+    previous: number;
+    priority: boolean;
+    sourceCount: number;
+    sourceIds: string[];
+    volumeLoad: number;
+    hasVolume: boolean;
+    sessionIds: Set<string>;
+    exerciseIds: Set<string>;
+  };
+  type SeriesAggregate = {
+    date: string;
+    muscle: string;
+    completed: number;
+    planned: number;
+    volumeLoad: number;
+    hasVolume: boolean;
+  };
 
-  const plannedRows = db
-    .select({
-      date: scheduledWorkouts.date,
-      distance: scheduledWorkoutExerciseSets.targetDistance,
-      exerciseId: scheduledWorkoutExercises.exerciseId,
-      exerciseName: scheduledWorkoutExercises.exerciseNameSnapshot,
-      linkedSessionId: scheduledWorkouts.sessionId,
-      reps: scheduledWorkoutExerciseSets.reps,
-      repsMax: scheduledWorkoutExerciseSets.repsMax,
-      repsMin: scheduledWorkoutExerciseSets.repsMin,
-      scheduledWorkoutId: scheduledWorkouts.id,
-      scheduledWorkoutExerciseId: scheduledWorkoutExercises.id,
-      seconds: scheduledWorkoutExerciseSets.targetSeconds,
-      setId: scheduledWorkoutExerciseSets.id,
-      trackingType: scheduledWorkoutExercises.trackingTypeSnapshot,
-      weight: scheduledWorkoutExerciseSets.targetWeight,
-    })
-    .from(scheduledWorkoutExerciseSets)
-    .innerJoin(
-      scheduledWorkoutExercises,
-      eq(scheduledWorkoutExercises.id, scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId),
-    )
-    .innerJoin(
-      scheduledWorkouts,
-      eq(scheduledWorkouts.id, scheduledWorkoutExercises.scheduledWorkoutId),
-    )
-    .where(
-      and(
-        eq(scheduledWorkouts.userId, userId),
-        inArray(scheduledWorkoutExercises.section, ['main', 'supplemental']),
-        between(scheduledWorkouts.date, startDate, endDate),
-      ),
-    )
-    .orderBy(
-      asc(scheduledWorkouts.date),
-      asc(scheduledWorkouts.id),
-      asc(scheduledWorkoutExerciseSets.id),
-    )
-    .all()
-    .filter((row): row is PlannedSet => row.exerciseName !== null && row.trackingType !== null)
-    .filter(isQualifyingPlannedMeasurement);
-
-  const linkedSessionIds = [
-    ...new Set(plannedRows.flatMap((row) => (row.linkedSessionId ? [row.linkedSessionId] : []))),
-  ];
-  const linkedStatuses = new Map(
-    linkedSessionIds.length === 0
-      ? []
-      : db
-          .select({ id: workoutSessions.id, status: workoutSessions.status })
-          .from(workoutSessions)
-          .where(inArray(workoutSessions.id, linkedSessionIds))
-          .all()
-          .map((row) => [row.id, row.status] as const),
-  );
-  const activePlannedRows = plannedRows.filter(
-    (row) =>
-      row.linkedSessionId === null || linkedStatuses.get(row.linkedSessionId) !== 'cancelled',
-  );
-
-  const plannedScheduledExerciseIds = [
-    ...new Set(activePlannedRows.map((row) => row.scheduledWorkoutExerciseId)),
-  ];
-  const configurationRows =
-    plannedScheduledExerciseIds.length === 0
-      ? []
-      : db
-          .select({
-            scheduledWorkoutExerciseId: workoutProgressionConfigurations.scheduledWorkoutExerciseId,
-            snapshot: workoutProgressionConfigurations.snapshot,
-          })
-          .from(workoutProgressionConfigurations)
-          .where(
-            inArray(
-              workoutProgressionConfigurations.scheduledWorkoutExerciseId,
-              plannedScheduledExerciseIds,
-            ),
-          )
-          .all();
-  const priorityScheduledExerciseIds = new Set(
-    configurationRows
-      .filter((row) => workoutProgressionConfigurationSchema.parse(row.snapshot).priority)
-      .map((row) => row.scheduledWorkoutExerciseId),
-  );
-
-  const exerciseIds = [
-    ...new Set([...completedRows, ...activePlannedRows].map((row) => row.exerciseId)),
-  ];
-  const contributionRows = loadBoundedContributions({
-    endDate,
-    exerciseIds,
-    startDate: previousStartDate,
-    userId,
-  });
-  const contributionsByExercise = new Map<string, ContributionRow[]>();
-  for (const row of contributionRows) {
-    contributionsByExercise.set(row.exerciseId, [
-      ...(contributionsByExercise.get(row.exerciseId) ?? []),
-      row,
-    ]);
-  }
-
-  const currentCompleted = completedRows.filter((row) => row.date >= startDate);
-  const previousCompleted = completedRows.filter((row) => row.date <= previousEndDate);
+  const muscleAggregates = new Map<string, MuscleAggregate>();
+  const seriesAggregates = new Map<string, SeriesAggregate>();
   const sources: WorkoutMuscleAnalytics['sources'] = [];
-
-  for (const row of currentCompleted) {
-    for (const contribution of effectiveContributions(
-      contributionsByExercise.get(row.exerciseId) ?? [],
-      row.date,
-    )) {
-      sources.push({
-        contributionId: contribution.id,
-        date: row.date,
-        exerciseId: row.exerciseId,
-        exerciseName: row.exerciseName,
-        factor: contribution.factor,
-        muscle: contribution.muscle,
-        role: contribution.role,
-        scheduledWorkoutId: row.scheduledWorkoutId,
-        sessionId: row.sessionId,
-        setId: row.setId,
-        sourceScheduledSetId: row.sourceScheduledSetId,
-        sourceType: 'completed',
-        volumeLoad:
-          row.weight !== null && row.reps !== null
-            ? Number((row.weight * row.reps * contribution.factor).toFixed(6))
-            : null,
-      });
+  let sourceCount = 0;
+  const aggregateFor = (muscle: string) => {
+    const existing = muscleAggregates.get(muscle);
+    if (existing) return existing;
+    const created: MuscleAggregate = {
+      completed: 0,
+      exerciseIds: new Set(),
+      fulfilled: 0,
+      hasVolume: false,
+      planned: 0,
+      previous: 0,
+      priority: false,
+      sessionIds: new Set(),
+      sourceCount: 0,
+      sourceIds: [],
+      volumeLoad: 0,
+    };
+    muscleAggregates.set(muscle, created);
+    return created;
+  };
+  const qualifierSql = (
+    alias: string,
+    weight: string,
+    reps: string,
+    seconds: string,
+    distance: string,
+  ) => `(
+    (${alias} = 'weight_reps' AND ${weight} IS NOT NULL AND ${reps} IS NOT NULL) OR
+    (${alias} = 'weight_seconds' AND ${weight} IS NOT NULL AND ${seconds} IS NOT NULL) OR
+    (${alias} IN ('bodyweight_reps', 'reps_only') AND ${reps} IS NOT NULL) OR
+    (${alias} = 'reps_seconds' AND ${reps} IS NOT NULL AND ${seconds} IS NOT NULL) OR
+    (${alias} IN ('seconds_only', 'duration') AND ${seconds} IS NOT NULL) OR
+    (${alias} IN ('distance', 'cardio') AND (${distance} IS NOT NULL OR ${seconds} IS NOT NULL))
+  )`;
+  const record = (row: JoinedSource) => {
+    const aggregate = aggregateFor(row.muscle);
+    if (row.date < startDate) {
+      aggregate.previous += row.factor;
+      return;
     }
-  }
-  for (const row of activePlannedRows) {
-    for (const contribution of effectiveContributions(
-      contributionsByExercise.get(row.exerciseId) ?? [],
-      row.date,
-    )) {
-      sources.push({
-        contributionId: contribution.id,
-        date: row.date,
-        exerciseId: row.exerciseId,
-        exerciseName: row.exerciseName,
-        factor: contribution.factor,
-        muscle: contribution.muscle,
-        role: contribution.role,
-        scheduledWorkoutId: row.scheduledWorkoutId,
-        sessionId: null,
-        setId: row.setId,
-        sourceType: 'planned',
-        volumeLoad:
-          row.weight !== null && row.reps !== null
-            ? Number((row.weight * row.reps * contribution.factor).toFixed(6))
-            : null,
-      });
+    sourceCount += 1;
+    aggregate.sourceCount += 1;
+    if (aggregate.sourceIds.length < ROW_SOURCE_ID_LIMIT) aggregate.sourceIds.push(row.setId);
+    aggregate.exerciseIds.add(row.exerciseId);
+    if (row.sourceType === 'completed') {
+      aggregate.completed += row.factor;
+      if (row.sessionId) aggregate.sessionIds.add(row.sessionId);
+      if (row.volumeLoad !== null) {
+        aggregate.hasVolume = true;
+        aggregate.volumeLoad += row.volumeLoad;
+      }
+    } else {
+      aggregate.planned += row.factor;
+      aggregate.fulfilled += row.fulfilled ? row.factor : 0;
+      aggregate.priority ||= row.priority === 1;
     }
-  }
-
-  const previousByMuscle = new Map<string, number>();
-  for (const row of previousCompleted) {
-    for (const contribution of effectiveContributions(
-      contributionsByExercise.get(row.exerciseId) ?? [],
-      row.date,
-    )) {
-      previousByMuscle.set(
-        contribution.muscle,
-        (previousByMuscle.get(contribution.muscle) ?? 0) + contribution.factor,
+    const key = `${row.date}\u0000${row.muscle}`;
+    const point = seriesAggregates.get(key) ?? {
+      completed: 0,
+      date: row.date,
+      hasVolume: false,
+      muscle: row.muscle,
+      planned: 0,
+      volumeLoad: 0,
+    };
+    if (row.sourceType === 'completed') {
+      point.completed += row.factor;
+      if (row.volumeLoad !== null) {
+        point.hasVolume = true;
+        point.volumeLoad += row.volumeLoad;
+      }
+    } else {
+      point.planned += row.factor;
+    }
+    seriesAggregates.set(key, point);
+    if (sources.length < SOURCE_LIMIT) {
+      sources.push(
+        row.sourceType === 'completed'
+          ? {
+              contributionId: row.contributionId,
+              date: row.date,
+              exerciseId: row.exerciseId,
+              exerciseName: row.exerciseName,
+              factor: row.factor,
+              muscle: row.muscle,
+              role: row.role,
+              scheduledWorkoutId: row.scheduledWorkoutId,
+              sessionId: row.sessionId ?? '',
+              setId: row.setId,
+              sourceScheduledSetId: row.sourceScheduledSetId,
+              sourceType: 'completed',
+              volumeLoad: row.volumeLoad,
+            }
+          : {
+              contributionId: row.contributionId,
+              date: row.date,
+              exerciseId: row.exerciseId,
+              exerciseName: row.exerciseName,
+              factor: row.factor,
+              muscle: row.muscle,
+              role: row.role,
+              scheduledWorkoutId: row.scheduledWorkoutId ?? '',
+              sessionId: null,
+              setId: row.setId,
+              sourceType: 'planned',
+              volumeLoad: row.volumeLoad,
+            },
       );
     }
+  };
+
+  const effectiveRevision = (
+    contributionAlias: string,
+    exerciseExpression: string,
+    dateExpression: string,
+  ) => `
+    ${contributionAlias}.revision = (
+      SELECT max(previous.revision)
+      FROM exercise_muscle_contributions AS previous
+      WHERE previous.exercise_id = ${exerciseExpression}
+        AND (previous.owner_user_id IS NULL OR previous.owner_user_id = @userId)
+        AND pulse_progression_date_key(previous.effective_at, @timeZone) <= ${dateExpression}
+    )`;
+
+  const completedSql = `
+    SELECT contribution.id AS contributionId,
+           session.date,
+           set_row.exercise_id_snapshot AS exerciseId,
+           set_row.exercise_name_snapshot AS exerciseName,
+           contribution.factor,
+           contribution.muscle,
+           contribution.role,
+           session.scheduled_workout_id AS scheduledWorkoutId,
+           session.id AS sessionId,
+           set_row.id AS setId,
+           set_row.source_scheduled_set_id AS sourceScheduledSetId,
+           'completed' AS sourceType,
+           CASE WHEN set_row.weight IS NOT NULL AND set_row.reps IS NOT NULL
+                THEN round(set_row.weight * set_row.reps * contribution.factor, 6)
+                ELSE NULL END AS volumeLoad,
+           0 AS fulfilled,
+           0 AS priority
+    FROM session_sets AS set_row
+    JOIN workout_sessions AS session ON session.id = set_row.session_id
+    JOIN exercise_muscle_contributions AS contribution
+      ON contribution.exercise_id = set_row.exercise_id_snapshot
+     AND (contribution.owner_user_id IS NULL OR contribution.owner_user_id = @userId)
+     AND ${effectiveRevision('contribution', 'set_row.exercise_id_snapshot', 'session.date')}
+    WHERE session.user_id = @userId
+      AND session.status = 'completed'
+      AND session.deleted_at IS NULL
+      AND session.date BETWEEN @previousStartDate AND @endDate
+      AND set_row.completed = 1
+      AND set_row.skipped = 0
+      AND set_row.section IN ('main', 'supplemental')
+      AND set_row.exercise_id_snapshot IS NOT NULL
+      AND set_row.exercise_name_snapshot IS NOT NULL
+      AND set_row.tracking_type_snapshot IS NOT NULL
+      AND ${qualifierSql('set_row.tracking_type_snapshot', 'set_row.weight', 'set_row.reps', 'set_row.seconds', 'set_row.distance')}
+    ORDER BY session.date, session.id, set_row.id, contribution.id`;
+  for (const row of sqlite
+    .prepare(completedSql)
+    .iterate({ endDate, previousStartDate, timeZone, userId }) as Iterable<JoinedSource>) {
+    record(row);
   }
 
-  const muscleNames = [...new Set(sources.map((source) => source.muscle))].sort((a, b) =>
-    a.localeCompare(b),
-  );
-  const rows = muscleNames.map((muscle) => {
-    const muscleSources = sources.filter((source) => source.muscle === muscle);
-    const completed = muscleSources.filter((source) => source.sourceType === 'completed');
-    const planned = muscleSources.filter((source) => source.sourceType === 'planned');
-    const plannedSetIds = new Set(planned.map((source) => source.setId));
-    const fulfilledPlanned = completed.filter(
-      (source) =>
-        source.sourceScheduledSetId !== null && plannedSetIds.has(source.sourceScheduledSetId),
-    );
-    const qualifyingSetEquivalents = completed.reduce((sum, source) => sum + source.factor, 0);
-    const plannedSetEquivalents = planned.reduce((sum, source) => sum + source.factor, 0);
-    const fulfilledPlannedSetEquivalents = fulfilledPlanned.reduce(
-      (sum, source) => sum + source.factor,
-      0,
-    );
-    const previousQualifyingSetEquivalents = previousByMuscle.get(muscle) ?? 0;
-    const volumeSources = completed.filter((source) => source.volumeLoad !== null);
-    return {
-      change: changeState(qualifyingSetEquivalents, previousQualifyingSetEquivalents),
-      completedSessionCount: new Set(completed.map((source) => source.sessionId)).size,
-      exerciseCount: new Set(muscleSources.map((source) => source.exerciseId)).size,
+  const plannedSql = `
+    SELECT contribution.id AS contributionId,
+           scheduled.date,
+           scheduled_exercise.exercise_id AS exerciseId,
+           scheduled_exercise.exercise_name_snapshot AS exerciseName,
+           contribution.factor,
+           contribution.muscle,
+           contribution.role,
+           scheduled.id AS scheduledWorkoutId,
+           NULL AS sessionId,
+           scheduled_set.id AS setId,
+           NULL AS sourceScheduledSetId,
+           'planned' AS sourceType,
+           CASE WHEN scheduled_set.target_weight IS NOT NULL AND scheduled_set.reps IS NOT NULL
+                THEN round(scheduled_set.target_weight * scheduled_set.reps * contribution.factor, 6)
+                ELSE NULL END AS volumeLoad,
+           EXISTS (
+             SELECT 1
+             FROM session_sets AS completed_set
+             JOIN workout_sessions AS completed_session ON completed_session.id = completed_set.session_id
+             JOIN exercise_muscle_contributions AS completed_contribution
+               ON completed_contribution.exercise_id = completed_set.exercise_id_snapshot
+              AND completed_contribution.muscle = contribution.muscle
+              AND (completed_contribution.owner_user_id IS NULL OR completed_contribution.owner_user_id = @userId)
+              AND ${effectiveRevision('completed_contribution', 'completed_set.exercise_id_snapshot', 'completed_session.date')}
+             WHERE completed_session.user_id = @userId
+               AND completed_session.status = 'completed'
+               AND completed_session.deleted_at IS NULL
+               AND completed_session.date BETWEEN @startDate AND @endDate
+               AND completed_set.completed = 1
+               AND completed_set.skipped = 0
+               AND completed_set.section IN ('main', 'supplemental')
+               AND completed_set.exercise_id_snapshot IS NOT NULL
+               AND completed_set.exercise_name_snapshot IS NOT NULL
+               AND completed_set.tracking_type_snapshot IS NOT NULL
+               AND ${qualifierSql('completed_set.tracking_type_snapshot', 'completed_set.weight', 'completed_set.reps', 'completed_set.seconds', 'completed_set.distance')}
+               AND completed_set.source_scheduled_set_id = scheduled_set.id
+           ) AS fulfilled,
+           coalesce(json_extract(configuration.snapshot, '$.priority'), 0) AS priority
+    FROM scheduled_workout_exercise_sets AS scheduled_set
+    JOIN scheduled_workout_exercises AS scheduled_exercise
+      ON scheduled_exercise.id = scheduled_set.scheduled_workout_exercise_id
+    JOIN scheduled_workouts AS scheduled ON scheduled.id = scheduled_exercise.scheduled_workout_id
+    LEFT JOIN workout_sessions AS linked_session ON linked_session.id = scheduled.session_id
+    LEFT JOIN workout_progression_configurations AS configuration
+      ON configuration.scheduled_workout_exercise_id = scheduled_exercise.id
+    JOIN exercise_muscle_contributions AS contribution
+      ON contribution.exercise_id = scheduled_exercise.exercise_id
+     AND (contribution.owner_user_id IS NULL OR contribution.owner_user_id = @userId)
+     AND ${effectiveRevision('contribution', 'scheduled_exercise.exercise_id', 'scheduled.date')}
+    WHERE scheduled.user_id = @userId
+      AND scheduled.date BETWEEN @startDate AND @endDate
+      AND scheduled_exercise.section IN ('main', 'supplemental')
+      AND scheduled_exercise.exercise_name_snapshot IS NOT NULL
+      AND scheduled_exercise.tracking_type_snapshot IS NOT NULL
+      AND (linked_session.id IS NULL OR linked_session.status <> 'cancelled')
+      AND ${qualifierSql('scheduled_exercise.tracking_type_snapshot', 'scheduled_set.target_weight', 'coalesce(scheduled_set.reps, scheduled_set.reps_min, scheduled_set.reps_max)', 'scheduled_set.target_seconds', 'scheduled_set.target_distance')}
+    ORDER BY scheduled.date, scheduled.id, scheduled_set.id, contribution.id`;
+  for (const row of sqlite
+    .prepare(plannedSql)
+    .iterate({ endDate, startDate, timeZone, userId }) as Iterable<JoinedSource>) {
+    record(row);
+  }
+
+  const rows = [...muscleAggregates.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([muscle, aggregate]) => ({
+      change: changeState(aggregate.completed, aggregate.previous),
+      completedSessionCount: aggregate.sessionIds.size,
+      exerciseCount: aggregate.exerciseIds.size,
       exposureState:
-        planned.length === 0
+        aggregate.planned === 0
           ? ('no_plan' as const)
-          : fulfilledPlannedSetEquivalents + 0.001 >= plannedSetEquivalents
+          : aggregate.fulfilled + 0.001 >= aggregate.planned
             ? ('fully_completed' as const)
-            : fulfilledPlannedSetEquivalents > 0
+            : aggregate.fulfilled > 0
               ? ('partially_completed' as const)
               : ('missed' as const),
-      fulfilledPlannedSetEquivalents,
+      fulfilledPlannedSetEquivalents: aggregate.fulfilled,
       muscle,
-      plannedSetEquivalents,
-      previousQualifyingSetEquivalents,
-      priority: activePlannedRows.some(
-        (row) =>
-          priorityScheduledExerciseIds.has(row.scheduledWorkoutExerciseId) &&
-          planned.some((source) => source.setId === row.setId),
-      ),
-      qualifyingSetEquivalents,
-      sourceCount: muscleSources.length,
-      sourceIds: muscleSources.slice(0, ROW_SOURCE_ID_LIMIT).map((source) => source.setId),
-      sourceIdsTruncated: muscleSources.length > ROW_SOURCE_ID_LIMIT,
-      volumeLoad:
-        volumeSources.length === 0
-          ? null
-          : volumeSources.reduce((sum, source) => sum + (source.volumeLoad ?? 0), 0),
-    };
-  });
-
-  const series = [...new Set(sources.map((source) => `${source.date}\u0000${source.muscle}`))]
-    .sort()
-    .map((key) => {
-      const [date, muscle] = key.split('\u0000') as [string, string];
-      const pointSources = sources.filter(
-        (source) => source.date === date && source.muscle === muscle,
-      );
-      const completed = pointSources.filter((source) => source.sourceType === 'completed');
-      const planned = pointSources.filter((source) => source.sourceType === 'planned');
-      const volumeSources = completed.filter((source) => source.volumeLoad !== null);
-      return {
-        date,
-        muscle,
-        plannedSetEquivalents: planned.reduce((sum, source) => sum + source.factor, 0),
-        qualifyingSetEquivalents: completed.reduce((sum, source) => sum + source.factor, 0),
-        volumeLoad:
-          volumeSources.length === 0
-            ? null
-            : volumeSources.reduce((sum, source) => sum + (source.volumeLoad ?? 0), 0),
-      };
-    });
+      plannedSetEquivalents: aggregate.planned,
+      previousQualifyingSetEquivalents: aggregate.previous,
+      priority: aggregate.priority,
+      qualifyingSetEquivalents: aggregate.completed,
+      sourceCount: aggregate.sourceCount,
+      sourceIds: aggregate.sourceIds,
+      sourceIdsTruncated: aggregate.sourceCount > aggregate.sourceIds.length,
+      volumeLoad: aggregate.hasVolume ? aggregate.volumeLoad : null,
+    }));
+  const series = [...seriesAggregates.values()]
+    .sort((left, right) =>
+      left.date === right.date
+        ? left.muscle.localeCompare(right.muscle)
+        : left.date.localeCompare(right.date),
+    )
+    .map((point) => ({
+      date: point.date,
+      muscle: point.muscle,
+      plannedSetEquivalents: point.planned,
+      qualifyingSetEquivalents: point.completed,
+      volumeLoad: point.hasVolume ? point.volumeLoad : null,
+    }));
 
   return workoutMuscleAnalyticsSchema.parse({
     contributionVersion: 1,
@@ -458,9 +364,9 @@ export async function getWorkoutMuscleAnalytics(
     qualifyingSetPolicyVersion: 1,
     rows,
     series,
-    sourceCount: sources.length,
-    sources: sources.slice(0, SOURCE_LIMIT),
-    sourcesTruncated: sources.length > SOURCE_LIMIT,
+    sourceCount,
+    sources,
+    sourcesTruncated: sourceCount > sources.length,
     startDate,
     timeZone,
     weightUnit: user.weightUnit,

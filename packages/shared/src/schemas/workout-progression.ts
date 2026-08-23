@@ -258,6 +258,7 @@ export const workoutProgressionEvidenceSchema = z
     performance: z.array(workoutProgressionPerformanceSetSchema).max(100),
     policy: workoutProgressionPolicySchema,
     policySource: workoutProgressionPolicySourceSchema,
+    priority: z.boolean().nullable(),
     context: workoutProgressionContextSchema,
   })
   .strict();

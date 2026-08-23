@@ -22,7 +22,6 @@ import { and, asc, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 
 import { db } from '../../db/index.js';
 import {
-  exercises,
   scheduledWorkoutExerciseSets,
   scheduledWorkoutExercises,
   scheduledWorkouts,
@@ -66,6 +65,16 @@ const fingerprint = (value: unknown) => sha256Hex(stableJson(value));
 function parseRecommendationSnapshot(snapshot: unknown): WorkoutProgressionRecommendation {
   const current = workoutProgressionRecommendationSchema.safeParse(snapshot);
   if (current.success) return current.data;
+
+  const snapshotRecord = snapshot as Record<string, unknown>;
+  const snapshotEvidence = snapshotRecord.evidence as Record<string, unknown> | undefined;
+  if (snapshotEvidence && !Object.hasOwn(snapshotEvidence, 'priority')) {
+    const priorityUnknown = workoutProgressionRecommendationSchema.safeParse({
+      ...snapshotRecord,
+      evidence: { ...snapshotEvidence, priority: null },
+    });
+    if (priorityUnknown.success) return priorityUnknown.data;
+  }
 
   // 0053 snapshots predate exact set identity, prescription, policy provenance, and context.
   // Preserve those immutable decisions as legacy audit facts without inventing unavailable facts.
@@ -121,6 +130,7 @@ function parseRecommendationSnapshot(snapshot: unknown): WorkoutProgressionRecom
         revision: 0,
         type: 'none',
       },
+      priority: null,
       priorTargets: legacyTargets,
     },
     recommendedTargets: legacyRecommended,
@@ -167,12 +177,11 @@ function buildEvidenceForScheduledWorkout(
   const exerciseRows = client
     .select({
       exerciseId: scheduledWorkoutExercises.exerciseId,
-      exerciseName: exercises.name,
+      exerciseName: scheduledWorkoutExercises.exerciseNameSnapshot,
       scheduledWorkoutExerciseId: scheduledWorkoutExercises.id,
-      trackingType: exercises.trackingType,
+      trackingType: scheduledWorkoutExercises.trackingTypeSnapshot,
     })
     .from(scheduledWorkoutExercises)
-    .innerJoin(exercises, eq(exercises.id, scheduledWorkoutExercises.exerciseId))
     .where(eq(scheduledWorkoutExercises.scheduledWorkoutId, scheduledWorkoutId))
     .orderBy(asc(scheduledWorkoutExercises.orderIndex), asc(scheduledWorkoutExercises.id))
     .all();
@@ -222,6 +231,7 @@ function buildEvidenceForScheduledWorkout(
 
   const evidence: WorkoutProgressionEvidence[] = [];
   for (const exerciseRow of exerciseRows) {
+    if (exerciseRow.exerciseName === null || exerciseRow.trackingType === null) continue;
     const priorTargets = orderedTargets(
       targetsByScheduledExercise.get(exerciseRow.scheduledWorkoutExerciseId) ?? [],
     );
@@ -389,6 +399,7 @@ function buildEvidenceForScheduledWorkout(
               revision: 0,
               type: 'none',
             },
+        priority: configuration?.priority ?? false,
         priorTargets,
         scheduledWorkoutDate: schedule.date,
         scheduledWorkoutExerciseId: exerciseRow.scheduledWorkoutExerciseId,
@@ -550,6 +561,7 @@ function evidenceMatchesDecision(
     stableJson(current.performance) === stableJson(snapshot.evidence.performance) &&
     stableJson(current.priorTargets) === stableJson(expectedTargets) &&
     stableJson(current.context) === stableJson(snapshot.evidence.context) &&
+    current.priority === snapshot.evidence.priority &&
     stableJson(current.policySource) === stableJson(snapshot.evidence.policySource) &&
     stableJson(stablePolicy(current.policy)) === stableJson(stablePolicy(snapshot.evidence.policy))
   );
