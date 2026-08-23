@@ -208,6 +208,28 @@ describe('conditionSeverityPointSchema', () => {
         createdAt: 1,
       }),
     ).toThrow();
+
+    expect(() =>
+      conditionSeverityPointSchema.parse({
+        id: 'severity-2',
+        conditionId: 'condition-1',
+        date: '2026-03-04',
+        value: -1,
+        createdAt: 1,
+      }),
+    ).toThrow();
+  });
+
+  it('accepts zero as a resolved-pain severity observation', () => {
+    expect(
+      conditionSeverityPointSchema.parse({
+        id: 'severity-zero',
+        conditionId: 'condition-1',
+        date: '2026-03-06',
+        value: 0,
+        createdAt: 1,
+      }).value,
+    ).toBe(0);
   });
 
   it('infers the ConditionSeverityPoint type from the schema', () => {

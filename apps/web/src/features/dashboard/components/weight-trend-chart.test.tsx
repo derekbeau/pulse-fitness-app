@@ -195,6 +195,24 @@ describe('WeightTrendChart', () => {
     expect(screen.getByText('Historical view')).toBeInTheDocument();
   });
 
+  it('keeps every compact plotted value keyboard-accessible through an exact table', async () => {
+    renderChart();
+    await screen.findByRole('img', { name: 'Trend Weight chart' });
+
+    const disclosure = screen.getByText('View exact Trend Weight values');
+    fireEvent.click(disclosure);
+    const firstPoint = screen.getByRole('button', { name: /Inspect Mar 4, 2026/ });
+    firstPoint.focus();
+    fireEvent.keyDown(firstPoint, { key: 'Enter' });
+    fireEvent.click(firstPoint);
+
+    expect(firstPoint).toHaveFocus();
+    expect(screen.getByLabelText('Selected Trend Weight point')).toHaveTextContent(
+      'Mar 4, 2026Scale 181.2 lbs · Trend not available · scale only',
+    );
+    expect(screen.getAllByRole('row')).toHaveLength(4);
+  });
+
   it('switches ranges without recomputing values in the component', async () => {
     renderChart();
     await screen.findByRole('img', { name: 'Trend Weight chart' });

@@ -30,6 +30,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { ChartRangeControl } from '@/components/charts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -234,24 +235,17 @@ function RangeControl({
           </div>
           {analytics ? <Badge variant="outline">{analytics.timeZone}</Badge> : null}
         </div>
-        <div
-          aria-label="Energy balance range"
-          className="grid grid-flow-col auto-cols-[2.75rem] grid-cols-none gap-1 overflow-x-auto rounded-xl border border-border bg-secondary/25 p-1 sm:grid-flow-row sm:auto-cols-auto sm:grid-cols-6 sm:overflow-visible"
-          role="group"
-        >
-          {RANGE_OPTIONS.map((option) => (
-            <Button
-              aria-pressed={range === option.value}
-              className="min-h-11 min-w-11 px-1 text-xs sm:px-3 sm:text-sm"
-              key={option.value}
-              onClick={() => onRange(option.value)}
-              type="button"
-              variant={range === option.value ? 'default' : 'ghost'}
-            >
-              {option.label}
-            </Button>
-          ))}
-        </div>
+        <ChartRangeControl
+          label="Energy balance range"
+          onChange={onRange}
+          options={RANGE_OPTIONS}
+          statusText={
+            analytics
+              ? `${range.toUpperCase()} · ${formatDate(analytics.range.startDate)}–${formatDate(analytics.range.endDate)} · ${analytics.points.length} periods`
+              : 'Loading selected range'
+          }
+          value={range}
+        />
       </CardContent>
     </Card>
   );

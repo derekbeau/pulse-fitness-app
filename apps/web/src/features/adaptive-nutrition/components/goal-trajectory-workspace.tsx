@@ -6,6 +6,7 @@ import type {
 import { CalendarRange, Gauge, ShieldCheck, Target, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 
+import { ChartRangeControl } from '@/components/charts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -89,21 +90,13 @@ export function GoalTrajectoryWorkspace({ goalId, end }: { goalId: string; end?:
                 observations
               </p>
             </div>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Goal trajectory range">
-              {RANGE_OPTIONS.map((option) => (
-                <Button
-                  aria-pressed={range === option.value}
-                  className="min-h-11 min-w-11"
-                  key={option.value}
-                  onClick={() => setRange(option.value)}
-                  size="sm"
-                  type="button"
-                  variant={range === option.value ? 'default' : 'outline'}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
+            <ChartRangeControl
+              label="Goal trajectory range"
+              onChange={setRange}
+              options={RANGE_OPTIONS}
+              statusText={`${range.toUpperCase()} · ${formatAdaptiveDate(analytics.range.startDate)}–${formatAdaptiveDate(analytics.range.endDate)} · ${analytics.trendPoints.length} Product Trend Weight observations`}
+              value={range}
+            />
             <label className="grid gap-1 text-sm font-medium">
               Recent pace lookback
               <select

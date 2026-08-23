@@ -49,7 +49,7 @@ export const conditionSeverityPointSchema = z.object({
   id: z.string(),
   conditionId: z.string(),
   date: dateSchema,
-  value: z.number().int().min(1).max(10),
+  value: z.number().int().min(0).max(10),
   createdAt: z.number().int(),
 });
 

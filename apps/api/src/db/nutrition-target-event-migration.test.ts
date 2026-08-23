@@ -17,6 +17,11 @@ type Journal = {
   entries: Array<{ idx: number; version: string; when: number; tag: string; breakpoints: boolean }>;
 };
 
+const sourceJournal = JSON.parse(
+  readFileSync(join(sourceMigrationsFolder, 'meta/_journal.json'), 'utf8'),
+) as Journal;
+const latestMigrationCount = sourceJournal.entries.length;
+
 const acceptedActionPayload = (
   appliedProposal: unknown,
   overrides: Record<string, unknown> = {},
@@ -31,13 +36,10 @@ const acceptedActionPayload = (
 const stageThrough = (root: string, maximumIndex: number) => {
   const destination = join(root, `through-${maximumIndex}`);
   mkdirSync(join(destination, 'meta'), { recursive: true });
-  const journal = JSON.parse(
-    readFileSync(join(sourceMigrationsFolder, 'meta/_journal.json'), 'utf8'),
-  ) as Journal;
-  const entries = journal.entries.filter((entry) => entry.idx <= maximumIndex);
+  const entries = sourceJournal.entries.filter((entry) => entry.idx <= maximumIndex);
   writeFileSync(
     join(destination, 'meta/_journal.json'),
-    `${JSON.stringify({ ...journal, entries }, null, 2)}\n`,
+    `${JSON.stringify({ ...sourceJournal, entries }, null, 2)}\n`,
   );
   for (const entry of entries) {
     copyFileSync(
@@ -649,11 +651,9 @@ describe('nutrition target event migration', () => {
           },
         ],
       });
-      const migrationCountBefore = installedMigrationCount(sqlite);
-
       migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder });
 
-      expect(installedMigrationCount(sqlite)).toBe(migrationCountBefore + 1);
+      expect(installedMigrationCount(sqlite)).toBe(latestMigrationCount);
       expect(
         sqlite
           .prepare(
@@ -1016,9 +1016,8 @@ describe('nutrition target event migration', () => {
         ],
       });
 
-      const migrationCountBefore = installedMigrationCount(sqlite);
       migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder });
-      expect(installedMigrationCount(sqlite)).toBe(migrationCountBefore + 1);
+      expect(installedMigrationCount(sqlite)).toBe(latestMigrationCount);
 
       expect(
         sqlite
@@ -1499,11 +1498,9 @@ describe('nutrition target event migration', () => {
           resolvedAt: 200,
           actionCreatedAt: 200 + actionDelayMs,
         });
-        const migrationCountBefore = installedMigrationCount(sqlite);
-
         migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder });
 
-        expect(installedMigrationCount(sqlite)).toBe(migrationCountBefore + 1);
+        expect(installedMigrationCount(sqlite)).toBe(latestMigrationCount);
         expect(
           sqlite
             .prepare(
@@ -1546,11 +1543,9 @@ describe('nutrition target event migration', () => {
       try {
         migrate(drizzle(sqlite), { migrationsFolder: stageThrough(root, 50) });
         seedKeepAction(sqlite, { actionCreatedAt: 200 + actionDelayMs });
-        const migrationCountBefore = installedMigrationCount(sqlite);
-
         migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder });
 
-        expect(installedMigrationCount(sqlite)).toBe(migrationCountBefore + 1);
+        expect(installedMigrationCount(sqlite)).toBe(latestMigrationCount);
         expect(
           sqlite
             .prepare(
@@ -1612,11 +1607,9 @@ describe('nutrition target event migration', () => {
             actionCreatedAt: 300,
           });
         }
-        const migrationCountBefore = installedMigrationCount(sqlite);
-
         migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder });
 
-        expect(installedMigrationCount(sqlite)).toBe(migrationCountBefore + 1);
+        expect(installedMigrationCount(sqlite)).toBe(latestMigrationCount);
         expect(
           sqlite
             .prepare(
@@ -1922,11 +1915,9 @@ describe('nutrition target event migration', () => {
           )
           .get(),
       ).toEqual({ goalId: null, goalRevisionId: null });
-      const migrationCountBefore = installedMigrationCount(sqlite);
-
       migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder });
 
-      expect(installedMigrationCount(sqlite)).toBe(migrationCountBefore + 1);
+      expect(installedMigrationCount(sqlite)).toBe(latestMigrationCount);
       expect(
         sqlite
           .prepare(
@@ -2076,10 +2067,9 @@ describe('nutrition target event migration', () => {
           );
       }
 
-      const migrationCountBefore = installedMigrationCount(sqlite);
       migrate(drizzle(sqlite), { migrationsFolder: sourceMigrationsFolder });
 
-      expect(installedMigrationCount(sqlite)).toBe(migrationCountBefore + 1);
+      expect(installedMigrationCount(sqlite)).toBe(latestMigrationCount);
       expect(
         sqlite
           .prepare(

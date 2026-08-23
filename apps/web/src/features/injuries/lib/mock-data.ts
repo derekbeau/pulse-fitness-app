@@ -133,7 +133,7 @@ export const mockHealthConditions: HealthCondition[] = [
       { date: '2025-08-21', value: 5 },
       { date: '2025-09-18', value: 3 },
       { date: '2025-11-15', value: 2 },
-      { date: '2026-01-12', value: 1 },
+      { date: '2026-01-12', value: 0 },
     ],
   },
   {

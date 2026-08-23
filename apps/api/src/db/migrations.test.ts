@@ -173,6 +173,68 @@ describe('migration 0013_bitter_bloodaxe', () => {
   });
 });
 
+describe('migration 0052_condition_zero_severity', () => {
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir) rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves existing observations and admits zero without admitting negative severity', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'pulse-migration-0052-'));
+    tempDirs.push(tempDir);
+    const db = new Database(join(tempDir, 'migration.db'));
+
+    try {
+      db.pragma('foreign_keys = ON');
+      db.exec(`
+        create table health_conditions (id text primary key not null);
+        create table condition_severity_points (
+          id text primary key not null,
+          condition_id text not null references health_conditions(id) on delete cascade,
+          date text not null,
+          value integer not null,
+          created_at integer not null,
+          constraint condition_severity_points_date_format_check
+            check(date glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          constraint condition_severity_points_value_check check(value between 1 and 10)
+        );
+        create index condition_severity_points_condition_date_idx
+          on condition_severity_points(condition_id, date);
+        insert into health_conditions (id) values ('condition-1');
+        insert into condition_severity_points (id, condition_id, date, value, created_at)
+          values ('existing', 'condition-1', '2026-08-21', 4, 1);
+      `);
+
+      runSqlStatements(
+        db,
+        readFileSync(join(process.cwd(), 'drizzle/0052_condition_zero_severity.sql'), 'utf8'),
+      );
+
+      expect(
+        db.prepare('select value from condition_severity_points where id = ?').get('existing'),
+      ).toEqual({ value: 4 });
+      db.prepare(
+        `insert into condition_severity_points (id, condition_id, date, value, created_at)
+         values (?, ?, ?, ?, ?)`,
+      ).run('resolved', 'condition-1', '2026-08-22', 0, 2);
+      expect(() =>
+        db
+          .prepare(
+            `insert into condition_severity_points (id, condition_id, date, value, created_at)
+           values (?, ?, ?, ?, ?)`,
+          )
+          .run('invalid', 'condition-1', '2026-08-22', -1, 3),
+      ).toThrow();
+      expect(db.pragma('foreign_key_check')).toEqual([]);
+      expect(db.pragma('integrity_check')).toEqual([{ integrity_check: 'ok' }]);
+    } finally {
+      db.close();
+    }
+  });
+});
+
 describe('migration 0039_thick_nebula', () => {
   afterEach(() => {
     while (tempDirs.length > 0) {

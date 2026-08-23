@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { ChartLegend } from '@/components/charts';
 import {
   formatTrendWeightAxisDate,
   formatTrendWeightDate,
@@ -155,23 +156,14 @@ export function GoalTrajectoryChart({
           completion, and estimates.
         </p>
       </div>
-      <div
-        className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground"
-        aria-label="Trajectory legend"
-      >
-        <span>
-          <i className="mr-2 inline-block h-0.5 w-6 bg-primary align-middle" />
-          Product Trend Weight
-        </span>
-        <span>
-          <i className="mr-2 inline-block w-6 border-t-2 border-dashed border-primary align-middle" />
-          Estimated path
-        </span>
-        <span>
-          <i className="mr-2 inline-block w-6 border-t border-dashed border-foreground align-middle" />
-          Goal target or band
-        </span>
-      </div>
+      <ChartLegend
+        items={[
+          { color: 'var(--color-primary)', label: 'Product Trend Weight', style: 'line' },
+          { color: 'var(--color-primary)', label: 'Estimated path', style: 'dashed' },
+          { color: 'var(--color-foreground)', label: 'Goal target or band', style: 'dashed' },
+        ]}
+        label="Trajectory legend"
+      />
       {chartData.length === 0 ? (
         <div className="flex min-h-52 items-center justify-center rounded-2xl border border-dashed border-border/70 bg-card/40 p-6 text-center text-sm text-muted-foreground">
           No supported model trend is available for this goal period yet.
