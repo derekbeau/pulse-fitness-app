@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+import type { ExerciseTrackingType } from '@pulse/shared';
+
 import { sql } from 'drizzle-orm';
 import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
@@ -26,6 +28,8 @@ export const scheduledWorkoutExercises = sqliteTable(
     exerciseId: text('exercise_id')
       .notNull()
       .references(() => exercises.id, { onDelete: 'restrict' }),
+    exerciseNameSnapshot: text('exercise_name_snapshot'),
+    trackingTypeSnapshot: text('tracking_type_snapshot').$type<ExerciseTrackingType>(),
     section: text('section').$type<WorkoutTemplateSectionType>().notNull(),
     orderIndex: integer('order_index').notNull(),
     programmingNotes: text('programming_notes'),

@@ -68,6 +68,7 @@ const scheduledWorkoutExerciseSetTargetFieldSchemas = {
   targetWeightMax: z.number().min(0).nullable(),
   targetSeconds: z.number().int().min(0).nullable(),
   targetDistance: z.number().min(0).nullable(),
+  targetZone: z.number().int().min(1).max(5).nullable(),
 };
 
 export const scheduledWorkoutExerciseSetSchema = z.object({
@@ -184,6 +185,7 @@ const editableSetFields = [
   'targetWeightMax',
   'targetSeconds',
   'targetDistance',
+  'targetZone',
   'repsMin',
   'repsMax',
   'reps',
@@ -204,6 +206,7 @@ export const updateScheduledWorkoutExerciseSetsInputSchema = z
               scheduledWorkoutExerciseSetTargetFieldSchemas.targetWeightMax.optional(),
             targetSeconds: scheduledWorkoutExerciseSetTargetFieldSchemas.targetSeconds.optional(),
             targetDistance: scheduledWorkoutExerciseSetTargetFieldSchemas.targetDistance.optional(),
+            targetZone: scheduledWorkoutExerciseSetTargetFieldSchemas.targetZone.optional(),
             repsMin: z.number().int().nonnegative().nullable().optional(),
             repsMax: z.number().int().nonnegative().nullable().optional(),
             reps: z.number().int().nonnegative().nullable().optional(),
@@ -212,10 +215,7 @@ export const updateScheduledWorkoutExerciseSetsInputSchema = z
           .strict()
           .refine(
             (setUpdate) =>
-              !(
-                setUpdate.remove &&
-                editableSetFields.some((field) => setUpdate[field] != null)
-              ),
+              !(setUpdate.remove && editableSetFields.some((field) => setUpdate[field] != null)),
             {
               message: 'remove cannot be combined with target fields',
             },

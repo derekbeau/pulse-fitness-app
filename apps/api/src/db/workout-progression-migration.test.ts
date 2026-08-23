@@ -125,6 +125,105 @@ afterEach(() => {
 });
 
 describe('0053 workout progression migration', () => {
+  it('upgrades populated 0053 audit facts without blocking source lifecycle operations', () => {
+    const { root, sqlite } = createDatabase();
+    migrateFolder(sqlite, stageThrough(root, 53));
+    seedLegacyWorkout(sqlite);
+    sqlite
+      .prepare(
+        `INSERT INTO workout_sessions (
+          id, user_id, name, date, status, started_at, completed_at, time_segments,
+          created_at, updated_at
+        ) VALUES ('session-1', 'user-1', 'Upper', '2026-08-20', 'completed', 200, 300,
+          '[]', 200, 300)`,
+      )
+      .run();
+    sqlite
+      .prepare(
+        `INSERT INTO session_sets (
+          id, session_id, exercise_id, order_index, set_number, weight, reps, completed,
+          skipped, section, created_at
+        ) VALUES ('session-set-1', 'session-1', 'exercise-1', 0, 1, 20, 10, 1, 0,
+          'main', 300)`,
+      )
+      .run();
+    const legacySnapshot = JSON.stringify({ version: '0053-preserved-audit' });
+    sqlite
+      .prepare(
+        `INSERT INTO workout_progression_recommendations (
+          id, user_id, scheduled_workout_id, scheduled_workout_exercise_id, exercise_id,
+          source_session_id, policy_family, policy_version, source_fingerprint, effective_date,
+          snapshot, generated_at
+        ) VALUES ('recommendation-legacy', 'user-1', 'scheduled-1', 'scheduled-exercise-1',
+          'exercise-1', 'session-1', 'double_progression', 1, ?, '2026-08-24', ?, 300)`,
+      )
+      .run('a'.repeat(64), legacySnapshot);
+
+    migrateFolder(sqlite, sourceMigrationsFolder);
+
+    expect(
+      sqlite
+        .prepare(
+          `SELECT exercise_id_snapshot AS exerciseId, exercise_name_snapshot AS exerciseName,
+                  tracking_type_snapshot AS trackingType
+           FROM session_sets WHERE id = 'session-set-1'`,
+        )
+        .get(),
+    ).toEqual({
+      exerciseId: 'exercise-1',
+      exerciseName: 'Incline press',
+      trackingType: 'weight_reps',
+    });
+    expect(
+      sqlite
+        .prepare(
+          "SELECT snapshot FROM workout_progression_recommendations WHERE id = 'recommendation-legacy'",
+        )
+        .get(),
+    ).toEqual({ snapshot: legacySnapshot });
+    expect(() =>
+      sqlite.prepare("UPDATE session_sets SET target_zone = 6 WHERE id = 'session-set-1'").run(),
+    ).toThrow(/invalid session progression target/u);
+    sqlite
+      .prepare(
+        `INSERT INTO workout_progression_configurations (
+          id, user_id, scheduled_workout_id, scheduled_workout_exercise_id, revision,
+          snapshot, actor_type, actor_label, updated_at
+        ) VALUES ('configuration-1', 'user-1', 'scheduled-1', 'scheduled-exercise-1', 1,
+          '{}', 'user', 'You', 400)`,
+      )
+      .run();
+    expect(() =>
+      sqlite
+        .prepare(
+          "UPDATE workout_progression_configurations SET revision = 3 WHERE id = 'configuration-1'",
+        )
+        .run(),
+    ).toThrow(/revision or ownership mismatch/u);
+
+    sqlite.prepare("DELETE FROM scheduled_workouts WHERE id = 'scheduled-1'").run();
+    sqlite.prepare("DELETE FROM workout_sessions WHERE id = 'session-1'").run();
+    sqlite.prepare("DELETE FROM exercises WHERE id = 'exercise-1'").run();
+    expect(
+      sqlite
+        .prepare(
+          `SELECT scheduled_workout_id AS scheduledWorkoutId, source_session_id AS sourceSessionId,
+                  exercise_id AS exerciseId
+           FROM workout_progression_recommendations WHERE id = 'recommendation-legacy'`,
+        )
+        .get(),
+    ).toEqual({
+      exerciseId: 'exercise-1',
+      scheduledWorkoutId: 'scheduled-1',
+      sourceSessionId: 'session-1',
+    });
+    expect(
+      sqlite.prepare('SELECT count(*) AS count FROM workout_progression_configurations').get(),
+    ).toEqual({ count: 0 });
+    assertHealthy(sqlite);
+    sqlite.close();
+  });
+
   it('upgrades populated 0052 data with deterministic contributions and immutable guards', () => {
     const { root, sqlite } = createDatabase();
     migrateFolder(sqlite, stageThrough(root, 52));

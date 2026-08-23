@@ -50,6 +50,23 @@ function targetText(target: WorkoutProgressionTarget, weightUnit: string) {
   return parts.join(' · ') || 'No measurable target';
 }
 
+function completedText(
+  performance: WorkoutProgressionRecommendation['evidence']['performance'][number] | undefined,
+  weightUnit: string,
+) {
+  if (!performance) return 'Not recorded';
+  const parts: string[] = [];
+  if (performance.weight !== null) parts.push(`${performance.weight} ${weightUnit}`);
+  if (performance.reps !== null) parts.push(`${performance.reps} reps`);
+  if (performance.seconds !== null) parts.push(`${performance.seconds} sec`);
+  if (performance.distance !== null) parts.push(`${performance.distance} distance`);
+  if (performance.zone !== null) parts.push(`Zone ${performance.zone}`);
+  if (performance.rpe !== null) parts.push(`RPE ${performance.rpe}`);
+  if (performance.skipped) parts.push('Skipped');
+  else if (!performance.completed) parts.push('Not completed');
+  return parts.join(' · ') || 'No measured completion';
+}
+
 export function WorkoutProgressionReview({
   locked,
   scheduledWorkoutId,
@@ -146,6 +163,13 @@ export function WorkoutProgressionReview({
             const meta = decisionMeta[recommendation.decision];
             const Icon = meta.icon;
             const actionable = recommendation.state === 'current';
+            const canApplyTargets = actionable && recommendation.confidence !== 'unavailable';
+            const comparisonSetNumbers = [
+              ...new Set([
+                ...recommendation.evidence.priorTargets.map((target) => target.setNumber),
+                ...recommendation.evidence.performance.map((set) => set.setNumber),
+              ]),
+            ].sort((left, right) => left - right);
             return (
               <Card className="min-w-0 overflow-hidden" key={recommendation.id}>
                 <CardHeader className="gap-3 pb-3">
@@ -183,31 +207,70 @@ export function WorkoutProgressionReview({
                     </p>
                   ) : null}
 
-                  <div
-                    className="space-y-2"
-                    aria-label={`${recommendation.evidence.exerciseName} target comparison`}
-                  >
-                    {recommendation.evidence.priorTargets.map((current, index) => {
-                      const proposed = recommendation.recommendedTargets[index];
-                      return (
-                        <div
-                          className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-1 rounded-xl bg-secondary/35 p-3 text-sm sm:grid-cols-[auto_1fr_auto_1fr]"
-                          key={current.setNumber}
-                        >
-                          <span className="font-medium">Set {current.setNumber}</span>
-                          <span className="min-w-0 break-words text-muted-foreground">
-                            Current {targetText(current, weightUnit)}
-                          </span>
-                          <ArrowRight
-                            aria-hidden="true"
-                            className="hidden size-4 text-muted sm:block"
-                          />
-                          <span className="min-w-0 break-words font-medium">
-                            Proposed {proposed ? targetText(proposed, weightUnit) : 'Not available'}
-                          </span>
-                        </div>
-                      );
-                    })}
+                  <div className="overflow-x-auto rounded-xl border border-border/70">
+                    <table
+                      aria-label={`${recommendation.evidence.exerciseName} exact progression comparison`}
+                      className="w-full min-w-[42rem] text-left text-sm"
+                    >
+                      <thead className="bg-secondary/55 text-xs text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2" scope="col">
+                            Set
+                          </th>
+                          <th className="px-3 py-2" scope="col">
+                            Previous prescription
+                          </th>
+                          <th className="px-3 py-2" scope="col">
+                            Completed performance
+                          </th>
+                          <th className="px-3 py-2" scope="col">
+                            Current plan
+                          </th>
+                          <th className="px-3 py-2" scope="col">
+                            Proposed target
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {comparisonSetNumbers.map((setNumber) => {
+                          const current = recommendation.evidence.priorTargets.find(
+                            (target) => target.setNumber === setNumber,
+                          );
+                          const performance = recommendation.evidence.performance.find(
+                            (set) => set.setNumber === setNumber,
+                          );
+                          const proposed = current
+                            ? recommendation.recommendedTargets.find(
+                                (target) => target.setId === current.setId,
+                              )
+                            : undefined;
+                          return (
+                            <tr
+                              className="border-t border-border/60 align-top"
+                              key={current?.setId ?? performance?.setId ?? setNumber}
+                            >
+                              <th className="whitespace-nowrap px-3 py-3" scope="row">
+                                Set {setNumber}
+                              </th>
+                              <td className="px-3 py-3 text-muted-foreground">
+                                {performance
+                                  ? targetText(performance.prescribed, weightUnit)
+                                  : 'No matching source set'}
+                              </td>
+                              <td className="px-3 py-3 text-muted-foreground">
+                                {completedText(performance, weightUnit)}
+                              </td>
+                              <td className="px-3 py-3">
+                                {current ? targetText(current, weightUnit) : 'No current set'}
+                              </td>
+                              <td className="px-3 py-3 font-medium">
+                                {proposed ? targetText(proposed, weightUnit) : 'Not available'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
 
                   <div className="rounded-xl border border-border/70 p-3">
@@ -227,19 +290,25 @@ export function WorkoutProgressionReview({
                       {' · '}
                       {recommendation.reasonCodes.join(', ')}
                     </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Policy source:{' '}
+                      {recommendation.evidence.policySource.type === 'programming_config'
+                        ? `${recommendation.evidence.policySource.actorLabel} · revision ${recommendation.evidence.policySource.revision}`
+                        : 'No explicit programming policy'}
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                     <Button
                       className="min-h-11"
-                      disabled={!actionable || actionMutation.isPending}
+                      disabled={!canApplyTargets || actionMutation.isPending}
                       onClick={() => void act(recommendation, 'accept')}
                     >
                       Accept targets
                     </Button>
                     <Button
                       className="min-h-11"
-                      disabled={!actionable || actionMutation.isPending}
+                      disabled={!canApplyTargets || actionMutation.isPending}
                       onClick={() => setEditing(recommendation)}
                       variant="outline"
                     >
@@ -337,6 +406,7 @@ function EditTargetsDialog({
     ['reps', 'Exact reps'],
     ['seconds', 'Seconds'],
     ['distance', 'Distance'],
+    ['zone', 'Zone'],
   ] as const;
 
   return (
@@ -360,12 +430,16 @@ function EditTargetsDialog({
                     <Input
                       disabled={pending}
                       inputMode="decimal"
-                      min="0"
+                      min="1"
                       onChange={(event) => {
                         const next = [...targets];
-                        const integerField = ['repsMin', 'repsMax', 'reps', 'seconds'].includes(
-                          field,
-                        );
+                        const integerField = [
+                          'repsMin',
+                          'repsMax',
+                          'reps',
+                          'seconds',
+                          'zone',
+                        ].includes(field);
                         const parsed = numberOrNull(event.target.value);
                         next[targetIndex] = {
                           ...target,

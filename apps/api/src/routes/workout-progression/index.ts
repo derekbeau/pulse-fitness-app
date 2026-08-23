@@ -1,10 +1,12 @@
 import {
   apiDataResponseSchema,
   applyWorkoutProgressionActionInputSchema,
+  configureWorkoutProgressionInputSchema,
   previewWorkoutProgressionInputSchema,
   workoutMuscleAnalyticsQuerySchema,
   workoutMuscleAnalyticsSchema,
   workoutProgressionActionSchema,
+  workoutProgressionConfigurationSchema,
   workoutProgressionPreviewResponseSchema,
   workoutProgressionRecommendationSchema,
 } from '@pulse/shared';
@@ -23,6 +25,7 @@ import {
 import { getWorkoutMuscleAnalytics } from './muscle-store.js';
 import {
   applyWorkoutProgressionAction,
+  configureWorkoutProgression,
   getWorkoutProgressionRecommendation,
   previewWorkoutProgression,
   WorkoutProgressionAlreadyDecidedError,
@@ -47,6 +50,49 @@ function actorFromRequest(request: FastifyRequest) {
 export const workoutProgressionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
+
+  typedApp.put(
+    '/scheduled-exercises/:id/configuration',
+    {
+      schema: {
+        body: configureWorkoutProgressionInputSchema,
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(workoutProgressionConfigurationSchema),
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        security: authSecurity,
+        summary: 'Configure explicit workout progression policy and context',
+        tags: ['workout-progression'],
+      },
+    },
+    async (request, reply) => {
+      try {
+        const configuration = await configureWorkoutProgression({
+          actor: actorFromRequest(request),
+          input: request.body,
+          scheduledWorkoutExerciseId: request.params.id,
+          userId: request.userId,
+        });
+        if (!configuration) {
+          return sendError(
+            reply,
+            404,
+            'SCHEDULED_WORKOUT_EXERCISE_NOT_FOUND',
+            'Scheduled workout exercise not found',
+          );
+        }
+        return reply.send(buildDataResponse(request, configuration));
+      } catch (error) {
+        if (error instanceof WorkoutProgressionStaleError) {
+          return sendError(reply, 409, 'WORKOUT_PROGRESSION_STALE', error.message);
+        }
+        throw error;
+      }
+    },
+  );
 
   typedApp.post(
     '/preview',

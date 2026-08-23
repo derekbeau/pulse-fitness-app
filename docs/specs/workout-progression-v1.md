@@ -23,6 +23,11 @@ session/set ids, prior prescription, completed performance, policy configuration
 output, source fingerprint, and generation/effective time. It never mutates when source evidence is
 corrected.
 
+Each completed source set carries both its immutable scheduled-set source id (when available) and
+the session-set id, the previous prescribed targets copied into that session, and the completed
+values. Recommendation thresholds use that previous prescription. Editing a future plan can change
+the proposed destination but cannot reinterpret whether the historical work met its prescription.
+
 Actions are an append-only sequence attached to the recommendation:
 
 1. `accept` applies the exact recommended targets.
@@ -34,12 +39,19 @@ Actions are an append-only sequence attached to the recommendation:
 Before a material action, the server rebuilds the source fingerprint. A mismatch returns a stable
 stale conflict and performs no plan or action write. Re-previewing creates or reuses one current
 recommendation for the corrected fingerprint; the old snapshot remains readable. AgentToken
-actions require an idempotency key. Replaying the same key returns the same result; reusing it with
-a different body fails closed.
+actions require an idempotency key. Replay is bound to the authenticated actor identity, exact
+recommendation resource, and body. Replaying that complete request returns the same result; using
+the key for another token, recommendation, or body fails closed. Token display-name changes do not
+break a safe lost-response retry.
 
 Only scheduled-workout targets may be changed by v1. Template prescriptions and completed/live
 sessions are never mass-updated. The UI must show current and proposed values and require an
 explicit accept, edit, keep, or hold action.
+
+Recommendation and action rows snapshot their source identifiers rather than retaining live
+foreign keys to schedules, exercises, or source sessions. Supported schedule removal, exercise
+swap/removal, session trash/restore/purge, and exercise purge therefore do not destroy or block the
+immutable audit record. Account deletion remains the only path that deletes that user's audit.
 
 ## Policy selection
 
@@ -53,9 +65,16 @@ Every result names a policy family and version. V1 supports:
 | `time_distance`      | Seconds, distance, and/or zone | Increase the configured time or distance step when every required effort is completed and any logged zone/RPE ceiling is respected. Missing optional RPE lowers confidence.                                |
 | `rehab_capacity`     | Conservative capacity work     | Never silently increases. It holds after successful work and reduces only when the explicit policy permits reduction after high effort or missed work.                                                     |
 
-The selected policy is stored in the recommendation snapshot; later policy-version changes do not
+Policy family, thresholds, valid increments, context requirements, and priority are explicit
+persisted programming configuration with actor and revision provenance. Exercise category and tags
+never select policy. Without configuration, the result is an unavailable hold. The selected policy
+is stored in the recommendation snapshot; later configuration or exercise-metadata changes do not
 rewrite older advice. Weight increments are explicit input (including non-standard equipment
 increments), never guessed from display units. Rounding occurs once at the recommendation boundary.
+
+V1 context facts are bounded to pain, symptoms, form failure, and explicit programming hold, with a
+programming-configuration or session-feedback source. Any observed adverse fact overrides an
+increase. A policy that requires context fails closed when that context is unavailable.
 
 ## Confidence and explanations
 
@@ -73,9 +92,10 @@ increase, hold, or reduction. The client does not recompute recommendation math.
 The source fingerprint covers:
 
 - scheduled workout, exercise, and set identities and current targets;
-- source completed session/set identities and corrected values;
-- exercise tracking type and policy-selection inputs;
-- policy family, version, thresholds, increments, and caps.
+- source completed session/set identities, previous prescriptions, and corrected values;
+- immutable scheduled-set identities, including same-value replacement, order, addition, removal;
+- exercise identity/name/tracking snapshots;
+- policy provenance, family, version, thresholds, increments, caps, priority, and context facts.
 
 The completed-session correction route therefore invalidates any affected unapplied recommendation
 without deleting it. A corrected recommendation must be explicitly reviewed again.
@@ -100,6 +120,20 @@ qualifying-set equivalents, session frequency, exercise count, and volume load o
 reps is meaningful. They link every aggregate to source session, set, exercise, and contribution
 ids. No band is labeled optimal.
 
+Planned fulfillment reconciles only through the scheduled-set id copied into a completed session
+set. Unmatched or ad-hoc completion remains descriptive completed exposure but cannot satisfy an
+unrelated plan. Fulfillment is `fully_completed`, `partially_completed`, or `missed` from those
+exact linked equivalents; a muscle without a plan is `no_plan`. Cancelled linked schedules are not
+expected exposure. Priority is true only for an explicit current programming configuration.
+
+Exercise name, identity, and tracking type required for historical qualification are snapshotted
+when a schedule/session set is created. Rename, tracking-type edit, merge, or deletion therefore
+cannot rewrite completed history. Contribution lookup returns the revision active at each date and
+loads only the baseline revision plus revisions inside the compared ranges. Aggregate truth is
+never truncated; exact source references are deterministically capped at 5,000 globally and 500 per
+muscle row with explicit total counts and truncation flags. The UI discloses both the shown count
+and total count while retaining the full aggregate values.
+
 ## API and authorization
 
 JWT and AgentToken callers receive the same strict recommendation, detail, and analytics data.
@@ -112,8 +146,9 @@ idempotency before updating the scheduled snapshot and appending the immutable a
 
 ## UI contract
 
-Planning surfaces show current versus proposed targets, the prior performance, confidence, policy,
-and concise reason. No target changes merely by opening a page. Active sessions only prefill targets
+Planning surfaces show an exact four-way comparison: previous prescription, completed performance,
+current plan, and proposed target, plus confidence, policy provenance, and concise reason. No target
+changes merely by opening a page. Active sessions only prefill targets
 already accepted into their scheduled snapshot; they may show the accepted recommendation source
 but do not re-run progression.
 

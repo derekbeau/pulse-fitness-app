@@ -62,6 +62,7 @@ import {
   serializeWorkoutSessionTimeSegments,
   workoutSessions,
   workoutProgressionActions,
+  workoutProgressionConfigurations,
   workoutProgressionRecommendations,
   templateExercises,
   users,
@@ -1288,8 +1289,16 @@ describe('sessionSets schema', () => {
       'targetWeight',
       'targetWeightMin',
       'targetWeightMax',
+      'targetRepsMin',
+      'targetRepsMax',
+      'targetReps',
       'targetSeconds',
       'targetDistance',
+      'targetZone',
+      'sourceScheduledSetId',
+      'exerciseIdSnapshot',
+      'exerciseNameSnapshot',
+      'trackingTypeSnapshot',
       'supersetGroup',
       'completed',
       'skipped',
@@ -1335,6 +1344,8 @@ describe('sessionSets schema', () => {
       'session_sets_seconds_check',
       'session_sets_section_check',
       'session_sets_set_number_check',
+      'session_sets_target_reps_check',
+      'session_sets_target_zone_check',
       'session_sets_zone_check',
     ]);
   });
@@ -1400,6 +1411,8 @@ describe('scheduledWorkoutExercises schema', () => {
       'id',
       'scheduledWorkoutId',
       'exerciseId',
+      'exerciseNameSnapshot',
+      'trackingTypeSnapshot',
       'section',
       'orderIndex',
       'programmingNotes',
@@ -1455,6 +1468,7 @@ describe('scheduledWorkoutExerciseSets schema', () => {
       'targetWeightMax',
       'targetSeconds',
       'targetDistance',
+      'targetZone',
       'createdAt',
     ]);
 
@@ -1471,6 +1485,7 @@ describe('scheduledWorkoutExerciseSets schema', () => {
       'scheduled_workout_exercise_sets_reps_range_check',
       'scheduled_workout_exercise_sets_set_number_check',
       'scheduled_workout_exercise_sets_target_weight_range_check',
+      'scheduled_workout_exercise_sets_target_zone_check',
     ]);
   });
 });
@@ -1600,6 +1615,32 @@ describe('workout session time segment helpers', () => {
 });
 
 describe('workout progression schema', () => {
+  it('defines one explicit revisioned programming configuration per scheduled exercise', () => {
+    const columns = getTableColumns(workoutProgressionConfigurations);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'scheduledWorkoutId',
+      'scheduledWorkoutExerciseId',
+      'revision',
+      'snapshot',
+      'actorType',
+      'agentTokenId',
+      'actorLabel',
+      'updatedAt',
+    ]);
+    const config = getTableConfig(workoutProgressionConfigurations);
+    expect(config.foreignKeys).toHaveLength(4);
+    expect(config.indexes.map((index) => index.config.name)).toEqual([
+      'workout_progression_configurations_schedule_exercise_unique',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'workout_progression_configurations_actor_check',
+      'workout_progression_configurations_revision_check',
+      'workout_progression_configurations_snapshot_check',
+    ]);
+  });
+
   it('defines immutable recommendation snapshots with owned scheduling evidence', () => {
     const columns = getTableColumns(workoutProgressionRecommendations);
     expect(Object.keys(columns)).toEqual([
@@ -1618,7 +1659,7 @@ describe('workout progression schema', () => {
     ]);
 
     const config = getTableConfig(workoutProgressionRecommendations);
-    expect(config.foreignKeys).toHaveLength(6);
+    expect(config.foreignKeys).toHaveLength(1);
     expect(config.indexes.map((index) => index.config.name).sort()).toEqual([
       'workout_progression_recommendations_generation_unique',
       'workout_progression_recommendations_id_user_unique',
@@ -1677,7 +1718,7 @@ describe('workout progression schema', () => {
     ]);
 
     const config = getTableConfig(exerciseMuscleContributions);
-    expect(config.foreignKeys).toHaveLength(2);
+    expect(config.foreignKeys).toHaveLength(1);
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
       'exercise_muscle_contributions_muscle_check',
       'exercise_muscle_contributions_revision_check',

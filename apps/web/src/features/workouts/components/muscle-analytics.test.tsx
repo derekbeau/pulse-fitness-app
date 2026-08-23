@@ -36,12 +36,15 @@ const analytics: WorkoutMuscleAnalytics = {
       completedSessionCount: 1,
       exerciseCount: 1,
       exposureState: 'fully_completed',
+      fulfilledPlannedSetEquivalents: 2,
       muscle: 'chest',
       plannedSetEquivalents: 2,
       previousQualifyingSetEquivalents: 1,
       priority: true,
       qualifyingSetEquivalents: 2,
+      sourceCount: 2,
       sourceIds: ['set-1', 'planned-set-1'],
+      sourceIdsTruncated: false,
       volumeLoad: 400,
     },
   ],
@@ -73,10 +76,13 @@ const analytics: WorkoutMuscleAnalytics = {
       scheduledWorkoutId: null,
       sessionId: 'session-1',
       setId: 'set-1',
+      sourceScheduledSetId: 'planned-set-1',
       sourceType: 'completed',
       volumeLoad: 400,
     },
   ],
+  sourceCount: 1,
+  sourcesTruncated: false,
   startDate: '2026-07-25',
   timeZone: 'America/Detroit',
   weightUnit: 'lbs',
@@ -97,8 +103,14 @@ describe('MuscleAnalytics', () => {
     );
 
     expect(screen.getByText(/not universal optimal-volume targets/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/only completions linked to an exact scheduled set/i),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText('chest exposure summary')).toHaveTextContent(
-      'Completed exposure21 completed sessionsPlanned exposure2Present in current scheduled work',
+      'Completed exposure21 completed sessionsPlanned exposure22 linked equivalents fulfilled · explicit programming priority',
+    );
+    expect(screen.getByText(/Showing 1 of 1 source records/)).toHaveTextContent(
+      'The source list is complete for this interval.',
     );
     expect(screen.getByText('contribution policy v1')).toBeInTheDocument();
     expect(screen.getByText('qualifying-set policy v1')).toBeInTheDocument();

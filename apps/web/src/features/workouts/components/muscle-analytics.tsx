@@ -107,7 +107,8 @@ export function MuscleAnalytics() {
         </h2>
         <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
           Completed qualifying sets use versioned primary (1.0) and secondary (0.5) contributions.
-          These are exposure totals—not universal optimal-volume targets.
+          These are exposure totals—not universal optimal-volume targets. Only completions linked to
+          an exact scheduled set fulfill that plan; ad-hoc work remains descriptive exposure.
         </p>
       </div>
 
@@ -153,8 +154,8 @@ export function MuscleAnalytics() {
                 },
                 {
                   detail: muscle.priority
-                    ? 'Present in current scheduled work'
-                    : 'No scheduled exposure',
+                    ? `${muscle.fulfilledPlannedSetEquivalents} linked equivalents fulfilled · explicit programming priority`
+                    : `${muscle.fulfilledPlannedSetEquivalents} linked equivalents fulfilled · no explicit programming priority`,
                   label: 'Planned exposure',
                   value: muscle.plannedSetEquivalents,
                 },
@@ -324,6 +325,12 @@ export function MuscleAnalytics() {
               </Badge>
             </div>
           </div>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Showing {selectedSources.length} of {analytics.sourceCount} source records
+            {analytics.sourcesTruncated
+              ? '. The source list is truncated; totals and chart values still include the full interval.'
+              : '. The source list is complete for this interval.'}
+          </p>
           <ul className="mt-3 divide-y divide-border/70">
             {selectedSources.map((source) => (
               <li

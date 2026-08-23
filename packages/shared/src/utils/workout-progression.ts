@@ -99,6 +99,39 @@ export function evaluateWorkoutProgression(
   evidence: WorkoutProgressionEvidence,
 ): WorkoutProgressionEvaluation {
   const { performance, policy, priorTargets } = evidence;
+  if (policy.family === 'unsupported' || evidence.policySource.type === 'none') {
+    return hold(
+      evidence,
+      'unavailable',
+      ['MISSING_POLICY'],
+      ['No explicit progression policy is configured, so the current prescription is held.'],
+    );
+  }
+
+  if (policy.contextRequired && evidence.context.availability === 'unavailable') {
+    return hold(
+      evidence,
+      'unavailable',
+      ['CONTEXT_UNAVAILABLE'],
+      [
+        'Required pain, symptom, and technique context is unavailable, so progression fails closed.',
+      ],
+    );
+  }
+
+  const adverseReason = evidence.context.facts.find((fact) =>
+    ['programming_hold', 'pain', 'symptoms', 'form_failure'].includes(fact.type),
+  );
+  if (adverseReason) {
+    const reasonCode =
+      adverseReason.type === 'programming_hold'
+        ? 'PROGRAMMING_HOLD'
+        : adverseReason.type === 'form_failure'
+          ? 'FORM_FAILURE'
+          : 'PAIN_OR_SYMPTOMS';
+    return hold(evidence, 'supported', [reasonCode], [adverseReason.detail]);
+  }
+
   if (performance.length === 0) {
     return hold(
       evidence,
@@ -125,6 +158,28 @@ export function evaluateWorkoutProgression(
       'supported',
       ['MISSED_OR_SKIPPED_SETS'],
       ['At least one required set was missed or skipped, so the current prescription is held.'],
+    );
+  }
+
+  const targetMet = (actual: number | null, exact: number | null, minimum: number | null) => {
+    const threshold = exact ?? minimum;
+    return threshold === null || (actual !== null && actual >= threshold);
+  };
+  const completedAsPrescribed = (set: (typeof performance)[number]) =>
+    targetMet(set.weight, set.prescribed.weight, set.prescribed.weightMin) &&
+    targetMet(set.reps, set.prescribed.reps, set.prescribed.repsMin) &&
+    targetMet(set.seconds, set.prescribed.seconds, null) &&
+    targetMet(set.distance, set.prescribed.distance, null) &&
+    targetMet(set.zone, set.prescribed.zone, null);
+
+  if (!performance.every(completedAsPrescribed)) {
+    return hold(
+      evidence,
+      'supported',
+      ['UNDER_PRESCRIBED_TARGET'],
+      [
+        'At least one completed set was below its previous prescribed load, reps, time, distance, or zone.',
+      ],
     );
   }
 
@@ -198,7 +253,7 @@ export function evaluateWorkoutProgression(
   }
 
   if (policy.family === 'double_progression') {
-    if (policy.repRangeMax === null || policy.loadIncrement === null) {
+    if (policy.loadIncrement === null) {
       return withOptionalEffortContext(
         hold(
           evidence,
@@ -208,17 +263,17 @@ export function evaluateWorkoutProgression(
         ),
       );
     }
-    const rangeMax = policy.repRangeMax;
-    const everySetAtTop = performance.every((set) => set.reps !== null && set.reps >= rangeMax);
+    const everySetAtTop = performance.every(
+      (set) =>
+        set.prescribed.repsMax !== null && set.reps !== null && set.reps >= set.prescribed.repsMax,
+    );
     if (!everySetAtTop) {
       return withOptionalEffortContext(
         hold(
           evidence,
           'supported',
           ['BELOW_RANGE_TOP'],
-          [
-            `Not every required set reached the top of the ${policy.repRangeMin ?? '?'}–${policy.repRangeMax} rep range.`,
-          ],
+          ['Not every required set reached the top of its previous prescribed rep range.'],
         ),
       );
     }
@@ -226,7 +281,7 @@ export function evaluateWorkoutProgression(
       confidence: 'supported',
       decision: 'increase',
       facts: [
-        `Every required set reached ${policy.repRangeMax} reps.`,
+        'Every required set reached the top of its previous prescribed rep range.',
         `Load increases by ${policy.loadIncrement} using the configured equipment increment.`,
       ],
       reasonCodes: ['ALL_SETS_AT_RANGE_TOP', 'ROUNDED_TO_INCREMENT'],

@@ -3,20 +3,22 @@ import {
   chartDateKeyInTimeZone,
   chartDateCoordinate,
   workoutMuscleAnalyticsSchema,
+  workoutProgressionConfigurationSchema,
+  type ExerciseTrackingType,
   type WorkoutMuscleAnalytics,
   type WorkoutMuscleAnalyticsQuery,
 } from '@pulse/shared';
 import { and, asc, between, eq, inArray, isNull } from 'drizzle-orm';
 
-import { db } from '../../db/index.js';
+import { db, sqlite } from '../../db/index.js';
 import {
   exerciseMuscleContributions,
-  exercises,
   scheduledWorkoutExerciseSets,
   scheduledWorkoutExercises,
   scheduledWorkouts,
   sessionSets,
   users,
+  workoutProgressionConfigurations,
   workoutSessions,
 } from '../../db/schema/index.js';
 
@@ -30,8 +32,9 @@ type CompletedSet = {
   exerciseName: string;
   sessionId: string;
   scheduledWorkoutId: string | null;
+  sourceScheduledSetId: string | null;
   setId: string;
-  trackingType: typeof exercises.$inferSelect.trackingType;
+  trackingType: ExerciseTrackingType;
   weight: number | null;
   reps: number | null;
   seconds: number | null;
@@ -43,8 +46,10 @@ type PlannedSet = {
   exerciseId: string;
   exerciseName: string;
   scheduledWorkoutId: string;
+  scheduledWorkoutExerciseId: string;
+  linkedSessionId: string | null;
   setId: string;
-  trackingType: typeof exercises.$inferSelect.trackingType;
+  trackingType: ExerciseTrackingType;
   weight: number | null;
   reps: number | null;
   repsMin: number | null;
@@ -92,6 +97,55 @@ function effectiveContributions(rows: ContributionRow[], date: string) {
   return eligible.filter((row) => row.revision === revision);
 }
 
+const SOURCE_LIMIT = 5_000;
+const ROW_SOURCE_ID_LIMIT = 500;
+
+function loadBoundedContributions({
+  endDate,
+  exerciseIds,
+  startDate,
+  userId,
+}: {
+  endDate: string;
+  exerciseIds: string[];
+  startDate: string;
+  userId: string;
+}): ContributionRow[] {
+  if (exerciseIds.length === 0) return [];
+  const placeholders = exerciseIds.map(() => '?').join(', ');
+  const startAt = chartDateCoordinate(startDate);
+  const endExclusive = chartDateCoordinate(addChartCalendarDays(endDate, 1));
+  return sqlite
+    .prepare(
+      `SELECT current.id,
+              current.exercise_id AS exerciseId,
+              current.owner_user_id AS ownerUserId,
+              current.revision,
+              current.muscle,
+              current.role,
+              current.factor,
+              current.version,
+              current.effective_at AS effectiveAt,
+              current.created_at AS createdAt
+       FROM exercise_muscle_contributions AS current
+       WHERE current.exercise_id IN (${placeholders})
+         AND (current.owner_user_id IS NULL OR current.owner_user_id = ?)
+         AND current.effective_at < ?
+         AND (
+           current.effective_at >= ?
+           OR current.revision = (
+             SELECT max(previous.revision)
+             FROM exercise_muscle_contributions AS previous
+             WHERE previous.exercise_id = current.exercise_id
+               AND coalesce(previous.owner_user_id, '') = coalesce(current.owner_user_id, '')
+               AND previous.effective_at < ?
+           )
+         )
+       ORDER BY current.exercise_id, current.revision, current.muscle`,
+    )
+    .all(...exerciseIds, userId, endExclusive, startAt, startAt) as ContributionRow[];
+}
+
 function changeState(current: number, previous: number) {
   if (previous === 0) return 'no_comparison' as const;
   if (current > previous + 0.25) return 'increased' as const;
@@ -122,19 +176,19 @@ export async function getWorkoutMuscleAnalytics(
     .select({
       date: workoutSessions.date,
       distance: sessionSets.distance,
-      exerciseId: sessionSets.exerciseId,
-      exerciseName: exercises.name,
+      exerciseId: sessionSets.exerciseIdSnapshot,
+      exerciseName: sessionSets.exerciseNameSnapshot,
       reps: sessionSets.reps,
       scheduledWorkoutId: workoutSessions.scheduledWorkoutId,
       seconds: sessionSets.seconds,
       sessionId: workoutSessions.id,
       setId: sessionSets.id,
-      trackingType: exercises.trackingType,
+      sourceScheduledSetId: sessionSets.sourceScheduledSetId,
+      trackingType: sessionSets.trackingTypeSnapshot,
       weight: sessionSets.weight,
     })
     .from(sessionSets)
     .innerJoin(workoutSessions, eq(workoutSessions.id, sessionSets.sessionId))
-    .innerJoin(exercises, eq(exercises.id, sessionSets.exerciseId))
     .where(
       and(
         eq(workoutSessions.userId, userId),
@@ -148,7 +202,10 @@ export async function getWorkoutMuscleAnalytics(
     )
     .orderBy(asc(workoutSessions.date), asc(workoutSessions.id), asc(sessionSets.id))
     .all()
-    .filter((row): row is CompletedSet => row.exerciseId !== null)
+    .filter(
+      (row): row is CompletedSet =>
+        row.exerciseId !== null && row.exerciseName !== null && row.trackingType !== null,
+    )
     .filter((row) => isQualifyingMeasurement(row.trackingType, row));
 
   const plannedRows = db
@@ -156,14 +213,16 @@ export async function getWorkoutMuscleAnalytics(
       date: scheduledWorkouts.date,
       distance: scheduledWorkoutExerciseSets.targetDistance,
       exerciseId: scheduledWorkoutExercises.exerciseId,
-      exerciseName: exercises.name,
+      exerciseName: scheduledWorkoutExercises.exerciseNameSnapshot,
+      linkedSessionId: scheduledWorkouts.sessionId,
       reps: scheduledWorkoutExerciseSets.reps,
       repsMax: scheduledWorkoutExerciseSets.repsMax,
       repsMin: scheduledWorkoutExerciseSets.repsMin,
       scheduledWorkoutId: scheduledWorkouts.id,
+      scheduledWorkoutExerciseId: scheduledWorkoutExercises.id,
       seconds: scheduledWorkoutExerciseSets.targetSeconds,
       setId: scheduledWorkoutExerciseSets.id,
-      trackingType: exercises.trackingType,
+      trackingType: scheduledWorkoutExercises.trackingTypeSnapshot,
       weight: scheduledWorkoutExerciseSets.targetWeight,
     })
     .from(scheduledWorkoutExerciseSets)
@@ -175,7 +234,6 @@ export async function getWorkoutMuscleAnalytics(
       scheduledWorkouts,
       eq(scheduledWorkouts.id, scheduledWorkoutExercises.scheduledWorkoutId),
     )
-    .innerJoin(exercises, eq(exercises.id, scheduledWorkoutExercises.exerciseId))
     .where(
       and(
         eq(scheduledWorkouts.userId, userId),
@@ -189,22 +247,61 @@ export async function getWorkoutMuscleAnalytics(
       asc(scheduledWorkoutExerciseSets.id),
     )
     .all()
+    .filter((row): row is PlannedSet => row.exerciseName !== null && row.trackingType !== null)
     .filter(isQualifyingPlannedMeasurement);
 
-  const exerciseIds = [...new Set([...completedRows, ...plannedRows].map((row) => row.exerciseId))];
-  const contributionRows =
-    exerciseIds.length === 0
+  const linkedSessionIds = [
+    ...new Set(plannedRows.flatMap((row) => (row.linkedSessionId ? [row.linkedSessionId] : []))),
+  ];
+  const linkedStatuses = new Map(
+    linkedSessionIds.length === 0
       ? []
       : db
-          .select()
-          .from(exerciseMuscleContributions)
-          .where(inArray(exerciseMuscleContributions.exerciseId, exerciseIds))
-          .orderBy(
-            asc(exerciseMuscleContributions.exerciseId),
-            asc(exerciseMuscleContributions.revision),
-            asc(exerciseMuscleContributions.muscle),
+          .select({ id: workoutSessions.id, status: workoutSessions.status })
+          .from(workoutSessions)
+          .where(inArray(workoutSessions.id, linkedSessionIds))
+          .all()
+          .map((row) => [row.id, row.status] as const),
+  );
+  const activePlannedRows = plannedRows.filter(
+    (row) =>
+      row.linkedSessionId === null || linkedStatuses.get(row.linkedSessionId) !== 'cancelled',
+  );
+
+  const plannedScheduledExerciseIds = [
+    ...new Set(activePlannedRows.map((row) => row.scheduledWorkoutExerciseId)),
+  ];
+  const configurationRows =
+    plannedScheduledExerciseIds.length === 0
+      ? []
+      : db
+          .select({
+            scheduledWorkoutExerciseId: workoutProgressionConfigurations.scheduledWorkoutExerciseId,
+            snapshot: workoutProgressionConfigurations.snapshot,
+          })
+          .from(workoutProgressionConfigurations)
+          .where(
+            inArray(
+              workoutProgressionConfigurations.scheduledWorkoutExerciseId,
+              plannedScheduledExerciseIds,
+            ),
           )
           .all();
+  const priorityScheduledExerciseIds = new Set(
+    configurationRows
+      .filter((row) => workoutProgressionConfigurationSchema.parse(row.snapshot).priority)
+      .map((row) => row.scheduledWorkoutExerciseId),
+  );
+
+  const exerciseIds = [
+    ...new Set([...completedRows, ...activePlannedRows].map((row) => row.exerciseId)),
+  ];
+  const contributionRows = loadBoundedContributions({
+    endDate,
+    exerciseIds,
+    startDate: previousStartDate,
+    userId,
+  });
   const contributionsByExercise = new Map<string, ContributionRow[]>();
   for (const row of contributionRows) {
     contributionsByExercise.set(row.exerciseId, [
@@ -233,6 +330,7 @@ export async function getWorkoutMuscleAnalytics(
         scheduledWorkoutId: row.scheduledWorkoutId,
         sessionId: row.sessionId,
         setId: row.setId,
+        sourceScheduledSetId: row.sourceScheduledSetId,
         sourceType: 'completed',
         volumeLoad:
           row.weight !== null && row.reps !== null
@@ -241,7 +339,7 @@ export async function getWorkoutMuscleAnalytics(
       });
     }
   }
-  for (const row of plannedRows) {
+  for (const row of activePlannedRows) {
     for (const contribution of effectiveContributions(
       contributionsByExercise.get(row.exerciseId) ?? [],
       row.date,
@@ -286,8 +384,17 @@ export async function getWorkoutMuscleAnalytics(
     const muscleSources = sources.filter((source) => source.muscle === muscle);
     const completed = muscleSources.filter((source) => source.sourceType === 'completed');
     const planned = muscleSources.filter((source) => source.sourceType === 'planned');
+    const plannedSetIds = new Set(planned.map((source) => source.setId));
+    const fulfilledPlanned = completed.filter(
+      (source) =>
+        source.sourceScheduledSetId !== null && plannedSetIds.has(source.sourceScheduledSetId),
+    );
     const qualifyingSetEquivalents = completed.reduce((sum, source) => sum + source.factor, 0);
     const plannedSetEquivalents = planned.reduce((sum, source) => sum + source.factor, 0);
+    const fulfilledPlannedSetEquivalents = fulfilledPlanned.reduce(
+      (sum, source) => sum + source.factor,
+      0,
+    );
     const previousQualifyingSetEquivalents = previousByMuscle.get(muscle) ?? 0;
     const volumeSources = completed.filter((source) => source.volumeLoad !== null);
     return {
@@ -297,15 +404,24 @@ export async function getWorkoutMuscleAnalytics(
       exposureState:
         planned.length === 0
           ? ('no_plan' as const)
-          : qualifyingSetEquivalents + 0.001 >= plannedSetEquivalents
+          : fulfilledPlannedSetEquivalents + 0.001 >= plannedSetEquivalents
             ? ('fully_completed' as const)
-            : ('missed' as const),
+            : fulfilledPlannedSetEquivalents > 0
+              ? ('partially_completed' as const)
+              : ('missed' as const),
+      fulfilledPlannedSetEquivalents,
       muscle,
       plannedSetEquivalents,
       previousQualifyingSetEquivalents,
-      priority: planned.length > 0,
+      priority: activePlannedRows.some(
+        (row) =>
+          priorityScheduledExerciseIds.has(row.scheduledWorkoutExerciseId) &&
+          planned.some((source) => source.setId === row.setId),
+      ),
       qualifyingSetEquivalents,
-      sourceIds: muscleSources.map((source) => source.setId),
+      sourceCount: muscleSources.length,
+      sourceIds: muscleSources.slice(0, ROW_SOURCE_ID_LIMIT).map((source) => source.setId),
+      sourceIdsTruncated: muscleSources.length > ROW_SOURCE_ID_LIMIT,
       volumeLoad:
         volumeSources.length === 0
           ? null
@@ -342,7 +458,9 @@ export async function getWorkoutMuscleAnalytics(
     qualifyingSetPolicyVersion: 1,
     rows,
     series,
-    sources,
+    sourceCount: sources.length,
+    sources: sources.slice(0, SOURCE_LIMIT),
+    sourcesTruncated: sources.length > SOURCE_LIMIT,
     startDate,
     timeZone,
     weightUnit: user.weightUnit,

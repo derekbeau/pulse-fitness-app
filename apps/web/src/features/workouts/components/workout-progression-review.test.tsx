@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { WorkoutProgressionRecommendation } from '@pulse/shared';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -26,14 +26,29 @@ const recommendation: WorkoutProgressionRecommendation = {
         rpe: 8,
         seconds: null,
         setId: 'source-set-1',
+        sourceScheduledSetId: 'source-scheduled-set-1',
         setNumber: 1,
         skipped: false,
         weight: 20,
         zone: null,
+        prescribed: {
+          distance: null,
+          reps: null,
+          repsMax: 10,
+          repsMin: 8,
+          seconds: null,
+          setId: 'source-set-1',
+          setNumber: 1,
+          weight: 20,
+          weightMax: null,
+          weightMin: null,
+          zone: null,
+        },
       },
     ],
     policy: {
       allowReduction: false,
+      contextRequired: false,
       distanceStep: null,
       effortCeiling: 8,
       family: 'double_progression',
@@ -46,6 +61,16 @@ const recommendation: WorkoutProgressionRecommendation = {
       version: 1,
       zoneCeiling: null,
     },
+    context: { availability: 'available', facts: [] },
+    policySource: {
+      actorId: 'user-1',
+      actorLabel: 'You',
+      actorType: 'user',
+      configurationId: 'configuration-1',
+      configuredAt: 450,
+      revision: 1,
+      type: 'programming_config',
+    },
     priorTargets: [
       {
         distance: null,
@@ -53,6 +78,7 @@ const recommendation: WorkoutProgressionRecommendation = {
         repsMax: 10,
         repsMin: 8,
         seconds: null,
+        setId: 'scheduled-set-1',
         setNumber: 1,
         weight: 20,
         weightMax: null,
@@ -78,6 +104,7 @@ const recommendation: WorkoutProgressionRecommendation = {
       repsMax: 10,
       repsMin: 8,
       seconds: null,
+      setId: 'scheduled-set-1',
       setNumber: 1,
       weight: 25,
       weightMax: null,
@@ -114,8 +141,24 @@ describe('WorkoutProgressionReview', () => {
   it('shows exact evidence and never applies a target merely by rendering', () => {
     const mutate = setup();
     expect(screen.getByRole('heading', { name: 'Progression review' })).toBeInTheDocument();
-    expect(screen.getByText(/Current 20 lbs/)).toBeInTheDocument();
-    expect(screen.getByText(/Proposed 25 lbs/)).toBeInTheDocument();
+    const comparison = screen.getByRole('table', {
+      name: 'Incline press exact progression comparison',
+    });
+    expect(
+      within(comparison).getByRole('columnheader', { name: 'Previous prescription' }),
+    ).toBeInTheDocument();
+    expect(
+      within(comparison).getByRole('columnheader', { name: 'Completed performance' }),
+    ).toBeInTheDocument();
+    expect(
+      within(comparison).getByRole('columnheader', { name: 'Current plan' }),
+    ).toBeInTheDocument();
+    expect(
+      within(comparison).getByRole('columnheader', { name: 'Proposed target' }),
+    ).toBeInTheDocument();
+    expect(within(comparison).getByRole('row', { name: /Set 1/ })).toHaveTextContent(
+      'Set 120 lbs · 8–10 reps20 lbs · 10 reps · RPE 820 lbs · 8–10 reps25 lbs · 8–10 reps',
+    );
     expect(screen.getByText('Every required set reached 10 reps.')).toBeInTheDocument();
     expect(screen.getByText(/completed session 2026-08-20/)).toBeInTheDocument();
     expect(mutate).not.toHaveBeenCalled();
@@ -136,6 +179,30 @@ describe('WorkoutProgressionReview', () => {
     });
   });
 
+  it('keeps removed historical source sets visible in the exact comparison', () => {
+    const sourceSet = recommendation.evidence.performance[0];
+    setup({
+      ...recommendation,
+      evidence: {
+        ...recommendation.evidence,
+        performance: [
+          sourceSet,
+          {
+            ...sourceSet,
+            prescribed: { ...sourceSet.prescribed, setId: 'source-set-2', setNumber: 2 },
+            setId: 'source-set-2',
+            setNumber: 2,
+            sourceScheduledSetId: 'source-scheduled-set-2',
+          },
+        ],
+      },
+    });
+
+    expect(
+      screen.getByRole('row', { name: /Set 2.*No current set.*Not available/i }),
+    ).toHaveTextContent('20 lbs · 8–10 reps');
+  });
+
   it('keeps stale evidence visible but blocks every decision until recomputed', () => {
     setup({ ...recommendation, staleAt: 501, state: 'stale' });
     expect(screen.getByRole('alert')).toHaveTextContent('Recompute before making a decision');
@@ -143,6 +210,37 @@ describe('WorkoutProgressionReview', () => {
     expect(screen.getByRole('button', { name: 'Edit' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Keep current' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Hold with reason' })).toBeDisabled();
+  });
+
+  it('does not offer target application when policy evidence is unavailable', () => {
+    setup({
+      ...recommendation,
+      confidence: 'unavailable',
+      decision: 'hold',
+      evidence: {
+        ...recommendation.evidence,
+        policy: {
+          ...recommendation.evidence.policy,
+          family: 'unsupported',
+          loadIncrement: null,
+        },
+        policySource: {
+          actorId: null,
+          actorLabel: null,
+          actorType: null,
+          configurationId: null,
+          configuredAt: null,
+          revision: 0,
+          type: 'none',
+        },
+      },
+      reasonCodes: ['MISSING_POLICY'],
+      recommendedTargets: recommendation.evidence.priorTargets,
+    });
+    expect(screen.getByRole('button', { name: 'Accept targets' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Keep current' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Hold with reason' })).toBeEnabled();
   });
 
   it('submits bounded edited targets while retaining the immutable recommendation', async () => {

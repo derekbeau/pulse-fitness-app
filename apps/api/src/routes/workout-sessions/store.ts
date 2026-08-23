@@ -104,6 +104,17 @@ type SessionSetRowInput = CreateWorkoutSessionInput['sets'][number] & {
   targetDistance?: number | null;
 };
 
+export type SessionSetSnapshotFact = {
+  sourceScheduledSetId: string | null;
+  exerciseIdSnapshot: string;
+  exerciseNameSnapshot: string;
+  trackingTypeSnapshot: ExerciseTrackingType;
+  targetRepsMin: number | null;
+  targetRepsMax: number | null;
+  targetReps: number | null;
+  targetZone: number | null;
+};
+
 export type SessionSetGroup = {
   exerciseId: string | null;
   sets: SessionSet[];
@@ -420,8 +431,13 @@ const buildWorkoutSessionExercises = (
     }));
 };
 
-const buildSessionSetRows = (sessionId: string, sets: readonly SessionSetRowInput[]) =>
+const buildSessionSetRows = (
+  sessionId: string,
+  sets: readonly SessionSetRowInput[],
+  factsByKey: Record<string, SessionSetSnapshotFact>,
+) =>
   sets.map((set) => {
+    const fact = factsByKey[`${set.section ?? 'main'}::${set.exerciseId}::${set.setNumber}`];
     return {
       id: randomUUID(),
       sessionId,
@@ -439,6 +455,14 @@ const buildSessionSetRows = (sessionId: string, sets: readonly SessionSetRowInpu
       targetWeightMax: set.targetWeightMax ?? null,
       targetSeconds: set.targetSeconds ?? null,
       targetDistance: set.targetDistance ?? null,
+      targetRepsMin: fact?.targetRepsMin ?? null,
+      targetRepsMax: fact?.targetRepsMax ?? null,
+      targetReps: fact?.targetReps ?? null,
+      targetZone: fact?.targetZone ?? null,
+      sourceScheduledSetId: fact?.sourceScheduledSetId ?? null,
+      exerciseIdSnapshot: fact?.exerciseIdSnapshot ?? set.exerciseId,
+      exerciseNameSnapshot: fact?.exerciseNameSnapshot ?? null,
+      trackingTypeSnapshot: fact?.trackingTypeSnapshot ?? null,
       supersetGroup: set.supersetGroup,
       completed: set.completed ?? false,
       skipped: set.skipped ?? false,
@@ -577,6 +601,11 @@ export const createSessionSet = async ({
   );
   const resolvedSetNumber =
     input.setNumber <= maxExerciseSetNumber ? maxExerciseSetNumber + 1 : input.setNumber;
+  const exerciseSnapshot = db
+    .select({ name: exercises.name, trackingType: exercises.trackingType })
+    .from(exercises)
+    .where(eq(exercises.id, input.exerciseId))
+    .get();
 
   const result = db
     .insert(sessionSets)
@@ -584,6 +613,9 @@ export const createSessionSet = async ({
       id,
       sessionId,
       exerciseId: input.exerciseId,
+      exerciseIdSnapshot: input.exerciseId,
+      exerciseNameSnapshot: exerciseSnapshot?.name ?? 'Unknown exercise',
+      trackingTypeSnapshot: exerciseSnapshot?.trackingType ?? 'reps_only',
       orderIndex: nextOrderIndex,
       setNumber: resolvedSetNumber,
       weight: input.weight,
@@ -1055,6 +1087,12 @@ export const batchUpsertSessionSets = async ({
     const orderIndexByExerciseAndSection = new Map<string, number>();
     const nextOrderIndexBySection = new Map<WorkoutTemplateSectionType, number>();
     const supersetGroupByExerciseId = new Map<string, string | null>();
+    const exerciseMetadata = tx
+      .select({ id: exercises.id, name: exercises.name, trackingType: exercises.trackingType })
+      .from(exercises)
+      .where(inArray(exercises.id, [...new Set(input.sets.map((set) => set.exerciseId))]))
+      .all();
+    const metadataByExerciseId = new Map(exerciseMetadata.map((row) => [row.id, row]));
 
     for (const set of existingSets) {
       const key = `${set.section}:${set.exerciseId}`;
@@ -1077,6 +1115,7 @@ export const batchUpsertSessionSets = async ({
 
     for (const set of input.sets) {
       const normalizedSection = set.section ?? 'main';
+      const metadata = metadataByExerciseId.get(set.exerciseId);
       const orderIndexKey = `${normalizedSection}:${set.exerciseId}`;
       const hasExistingOrderIndex = orderIndexByExerciseAndSection.has(orderIndexKey);
       const nextOrderIndex =
@@ -1095,6 +1134,9 @@ export const batchUpsertSessionSets = async ({
           .update(sessionSets)
           .set({
             exerciseId: set.exerciseId,
+            exerciseIdSnapshot: set.exerciseId,
+            exerciseNameSnapshot: metadata?.name ?? 'Unknown exercise',
+            trackingTypeSnapshot: metadata?.trackingType ?? 'reps_only',
             orderIndex: nextOrderIndex,
             setNumber: set.setNumber,
             weight: set.weight,
@@ -1125,6 +1167,9 @@ export const batchUpsertSessionSets = async ({
           id: randomUUID(),
           sessionId,
           exerciseId: set.exerciseId,
+          exerciseIdSnapshot: set.exerciseId,
+          exerciseNameSnapshot: metadata?.name ?? 'Unknown exercise',
+          trackingTypeSnapshot: metadata?.trackingType ?? 'reps_only',
           orderIndex: nextOrderIndex,
           setNumber: set.setNumber,
           weight: set.weight,
@@ -1160,6 +1205,7 @@ export const createWorkoutSession = async ({
   agentNotesMetaByExerciseSection,
   scheduledWorkoutId,
   linkScheduledWorkoutSession,
+  setSnapshotFactsByKey = {},
 }: {
   id: string;
   userId: string;
@@ -1169,9 +1215,35 @@ export const createWorkoutSession = async ({
   agentNotesMetaByExerciseSection?: Record<string, WorkoutSessionExerciseAgentNotesMeta | null>;
   scheduledWorkoutId?: string;
   linkScheduledWorkoutSession?: boolean;
+  setSnapshotFactsByKey?: Record<string, SessionSetSnapshotFact>;
 }): Promise<WorkoutSession> => {
   const { db } = await import('../../db/index.js');
-  const setRows = buildSessionSetRows(id, input.sets);
+  const exerciseMetadata = db
+    .select({ id: exercises.id, name: exercises.name, trackingType: exercises.trackingType })
+    .from(exercises)
+    .where(inArray(exercises.id, [...new Set(input.sets.map((set) => set.exerciseId))]))
+    .all();
+  const metadataById = new Map(exerciseMetadata.map((row) => [row.id, row]));
+  const completeFacts = Object.fromEntries(
+    input.sets.map((set) => {
+      const key = `${set.section ?? 'main'}::${set.exerciseId}::${set.setNumber}`;
+      const metadata = metadataById.get(set.exerciseId);
+      return [
+        key,
+        setSnapshotFactsByKey[key] ?? {
+          exerciseIdSnapshot: set.exerciseId,
+          exerciseNameSnapshot: metadata?.name ?? 'Unknown exercise',
+          sourceScheduledSetId: null,
+          targetReps: null,
+          targetRepsMax: null,
+          targetRepsMin: null,
+          targetZone: null,
+          trackingTypeSnapshot: metadata?.trackingType ?? 'reps_only',
+        },
+      ];
+    }),
+  );
+  const setRows = buildSessionSetRows(id, input.sets, completeFacts);
 
   db.transaction((tx) => {
     const insertResult = tx
@@ -1360,7 +1432,7 @@ export const updateWorkoutSession = async ({
   input: CreateWorkoutSessionInput; // Full snapshot; the route merges the partial patch first.
 }): Promise<WorkoutSession | undefined> => {
   const { db } = await import('../../db/index.js');
-  const setRows = buildSessionSetRows(id, input.sets);
+  const setRows = buildSessionSetRows(id, input.sets, {});
 
   const result = db.transaction((tx) => {
     const updateResult = tx

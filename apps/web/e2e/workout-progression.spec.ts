@@ -25,10 +25,21 @@ type PreviewPayload = {
     sourceFingerprint: string;
     decision: string;
     confidence: string;
+    facts: string[];
     evidence: {
       sourceSessionId: string | null;
-      performance: Array<{ setId: string }>;
-      priorTargets: Array<{ weight: number | null }>;
+      performance: Array<{
+        setId: string;
+        weight: number | null;
+        reps: number | null;
+        rpe: number | null;
+        prescribed: { weight: number | null; repsMin: number | null; repsMax: number | null };
+      }>;
+      priorTargets: Array<{
+        weight: number | null;
+        repsMin: number | null;
+        repsMax: number | null;
+      }>;
     };
     recommendedTargets: Array<{ weight: number | null }>;
   }>;
@@ -182,10 +193,35 @@ test.describe.serial('Workout progression and muscle analytics', () => {
     const recommendation = progression.recommendations[0];
     expect(recommendation).toMatchObject({ decision: 'increase', confidence: 'supported' });
     expect(recommendation?.evidence.priorTargets.map((target) => target.weight)).toEqual([40, 40]);
+    expect(recommendation?.evidence.performance).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          prescribed: expect.objectContaining({ weight: 40, repsMin: 8, repsMax: 10 }),
+          reps: 10,
+          rpe: 8,
+          weight: 40,
+        }),
+      ]),
+    );
     expect(recommendation?.recommendedTargets.map((target) => target.weight)).toEqual([45, 45]);
-    await expect(page.getByText('Current 40 lbs').first()).toBeVisible();
-    await expect(page.getByText('Proposed 45 lbs').first()).toBeVisible();
-    await expect(page.getByText(/Every required set reached 10 reps/u)).toBeVisible();
+    await expect(page.getByText(recommendation?.facts[0] ?? '')).toBeVisible();
+    const comparison = page.getByRole('table', {
+      name: 'Incline dumbbell press exact progression comparison',
+    });
+    await expect(comparison).toBeVisible();
+    await expect(
+      comparison.getByRole('columnheader', { name: 'Previous prescription' }),
+    ).toBeVisible();
+    await expect(
+      comparison.getByRole('columnheader', { name: 'Completed performance' }),
+    ).toBeVisible();
+    await expect(comparison.getByRole('columnheader', { name: 'Current plan' })).toBeVisible();
+    await expect(comparison.getByRole('columnheader', { name: 'Proposed target' })).toBeVisible();
+    const firstSet = comparison.getByRole('row', { name: /^Set 1 /u });
+    await expect(firstSet).toContainText('40 lbs · 8–10 reps');
+    await expect(firstSet).toContainText('40 lbs · 10 reps · RPE 8');
+    await expect(firstSet).toContainText('45 lbs · 8–10 reps');
+    await expect(page.getByText(/Policy source: Preview user · revision 1/u)).toBeVisible();
 
     const before = await api.get(`/api/v1/scheduled-workouts/${id}`, {
       headers: { authorization: `Bearer ${tokens.get('accept')}` },
@@ -303,7 +339,7 @@ test.describe.serial('Workout progression and muscle analytics', () => {
     expect(progression.recommendations[0]).toMatchObject({ decision: 'hold', state: 'current' });
     expect(progression.recommendations[0]?.id).not.toBe(old?.id);
     await expect(page.getByText('Hold', { exact: true })).toBeVisible();
-    await expect(page.getByText(/Not every required set reached the top/u)).toBeVisible();
+    await expect(page.getByText(progression.recommendations[0]?.facts[0] ?? '')).toBeVisible();
     await expectNoOverflow(page, 320);
     await capture(page, 'progression-stale-320.png');
     diagnostics();
@@ -368,6 +404,7 @@ test.describe.serial('Workout progression and muscle analytics', () => {
           muscle: string;
           qualifyingSetEquivalents: number;
           plannedSetEquivalents: number;
+          fulfilledPlannedSetEquivalents: number;
           exposureState: string;
         }>;
       };
@@ -377,6 +414,7 @@ test.describe.serial('Workout progression and muscle analytics', () => {
       expect.arrayContaining([
         expect.objectContaining({
           exposureState: 'fully_completed',
+          fulfilledPlannedSetEquivalents: 2,
           muscle: 'Chest',
           plannedSetEquivalents: 2,
           qualifyingSetEquivalents: 2,
@@ -394,6 +432,11 @@ test.describe.serial('Workout progression and muscle analytics', () => {
     );
     await expect(page.getByText('contribution policy v1')).toBeVisible();
     await expect(page.getByText('qualifying-set policy v1')).toBeVisible();
+    await expect(
+      page.getByText(/Only completions linked to an exact scheduled set/u),
+    ).toBeVisible();
+    await expect(page.getByText(/2 linked equivalents fulfilled/u).first()).toBeVisible();
+    await expect(page.getByText(/The source list is complete for this interval/u)).toBeVisible();
     await expect(page.getByText(/primary 1 · completed/u).first()).toBeVisible();
     await page.getByRole('button', { name: /Triceps/u }).click();
     await expect(page.getByText(/secondary 0.5 · completed/u).first()).toBeVisible();

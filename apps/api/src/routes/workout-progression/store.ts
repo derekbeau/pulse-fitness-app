@@ -2,19 +2,23 @@ import { randomUUID } from 'node:crypto';
 
 import {
   applyWorkoutProgressionActionInputSchema,
+  configureWorkoutProgressionInputSchema,
   evaluateWorkoutProgression,
   sha256Hex,
   workoutProgressionActionSchema,
   workoutProgressionEvidenceSchema,
+  workoutProgressionConfigurationSchema,
   workoutProgressionRecommendationSchema,
   type ApplyWorkoutProgressionActionInput,
+  type ConfigureWorkoutProgressionInput,
   type WorkoutProgressionAction,
   type WorkoutProgressionEvidence,
   type WorkoutProgressionPolicy,
   type WorkoutProgressionRecommendation,
+  type WorkoutProgressionConfiguration,
   type WorkoutProgressionTarget,
 } from '@pulse/shared';
-import { and, asc, desc, eq, inArray, isNull, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 
 import { db } from '../../db/index.js';
 import {
@@ -23,8 +27,9 @@ import {
   scheduledWorkoutExercises,
   scheduledWorkouts,
   sessionSets,
-  users,
+  parseWorkoutSessionFeedback,
   workoutProgressionActions,
+  workoutProgressionConfigurations,
   workoutProgressionRecommendations,
   workoutSessions,
 } from '../../db/schema/index.js';
@@ -58,66 +63,87 @@ const stableJson = (value: unknown): string => {
 
 const fingerprint = (value: unknown) => sha256Hex(stableJson(value));
 
+function parseRecommendationSnapshot(snapshot: unknown): WorkoutProgressionRecommendation {
+  const current = workoutProgressionRecommendationSchema.safeParse(snapshot);
+  if (current.success) return current.data;
+
+  // 0053 snapshots predate exact set identity, prescription, policy provenance, and context.
+  // Preserve those immutable decisions as legacy audit facts without inventing unavailable facts.
+  const legacy = snapshot as Record<string, unknown>;
+  const legacyEvidence = legacy.evidence as Record<string, unknown>;
+  const legacyTargets = (legacyEvidence.priorTargets as Array<Record<string, unknown>>).map(
+    (target, index) => ({ ...target, setId: `legacy-current-set-${index + 1}` }),
+  );
+  const legacyRecommended = (legacy.recommendedTargets as Array<Record<string, unknown>>).map(
+    (target, index) => ({ ...target, setId: `legacy-current-set-${index + 1}` }),
+  );
+  const legacyPerformance = (legacyEvidence.performance as Array<Record<string, unknown>>).map(
+    (set) => ({
+      completed: set.completed,
+      distance: set.distance,
+      prescribed: {
+        distance: null,
+        reps: null,
+        repsMax: null,
+        repsMin: null,
+        seconds: null,
+        setId: set.setId,
+        setNumber: set.setNumber,
+        weight: null,
+        weightMax: null,
+        weightMin: null,
+        zone: null,
+      },
+      reps: set.reps,
+      rpe: set.rpe,
+      seconds: set.seconds,
+      setId: set.setId,
+      sourceScheduledSetId: null,
+      setNumber: set.setNumber,
+      skipped: set.skipped,
+      weight: set.weight,
+      zone: set.zone,
+    }),
+  );
+  return workoutProgressionRecommendationSchema.parse({
+    ...legacy,
+    evidence: {
+      ...legacyEvidence,
+      context: { availability: 'unavailable', facts: [] },
+      performance: legacyPerformance,
+      policy: { ...(legacyEvidence.policy as object), contextRequired: false },
+      policySource: {
+        actorId: null,
+        actorLabel: null,
+        actorType: null,
+        configurationId: null,
+        configuredAt: null,
+        revision: 0,
+        type: 'none',
+      },
+      priorTargets: legacyTargets,
+    },
+    recommendedTargets: legacyRecommended,
+  });
+}
+
 const orderedTargets = (targets: WorkoutProgressionTarget[]) =>
   [...targets].sort((left, right) => left.setNumber - right.setNumber);
 
-const selectPolicy = ({
-  category,
-  tags,
-  trackingType,
-  weightUnit,
-  targets,
-}: {
-  category: string;
-  tags: string[];
-  trackingType: WorkoutProgressionEvidence['trackingType'];
-  weightUnit: 'kg' | 'lbs';
-  targets: WorkoutProgressionTarget[];
-}): WorkoutProgressionPolicy => {
-  const normalizedTags = new Set(tags.map((tag) => tag.trim().toLowerCase()));
-  const loadIncrement = weightUnit === 'kg' ? 2.5 : 5;
-  const firstTarget = targets[0];
-  const base = {
-    allowReduction: false,
-    distanceStep: null,
-    effortCeiling: 8,
-    loadIncrement,
-    loadIncreasePercent: null,
-    lowEffortThreshold: 7,
-    repRangeMax: firstTarget?.repsMax ?? null,
-    repRangeMin: firstTarget?.repsMin ?? null,
-    secondsStep: null,
-    version: 1 as const,
-    zoneCeiling: null,
-  };
-
-  if (
-    category === 'mobility' ||
-    normalizedTags.has('rehab') ||
-    normalizedTags.has('prehab') ||
-    normalizedTags.has('recovery')
-  ) {
-    return { ...base, allowReduction: true, family: 'rehab_capacity' };
-  }
-  if (['cardio', 'distance', 'duration', 'reps_seconds', 'seconds_only'].includes(trackingType)) {
-    return {
-      ...base,
-      distanceStep: targets.some((target) => target.distance !== null) ? 0.25 : null,
-      family: 'time_distance',
-      loadIncrement: null,
-      repRangeMax: null,
-      repRangeMin: null,
-      secondsStep: targets.some((target) => target.seconds !== null) ? 60 : null,
-      zoneCeiling: 3,
-    };
-  }
-  if (normalizedTags.has('rpe') || normalizedTags.has('rir')) {
-    return { ...base, family: 'rpe_regulated' };
-  }
-  if (normalizedTags.has('strength')) {
-    return { ...base, family: 'strength_load', loadIncreasePercent: 2.5 };
-  }
-  return { ...base, family: 'double_progression' };
+const unsupportedPolicy: WorkoutProgressionPolicy = {
+  allowReduction: false,
+  contextRequired: false,
+  distanceStep: null,
+  effortCeiling: null,
+  family: 'unsupported',
+  loadIncrement: null,
+  loadIncreasePercent: null,
+  lowEffortThreshold: null,
+  repRangeMax: null,
+  repRangeMin: null,
+  secondsStep: null,
+  version: 1,
+  zoneCeiling: null,
 };
 
 function buildEvidenceForScheduledWorkout(
@@ -130,10 +156,8 @@ function buildEvidenceForScheduledWorkout(
       date: scheduledWorkouts.date,
       id: scheduledWorkouts.id,
       sessionId: scheduledWorkouts.sessionId,
-      weightUnit: users.weightUnit,
     })
     .from(scheduledWorkouts)
-    .innerJoin(users, eq(users.id, scheduledWorkouts.userId))
     .where(and(eq(scheduledWorkouts.id, scheduledWorkoutId), eq(scheduledWorkouts.userId, userId)))
     .get();
   if (!schedule) {
@@ -142,11 +166,9 @@ function buildEvidenceForScheduledWorkout(
 
   const exerciseRows = client
     .select({
-      category: exercises.category,
       exerciseId: scheduledWorkoutExercises.exerciseId,
       exerciseName: exercises.name,
       scheduledWorkoutExerciseId: scheduledWorkoutExercises.id,
-      tags: exercises.tags,
       trackingType: exercises.trackingType,
     })
     .from(scheduledWorkoutExercises)
@@ -161,6 +183,7 @@ function buildEvidenceForScheduledWorkout(
   const scheduledExerciseIds = exerciseRows.map((row) => row.scheduledWorkoutExerciseId);
   const targetRows = client
     .select({
+      id: scheduledWorkoutExerciseSets.id,
       distance: scheduledWorkoutExerciseSets.targetDistance,
       reps: scheduledWorkoutExerciseSets.reps,
       repsMax: scheduledWorkoutExerciseSets.repsMax,
@@ -171,6 +194,7 @@ function buildEvidenceForScheduledWorkout(
       weight: scheduledWorkoutExerciseSets.targetWeight,
       weightMax: scheduledWorkoutExerciseSets.targetWeightMax,
       weightMin: scheduledWorkoutExerciseSets.targetWeightMin,
+      zone: scheduledWorkoutExerciseSets.targetZone,
     })
     .from(scheduledWorkoutExerciseSets)
     .where(inArray(scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId, scheduledExerciseIds))
@@ -181,6 +205,7 @@ function buildEvidenceForScheduledWorkout(
   for (const row of targetRows) {
     const targets = targetsByScheduledExercise.get(row.scheduledWorkoutExerciseId) ?? [];
     targets.push({
+      setId: row.id,
       distance: row.distance,
       reps: row.reps,
       repsMax: row.repsMax,
@@ -190,7 +215,7 @@ function buildEvidenceForScheduledWorkout(
       weight: row.weight,
       weightMax: row.weightMax,
       weightMin: row.weightMin,
-      zone: null,
+      zone: row.zone,
     });
     targetsByScheduledExercise.set(row.scheduledWorkoutExerciseId, targets);
   }
@@ -207,6 +232,7 @@ function buildEvidenceForScheduledWorkout(
     const latestSession = client
       .select({
         date: workoutSessions.date,
+        feedback: workoutSessions.feedback,
         id: workoutSessions.id,
       })
       .from(sessionSets)
@@ -216,7 +242,7 @@ function buildEvidenceForScheduledWorkout(
           eq(workoutSessions.userId, userId),
           eq(workoutSessions.status, 'completed'),
           isNull(workoutSessions.deletedAt),
-          eq(sessionSets.exerciseId, exerciseRow.exerciseId),
+          sql`coalesce(${sessionSets.exerciseIdSnapshot}, ${sessionSets.exerciseId}) = ${exerciseRow.exerciseId}`,
           lte(workoutSessions.date, schedule.date),
         ),
       )
@@ -233,10 +259,20 @@ function buildEvidenceForScheduledWorkout(
           .select({
             completed: sessionSets.completed,
             distance: sessionSets.distance,
+            prescribedDistance: sessionSets.targetDistance,
+            prescribedReps: sessionSets.targetReps,
+            prescribedRepsMax: sessionSets.targetRepsMax,
+            prescribedRepsMin: sessionSets.targetRepsMin,
+            prescribedSeconds: sessionSets.targetSeconds,
+            prescribedWeight: sessionSets.targetWeight,
+            prescribedWeightMax: sessionSets.targetWeightMax,
+            prescribedWeightMin: sessionSets.targetWeightMin,
+            prescribedZone: sessionSets.targetZone,
             reps: sessionSets.reps,
             rpe: sessionSets.rpe,
             seconds: sessionSets.seconds,
             setId: sessionSets.id,
+            sourceScheduledSetId: sessionSets.sourceScheduledSetId,
             setNumber: sessionSets.setNumber,
             skipped: sessionSets.skipped,
             weight: sessionSets.weight,
@@ -246,25 +282,113 @@ function buildEvidenceForScheduledWorkout(
           .where(
             and(
               eq(sessionSets.sessionId, latestSession.id),
-              eq(sessionSets.exerciseId, exerciseRow.exerciseId),
+              sql`coalesce(${sessionSets.exerciseIdSnapshot}, ${sessionSets.exerciseId}) = ${exerciseRow.exerciseId}`,
             ),
           )
           .orderBy(asc(sessionSets.setNumber), asc(sessionSets.id))
           .all()
+          .map((row) => ({
+            completed: row.completed,
+            distance: row.distance,
+            prescribed: {
+              distance: row.prescribedDistance,
+              reps: row.prescribedReps,
+              repsMax: row.prescribedRepsMax,
+              repsMin: row.prescribedRepsMin,
+              seconds: row.prescribedSeconds,
+              setId: row.setId,
+              setNumber: row.setNumber,
+              weight: row.prescribedWeight,
+              weightMax: row.prescribedWeightMax,
+              weightMin: row.prescribedWeightMin,
+              zone: row.prescribedZone,
+            },
+            reps: row.reps,
+            rpe: row.rpe,
+            seconds: row.seconds,
+            setId: row.setId,
+            sourceScheduledSetId: row.sourceScheduledSetId,
+            setNumber: row.setNumber,
+            skipped: row.skipped,
+            weight: row.weight,
+            zone: row.zone,
+          }))
       : [];
+
+    const configurationRow = client
+      .select({ snapshot: workoutProgressionConfigurations.snapshot })
+      .from(workoutProgressionConfigurations)
+      .where(
+        and(
+          eq(workoutProgressionConfigurations.userId, userId),
+          eq(
+            workoutProgressionConfigurations.scheduledWorkoutExerciseId,
+            exerciseRow.scheduledWorkoutExerciseId,
+          ),
+        ),
+      )
+      .get();
+    const configuration = configurationRow
+      ? workoutProgressionConfigurationSchema.parse(configurationRow.snapshot)
+      : null;
+    const feedback = latestSession?.feedback
+      ? parseWorkoutSessionFeedback(latestSession.feedback)
+      : null;
+    const feedbackFacts: WorkoutProgressionEvidence['context']['facts'] = [];
+    if (feedback?.technique !== undefined && feedback.technique <= 2) {
+      feedbackFacts.push({
+        detail: 'Session feedback recorded technique or form failure.',
+        source: 'session_feedback',
+        type: 'form_failure',
+      });
+    }
+    for (const response of feedback?.responses ?? []) {
+      if (
+        ['pain', 'pain-discomfort', 'symptoms'].includes(response.id) &&
+        response.value !== false &&
+        response.value !== null &&
+        response.value !== ''
+      ) {
+        feedbackFacts.push({
+          detail: response.label,
+          source: 'session_feedback',
+          type: response.id === 'symptoms' ? 'symptoms' : 'pain',
+        });
+      }
+    }
 
     evidence.push(
       workoutProgressionEvidenceSchema.parse({
         exerciseId: exerciseRow.exerciseId,
         exerciseName: exerciseRow.exerciseName,
         performance,
-        policy: selectPolicy({
-          category: exerciseRow.category,
-          tags: exerciseRow.tags,
-          targets: priorTargets,
-          trackingType: exerciseRow.trackingType,
-          weightUnit: schedule.weightUnit,
-        }),
+        context: {
+          availability:
+            feedback || configuration?.contextAvailability === 'available'
+              ? 'available'
+              : 'unavailable',
+          facts: [...feedbackFacts, ...(configuration?.contextFacts ?? [])].slice(0, 20),
+        },
+        policy: configuration?.policy ?? unsupportedPolicy,
+        policySource: configuration
+          ? {
+              actorId: configuration.actorId,
+              actorLabel: configuration.actorLabel,
+              actorType: configuration.actorType,
+              configurationId: configuration.id,
+              configuredAt: configuration.updatedAt,
+              revision: configuration.revision,
+              type: 'programming_config',
+            }
+          : {
+              actorId: null,
+              actorLabel: null,
+              actorType: null,
+              configurationId: null,
+              configuredAt: null,
+              revision: 0,
+              type: 'none',
+            },
         priorTargets,
         scheduledWorkoutDate: schedule.date,
         scheduledWorkoutExerciseId: exerciseRow.scheduledWorkoutExerciseId,
@@ -293,6 +417,96 @@ function mapDecisionState(action: string): WorkoutProgressionRecommendation['sta
   }
 }
 
+export async function configureWorkoutProgression({
+  actor,
+  input: rawInput,
+  now = Date.now(),
+  scheduledWorkoutExerciseId,
+  userId,
+}: {
+  actor: ProgressionActor;
+  input: ConfigureWorkoutProgressionInput;
+  now?: number;
+  scheduledWorkoutExerciseId: string;
+  userId: string;
+}): Promise<WorkoutProgressionConfiguration | undefined> {
+  const input = configureWorkoutProgressionInputSchema.parse(rawInput);
+  return db.transaction((tx) => {
+    const ownedExercise = tx
+      .select({
+        scheduledWorkoutId: scheduledWorkoutExercises.scheduledWorkoutId,
+      })
+      .from(scheduledWorkoutExercises)
+      .innerJoin(
+        scheduledWorkouts,
+        eq(scheduledWorkouts.id, scheduledWorkoutExercises.scheduledWorkoutId),
+      )
+      .where(
+        and(
+          eq(scheduledWorkoutExercises.id, scheduledWorkoutExerciseId),
+          eq(scheduledWorkouts.userId, userId),
+          isNull(scheduledWorkouts.sessionId),
+        ),
+      )
+      .get();
+    if (!ownedExercise) return undefined;
+
+    const current = tx
+      .select()
+      .from(workoutProgressionConfigurations)
+      .where(
+        eq(workoutProgressionConfigurations.scheduledWorkoutExerciseId, scheduledWorkoutExerciseId),
+      )
+      .get();
+    const currentRevision = current?.revision ?? 0;
+    if (input.expectedRevision !== currentRevision) {
+      throw new WorkoutProgressionStaleError('Workout progression configuration is stale');
+    }
+    const revision = currentRevision + 1;
+    const id = current?.id ?? randomUUID();
+    const configuration = workoutProgressionConfigurationSchema.parse({
+      actorId: actor.id,
+      actorLabel: actor.label,
+      actorType: actor.type === 'agent_token' ? 'agent' : 'user',
+      contextFacts: input.contextFacts,
+      contextAvailability: input.contextAvailability,
+      id,
+      policy: input.policy,
+      priority: input.priority,
+      revision,
+      scheduledWorkoutExerciseId,
+      scheduledWorkoutId: ownedExercise.scheduledWorkoutId,
+      updatedAt: now,
+      userId,
+    });
+    const values = {
+      actorLabel: actor.label,
+      actorType: actor.type,
+      agentTokenId: actor.type === 'agent_token' ? actor.id : null,
+      revision,
+      snapshot: configuration,
+      updatedAt: now,
+    } as const;
+    if (current) {
+      tx.update(workoutProgressionConfigurations)
+        .set(values)
+        .where(eq(workoutProgressionConfigurations.id, current.id))
+        .run();
+    } else {
+      tx.insert(workoutProgressionConfigurations)
+        .values({
+          ...values,
+          id,
+          scheduledWorkoutExerciseId,
+          scheduledWorkoutId: ownedExercise.scheduledWorkoutId,
+          userId,
+        })
+        .run();
+    }
+    return configuration;
+  });
+}
+
 function loadAction(client: DatabaseClient, recommendationId: string) {
   return client
     .select()
@@ -311,12 +525,15 @@ function evidenceMatchesDecision(
   const expectedTargets = resolveAppliedTargets(action.payload, snapshot);
   const stablePolicy = (policy: WorkoutProgressionPolicy) => ({
     allowReduction: policy.allowReduction,
+    contextRequired: policy.contextRequired,
     distanceStep: policy.distanceStep,
     effortCeiling: policy.effortCeiling,
     family: policy.family,
     loadIncrement: policy.loadIncrement,
     loadIncreasePercent: policy.loadIncreasePercent,
     lowEffortThreshold: policy.lowEffortThreshold,
+    repRangeMax: policy.repRangeMax,
+    repRangeMin: policy.repRangeMin,
     secondsStep: policy.secondsStep,
     version: policy.version,
     zoneCeiling: policy.zoneCeiling,
@@ -332,6 +549,8 @@ function evidenceMatchesDecision(
     current.sourceSessionDate === snapshot.evidence.sourceSessionDate &&
     stableJson(current.performance) === stableJson(snapshot.evidence.performance) &&
     stableJson(current.priorTargets) === stableJson(expectedTargets) &&
+    stableJson(current.context) === stableJson(snapshot.evidence.context) &&
+    stableJson(current.policySource) === stableJson(snapshot.evidence.policySource) &&
     stableJson(stablePolicy(current.policy)) === stableJson(stablePolicy(snapshot.evidence.policy))
   );
 }
@@ -340,8 +559,15 @@ async function projectRecommendation(
   client: DatabaseClient,
   row: typeof workoutProgressionRecommendations.$inferSelect,
 ): Promise<WorkoutProgressionRecommendation> {
-  const snapshot = workoutProgressionRecommendationSchema.parse(row.snapshot);
+  const snapshot = parseRecommendationSnapshot(row.snapshot);
   const action = loadAction(client, row.id);
+  const sourceSessionStillExists = snapshot.evidence.sourceSessionId
+    ? client
+        .select({ id: workoutSessions.id })
+        .from(workoutSessions)
+        .where(eq(workoutSessions.id, snapshot.evidence.sourceSessionId))
+        .get() !== undefined
+    : true;
   const currentEvidence = await buildEvidenceForScheduledWorkout(
     client,
     row.userId,
@@ -350,6 +576,13 @@ async function projectRecommendation(
   const matchingEvidence = currentEvidence?.find(
     (evidence) => evidence.scheduledWorkoutExerciseId === row.scheduledWorkoutExerciseId,
   );
+  if (action && (!matchingEvidence || !sourceSessionStillExists)) {
+    return workoutProgressionRecommendationSchema.parse({
+      ...snapshot,
+      staleAt: null,
+      state: mapDecisionState(action.type),
+    });
+  }
   if (action && matchingEvidence && evidenceMatchesDecision(matchingEvidence, snapshot, action)) {
     return workoutProgressionRecommendationSchema.parse({
       ...snapshot,
@@ -503,20 +736,36 @@ export async function getWorkoutProgressionRecommendation(
 function assertBoundedEdit(
   original: WorkoutProgressionTarget[],
   edited: WorkoutProgressionTarget[],
+  evidence: WorkoutProgressionEvidence,
 ) {
   const sortedOriginal = orderedTargets(original);
   const sortedEdited = orderedTargets(edited);
   if (
     sortedOriginal.length !== sortedEdited.length ||
-    sortedOriginal.some((target, index) => target.setNumber !== sortedEdited[index]?.setNumber)
+    sortedOriginal.some(
+      (target, index) =>
+        target.setNumber !== sortedEdited[index]?.setNumber ||
+        target.setId !== sortedEdited[index]?.setId,
+    )
   ) {
     throw new WorkoutProgressionInvalidEditError('Edited targets must preserve set identity');
   }
-  const withinBound = (before: number | null, after: number | null) => {
+  const withinBound = (before: number | null, after: number | null, delta: number) => {
     if (before === null || after === null) {
       return before === after;
     }
-    return after <= Math.max(before * 1.5, before + 10) && after >= before * 0.5;
+    return Math.abs(after - before) <= delta;
+  };
+  const relevant = {
+    distance: ['cardio', 'distance'].includes(evidence.trackingType),
+    reps: ['bodyweight_reps', 'reps_only', 'reps_seconds', 'weight_reps'].includes(
+      evidence.trackingType,
+    ),
+    seconds: ['cardio', 'duration', 'reps_seconds', 'seconds_only', 'weight_seconds'].includes(
+      evidence.trackingType,
+    ),
+    weight: ['weight_reps', 'weight_seconds'].includes(evidence.trackingType),
+    zone: ['cardio', 'distance', 'duration'].includes(evidence.trackingType),
   };
   for (let index = 0; index < sortedOriginal.length; index += 1) {
     const before = sortedOriginal[index];
@@ -524,11 +773,42 @@ function assertBoundedEdit(
     if (
       !before ||
       !after ||
-      !withinBound(before.weight, after.weight) ||
-      !withinBound(before.weightMin, after.weightMin) ||
-      !withinBound(before.weightMax, after.weightMax) ||
-      !withinBound(before.seconds, after.seconds) ||
-      !withinBound(before.distance, after.distance)
+      !withinBound(
+        before.weight,
+        after.weight,
+        Math.max((evidence.policy.loadIncrement ?? 0) * 2, (before.weight ?? 0) * 0.1),
+      ) ||
+      !withinBound(
+        before.weightMin,
+        after.weightMin,
+        Math.max((evidence.policy.loadIncrement ?? 0) * 2, (before.weightMin ?? 0) * 0.1),
+      ) ||
+      !withinBound(
+        before.weightMax,
+        after.weightMax,
+        Math.max((evidence.policy.loadIncrement ?? 0) * 2, (before.weightMax ?? 0) * 0.1),
+      ) ||
+      !withinBound(before.reps, after.reps, 5) ||
+      !withinBound(before.repsMin, after.repsMin, 5) ||
+      !withinBound(before.repsMax, after.repsMax, 5) ||
+      !withinBound(
+        before.seconds,
+        after.seconds,
+        Math.max((evidence.policy.secondsStep ?? 0) * 2, 300),
+      ) ||
+      !withinBound(
+        before.distance,
+        after.distance,
+        Math.max((evidence.policy.distanceStep ?? 0) * 2, (before.distance ?? 0) * 0.25),
+      ) ||
+      !withinBound(before.zone, after.zone, 1) ||
+      (!relevant.weight &&
+        [after.weight, after.weightMin, after.weightMax].some((value) => value !== null)) ||
+      (!relevant.reps &&
+        [after.reps, after.repsMin, after.repsMax].some((value) => value !== null)) ||
+      (!relevant.seconds && after.seconds !== null) ||
+      (!relevant.distance && after.distance !== null) ||
+      (!relevant.zone && after.zone !== null)
     ) {
       throw new WorkoutProgressionInvalidEditError('Edited targets exceed the bounded override');
     }
@@ -549,7 +829,11 @@ export async function applyWorkoutProgressionAction({
   userId: string;
 }): Promise<WorkoutProgressionAction> {
   const input = applyWorkoutProgressionActionInputSchema.parse(rawInput);
-  const requestFingerprint = fingerprint(input);
+  const requestFingerprint = fingerprint({
+    actor: { id: actor.id, type: actor.type },
+    input,
+    recommendationId,
+  });
 
   return db.transaction((tx) => {
     const replay = tx
@@ -576,9 +860,7 @@ export async function applyWorkoutProgressionAction({
       if (!replayRecommendation) {
         throw new WorkoutProgressionNotFoundError('Workout progression recommendation not found');
       }
-      const replaySnapshot = workoutProgressionRecommendationSchema.parse(
-        replayRecommendation.snapshot,
-      );
+      const replaySnapshot = parseRecommendationSnapshot(replayRecommendation.snapshot);
       return workoutProgressionActionSchema.parse({
         actorId: replay.agentTokenId ?? userId,
         actorType: replay.actorType === 'agent_token' ? 'agent' : 'user',
@@ -623,7 +905,7 @@ export async function applyWorkoutProgressionAction({
         'Workout progression can only change a not-yet-started scheduled workout',
       );
     }
-    const snapshot = workoutProgressionRecommendationSchema.parse(row.snapshot);
+    const snapshot = parseRecommendationSnapshot(row.snapshot);
     const currentEvidence = buildEvidenceForScheduledWorkout(tx, userId, row.scheduledWorkoutId);
     const matchingEvidence = currentEvidence?.find(
       (evidence) => evidence.scheduledWorkoutExerciseId === row.scheduledWorkoutExerciseId,
@@ -635,16 +917,23 @@ export async function applyWorkoutProgressionAction({
     ) {
       throw new WorkoutProgressionStaleError('Workout progression recommendation is stale');
     }
+    if (
+      snapshot.confidence === 'unavailable' &&
+      (input.action === 'accept' || input.action === 'edit')
+    ) {
+      throw new WorkoutProgressionInvalidEditError(
+        'Unavailable progression evidence cannot apply target changes',
+      );
+    }
 
     const appliedTargets = resolveAppliedTargets(input, snapshot);
     if (input.action === 'edit') {
-      assertBoundedEdit(snapshot.recommendedTargets, appliedTargets);
+      assertBoundedEdit(snapshot.recommendedTargets, appliedTargets, snapshot.evidence);
     }
     if (input.action === 'accept' || input.action === 'edit') {
       const persistedSets = tx
         .select({
           id: scheduledWorkoutExerciseSets.id,
-          setNumber: scheduledWorkoutExerciseSets.setNumber,
         })
         .from(scheduledWorkoutExerciseSets)
         .where(
@@ -654,12 +943,12 @@ export async function applyWorkoutProgressionAction({
           ),
         )
         .all();
-      const targetBySetNumber = new Map(appliedTargets.map((target) => [target.setNumber, target]));
+      const targetById = new Map(appliedTargets.map((target) => [target.setId, target]));
       if (persistedSets.length !== appliedTargets.length) {
         throw new WorkoutProgressionStaleError('Workout progression recommendation is stale');
       }
       for (const persistedSet of persistedSets) {
-        const target = targetBySetNumber.get(persistedSet.setNumber);
+        const target = targetById.get(persistedSet.id);
         if (!target) {
           throw new WorkoutProgressionStaleError('Workout progression recommendation is stale');
         }
@@ -670,6 +959,7 @@ export async function applyWorkoutProgressionAction({
             repsMin: target.repsMin,
             targetDistance: target.distance,
             targetSeconds: target.seconds,
+            targetZone: target.zone,
             targetWeight: target.weight,
             targetWeightMax: target.weightMax,
             targetWeightMin: target.weightMin,
@@ -721,7 +1011,14 @@ function resolveAppliedTargets(
   snapshot: WorkoutProgressionRecommendation | null,
 ): WorkoutProgressionTarget[] {
   if (input.action === 'edit') {
-    return input.editedTargets ?? [];
+    return (input.editedTargets ?? []).map((target) => ({
+      ...target,
+      setId:
+        target.setId ??
+        snapshot?.recommendedTargets.find((candidate) => candidate.setNumber === target.setNumber)
+          ?.setId ??
+        `legacy-current-set-${target.setNumber}`,
+    }));
   }
   if (snapshot === null) {
     return [];

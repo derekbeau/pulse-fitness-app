@@ -379,6 +379,13 @@
       "when": 1787529600000,
       "tag": "0053_workout_progression",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1787616000000,
+      "tag": "0054_workout_progression_evidence",
+      "breakpoints": true
     }
   ]
 }

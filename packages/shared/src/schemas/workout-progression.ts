@@ -8,6 +8,7 @@ const fingerprintSchema = z.string().regex(/^[a-f0-9]{64}$/);
 const nullableMetricSchema = z.number().finite().nonnegative().nullable();
 
 export const workoutProgressionPolicyFamilySchema = z.enum([
+  'unsupported',
   'double_progression',
   'strength_load',
   'rpe_regulated',
@@ -40,6 +41,12 @@ export const workoutProgressionReasonCodeSchema = z.enum([
   'UNSUPPORTED_TRACKING_TYPE',
   'REHAB_NO_AUTOMATIC_INCREASE',
   'ROUNDED_TO_INCREMENT',
+  'MISSING_POLICY',
+  'CONTEXT_UNAVAILABLE',
+  'PAIN_OR_SYMPTOMS',
+  'FORM_FAILURE',
+  'PROGRAMMING_HOLD',
+  'UNDER_PRESCRIBED_TARGET',
 ]);
 
 export const workoutProgressionPolicySchema = z
@@ -56,6 +63,7 @@ export const workoutProgressionPolicySchema = z
     distanceStep: z.number().positive().finite().nullable(),
     zoneCeiling: z.number().int().min(1).max(5).nullable(),
     allowReduction: z.boolean(),
+    contextRequired: z.boolean(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -85,15 +93,16 @@ export const workoutProgressionPolicySchema = z
 
 export const workoutProgressionTargetSchema = z
   .object({
+    setId: idSchema,
     setNumber: z.number().int().positive(),
-    weight: nullableMetricSchema,
-    weightMin: nullableMetricSchema,
-    weightMax: nullableMetricSchema,
-    repsMin: z.number().int().positive().nullable(),
-    repsMax: z.number().int().positive().nullable(),
-    reps: z.number().int().nonnegative().nullable(),
-    seconds: z.number().int().nonnegative().nullable(),
-    distance: nullableMetricSchema,
+    weight: z.number().finite().positive().max(2_000).nullable(),
+    weightMin: z.number().finite().positive().max(2_000).nullable(),
+    weightMax: z.number().finite().positive().max(2_000).nullable(),
+    repsMin: z.number().int().positive().max(1_000).nullable(),
+    repsMax: z.number().int().positive().max(1_000).nullable(),
+    reps: z.number().int().positive().max(1_000).nullable(),
+    seconds: z.number().int().positive().max(86_400).nullable(),
+    distance: z.number().finite().positive().max(1_000_000).nullable(),
     zone: z.number().int().min(1).max(5).nullable(),
   })
   .strict()
@@ -105,11 +114,20 @@ export const workoutProgressionTargetSchema = z
   .refine(
     (value) => value.repsMin === null || value.repsMax === null || value.repsMin <= value.repsMax,
     { message: 'repsMin must be less than or equal to repsMax', path: ['repsMax'] },
-  );
+  )
+  .refine(
+    (value) => value.weight === null || (value.weightMin === null && value.weightMax === null),
+    { message: 'Exact weight cannot be combined with a weight range', path: ['weight'] },
+  )
+  .refine((value) => value.reps === null || (value.repsMin === null && value.repsMax === null), {
+    message: 'Exact reps cannot be combined with a rep range',
+    path: ['reps'],
+  });
 
 export const workoutProgressionPerformanceSetSchema = z
   .object({
     setId: idSchema,
+    sourceScheduledSetId: idSchema.nullable(),
     setNumber: z.number().int().positive(),
     completed: z.boolean(),
     skipped: z.boolean(),
@@ -119,11 +137,111 @@ export const workoutProgressionPerformanceSetSchema = z
     distance: nullableMetricSchema,
     rpe: z.number().min(1).max(10).finite().nullable(),
     zone: z.number().int().min(1).max(5).nullable(),
+    prescribed: workoutProgressionTargetSchema,
   })
   .strict()
   .refine((value) => !(value.completed && value.skipped), {
     message: 'A set cannot be both completed and skipped',
     path: ['skipped'],
+  })
+  .refine(
+    (value) =>
+      value.setId === value.prescribed.setId && value.setNumber === value.prescribed.setNumber,
+    {
+      message: 'Completed and prescribed set identity must match',
+      path: ['prescribed'],
+    },
+  );
+
+export const workoutProgressionPolicySourceSchema = z
+  .object({
+    type: z.enum(['programming_config', 'none']),
+    configurationId: idSchema.nullable(),
+    revision: z.number().int().nonnegative(),
+    configuredAt: z.number().int().positive().nullable(),
+    actorType: z.enum(['user', 'agent']).nullable(),
+    actorId: idSchema.nullable(),
+    actorLabel: z.string().trim().min(1).max(255).nullable(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const configured = value.type === 'programming_config';
+    const fields = [
+      value.configurationId,
+      value.configuredAt,
+      value.actorType,
+      value.actorId,
+      value.actorLabel,
+    ];
+    if (
+      configured !== fields.every((field) => field !== null) ||
+      configured !== value.revision > 0
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Programming policy provenance must be complete',
+        path: ['type'],
+      });
+    }
+  });
+
+export const workoutProgressionContextFactSchema = z
+  .object({
+    type: z.enum(['pain', 'symptoms', 'form_failure', 'programming_hold']),
+    source: z.enum(['programming_config', 'session_feedback']),
+    detail: z.string().trim().min(1).max(500),
+  })
+  .strict();
+
+export const workoutProgressionContextSchema = z
+  .object({
+    availability: z.enum(['available', 'unavailable']),
+    facts: z.array(workoutProgressionContextFactSchema).max(20),
+  })
+  .strict()
+  .refine((value) => value.availability === 'available' || value.facts.length === 0, {
+    message: 'Unavailable context cannot claim observed adverse facts',
+    path: ['facts'],
+  });
+
+export const configureWorkoutProgressionInputSchema = z
+  .object({
+    expectedRevision: z.number().int().nonnegative(),
+    policy: workoutProgressionPolicySchema,
+    contextAvailability: z.enum(['available', 'unavailable']),
+    contextFacts: z.array(workoutProgressionContextFactSchema).max(20),
+    priority: z.boolean(),
+  })
+  .strict()
+  .refine((value) => value.contextAvailability === 'available' || value.contextFacts.length === 0, {
+    message: 'Unavailable context cannot include observed facts',
+    path: ['contextFacts'],
+  })
+  .refine((value) => value.policy.family !== 'unsupported', {
+    message: 'Persisted programming configuration must select a supported policy family',
+    path: ['policy', 'family'],
+  });
+
+export const workoutProgressionConfigurationSchema = z
+  .object({
+    id: idSchema,
+    userId: idSchema,
+    scheduledWorkoutId: idSchema,
+    scheduledWorkoutExerciseId: idSchema,
+    revision: z.number().int().positive(),
+    policy: workoutProgressionPolicySchema,
+    contextAvailability: z.enum(['available', 'unavailable']),
+    contextFacts: z.array(workoutProgressionContextFactSchema).max(20),
+    priority: z.boolean(),
+    actorType: z.enum(['user', 'agent']),
+    actorId: idSchema,
+    actorLabel: z.string().trim().min(1).max(255),
+    updatedAt: z.number().int().positive(),
+  })
+  .strict()
+  .refine((value) => value.contextAvailability === 'available' || value.contextFacts.length === 0, {
+    message: 'Unavailable context cannot include observed facts',
+    path: ['contextFacts'],
   });
 
 export const workoutProgressionEvidenceSchema = z
@@ -139,6 +257,8 @@ export const workoutProgressionEvidenceSchema = z
     priorTargets: z.array(workoutProgressionTargetSchema).min(1).max(100),
     performance: z.array(workoutProgressionPerformanceSetSchema).max(100),
     policy: workoutProgressionPolicySchema,
+    policySource: workoutProgressionPolicySourceSchema,
+    context: workoutProgressionContextSchema,
   })
   .strict();
 
@@ -279,6 +399,7 @@ export const workoutMuscleAnalyticsSourceSchema = z.discriminatedUnion('sourceTy
     sourceType: z.literal('completed'),
     sessionId: idSchema,
     scheduledWorkoutId: idSchema.nullable(),
+    sourceScheduledSetId: idSchema.nullable(),
   }),
   workoutMuscleAnalyticsSourceBaseSchema.extend({
     sourceType: z.literal('planned'),
@@ -302,16 +423,35 @@ export const workoutMuscleAnalyticsRowSchema = z
     muscle: z.string().trim().min(1).max(100),
     qualifyingSetEquivalents: z.number().finite().nonnegative(),
     plannedSetEquivalents: z.number().finite().nonnegative(),
+    fulfilledPlannedSetEquivalents: z.number().finite().nonnegative(),
     completedSessionCount: z.number().int().nonnegative(),
     exerciseCount: z.number().int().nonnegative(),
     volumeLoad: z.number().finite().nonnegative().nullable(),
     previousQualifyingSetEquivalents: z.number().finite().nonnegative(),
     change: z.enum(['increased', 'stable', 'decreased', 'no_comparison']),
-    exposureState: z.enum(['fully_completed', 'missed', 'no_plan']),
+    exposureState: z.enum(['fully_completed', 'partially_completed', 'missed', 'no_plan']),
     priority: z.boolean(),
     sourceIds: z.array(idSchema).max(500),
+    sourceCount: z.number().int().nonnegative(),
+    sourceIdsTruncated: z.boolean(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.fulfilledPlannedSetEquivalents > value.plannedSetEquivalents) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Fulfilled planned exposure cannot exceed planned exposure',
+        path: ['fulfilledPlannedSetEquivalents'],
+      });
+    }
+    if (value.sourceIdsTruncated !== value.sourceCount > value.sourceIds.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Source ID truncation must agree with the exact source count',
+        path: ['sourceIdsTruncated'],
+      });
+    }
+  });
 
 const workoutMuscleTimeZoneSchema = z
   .string()
@@ -349,15 +489,26 @@ export const workoutMuscleAnalyticsSchema = z
     qualifyingSetPolicyVersion: z.literal(1),
     rows: z.array(workoutMuscleAnalyticsRowSchema).max(200),
     sources: z.array(workoutMuscleAnalyticsSourceSchema).max(5000),
+    sourceCount: z.number().int().nonnegative(),
+    sourcesTruncated: z.boolean(),
     series: z.array(workoutMuscleAnalyticsSeriesPointSchema).max(20_000),
   })
   .strict()
   .refine((value) => value.startDate <= value.endDate, {
     message: 'startDate must be less than or equal to endDate',
     path: ['endDate'],
+  })
+  .refine((value) => value.sourcesTruncated === value.sourceCount > value.sources.length, {
+    message: 'Source truncation must agree with the exact source count',
+    path: ['sourcesTruncated'],
   });
 
 export type WorkoutProgressionPolicy = z.infer<typeof workoutProgressionPolicySchema>;
+export type WorkoutProgressionContext = z.infer<typeof workoutProgressionContextSchema>;
+export type ConfigureWorkoutProgressionInput = z.infer<
+  typeof configureWorkoutProgressionInputSchema
+>;
+export type WorkoutProgressionConfiguration = z.infer<typeof workoutProgressionConfigurationSchema>;
 export type WorkoutProgressionDecision = z.infer<typeof workoutProgressionDecisionSchema>;
 export type WorkoutProgressionReasonCode = z.infer<typeof workoutProgressionReasonCodeSchema>;
 export type WorkoutProgressionTarget = z.infer<typeof workoutProgressionTargetSchema>;

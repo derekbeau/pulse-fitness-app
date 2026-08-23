@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type {
   ApplyWorkoutProgressionActionInput,
+  WorkoutProgressionConfiguration,
   WorkoutProgressionRecommendation,
 } from '@pulse/shared';
 import { sql } from 'drizzle-orm';
@@ -16,11 +17,9 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
 
-import { exercises } from './exercises.js';
 import { scheduledWorkoutExercises } from './scheduled-workout-exercises.js';
 import { scheduledWorkouts } from './scheduled-workouts.js';
 import { users } from './users.js';
-import { workoutSessions } from './workout-sessions.js';
 
 export const workoutProgressionAccountDeletionScope = sqliteTable(
   'workout_progression_account_deletion_scope',
@@ -31,8 +30,8 @@ export const workoutProgressionAccountDeletionScope = sqliteTable(
   },
 );
 
-export const workoutProgressionRecommendations = sqliteTable(
-  'workout_progression_recommendations',
+export const workoutProgressionConfigurations = sqliteTable(
+  'workout_progression_configurations',
   {
     id: text('id')
       .primaryKey()
@@ -46,14 +45,50 @@ export const workoutProgressionRecommendations = sqliteTable(
     scheduledWorkoutExerciseId: text('scheduled_workout_exercise_id')
       .notNull()
       .references(() => scheduledWorkoutExercises.id, { onDelete: 'cascade' }),
-    exerciseId: text('exercise_id')
+    revision: integer('revision').notNull(),
+    snapshot: text('snapshot', { mode: 'json' }).$type<WorkoutProgressionConfiguration>().notNull(),
+    actorType: text('actor_type').$type<'user' | 'agent_token'>().notNull(),
+    agentTokenId: text('agent_token_id'),
+    actorLabel: text('actor_label').notNull(),
+    updatedAt: integer('updated_at', { mode: 'number' }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('workout_progression_configurations_schedule_exercise_unique').on(
+      table.scheduledWorkoutExerciseId,
+    ),
+    foreignKey({
+      columns: [table.scheduledWorkoutExerciseId, table.scheduledWorkoutId],
+      foreignColumns: [scheduledWorkoutExercises.id, scheduledWorkoutExercises.scheduledWorkoutId],
+      name: 'workout_progression_configurations_scheduled_exercise_fk',
+    }).onDelete('cascade'),
+    check('workout_progression_configurations_revision_check', sql`${table.revision} >= 1`),
+    check(
+      'workout_progression_configurations_snapshot_check',
+      sql`json_valid(${table.snapshot}) and json_type(${table.snapshot}) = 'object'`,
+    ),
+    check(
+      'workout_progression_configurations_actor_check',
+      sql`(${table.actorType} = 'user' and ${table.agentTokenId} is null) or (${table.actorType} = 'agent_token' and ${table.agentTokenId} is not null)`,
+    ),
+  ],
+);
+
+export const workoutProgressionRecommendations = sqliteTable(
+  'workout_progression_recommendations',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    userId: text('user_id')
       .notNull()
-      .references(() => exercises.id, { onDelete: 'restrict' }),
-    sourceSessionId: text('source_session_id').references(() => workoutSessions.id, {
-      onDelete: 'restrict',
-    }),
+      .references(() => users.id, { onDelete: 'cascade' }),
+    scheduledWorkoutId: text('scheduled_workout_id').notNull(),
+    scheduledWorkoutExerciseId: text('scheduled_workout_exercise_id').notNull(),
+    exerciseId: text('exercise_id').notNull(),
+    sourceSessionId: text('source_session_id'),
     policyFamily: text('policy_family')
       .$type<
+        | 'unsupported'
         | 'double_progression'
         | 'strength_load'
         | 'rpe_regulated'
@@ -81,14 +116,9 @@ export const workoutProgressionRecommendations = sqliteTable(
       table.policyVersion,
     ),
     uniqueIndex('workout_progression_recommendations_id_user_unique').on(table.id, table.userId),
-    foreignKey({
-      columns: [table.scheduledWorkoutExerciseId, table.scheduledWorkoutId],
-      foreignColumns: [scheduledWorkoutExercises.id, scheduledWorkoutExercises.scheduledWorkoutId],
-      name: 'workout_progression_recommendations_scheduled_exercise_fk',
-    }).onDelete('cascade'),
     check(
       'workout_progression_recommendations_policy_family_check',
-      sql`${table.policyFamily} in ('double_progression', 'strength_load', 'rpe_regulated', 'time_distance', 'rehab_capacity')`,
+      sql`${table.policyFamily} in ('unsupported', 'double_progression', 'strength_load', 'rpe_regulated', 'time_distance', 'rehab_capacity')`,
     ),
     check(
       'workout_progression_recommendations_policy_version_check',
@@ -181,9 +211,7 @@ export const exerciseMuscleContributions = sqliteTable(
     id: text('id')
       .primaryKey()
       .$defaultFn(() => randomUUID()),
-    exerciseId: text('exercise_id')
-      .notNull()
-      .references(() => exercises.id, { onDelete: 'cascade' }),
+    exerciseId: text('exercise_id').notNull(),
     ownerUserId: text('owner_user_id').references(() => users.id, { onDelete: 'cascade' }),
     revision: integer('revision').notNull(),
     muscle: text('muscle').notNull(),

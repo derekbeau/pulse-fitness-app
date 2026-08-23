@@ -32,6 +32,7 @@ import {
   users,
   workoutProgressionAccountDeletionScope,
   workoutProgressionActions,
+  workoutProgressionConfigurations,
   workoutProgressionRecommendations,
   workoutSessions,
 } from '../db/schema/index.js';
@@ -756,6 +757,13 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
           weight: 40,
           reps: 10,
           rpe: 8,
+          targetWeight: 40,
+          targetRepsMin: 8,
+          targetRepsMax: 10,
+          sourceScheduledSetId: `${fixture.userId}-planned-set-${setNumber}`,
+          exerciseIdSnapshot: exerciseId,
+          exerciseNameSnapshot: 'Incline dumbbell press',
+          trackingTypeSnapshot: 'weight_reps' as const,
           completed: true,
           skipped: false,
           section: 'main' as const,
@@ -779,6 +787,8 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
         id: scheduledExerciseId,
         scheduledWorkoutId,
         exerciseId,
+        exerciseNameSnapshot: 'Incline dumbbell press',
+        trackingTypeSnapshot: 'weight_reps',
         section: 'main',
         orderIndex: 0,
         programmingNotes: 'Use a controlled range of motion.',
@@ -798,6 +808,49 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
           createdAt: clock,
         })),
       )
+      .run();
+    const configurationId = `${fixture.userId}-progression-config`;
+    db.insert(workoutProgressionConfigurations)
+      .values({
+        id: configurationId,
+        userId: fixture.userId,
+        scheduledWorkoutId,
+        scheduledWorkoutExerciseId: scheduledExerciseId,
+        revision: 1,
+        snapshot: {
+          id: configurationId,
+          userId: fixture.userId,
+          scheduledWorkoutId,
+          scheduledWorkoutExerciseId: scheduledExerciseId,
+          revision: 1,
+          policy: {
+            family: 'double_progression',
+            version: 1,
+            loadIncrement: 5,
+            loadIncreasePercent: null,
+            repRangeMin: 8,
+            repRangeMax: 10,
+            effortCeiling: 9,
+            lowEffortThreshold: 6,
+            secondsStep: null,
+            distanceStep: null,
+            zoneCeiling: null,
+            allowReduction: true,
+            contextRequired: true,
+          },
+          contextAvailability: 'available',
+          contextFacts: [],
+          priority: true,
+          actorType: 'user',
+          actorId: fixture.userId,
+          actorLabel: 'Preview user',
+          updatedAt: clock,
+        },
+        actorType: 'user',
+        agentTokenId: null,
+        actorLabel: 'Preview user',
+        updatedAt: clock,
+      })
       .run();
     clock += 1000;
     return { exerciseId, fixture, scheduledWorkoutId, sessionId };

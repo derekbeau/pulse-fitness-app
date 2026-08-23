@@ -85,6 +85,7 @@ describe('scheduledWorkoutDetailSchema', () => {
               targetWeightMax: null,
               targetSeconds: null,
               targetDistance: null,
+              targetZone: null,
             },
           ],
         },

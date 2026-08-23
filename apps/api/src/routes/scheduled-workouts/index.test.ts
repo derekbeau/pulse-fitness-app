@@ -901,6 +901,7 @@ describe('scheduled workout routes', () => {
                 targetWeightMax: null,
                 targetSeconds: null,
                 targetDistance: null,
+                targetZone: null,
               },
               {
                 setNumber: 2,
@@ -912,6 +913,7 @@ describe('scheduled workout routes', () => {
                 targetWeightMax: null,
                 targetSeconds: null,
                 targetDistance: null,
+                targetZone: null,
               },
             ],
           },
@@ -1463,6 +1465,51 @@ describe('scheduled workout routes', () => {
     });
     expect(createResponse.statusCode).toBe(201);
     const scheduledWorkoutId = (createResponse.json() as { data: { id: string } }).data.id;
+    const configuredExercise = context.sqlite
+      .prepare(
+        'SELECT id FROM scheduled_workout_exercises WHERE scheduled_workout_id = ? AND exercise_id = ?',
+      )
+      .get(scheduledWorkoutId, 'exercise-swap-source') as { id: string };
+    context.sqlite
+      .prepare(
+        `INSERT INTO workout_progression_configurations (
+          id, user_id, scheduled_workout_id, scheduled_workout_exercise_id, revision,
+          snapshot, actor_type, agent_token_id, actor_label, updated_at
+        ) VALUES ('swap-config', 'user-1', ?, ?, 1, ?, 'user', NULL, 'You', 100)`,
+      )
+      .run(
+        scheduledWorkoutId,
+        configuredExercise.id,
+        JSON.stringify({
+          actorId: 'user-1',
+          actorLabel: 'You',
+          actorType: 'user',
+          contextAvailability: 'available',
+          contextFacts: [],
+          id: 'swap-config',
+          policy: {
+            allowReduction: false,
+            contextRequired: false,
+            distanceStep: null,
+            effortCeiling: 9,
+            family: 'double_progression',
+            loadIncrement: 5,
+            loadIncreasePercent: null,
+            lowEffortThreshold: 6,
+            repRangeMax: 8,
+            repRangeMin: 8,
+            secondsStep: null,
+            version: 1,
+            zoneCeiling: null,
+          },
+          priority: false,
+          revision: 1,
+          scheduledWorkoutExerciseId: configuredExercise.id,
+          scheduledWorkoutId,
+          updatedAt: 100,
+          userId: 'user-1',
+        }),
+      );
 
     const response = await context.app.inject({
       method: 'PATCH',
@@ -1495,6 +1542,11 @@ describe('scheduled workout routes', () => {
       .where(eq(scheduledWorkoutExercises.scheduledWorkoutId, scheduledWorkoutId))
       .all();
     expect(swappedRows).toEqual([{ exerciseId: 'exercise-swap-target' }]);
+    expect(
+      context.sqlite
+        .prepare('SELECT count(*) AS count FROM workout_progression_configurations WHERE id = ?')
+        .get('swap-config'),
+    ).toEqual({ count: 0 });
   });
 
   it('clears exercise agent notes metadata when swapping exercises', async () => {
@@ -2482,9 +2534,19 @@ describe('scheduled workout routes', () => {
     const sortedSessionSets = context.db
       .select({
         exerciseId: sessionSets.exerciseId,
+        exerciseIdSnapshot: sessionSets.exerciseIdSnapshot,
+        exerciseNameSnapshot: sessionSets.exerciseNameSnapshot,
         orderIndex: sessionSets.orderIndex,
+        sourceScheduledSetId: sessionSets.sourceScheduledSetId,
         setNumber: sessionSets.setNumber,
         supersetGroup: sessionSets.supersetGroup,
+        targetReps: sessionSets.targetReps,
+        targetRepsMax: sessionSets.targetRepsMax,
+        targetRepsMin: sessionSets.targetRepsMin,
+        targetDistance: sessionSets.targetDistance,
+        targetSeconds: sessionSets.targetSeconds,
+        targetWeight: sessionSets.targetWeight,
+        trackingTypeSnapshot: sessionSets.trackingTypeSnapshot,
       })
       .from(sessionSets)
       .where(eq(sessionSets.sessionId, sessionPayload.data.id))
@@ -2530,6 +2592,26 @@ describe('scheduled workout routes', () => {
     ).toBe(true);
     expect(
       setsByExerciseId[STRUCTURAL_EXERCISE_IDS.first]?.every((set) => set.supersetGroup === null),
+    ).toBe(true);
+    expect(
+      sortedSessionSets.every(
+        (set) =>
+          set.sourceScheduledSetId !== null &&
+          set.exerciseIdSnapshot === set.exerciseId &&
+          set.exerciseNameSnapshot !== null &&
+          set.trackingTypeSnapshot !== null,
+      ),
+    ).toBe(true);
+    expect(
+      sortedSessionSets.every(
+        (set) =>
+          set.targetReps !== null ||
+          set.targetRepsMin !== null ||
+          set.targetRepsMax !== null ||
+          set.targetDistance !== null ||
+          set.targetSeconds !== null ||
+          set.targetWeight !== null,
+      ),
     ).toBe(true);
 
     const templateAfter = context.db

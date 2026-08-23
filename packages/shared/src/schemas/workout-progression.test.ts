@@ -2,16 +2,19 @@ import { describe, expect, it } from 'vitest';
 
 import {
   applyWorkoutProgressionActionInputSchema,
+  configureWorkoutProgressionInputSchema,
   workoutMuscleAnalyticsQuerySchema,
   workoutMuscleAnalyticsSchema,
   workoutMuscleContributionSchema,
   workoutProgressionPolicySchema,
   workoutProgressionRecommendationSchema,
+  workoutProgressionTargetSchema,
 } from './workout-progression.js';
 
 describe('workout progression schemas', () => {
   const policy = {
     allowReduction: false,
+    contextRequired: false,
     distanceStep: null,
     effortCeiling: 8,
     family: 'double_progression' as const,
@@ -48,6 +51,44 @@ describe('workout progression schemas', () => {
     expect(
       applyWorkoutProgressionActionInputSchema.parse({ ...base, action: 'keep' }),
     ).toMatchObject({ action: 'keep' });
+  });
+
+  it('rejects zero, extreme, ranged-exact, and unsupported policy configurations', () => {
+    const target = {
+      distance: null,
+      reps: null,
+      repsMax: 10,
+      repsMin: 8,
+      seconds: null,
+      setId: 'set-1',
+      setNumber: 1,
+      weight: 20,
+      weightMax: null,
+      weightMin: null,
+      zone: null,
+    };
+    expect(() => workoutProgressionTargetSchema.parse({ ...target, repsMin: 0 })).toThrow();
+    expect(() => workoutProgressionTargetSchema.parse({ ...target, repsMax: 1_001 })).toThrow();
+    expect(() => workoutProgressionTargetSchema.parse({ ...target, reps: 8 })).toThrow();
+    expect(() => workoutProgressionTargetSchema.parse({ ...target, weight: 0 })).toThrow();
+    expect(() => workoutProgressionTargetSchema.parse({ ...target, zone: 6 })).toThrow();
+    expect(() =>
+      configureWorkoutProgressionInputSchema.parse({
+        contextAvailability: 'available',
+        contextFacts: [],
+        expectedRevision: 0,
+        policy: {
+          ...policy,
+          effortCeiling: null,
+          family: 'unsupported',
+          loadIncrement: null,
+          lowEffortThreshold: null,
+          repRangeMax: null,
+          repRangeMin: null,
+        },
+        priority: false,
+      }),
+    ).toThrow();
   });
 
   it('enforces explicit versioned primary and secondary factors', () => {
@@ -94,12 +135,15 @@ describe('workout progression schemas', () => {
           completedSessionCount: 1,
           exerciseCount: 1,
           exposureState: 'fully_completed' as const,
+          fulfilledPlannedSetEquivalents: 2,
           muscle: 'chest',
           plannedSetEquivalents: 2,
           previousQualifyingSetEquivalents: 1,
           priority: true,
           qualifyingSetEquivalents: 2,
+          sourceCount: 1,
           sourceIds: ['set-1'],
+          sourceIdsTruncated: false,
           volumeLoad: 400,
         },
       ],
@@ -124,15 +168,27 @@ describe('workout progression schemas', () => {
           scheduledWorkoutId: null,
           sessionId: 'session-1',
           setId: 'set-1',
+          sourceScheduledSetId: 'planned-set-1',
           sourceType: 'completed' as const,
           volumeLoad: 400,
         },
       ],
+      sourceCount: 1,
+      sourcesTruncated: false,
       startDate: '2026-08-17',
       timeZone: 'UTC',
       weightUnit: 'lbs' as const,
     };
     expect(workoutMuscleAnalyticsSchema.parse(analytics)).toEqual(analytics);
+    expect(() =>
+      workoutMuscleAnalyticsSchema.parse({
+        ...analytics,
+        rows: [{ ...analytics.rows[0], fulfilledPlannedSetEquivalents: 3 }],
+      }),
+    ).toThrow();
+    expect(() =>
+      workoutMuscleAnalyticsSchema.parse({ ...analytics, sourcesTruncated: true }),
+    ).toThrow();
     expect(() =>
       workoutMuscleAnalyticsSchema.parse({
         ...analytics,

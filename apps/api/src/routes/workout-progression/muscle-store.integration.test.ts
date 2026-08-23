@@ -64,12 +64,17 @@ function prepareDatabase() {
     .prepare(
       `INSERT INTO session_sets (
         id, session_id, exercise_id, order_index, set_number, weight, reps, rpe,
-        completed, skipped, section, created_at
+        source_scheduled_set_id, exercise_id_snapshot, exercise_name_snapshot,
+        tracking_type_snapshot, completed, skipped, section, created_at
       ) VALUES
-        ('previous-set', 'session-previous', 'exercise-1', 0, 1, 20, 10, 8, 1, 0, 'main', 300),
-        ('current-set-1', 'session-current', 'exercise-1', 0, 1, 20, 10, 8, 1, 0, 'main', 300),
-        ('current-set-2', 'session-current', 'exercise-1', 1, 2, 20, 10, 8, 1, 0, 'supplemental', 300),
-        ('warmup-set', 'session-current', 'exercise-1', 2, 3, 10, 10, 5, 1, 0, 'warmup', 300)`,
+        ('previous-set', 'session-previous', 'exercise-1', 0, 1, 20, 10, 8,
+          NULL, 'exercise-1', 'Incline press', 'weight_reps', 1, 0, 'main', 300),
+        ('current-set-1', 'session-current', 'exercise-1', 0, 1, 20, 10, 8,
+          'planned-set-1', 'exercise-1', 'Incline press', 'weight_reps', 1, 0, 'main', 300),
+        ('current-set-2', 'session-current', 'exercise-1', 1, 2, 20, 10, 8,
+          'planned-set-2', 'exercise-1', 'Incline press', 'weight_reps', 1, 0, 'supplemental', 300),
+        ('warmup-set', 'session-current', 'exercise-1', 2, 3, 10, 10, 5,
+          NULL, 'exercise-1', 'Incline press', 'weight_reps', 1, 0, 'warmup', 300)`,
     )
     .run();
 
@@ -82,10 +87,53 @@ function prepareDatabase() {
   sqlite
     .prepare(
       `INSERT INTO scheduled_workout_exercises (
-        id, scheduled_workout_id, exercise_id, section, order_index, created_at, updated_at
-      ) VALUES ('scheduled-exercise-1', 'scheduled-1', 'exercise-1', 'main', 0, 400, 400)`,
+        id, scheduled_workout_id, exercise_id, exercise_name_snapshot, tracking_type_snapshot,
+        section, order_index, created_at, updated_at
+      ) VALUES (
+        'scheduled-exercise-1', 'scheduled-1', 'exercise-1', 'Incline press', 'weight_reps',
+        'main', 0, 400, 400
+      )`,
     )
     .run();
+  sqlite
+    .prepare(
+      `INSERT INTO workout_progression_configurations (
+        id, user_id, scheduled_workout_id, scheduled_workout_exercise_id, revision,
+        snapshot, actor_type, agent_token_id, actor_label, updated_at
+      ) VALUES ('configuration-1', 'user-1', 'scheduled-1', 'scheduled-exercise-1', 1,
+        ?, 'user', NULL, 'You', 400)`,
+    )
+    .run(
+      JSON.stringify({
+        actorId: 'user-1',
+        actorLabel: 'You',
+        actorType: 'user',
+        contextAvailability: 'available',
+        contextFacts: [],
+        id: 'configuration-1',
+        policy: {
+          allowReduction: false,
+          contextRequired: false,
+          distanceStep: null,
+          effortCeiling: 8,
+          family: 'double_progression',
+          loadIncrement: 5,
+          loadIncreasePercent: null,
+          lowEffortThreshold: 7,
+          repRangeMax: 10,
+          repRangeMin: 8,
+          secondsStep: null,
+          version: 1,
+          zoneCeiling: null,
+        },
+        priority: true,
+        revision: 1,
+        scheduledWorkoutExerciseId: 'scheduled-exercise-1',
+        scheduledWorkoutId: 'scheduled-1',
+        updatedAt: 400,
+        userId: 'user-1',
+      }),
+    );
   sqlite
     .prepare(
       `INSERT INTO scheduled_workout_exercise_sets (
@@ -98,6 +146,7 @@ function prepareDatabase() {
 
   sqlite.close();
   process.env.DATABASE_URL = databaseUrl;
+  return databaseUrl;
 }
 
 afterEach(async () => {
@@ -138,12 +187,15 @@ describe('workout muscle analytics store', () => {
         completedSessionCount: 1,
         exerciseCount: 1,
         exposureState: 'fully_completed',
+        fulfilledPlannedSetEquivalents: 2,
         muscle: 'chest',
         plannedSetEquivalents: 2,
         previousQualifyingSetEquivalents: 1,
         priority: true,
         qualifyingSetEquivalents: 2,
+        sourceCount: 4,
         sourceIds: ['current-set-1', 'current-set-2', 'planned-set-1', 'planned-set-2'],
+        sourceIdsTruncated: false,
         volumeLoad: 400,
       },
       {
@@ -151,12 +203,15 @@ describe('workout muscle analytics store', () => {
         completedSessionCount: 1,
         exerciseCount: 1,
         exposureState: 'fully_completed',
+        fulfilledPlannedSetEquivalents: 1,
         muscle: 'triceps',
         plannedSetEquivalents: 1,
         previousQualifyingSetEquivalents: 0.5,
         priority: true,
         qualifyingSetEquivalents: 1,
+        sourceCount: 4,
         sourceIds: ['current-set-1', 'current-set-2', 'planned-set-1', 'planned-set-2'],
+        sourceIdsTruncated: false,
         volumeLoad: 200,
       },
     ]);
@@ -172,6 +227,7 @@ describe('workout muscle analytics store', () => {
       scheduledWorkoutId: null,
       sessionId: 'session-current',
       setId: 'current-set-1',
+      sourceScheduledSetId: 'planned-set-1',
       sourceType: 'completed',
       volumeLoad: 200,
     });
@@ -198,5 +254,210 @@ describe('workout muscle analytics store', () => {
     await expect(
       getWorkoutMuscleAnalytics('user-2', { end: '2026-08-23', range: '7d' }),
     ).rejects.toThrow('not found');
+  });
+
+  it('keeps dense 90-day totals exact while bounding source references', async () => {
+    const databaseUrl = prepareDatabase();
+    const denseDb = new Database(databaseUrl);
+    denseDb.prepare('DELETE FROM session_sets').run();
+    denseDb.prepare('DELETE FROM workout_sessions').run();
+    denseDb
+      .prepare(
+        `INSERT INTO workout_sessions (
+          id, user_id, name, date, status, started_at, completed_at, time_segments,
+          created_at, updated_at
+        ) VALUES ('session-dense', 'user-1', 'Dense', '2026-08-20', 'completed', 500, 600,
+          '[]', 500, 600)`,
+      )
+      .run();
+    const insert = denseDb.prepare(
+      `INSERT INTO session_sets (
+        id, session_id, exercise_id, order_index, set_number, weight, reps,
+        exercise_id_snapshot, exercise_name_snapshot, tracking_type_snapshot,
+        completed, skipped, section, created_at
+      ) VALUES (?, 'session-dense', 'exercise-1', ?, ?, 20, 10,
+        'exercise-1', 'Incline press', 'weight_reps', 1, 0, 'main', 600)`,
+    );
+    denseDb.transaction(() => {
+      for (let index = 1; index <= 2_501; index += 1) {
+        insert.run(`dense-set-${index}`, index - 1, index);
+      }
+    })();
+    denseDb.close();
+
+    const { getWorkoutMuscleAnalytics } = await import('./muscle-store.js');
+    const analytics = await getWorkoutMuscleAnalytics('user-1', {
+      end: '2026-08-23',
+      range: '90d',
+    });
+
+    expect(analytics.sourceCount).toBe(5_006);
+    expect(analytics.sources).toHaveLength(5_000);
+    expect(analytics.sourcesTruncated).toBe(true);
+    expect(analytics.rows).toEqual([
+      expect.objectContaining({
+        exposureState: 'missed',
+        muscle: 'chest',
+        qualifyingSetEquivalents: 2_501,
+        sourceCount: 2_503,
+        sourceIdsTruncated: true,
+      }),
+      expect.objectContaining({
+        exposureState: 'missed',
+        muscle: 'triceps',
+        qualifyingSetEquivalents: 1_250.5,
+        sourceCount: 2_503,
+        sourceIdsTruncated: true,
+      }),
+    ]);
+    expect(analytics.rows.every((row) => row.sourceIds.length === 500)).toBe(true);
+  });
+
+  it('reconciles only exact linked plan sets and excludes cancelled plans', async () => {
+    const databaseUrl = prepareDatabase();
+    const { getWorkoutMuscleAnalytics } = await import('./muscle-store.js');
+    const analytics = () => getWorkoutMuscleAnalytics('user-1', { end: '2026-08-23', range: '7d' });
+    expect((await analytics()).rows[0]?.exposureState).toBe('fully_completed');
+
+    const lifecycleDb = new Database(databaseUrl);
+    lifecycleDb
+      .prepare("UPDATE session_sets SET source_scheduled_set_id = NULL WHERE id = 'current-set-2'")
+      .run();
+    expect((await analytics()).rows[0]).toMatchObject({
+      exposureState: 'partially_completed',
+      fulfilledPlannedSetEquivalents: 1,
+      qualifyingSetEquivalents: 2,
+    });
+
+    lifecycleDb
+      .prepare(
+        "UPDATE session_sets SET source_scheduled_set_id = 'planned-set-2' WHERE id = 'current-set-2'",
+      )
+      .run();
+    lifecycleDb
+      .prepare("UPDATE scheduled_workouts SET date = '2026-08-22' WHERE id = 'scheduled-1'")
+      .run();
+    expect((await analytics()).rows[0]).toMatchObject({
+      exposureState: 'fully_completed',
+      fulfilledPlannedSetEquivalents: 2,
+    });
+
+    lifecycleDb
+      .prepare(
+        `INSERT INTO workout_sessions (
+          id, user_id, scheduled_workout_id, name, date, status, started_at, time_segments,
+          created_at, updated_at
+        ) VALUES ('session-cancelled', 'user-1', 'scheduled-1', 'Cancelled', '2026-08-22',
+          'cancelled', 700, '[]', 700, 700)`,
+      )
+      .run();
+    lifecycleDb
+      .prepare(
+        "UPDATE scheduled_workouts SET session_id = 'session-cancelled' WHERE id = 'scheduled-1'",
+      )
+      .run();
+    lifecycleDb.close();
+    expect((await analytics()).rows[0]).toMatchObject({
+      exposureState: 'no_plan',
+      plannedSetEquivalents: 0,
+      priority: false,
+      qualifyingSetEquivalents: 2,
+    });
+  });
+
+  it('keeps completed history stable after mutable exercise metadata changes and deletion', async () => {
+    const databaseUrl = prepareDatabase();
+    const { getWorkoutMuscleAnalytics } = await import('./muscle-store.js');
+    const current = () => getWorkoutMuscleAnalytics('user-1', { end: '2026-08-23', range: '7d' });
+    const before = await current();
+    const lifecycleDb = new Database(databaseUrl);
+    lifecycleDb
+      .prepare(
+        "UPDATE exercises SET name = 'Renamed press', tracking_type = 'duration' WHERE id = 'exercise-1'",
+      )
+      .run();
+    const afterMetadataChange = await current();
+    expect(afterMetadataChange).toEqual(before);
+
+    lifecycleDb
+      .prepare(
+        `INSERT INTO exercises (
+          id, user_id, name, muscle_groups, equipment, category, tracking_type,
+          tags, form_cues, related_exercise_ids, created_at, updated_at
+        ) VALUES (
+          'exercise-merged', 'user-1', 'Merged press', '["chest"]', 'machine',
+          'compound', 'weight_reps', '[]', '[]', '[]', 500, 500
+        )`,
+      )
+      .run();
+    lifecycleDb
+      .prepare(
+        "UPDATE session_sets SET exercise_id = 'exercise-merged' WHERE exercise_id = 'exercise-1'",
+      )
+      .run();
+    expect(await current()).toEqual(before);
+
+    lifecycleDb.prepare("DELETE FROM scheduled_workouts WHERE id = 'scheduled-1'").run();
+    lifecycleDb.prepare("DELETE FROM exercises WHERE id = 'exercise-1'").run();
+    lifecycleDb.close();
+    const afterDelete = await current();
+    expect(afterDelete.rows).toEqual([
+      expect.objectContaining({ muscle: 'chest', qualifyingSetEquivalents: 2 }),
+      expect.objectContaining({ muscle: 'triceps', qualifyingSetEquivalents: 1 }),
+    ]);
+    expect(afterDelete.sources.filter((source) => source.sourceType === 'completed')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ exerciseId: 'exercise-1', exerciseName: 'Incline press' }),
+      ]),
+    );
+  });
+
+  it('applies contribution revisions only on and after their effective date', async () => {
+    const databaseUrl = prepareDatabase();
+    const revisionAt = Date.parse('2026-08-19T00:00:00.000Z');
+    const lifecycleDb = new Database(databaseUrl);
+    lifecycleDb
+      .prepare(
+        `INSERT INTO exercise_muscle_contributions (
+          id, exercise_id, owner_user_id, revision, muscle, role, factor, version,
+          effective_at, created_at
+        ) VALUES ('contribution-shoulders-v2', 'exercise-1', 'user-1', 2, 'shoulders',
+          'primary', 1, 1, ?, ?)`,
+      )
+      .run(revisionAt, revisionAt);
+    lifecycleDb.close();
+
+    const { getWorkoutMuscleAnalytics } = await import('./muscle-store.js');
+    const analytics = await getWorkoutMuscleAnalytics('user-1', {
+      end: '2026-08-23',
+      range: '30d',
+    });
+    expect(analytics.sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          contributionId: 'contribution-chest',
+          date: '2026-08-14',
+          muscle: 'chest',
+          sourceType: 'completed',
+        }),
+        expect.objectContaining({
+          contributionId: 'contribution-shoulders-v2',
+          date: '2026-08-20',
+          muscle: 'shoulders',
+          sourceType: 'completed',
+        }),
+        expect.objectContaining({
+          contributionId: 'contribution-shoulders-v2',
+          date: '2026-08-23',
+          muscle: 'shoulders',
+          sourceType: 'planned',
+        }),
+      ]),
+    );
+    expect(
+      analytics.sources.some(
+        (source) => source.date === '2026-08-20' && source.contributionId === 'contribution-chest',
+      ),
+    ).toBe(false);
   });
 });

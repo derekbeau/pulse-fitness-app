@@ -115,6 +115,7 @@ describe('ScheduledWorkoutDetail', () => {
               targetWeightMax: null,
               targetSeconds: null,
               targetDistance: null,
+              targetZone: null,
             },
           ],
         },
@@ -963,6 +964,7 @@ function createScheduledWorkoutDetailPayload({
       targetWeightMax: number | null;
       targetSeconds: number | null;
       targetDistance: number | null;
+      targetZone: number | null;
     }>;
   }>;
   staleExercises?: Array<{
@@ -1007,6 +1009,7 @@ function createScheduledWorkoutDetailPayload({
             targetWeightMax: null,
             targetSeconds: null,
             targetDistance: null,
+            targetZone: null,
           },
         ],
       },
@@ -1085,6 +1088,7 @@ function buildSnapshotSet(overrides: Partial<SnapshotSetFixture>): SnapshotSetFi
     targetWeightMax: null,
     targetSeconds: null,
     targetDistance: null,
+    targetZone: null,
     ...overrides,
   };
 }

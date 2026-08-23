@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+import type { ExerciseTrackingType } from '@pulse/shared';
+
 import { sql } from 'drizzle-orm';
 import {
   type AnySQLiteColumn,
@@ -174,8 +176,16 @@ export const sessionSets = sqliteTable(
     targetWeight: real('target_weight'),
     targetWeightMin: real('target_weight_min'),
     targetWeightMax: real('target_weight_max'),
+    targetRepsMin: integer('target_reps_min'),
+    targetRepsMax: integer('target_reps_max'),
+    targetReps: integer('target_reps'),
     targetSeconds: integer('target_seconds'),
     targetDistance: real('target_distance'),
+    targetZone: integer('target_zone'),
+    sourceScheduledSetId: text('source_scheduled_set_id'),
+    exerciseIdSnapshot: text('exercise_id_snapshot'),
+    exerciseNameSnapshot: text('exercise_name_snapshot'),
+    trackingTypeSnapshot: text('tracking_type_snapshot').$type<ExerciseTrackingType>(),
     supersetGroup: text('superset_group'),
     completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
     skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
@@ -207,5 +217,13 @@ export const sessionSets = sqliteTable(
     ),
     check('session_sets_rpe_check', sql`${table.rpe} is null or ${table.rpe} between 1 and 10`),
     check('session_sets_zone_check', sql`${table.zone} is null or ${table.zone} between 1 and 5`),
+    check(
+      'session_sets_target_zone_check',
+      sql`${table.targetZone} is null or ${table.targetZone} between 1 and 5`,
+    ),
+    check(
+      'session_sets_target_reps_check',
+      sql`(${table.targetRepsMin} is null or ${table.targetRepsMin} > 0) and (${table.targetRepsMax} is null or ${table.targetRepsMax} > 0) and (${table.targetReps} is null or ${table.targetReps} > 0) and (${table.targetRepsMin} is null or ${table.targetRepsMax} is null or ${table.targetRepsMin} <= ${table.targetRepsMax})`,
+    ),
   ],
 );
