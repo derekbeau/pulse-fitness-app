@@ -59,6 +59,7 @@ export type AdaptivePreviewFixtureName =
   | 'completion-required'
   | 'analytics-pending'
   | 'analytics-goal-loss'
+  | 'daily-energy-adherence'
   | 'review-clean-loss'
   | 'review-clean-gain'
   | 'review-clean-maintain'
@@ -214,6 +215,14 @@ const FIXTURES: Array<
     name: 'Adaptive Preview · Energy Balance Loss Goal',
     expectedState: 'updating',
     note: 'A dedicated loss goal keeps Energy Balance browser tests isolated.',
+  },
+  {
+    fixture: 'daily-energy-adherence',
+    usernameSuffix: 'de-adherence',
+    idSuffix: '0044',
+    name: 'Daily Energy · Adherence States',
+    expectedState: 'updating',
+    note: 'Dedicated complete, partial, unknown, missing, and cutoff days exercise daily energy adherence.',
   },
   {
     fixture: 'review-clean-loss',
@@ -927,6 +936,37 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
     programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
   );
   seedEligibleHistory(db, analyticsGoalLoss.userId, anchorDate, clock);
+  clock += 1000;
+
+  const dailyEnergy = createHistoricalBaseline('daily-energy-adherence');
+  seedEligibleHistory(db, dailyEnergy.userId, anchorDate, clock);
+  db.update(nutritionLogs)
+    .set({ status: 'partial', statusUpdatedAt: clock, updatedAt: clock })
+    .where(
+      and(
+        eq(nutritionLogs.userId, dailyEnergy.userId),
+        eq(nutritionLogs.date, datePlus(anchorDate, -2)),
+      ),
+    )
+    .run();
+  db.update(nutritionLogs)
+    .set({ status: 'unknown', statusUpdatedAt: clock + 1, updatedAt: clock + 1 })
+    .where(
+      and(
+        eq(nutritionLogs.userId, dailyEnergy.userId),
+        eq(nutritionLogs.date, datePlus(anchorDate, -3)),
+      ),
+    )
+    .run();
+  db.delete(nutritionLogs)
+    .where(
+      and(
+        eq(nutritionLogs.userId, dailyEnergy.userId),
+        eq(nutritionLogs.date, datePlus(anchorDate, -4)),
+      ),
+    )
+    .run();
+  seedCompleteNutritionDay(db, dailyEnergy.userId, anchorDate, clock + 2);
   clock += 1000;
 
   const maintenance = createHistoricalBaseline('goal-maintenance');

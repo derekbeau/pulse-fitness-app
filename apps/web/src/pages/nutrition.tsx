@@ -20,9 +20,15 @@ import {
 } from '@/features/adaptive-nutrition';
 import { nutritionTrendReferenceDate } from '@/features/nutrition/components/nutrition-trend-reference';
 import { NutritionTrends } from '@/features/nutrition/components/nutrition-trends';
-import { MealCard, NutritionMacroRings, NutritionWeekStrip } from '@/features/nutrition';
+import {
+  DailyEnergyAdherenceCard,
+  MealCard,
+  NutritionMacroRings,
+  NutritionWeekStrip,
+} from '@/features/nutrition';
 import {
   prefetchNutritionDay,
+  useDailyEnergyAdherence,
   useDailyNutrition,
   useDeleteMeal,
   useRenameMeal,
@@ -122,6 +128,11 @@ export function NutritionPage() {
             <ul className="list-disc space-y-1 pl-5">
               <li>Ask the agent to log, correct, or delete meals when something is off.</li>
               <li>Daily summary and macro rings show actual intake compared with your targets.</li>
+              <li>
+                Daily energy compares complete past days with the accepted target and expenditure
+                effective on that date. Partial, unknown, missing, and current days are never
+                graded.
+              </li>
               <li>Meal items snapshot calories/macros at log time for historical consistency.</li>
               <li>Food definition edits later will not retroactively change past meal macros.</li>
               <li>
@@ -270,6 +281,9 @@ function NutritionLogTab() {
   const dailySummaryQuery = useNutritionSummary(dateKey, {
     refetchIntervalMs: getForegroundPollingInterval(NUTRITION_POLL_INTERVAL_MS),
   });
+  const dailyEnergyQuery = useDailyEnergyAdherence(dateKey, {
+    refetchIntervalMs: getForegroundPollingInterval(NUTRITION_POLL_INTERVAL_MS),
+  });
   const weekSummaryQuery = useNutritionWeekSummary(dateKey, {
     refetchIntervalMs: getForegroundPollingInterval(NUTRITION_WEEK_SUMMARY_POLL_INTERVAL_MS),
   });
@@ -396,6 +410,13 @@ function NutritionLogTab() {
         date={dateKey}
         isToday={isSelectedDateToday}
         status={dailyNutritionQuery.data?.log.status ?? null}
+      />
+
+      <DailyEnergyAdherenceCard
+        adherence={dailyEnergyQuery.data}
+        error={dailyEnergyQuery.isError ? dailyEnergyQuery.error : null}
+        isLoading={dailyEnergyQuery.isLoading}
+        onRetry={() => void dailyEnergyQuery.refetch()}
       />
 
       {nutritionError ? (

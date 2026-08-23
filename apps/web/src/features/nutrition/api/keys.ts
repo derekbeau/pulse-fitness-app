@@ -14,6 +14,7 @@ export const nutritionKeys = {
   day: (date: string) => ['nutrition', 'day', date] as const,
   daily: (date: string) => ['nutrition', 'day', date] as const,
   summary: (date: string) => ['nutrition', 'summary', date] as const,
+  energyAdherence: (date: string) => ['nutrition', 'energy-adherence', date] as const,
   weekSummary: (date: string) => ['nutrition', 'week-summary', toWeekStartDateKey(date)] as const,
 };
 

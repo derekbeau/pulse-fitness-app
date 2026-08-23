@@ -2,6 +2,7 @@ import {
   apiDataResponseSchema,
   createMealResponseSchema,
   createMealInputSchema,
+  dailyEnergyAdherenceSchema,
   dailyNutritionSchema,
   deleteMealResultSchema,
   nutritionLoggingContextQuerySchema,
@@ -47,6 +48,7 @@ import {
   patchMealById,
   patchMealItemById,
 } from './store.js';
+import { getDailyEnergyAdherenceForDate } from './daily-energy-store.js';
 import {
   FutureNutritionDateError,
   NutritionLogRequiredError,
@@ -129,6 +131,28 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
         }
         throw error;
       }
+    },
+  );
+
+  typedApp.get(
+    '/:date/energy-adherence',
+    {
+      schema: {
+        params: dateParamsSchema,
+        response: {
+          200: apiDataResponseSchema(dailyEnergyAdherenceSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Get accepted daily energy adherence facts',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const adherence = await getDailyEnergyAdherenceForDate(request.userId, request.params.date);
+      reply.header('Cache-Control', 'private, no-cache');
+      return reply.send({ data: adherence });
     },
   );
 

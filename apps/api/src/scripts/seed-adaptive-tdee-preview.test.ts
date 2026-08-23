@@ -20,6 +20,7 @@ import { createAdaptiveNutritionStore } from '../routes/adaptive-nutrition/store
 import { createAdaptiveWeeklyReviewStore } from '../routes/adaptive-nutrition/review-store.js';
 import { createAdaptiveGoalReadStore } from '../routes/adaptive-nutrition/goal-store.js';
 import { createDataQualityCalendarStore } from '../routes/data-quality/store.js';
+import { createDailyEnergyAdherenceStore } from '../routes/nutrition/daily-energy-store.js';
 
 import {
   ADAPTIVE_PREVIEW_USERNAME_PREFIX,
@@ -102,6 +103,7 @@ describe('Adaptive TDEE preview fixtures', () => {
       'completion-required': 'updating',
       'analytics-pending': 'pending_recommendation',
       'analytics-goal-loss': 'updating',
+      'daily-energy-adherence': 'updating',
       'review-clean-loss': 'pending_recommendation',
       'review-clean-gain': 'pending_recommendation',
       'review-clean-maintain': 'pending_recommendation',
@@ -225,6 +227,37 @@ describe('Adaptive TDEE preview fixtures', () => {
       outcome: 'adjust',
       proposedTarget: expect.any(Object),
     });
+    const dailyEnergyFixture = first.find(
+      (fixture) => fixture.fixture === 'daily-energy-adherence',
+    );
+    if (!dailyEnergyFixture) throw new Error('Daily Energy fixture missing');
+    const dailyEnergyStore = createDailyEnergyAdherenceStore({
+      db,
+      now: () => new Date('2026-08-13T16:30:00.000Z'),
+    });
+    expect(
+      dailyEnergyStore.getDailyEnergyAdherence(dailyEnergyFixture.userId, '2026-08-12'),
+    ).toMatchObject({
+      dataState: 'gradeable',
+      adherence: 'on_target',
+      nutrition: { intakeKcal: 2_400, status: 'complete' },
+      target: { caloriesKcal: 2_500 },
+      expenditure: { caloriesKcal: 2_500, source: 'accepted_check_in' },
+      intakeMinusTargetKcal: -100,
+      intakeMinusExpenditureKcal: -100,
+    });
+    expect(
+      dailyEnergyStore.getDailyEnergyAdherence(dailyEnergyFixture.userId, '2026-08-11').dataState,
+    ).toBe('partial');
+    expect(
+      dailyEnergyStore.getDailyEnergyAdherence(dailyEnergyFixture.userId, '2026-08-10').dataState,
+    ).toBe('unknown');
+    expect(
+      dailyEnergyStore.getDailyEnergyAdherence(dailyEnergyFixture.userId, '2026-08-09').dataState,
+    ).toBe('missing');
+    expect(
+      dailyEnergyStore.getDailyEnergyAdherence(dailyEnergyFixture.userId, '2026-08-13').dataState,
+    ).toBe('pending_cutoff');
     const learning = first.find((fixture) => fixture.fixture === 'learning');
     if (!learning) throw new Error('Learning fixture missing');
     const firstLearningEligibility = store.getState(learning.userId).eligibility;

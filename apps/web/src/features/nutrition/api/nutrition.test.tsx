@@ -11,6 +11,7 @@ import { adaptiveNutritionQueryKey } from '@/lib/query-invalidation';
 import { nutritionQueryKeys } from './keys';
 import {
   useDailyNutrition,
+  useDailyEnergyAdherence,
   useDeleteMeal,
   useRenameMeal,
   useNutritionSummary,
@@ -126,6 +127,52 @@ describe('nutrition api hooks', () => {
     expect(result.current.data?.target?.protein).toBe(180);
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/v1/nutrition/2026-03-09/summary',
+      expect.any(Object),
+    );
+  });
+
+  it('strictly parses daily energy adherence for the selected date', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse({
+        localDate: '2026-03-09',
+        timeZone: 'America/Detroit',
+        todayLocalDate: '2026-03-10',
+        completedDayCutoff: '2026-03-09',
+        isHistorical: true,
+        dataState: 'gradeable',
+        nutrition: {
+          logId: 'log-1',
+          status: 'complete',
+          intakeKcal: 2_100,
+          mealCount: 3,
+          itemCount: 8,
+        },
+        target: {
+          targetEventId: 'event-1',
+          targetId: 'target-1',
+          effectiveDate: '2026-03-01',
+          recordedAt: 1_772_380_800_000,
+          caloriesKcal: 2_000,
+          source: 'manual',
+          adaptiveCheckInId: null,
+        },
+        expenditure: null,
+        intakeMinusTargetKcal: 100,
+        intakeMinusExpenditureKcal: null,
+        innerToleranceKcal: 100,
+        outerToleranceKcal: 250,
+        adherence: 'on_target',
+        reasonCodes: ['NO_ACCEPTED_EXPENDITURE'],
+      }),
+    );
+
+    const { wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(() => useDailyEnergyAdherence('2026-03-09'), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.intakeMinusTargetKcal).toBe(100);
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/nutrition/2026-03-09/energy-adherence',
       expect.any(Object),
     );
   });

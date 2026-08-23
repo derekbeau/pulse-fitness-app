@@ -2434,6 +2434,39 @@ completes a goal, or applies a catch-up adjustment.
   must agree with the materialized current target. JWT and AgentToken callers receive the same strict
   facts, but the GET exposes no decision or mutation capability.
 
+## 41. Daily energy adherence
+
+`GET /api/v1/nutrition/:date/energy-adherence` is the read-only, server-authoritative daily
+comparison used by the Nutrition Log. The selected program-local calendar date drives the
+response. JWT and AgentToken callers receive the same strict facts, and the endpoint never creates
+or changes a nutrition log, target, program, check-in, goal, or review.
+
+- Intake is the rounded sum of immutable meal-item calorie snapshots on the selected nutrition log.
+  Exercise calories are not credited and no workout fact changes the classification.
+- Target is the latest causally visible `nutrition_target_events` row effective on or before the
+  selected date. A backdated event is invisible before its real `recordedAt`; pending, held,
+  declined, superseded, and future-effective recommendations are never active targets.
+- Expenditure begins with the deterministic baseline stored in the initial program revision on the
+  causal program-start date. Only an accepted check-in with non-null proposed expenditure replaces
+  it on that check-in's proposed target effective date, or its local date when no proposed target is
+  present. Its immutable check-in ID and input fingerprint are returned. A missing historical
+  target or expenditure stays null; Pulse never writes zero or backfills a later fact.
+- Complete past days with accepted targets are gradeable. Current-local complete days remain
+  `pending_cutoff`; other current days are `in_progress`. Partial, unknown, missing, and future days
+  disclose their evidence but have null adherence. A complete past day without an accepted target
+  is `unavailable` rather than fabricated.
+- The target comparison is deliberately goal-neutral and symmetric. The inner tolerance is 5% of
+  accepted target calories clamped to 100–150 kcal. The outer tolerance is 10% clamped to 250–400
+  kcal. Absolute difference at either boundary receives the less severe label: at or inside the
+  inner band is `on_target`, outside inner through outer is `near_target`, and outside outer is
+  `off_target`. Loss, gain, and maintenance use the same signed-distance rule.
+- `intakeMinusTargetKcal` and `intakeMinusExpenditureKcal` are signed algebraic facts computed from
+  the exposed rounded calories. Adherence is based only on the accepted target difference;
+  expenditure is context, not another grade.
+- Program revisions use the same nondecreasing causal local-date fold as Energy Balance. Historical
+  reads select the effective revision and program time zone without letting a later westward or
+  eastward time-zone edit rewrite an earlier daily response.
+
 ## Sources
 
 [1] https://help.macrofactorapp.com/en/articles/20-expenditure — MacroFactor: Expenditure

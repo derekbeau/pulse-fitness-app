@@ -205,6 +205,102 @@ function createNutritionApiMock(initialState: Record<string, DateState>) {
       });
     }
 
+    if (method === 'GET' && pathParts.length === 5 && pathParts[4] === 'energy-adherence') {
+      const actual = calculateActuals(dateState.daily);
+      const status = dateState.daily?.log.status ?? null;
+      const today = '2026-03-06';
+      const hasTarget = dateState.target !== null && dateState.target.calories > 0;
+      const dataState =
+        date > today
+          ? 'future'
+          : date === today
+            ? status === 'complete'
+              ? 'pending_cutoff'
+              : 'in_progress'
+            : status === null
+              ? 'missing'
+              : status === 'partial'
+                ? 'partial'
+                : status === 'unknown'
+                  ? 'unknown'
+                  : hasTarget
+                    ? 'gradeable'
+                    : 'unavailable';
+      const targetCalories = dateState.target?.calories ?? null;
+      const inner =
+        targetCalories === null
+          ? null
+          : Math.max(100, Math.min(150, Math.round(targetCalories * 0.05)));
+      const outer =
+        targetCalories === null
+          ? null
+          : Math.max(250, Math.min(400, Math.round(targetCalories * 0.1)));
+      const difference =
+        targetCalories === null || status === null
+          ? null
+          : Math.round(actual.calories) - Math.round(targetCalories);
+      const adherence =
+        dataState !== 'gradeable' || difference === null || inner === null || outer === null
+          ? null
+          : Math.abs(difference) <= inner
+            ? 'on_target'
+            : Math.abs(difference) <= outer
+              ? 'near_target'
+              : 'off_target';
+      const stateReason =
+        dataState === 'future'
+          ? 'FUTURE_DATE_NOT_GRADED'
+          : dataState === 'in_progress'
+            ? 'CURRENT_DAY_IN_PROGRESS'
+            : dataState === 'pending_cutoff'
+              ? 'COMPLETE_NUTRITION_PENDING_COMPLETED_DAY_CUTOFF'
+              : dataState === 'partial'
+                ? 'PARTIAL_NUTRITION_NOT_GRADED'
+                : dataState === 'unknown'
+                  ? 'UNKNOWN_NUTRITION_NOT_GRADED'
+                  : dataState === 'missing'
+                    ? 'MISSING_NUTRITION_NOT_GRADED'
+                    : null;
+
+      return createJsonResponse({
+        localDate: date,
+        timeZone: 'America/Detroit',
+        todayLocalDate: today,
+        completedDayCutoff: '2026-03-05',
+        isHistorical: date < today,
+        dataState,
+        nutrition: {
+          logId: dateState.daily?.log.id ?? null,
+          status,
+          intakeKcal: status === null ? null : Math.round(actual.calories),
+          mealCount: dateState.daily?.meals.length ?? 0,
+          itemCount: dateState.daily?.meals.flatMap((entry) => entry.items).length ?? 0,
+        },
+        target: hasTarget
+          ? {
+              targetEventId: 'event-1',
+              targetId: 'target-1',
+              effectiveDate: '2026-03-01',
+              recordedAt: 1_772_380_800_000,
+              caloriesKcal: Math.round(targetCalories ?? 0),
+              source: 'manual',
+              adaptiveCheckInId: null,
+            }
+          : null,
+        expenditure: null,
+        intakeMinusTargetKcal: difference,
+        intakeMinusExpenditureKcal: null,
+        innerToleranceKcal: inner,
+        outerToleranceKcal: outer,
+        adherence,
+        reasonCodes: [
+          ...(stateReason ? [stateReason] : []),
+          ...(!hasTarget ? ['NO_ACCEPTED_TARGET'] : []),
+          'NO_ACCEPTED_EXPENDITURE',
+        ],
+      });
+    }
+
     if (method === 'PATCH' && pathParts.length === 5 && pathParts[4] === 'status') {
       if (!dateState.daily) {
         return new Response(
