@@ -125,6 +125,11 @@ describe('Adaptive TDEE preview fixtures', () => {
       'trajectory-scale-only': 'updating',
       'trajectory-historical': 'updating',
       'data-quality-calendar': 'updating',
+      'progression-accept': 'setup_required',
+      'progression-edit': 'setup_required',
+      'progression-stale': 'setup_required',
+      'progression-agent': 'setup_required',
+      'muscle-analytics': 'setup_required',
     });
     for (const fixture of first) {
       expect(store.getState(fixture.userId).state).toBe(fixture.expectedState);
@@ -324,6 +329,36 @@ describe('Adaptive TDEE preview fixtures', () => {
     expect(second.find((fixture) => fixture.fixture === 'analytics-goal-loss')?.username).toBe(
       'adaptive-preview-eb-loss',
     );
+    expect(second.find((fixture) => fixture.fixture === 'progression-accept')?.username).toBe(
+      'adaptive-preview-wp-accept',
+    );
+    const progressionFixture = second.find((fixture) => fixture.fixture === 'progression-accept');
+    const muscleFixture = second.find((fixture) => fixture.fixture === 'muscle-analytics');
+    if (!progressionFixture || !muscleFixture) {
+      throw new Error('Workout progression preview fixtures missing');
+    }
+    expect(
+      sqlite
+        .prepare('SELECT count(*) AS total FROM scheduled_workouts WHERE user_id = ?')
+        .get(progressionFixture.userId),
+    ).toEqual({ total: 1 });
+    expect(
+      sqlite
+        .prepare('SELECT count(*) AS total FROM workout_sessions WHERE user_id = ?')
+        .get(progressionFixture.userId),
+    ).toEqual({ total: 1 });
+    expect(
+      sqlite
+        .prepare(
+          'SELECT muscle, role, factor FROM exercise_muscle_contributions WHERE owner_user_id = ? ORDER BY factor DESC',
+        )
+        .all(muscleFixture.userId),
+    ).toEqual([
+      { factor: 1, muscle: 'Chest', role: 'primary' },
+      { factor: 0.5, muscle: 'Triceps', role: 'secondary' },
+    ]);
+    expect(sqlite.pragma('foreign_key_check')).toEqual([]);
+    expect(sqlite.pragma('integrity_check')).toEqual([{ integrity_check: 'ok' }]);
     expect(
       db
         .select({ total: count() })
