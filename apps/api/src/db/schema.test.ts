@@ -37,6 +37,7 @@ import {
   entityLinks,
   equipmentItems,
   equipmentLocations,
+  exerciseMuscleContributions,
   exercises,
   foods,
   healthConditions,
@@ -60,6 +61,8 @@ import {
   serializeWorkoutSessionFeedback,
   serializeWorkoutSessionTimeSegments,
   workoutSessions,
+  workoutProgressionActions,
+  workoutProgressionRecommendations,
   templateExercises,
   users,
   workoutTemplates,
@@ -1426,6 +1429,7 @@ describe('scheduledWorkoutExercises schema', () => {
     ).toBe('restrict');
     expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
       'scheduled_workout_exercises_exercise_id_idx',
+      'scheduled_workout_exercises_id_scheduled_workout_unique',
       'scheduled_workout_exercises_scheduled_workout_id_idx',
     ]);
     expect(config.checks.map((constraint) => constraint.name)).toEqual([
@@ -1592,5 +1596,94 @@ describe('workout session time segment helpers', () => {
         } as WorkoutSessionTimeSegment,
       ]),
     ).toThrow(TypeError);
+  });
+});
+
+describe('workout progression schema', () => {
+  it('defines immutable recommendation snapshots with owned scheduling evidence', () => {
+    const columns = getTableColumns(workoutProgressionRecommendations);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'scheduledWorkoutId',
+      'scheduledWorkoutExerciseId',
+      'exerciseId',
+      'sourceSessionId',
+      'policyFamily',
+      'policyVersion',
+      'sourceFingerprint',
+      'effectiveDate',
+      'snapshot',
+      'generatedAt',
+    ]);
+
+    const config = getTableConfig(workoutProgressionRecommendations);
+    expect(config.foreignKeys).toHaveLength(6);
+    expect(config.indexes.map((index) => index.config.name).sort()).toEqual([
+      'workout_progression_recommendations_generation_unique',
+      'workout_progression_recommendations_id_user_unique',
+      'workout_progression_recommendations_schedule_idx',
+      'workout_progression_recommendations_user_generated_idx',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'workout_progression_recommendations_effective_date_check',
+      'workout_progression_recommendations_fingerprint_check',
+      'workout_progression_recommendations_generated_at_check',
+      'workout_progression_recommendations_policy_family_check',
+      'workout_progression_recommendations_policy_version_check',
+      'workout_progression_recommendations_snapshot_check',
+    ]);
+  });
+
+  it('defines owned idempotent append-only action facts', () => {
+    const columns = getTableColumns(workoutProgressionActions);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'recommendationId',
+      'userId',
+      'sequence',
+      'type',
+      'payload',
+      'actorType',
+      'agentTokenId',
+      'actorLabel',
+      'idempotencyKey',
+      'requestFingerprint',
+      'createdAt',
+    ]);
+
+    const config = getTableConfig(workoutProgressionActions);
+    expect(config.foreignKeys).toHaveLength(4);
+    expect(config.indexes.map((index) => index.config.name).sort()).toEqual([
+      'workout_progression_actions_recommendation_sequence_unique',
+      'workout_progression_actions_user_created_idx',
+      'workout_progression_actions_user_idempotency_unique',
+    ]);
+  });
+
+  it('defines versioned primary and secondary muscle contributions', () => {
+    const columns = getTableColumns(exerciseMuscleContributions);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'exerciseId',
+      'ownerUserId',
+      'revision',
+      'muscle',
+      'role',
+      'factor',
+      'version',
+      'effectiveAt',
+      'createdAt',
+    ]);
+
+    const config = getTableConfig(exerciseMuscleContributions);
+    expect(config.foreignKeys).toHaveLength(2);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'exercise_muscle_contributions_muscle_check',
+      'exercise_muscle_contributions_revision_check',
+      'exercise_muscle_contributions_role_factor_check',
+      'exercise_muscle_contributions_timestamps_check',
+      'exercise_muscle_contributions_version_check',
+    ]);
   });
 });

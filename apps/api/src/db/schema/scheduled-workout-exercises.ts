@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { sql } from 'drizzle-orm';
-import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 import { exercises } from './exercises.js';
 import type { WorkoutTemplateSectionType } from './workout-templates.js';
@@ -50,6 +50,10 @@ export const scheduledWorkoutExercises = sqliteTable(
   (table) => [
     index('scheduled_workout_exercises_scheduled_workout_id_idx').on(table.scheduledWorkoutId),
     index('scheduled_workout_exercises_exercise_id_idx').on(table.exerciseId),
+    uniqueIndex('scheduled_workout_exercises_id_scheduled_workout_unique').on(
+      table.id,
+      table.scheduledWorkoutId,
+    ),
     check(
       'scheduled_workout_exercises_section_check',
       sql`${table.section} in ('warmup', 'main', 'cooldown', 'supplemental')`,
