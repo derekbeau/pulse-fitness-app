@@ -16,7 +16,7 @@ import {
   type WeightUnit,
 } from '@pulse/shared';
 import type Database from 'better-sqlite3';
-import { and, asc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, max, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 import * as schema from '../../db/schema/index.js';
@@ -39,7 +39,6 @@ import {
 import {
   adaptiveAnalyticsStateForPoint,
   getDateKeyInTimeZone,
-  resolveEffectiveProgramRevisions,
   type EffectiveProgramRevision,
 } from '../adaptive-nutrition/analytics-store.js';
 import { createAdaptiveWeeklyReviewStore } from '../adaptive-nutrition/review-store.js';
@@ -180,7 +179,9 @@ const summaryFor = (days: DataQualityCalendarDay[]): DataQualityCalendar['summar
     excluded: days.filter((day) => day.weight.evidenceState === 'excluded').length,
   },
   workout: {
-    planned: days.flatMap((day) => day.workouts).filter((item) => item.state === 'planned').length,
+    planned: days
+      .flatMap((day) => day.workouts)
+      .filter((item) => item.state === 'planned' || item.state === 'scheduled').length,
     active: days
       .flatMap((day) => day.workouts)
       .filter((item) => item.state === 'in_progress' || item.state === 'paused').length,
@@ -205,16 +206,20 @@ const summaryFor = (days: DataQualityCalendarDay[]): DataQualityCalendar['summar
 
 export const createDataQualityCalendarStore = (dependencies: {
   db: DataQualityDatabase;
-  sqlite?: Database.Database;
+  sqlite: Database.Database;
   now?: () => Date;
   onQuery?: (source: string) => void;
 }) => {
   const { db } = dependencies;
   const now = dependencies.now ?? (() => new Date());
   const observe = dependencies.onQuery ?? (() => undefined);
-  const reviewStore = dependencies.sqlite
-    ? createAdaptiveWeeklyReviewStore({ db, sqlite: dependencies.sqlite, now })
-    : null;
+  dependencies.sqlite.function(
+    'pulse_date_key',
+    { deterministic: true },
+    (effectiveAt: number, timeZone: string) =>
+      getDateKeyInTimeZone(new Date(Number(effectiveAt)), String(timeZone)),
+  );
+  const reviewStore = createAdaptiveWeeklyReviewStore({ db, sqlite: dependencies.sqlite, now });
 
   const getCalendar = (userId: string, rawQuery: DataQualityCalendarQuery): DataQualityCalendar => {
     const parsedQuery = dataQualityCalendarQuerySchema.parse(rawQuery);
@@ -234,34 +239,33 @@ export const createDataQualityCalendarStore = (dependencies: {
       .where(eq(adaptiveNutritionPrograms.userId, userId))
       .limit(1)
       .get();
-    const programRevisions = program
-      ? (observe('program-revisions'),
-        resolveEffectiveProgramRevisions(
-          db
-            .select({
-              id: adaptiveNutritionProgramRevisions.id,
-              sequence: adaptiveNutritionProgramRevisions.sequence,
-              effectiveAt: adaptiveNutritionProgramRevisions.effectiveAt,
-              snapshot: adaptiveNutritionProgramRevisions.snapshot,
-            })
-            .from(adaptiveNutritionProgramRevisions)
-            .where(
-              and(
-                eq(adaptiveNutritionProgramRevisions.userId, userId),
-                eq(adaptiveNutritionProgramRevisions.programId, program.id),
-              ),
-            )
-            .orderBy(asc(adaptiveNutritionProgramRevisions.sequence))
-            .all()
-            .map((revision) => ({
-              ...revision,
-              snapshot: adaptiveProgramCalculationSchema.parse(revision.snapshot),
-            })),
-        ))
-      : [];
+    const revisionSelection = {
+      id: adaptiveNutritionProgramRevisions.id,
+      sequence: adaptiveNutritionProgramRevisions.sequence,
+      effectiveAt: adaptiveNutritionProgramRevisions.effectiveAt,
+      snapshot: adaptiveNutritionProgramRevisions.snapshot,
+    };
+    const latestRevisionRow = program
+      ? (observe('latest-program-revision'),
+        db
+          .select(revisionSelection)
+          .from(adaptiveNutritionProgramRevisions)
+          .where(
+            and(
+              eq(adaptiveNutritionProgramRevisions.userId, userId),
+              eq(adaptiveNutritionProgramRevisions.programId, program.id),
+            ),
+          )
+          .orderBy(desc(adaptiveNutritionProgramRevisions.sequence))
+          .limit(1)
+          .get())
+      : undefined;
+    const latestRevisionSnapshot = latestRevisionRow
+      ? adaptiveProgramCalculationSchema.parse(latestRevisionRow.snapshot)
+      : null;
     const timeZone =
       parsedQuery.timeZone ??
-      programRevisions.at(-1)?.snapshot.timeZone ??
+      latestRevisionSnapshot?.timeZone ??
       preferenceTimeZone(user.preferences) ??
       'UTC';
     const today = getDateKeyInTimeZone(now(), timeZone);
@@ -271,6 +275,83 @@ export const createDataQualityCalendarStore = (dependencies: {
       end: parsedQuery.end ?? bootstrapRange.end,
       timeZone: parsedQuery.timeZone,
     };
+    type RevisionDateRow = {
+      id: string;
+      sequence: number;
+      effectiveAt: number;
+      snapshot: string | unknown;
+      effectiveLocalDate: string;
+    };
+    const programRevisions = program
+      ? (observe('range-program-revisions'),
+        (
+          dependencies.sqlite
+            .prepare(
+              `with recursive resolved(id, sequence, effectiveAt, snapshot, effectiveLocalDate) as (
+               select r.id,
+                      r.sequence,
+                      r.effective_at,
+                      r.snapshot,
+                      pulse_date_key(r.effective_at, json_extract(r.snapshot, '$.timeZone'))
+                 from adaptive_nutrition_program_revisions r
+                where r.user_id = @userId
+                  and r.program_id = @programId
+                  and r.sequence = (
+                    select min(first.sequence)
+                      from adaptive_nutrition_program_revisions first
+                     where first.user_id = @userId and first.program_id = @programId
+                  )
+               union all
+               select next.id,
+                      next.sequence,
+                      next.effective_at,
+                      next.snapshot,
+                      max(
+                        resolved.effectiveLocalDate,
+                        pulse_date_key(next.effective_at, json_extract(next.snapshot, '$.timeZone')),
+                        pulse_date_key(next.effective_at, json_extract(resolved.snapshot, '$.timeZone'))
+                      )
+                 from resolved
+                 join adaptive_nutrition_program_revisions next
+                   on next.user_id = @userId
+                  and next.program_id = @programId
+                  and next.sequence = resolved.sequence + 1
+             ), in_range as (
+               select *,
+                      row_number() over (
+                        partition by effectiveLocalDate order by sequence desc
+                      ) as dateRank
+                 from resolved
+                where effectiveLocalDate between @start and @end
+             ), prior as (
+               select *
+                 from resolved
+                where effectiveLocalDate < @start
+                order by sequence desc
+                limit 1
+             )
+             select id, sequence, effectiveAt, snapshot, effectiveLocalDate from prior
+             union all
+             select id, sequence, effectiveAt, snapshot, effectiveLocalDate
+               from in_range
+              where dateRank = 1
+             order by sequence`,
+            )
+            .all({
+              userId,
+              programId: program.id,
+              start: query.start,
+              end: query.end,
+            }) as RevisionDateRow[]
+        ).map((revision) => ({
+          ...revision,
+          snapshot: adaptiveProgramCalculationSchema.parse(
+            typeof revision.snapshot === 'string'
+              ? JSON.parse(revision.snapshot)
+              : revision.snapshot,
+          ),
+        })))
+      : [];
     const dates = datesBetween(query.start, query.end);
     const earliestBoundaries = calculateAdaptiveDateBoundaries(query.start, false);
     const evidenceStart = earliestBoundaries.analysisStart;
@@ -337,6 +418,12 @@ export const createDataQualityCalendarStore = (dependencies: {
       (row) => row.date >= query.start && row.date <= query.end,
     );
     const weightByDate = new Map(visibleWeightRows.map((row) => [row.date, row]));
+    observe('latest-weight');
+    const latestWeightDate = db
+      .select({ date: max(bodyWeight.date) })
+      .from(bodyWeight)
+      .where(and(eq(bodyWeight.userId, userId), lte(bodyWeight.date, today)))
+      .get()?.date;
     const trendByDate = new Map(
       calculateCanonicalTrendWeightSeries(allWeightRows, query.start, query.end).map((point) => [
         point.date,
@@ -373,7 +460,10 @@ export const createDataQualityCalendarStore = (dependencies: {
           lte(scheduledWorkouts.date, query.end),
         ),
       )
-      .orderBy(asc(scheduledWorkouts.date), asc(scheduledWorkouts.createdAt))
+      .orderBy(
+        sql`row_number() over (partition by ${scheduledWorkouts.date} order by ${scheduledWorkouts.createdAt}, ${scheduledWorkouts.id})`,
+        asc(scheduledWorkouts.date),
+      )
       .limit(2_100)
       .all();
     observe('workout-sessions');
@@ -398,9 +488,58 @@ export const createDataQualityCalendarStore = (dependencies: {
           lte(workoutSessions.date, query.end),
         ),
       )
-      .orderBy(asc(workoutSessions.date), asc(workoutSessions.startedAt))
+      .orderBy(
+        sql`row_number() over (partition by ${workoutSessions.date} order by ${workoutSessions.createdAt}, ${workoutSessions.id})`,
+        asc(workoutSessions.date),
+      )
       .limit(2_100)
       .all();
+    observe('workout-counts');
+    const visibleScheduleCounts = db
+      .select({
+        date: scheduledWorkouts.date,
+        count: sql<number>`count(*)`,
+      })
+      .from(scheduledWorkouts)
+      .leftJoin(
+        workoutSessions,
+        and(
+          eq(workoutSessions.id, scheduledWorkouts.sessionId),
+          eq(workoutSessions.userId, userId),
+          isNull(workoutSessions.deletedAt),
+        ),
+      )
+      .where(
+        and(
+          eq(scheduledWorkouts.userId, userId),
+          gte(scheduledWorkouts.date, query.start),
+          lte(scheduledWorkouts.date, query.end),
+          or(
+            isNull(scheduledWorkouts.sessionId),
+            isNull(workoutSessions.id),
+            sql`${workoutSessions.date} <> ${scheduledWorkouts.date}`,
+          ),
+        ),
+      )
+      .groupBy(scheduledWorkouts.date)
+      .all();
+    const visibleSessionCounts = db
+      .select({ date: workoutSessions.date, count: sql<number>`count(*)` })
+      .from(workoutSessions)
+      .where(
+        and(
+          eq(workoutSessions.userId, userId),
+          isNull(workoutSessions.deletedAt),
+          gte(workoutSessions.date, query.start),
+          lte(workoutSessions.date, query.end),
+        ),
+      )
+      .groupBy(workoutSessions.date)
+      .all();
+    const workoutCountByDate = new Map<string, number>();
+    for (const row of [...visibleScheduleCounts, ...visibleSessionCounts]) {
+      workoutCountByDate.set(row.date, (workoutCountByDate.get(row.date) ?? 0) + Number(row.count));
+    }
     const linkedScheduleIds = unique(
       visibleSessionRows
         .map((session) => session.scheduledWorkoutId)
@@ -525,18 +664,47 @@ export const createDataQualityCalendarStore = (dependencies: {
             ),
           )
           .orderBy(
+            sql`row_number() over (
+              partition by case
+                when ${adaptiveNutritionCheckIns.status} = 'accepted'
+                  then coalesce(json_extract(${adaptiveNutritionCheckIns.proposedTargets}, '$.effectiveDate'), ${adaptiveNutritionCheckIns.localDate})
+                else ${adaptiveNutritionCheckIns.localDate}
+              end
+              order by ${adaptiveNutritionCheckIns.createdAt}, ${adaptiveNutritionCheckIns.id}
+            )`,
             asc(adaptiveNutritionCheckIns.localDate),
-            asc(adaptiveNutritionCheckIns.createdAt),
           )
           .limit(2_100)
           .all())
+      : [];
+    const checkInCounts = program
+      ? (observe('check-in-counts'),
+        dependencies.sqlite
+          .prepare(
+            `select case
+                      when status = 'accepted'
+                        then coalesce(json_extract(proposed_targets, '$.effectiveDate'), local_date)
+                      else local_date
+                    end as localDate,
+                    count(*) as totalCount
+               from adaptive_nutrition_checkins
+              where user_id = @userId
+                and program_id = @programId
+                and (local_date between @start and @end
+                  or json_extract(proposed_targets, '$.effectiveDate') between @start and @end)
+              group by localDate`,
+          )
+          .all({ userId, programId: program.id, start: query.start, end: query.end }) as Array<{
+          localDate: string;
+          totalCount: number;
+        }>)
       : [];
     const checkIns = priorCheckIn
       ? [priorCheckIn, ...rangeCheckIns.filter((row) => row.id !== priorCheckIn.id)]
       : rangeCheckIns;
 
     const overlappingReviews = program
-      ? (observe('overlapping-reviews'),
+      ? (observe('range-reviews'),
         db
           .select()
           .from(adaptiveNutritionReviews)
@@ -544,11 +712,37 @@ export const createDataQualityCalendarStore = (dependencies: {
             and(
               eq(adaptiveNutritionReviews.userId, userId),
               eq(adaptiveNutritionReviews.programId, program.id),
-              lte(adaptiveNutritionReviews.analysisStart, query.end),
-              gte(adaptiveNutritionReviews.analysisEnd, query.start),
+              gte(adaptiveNutritionReviews.reviewLocalDate, query.start),
+              lte(adaptiveNutritionReviews.reviewLocalDate, query.end),
             ),
           )
-          .orderBy(asc(adaptiveNutritionReviews.createdAt))
+          .orderBy(
+            sql`row_number() over (
+              partition by ${adaptiveNutritionReviews.reviewLocalDate}
+              order by ${adaptiveNutritionReviews.createdAt}, ${adaptiveNutritionReviews.id}
+            )`,
+            asc(adaptiveNutritionReviews.reviewLocalDate),
+          )
+          .limit(2_100)
+          .all())
+      : [];
+    const reviewCounts = program
+      ? (observe('review-counts'),
+        db
+          .select({
+            localDate: adaptiveNutritionReviews.reviewLocalDate,
+            totalCount: sql<number>`count(*)`,
+          })
+          .from(adaptiveNutritionReviews)
+          .where(
+            and(
+              eq(adaptiveNutritionReviews.userId, userId),
+              eq(adaptiveNutritionReviews.programId, program.id),
+              gte(adaptiveNutritionReviews.reviewLocalDate, query.start),
+              lte(adaptiveNutritionReviews.reviewLocalDate, query.end),
+            ),
+          )
+          .groupBy(adaptiveNutritionReviews.reviewLocalDate)
           .all())
       : [];
     const reviewIds = overlappingReviews.map((review) => review.id);
@@ -562,12 +756,15 @@ export const createDataQualityCalendarStore = (dependencies: {
               and(
                 eq(adaptiveNutritionReviewActions.userId, userId),
                 inArray(adaptiveNutritionReviewActions.reviewId, reviewIds),
+                sql`${adaptiveNutritionReviewActions.sequence} = (
+                  select max(latest.sequence)
+                    from adaptive_nutrition_review_actions latest
+                   where latest.review_id = ${adaptiveNutritionReviewActions.reviewId}
+                     and latest.user_id = ${userId}
+                )`,
               ),
             )
-            .orderBy(
-              asc(adaptiveNutritionReviewActions.reviewId),
-              asc(adaptiveNutritionReviewActions.sequence),
-            )
+            .orderBy(asc(adaptiveNutritionReviewActions.reviewId))
             .all())
         : [];
     const actionsByReview = new Map<string, typeof reviewActions>();
@@ -576,17 +773,13 @@ export const createDataQualityCalendarStore = (dependencies: {
       existing.push(action);
       actionsByReview.set(action.reviewId, existing);
     }
-    const projectedReview = reviewStore
-      ? ([...overlappingReviews]
-          .reverse()
-          .filter((review) =>
-            ['pending', 'awaiting_clarification', 'deferred'].includes(
-              reviewActionState(actionsByReview.get(review.id) ?? []),
-            ),
-          )
-          .slice(0, 1)
-          .map((review) => reviewStore.get(userId, review.id))[0] ?? null)
-      : null;
+    const pendingReview = program ? reviewStore.getPendingProjection(userId) : null;
+    const projectedReview =
+      pendingReview &&
+      pendingReview.snapshot.analysisStart <= query.end &&
+      pendingReview.snapshot.analysisEnd >= query.start
+        ? pendingReview
+        : null;
 
     const nutritionEvidence = new Map<
       string,
@@ -669,82 +862,104 @@ export const createDataQualityCalendarStore = (dependencies: {
       }
     }
 
-    const boundedEntityIds = unique([
-      ...visibleNutritionRows.map((row) => row.id),
-      ...visibleWeightRows.map((row) => row.id),
-      ...scheduledRows.map((row) => row.id),
-      ...sessionRows.map((row) => row.id),
-      ...rangeCheckIns.map((row) => row.id),
-    ]);
-    const contexts = program
+    type ContextDateRow = { contextId: string; localDate: string; totalCount: number };
+    const contextDateRows = program
       ? (observe('contexts'),
-        db
-          .select()
-          .from(adaptiveNutritionReviewContexts)
-          .where(
-            and(
-              eq(adaptiveNutritionReviewContexts.userId, userId),
-              eq(adaptiveNutritionReviewContexts.programId, program.id),
-              isNull(adaptiveNutritionReviewContexts.deletedAt),
-              or(
-                and(
-                  eq(adaptiveNutritionReviewContexts.subjectType, 'date'),
-                  sql`json_extract(${adaptiveNutritionReviewContexts.subject}, '$.localDate') between ${query.start} and ${query.end}`,
-                ),
-                and(
-                  eq(adaptiveNutritionReviewContexts.subjectType, 'date_range'),
-                  sql`json_extract(${adaptiveNutritionReviewContexts.subject}, '$.startDate') <= ${query.end}`,
-                  sql`json_extract(${adaptiveNutritionReviewContexts.subject}, '$.endDate') >= ${query.start}`,
-                ),
-                ...(boundedEntityIds.length > 0
-                  ? [
-                      sql`json_extract(${adaptiveNutritionReviewContexts.subject}, '$.id') in ${boundedEntityIds}`,
-                    ]
-                  : []),
-                and(
-                  eq(adaptiveNutritionReviewContexts.subjectType, 'upcoming_check_in'),
-                  sql`json_extract(${adaptiveNutritionReviewContexts.subject}, '$.targetReviewLocalDate') between ${query.start} and ${query.end}`,
-                ),
-              ),
-            ),
+        dependencies.sqlite
+          .prepare(
+            `with recursive requested_dates(local_date) as (
+               select @start
+               union all
+               select date(local_date, '+1 day') from requested_dates where local_date < @end
+             ), mapped as (
+               select c.id as contextId,
+                      d.local_date as localDate,
+                      row_number() over (
+                        partition by d.local_date order by c.created_at, c.id
+                      ) as rowNumber,
+                      count(*) over (partition by d.local_date) as totalCount
+                 from adaptive_nutrition_review_contexts c
+                 cross join requested_dates d
+                where c.user_id = @userId
+                  and c.program_id = @programId
+                  and c.deleted_at is null
+                  and (
+                    (c.subject_type = 'date'
+                      and json_extract(c.subject, '$.localDate') = d.local_date)
+                    or (c.subject_type = 'date_range'
+                      and json_extract(c.subject, '$.startDate') <= d.local_date
+                      and json_extract(c.subject, '$.endDate') >= d.local_date)
+                    or (c.subject_type = 'upcoming_check_in'
+                      and json_extract(c.subject, '$.targetReviewLocalDate') = d.local_date)
+                    or (c.subject_type = 'nutrition_log' and exists (
+                      select 1 from nutrition_logs n
+                       where n.id = json_extract(c.subject, '$.id')
+                         and n.user_id = @userId and n.date = d.local_date
+                    ))
+                    or (c.subject_type = 'weigh_in' and exists (
+                      select 1 from body_weight w
+                       where w.id = json_extract(c.subject, '$.id')
+                         and w.user_id = @userId and w.date = d.local_date
+                    ))
+                    or (c.subject_type = 'scheduled_workout' and exists (
+                      select 1 from scheduled_workouts sw
+                       where sw.id = json_extract(c.subject, '$.id')
+                         and sw.user_id = @userId and sw.date = d.local_date
+                    ))
+                    or (c.subject_type = 'workout_session' and exists (
+                      select 1 from workout_sessions ws
+                       where ws.id = json_extract(c.subject, '$.id')
+                         and ws.user_id = @userId and ws.deleted_at is null
+                         and ws.date = d.local_date
+                    ))
+                    or (c.subject_type = 'check_in' and exists (
+                      select 1 from adaptive_nutrition_checkins ci
+                       where ci.id = json_extract(c.subject, '$.id')
+                         and ci.user_id = @userId and ci.local_date = d.local_date
+                    ))
+                  )
+             )
+             select contextId, localDate, totalCount
+               from mapped
+              where rowNumber <= 100
+              order by localDate, rowNumber`,
           )
-          .orderBy(
-            asc(adaptiveNutritionReviewContexts.createdAt),
-            asc(adaptiveNutritionReviewContexts.id),
-          )
-          .limit(4_201)
-          .all())
+          .all({
+            start: query.start,
+            end: query.end,
+            userId,
+            programId: program.id,
+          }) as ContextDateRow[])
       : [];
-
-    const contextDates = (context: (typeof contexts)[number]) => {
-      const subject = context.subject;
-      if (subject.kind === 'date') return [subject.localDate];
-      if (subject.kind === 'date_range') {
-        return datesBetween(
-          subject.startDate < query.start ? query.start : subject.startDate,
-          subject.endDate > query.end ? query.end : subject.endDate,
-        );
-      }
-      if (subject.kind === 'upcoming_check_in') return [subject.targetReviewLocalDate];
-      const rowDate =
-        subject.kind === 'nutrition_log'
-          ? visibleNutritionRows.find((row) => row.id === subject.id)?.date
-          : subject.kind === 'weigh_in'
-            ? visibleWeightRows.find((row) => row.id === subject.id)?.date
-            : subject.kind === 'scheduled_workout'
-              ? scheduledRows.find((row) => row.id === subject.id)?.date
-              : subject.kind === 'workout_session'
-                ? sessionRows.find((row) => row.id === subject.id)?.date
-                : rangeCheckIns.find((row) => row.id === subject.id)?.localDate;
-      return rowDate ? [rowDate] : [];
-    };
+    const selectedContextIds = unique(contextDateRows.map((row) => row.contextId));
+    const contexts =
+      selectedContextIds.length > 0
+        ? db
+            .select()
+            .from(adaptiveNutritionReviewContexts)
+            .where(
+              and(
+                eq(adaptiveNutritionReviewContexts.userId, userId),
+                isNull(adaptiveNutritionReviewContexts.deletedAt),
+                inArray(adaptiveNutritionReviewContexts.id, selectedContextIds),
+              ),
+            )
+            .orderBy(
+              asc(adaptiveNutritionReviewContexts.createdAt),
+              asc(adaptiveNutritionReviewContexts.id),
+            )
+            .all()
+        : [];
+    const contextById = new Map(contexts.map((context) => [context.id, context]));
     const contextsByDate = new Map<string, typeof contexts>();
-    for (const context of contexts) {
-      for (const date of contextDates(context)) {
-        const existing = contextsByDate.get(date) ?? [];
-        existing.push(context);
-        contextsByDate.set(date, existing);
-      }
+    const contextCountByDate = new Map<string, number>();
+    for (const row of contextDateRows) {
+      const context = contextById.get(row.contextId);
+      if (!context) continue;
+      const existing = contextsByDate.get(row.localDate) ?? [];
+      existing.push(context);
+      contextsByDate.set(row.localDate, existing);
+      contextCountByDate.set(row.localDate, Number(row.totalCount));
     }
 
     const reviewsByDate = new Map<string, typeof overlappingReviews>();
@@ -754,6 +969,13 @@ export const createDataQualityCalendarStore = (dependencies: {
       const existing = reviewsByDate.get(review.reviewLocalDate) ?? [];
       existing.push(review);
       reviewsByDate.set(review.reviewLocalDate, existing);
+    }
+    const algorithmEventCountByDate = new Map<string, number>();
+    for (const row of [...checkInCounts, ...reviewCounts]) {
+      algorithmEventCountByDate.set(
+        row.localDate,
+        (algorithmEventCountByDate.get(row.localDate) ?? 0) + Number(row.totalCount),
+      );
     }
     const scheduleById = new Map(scheduledRows.map((row) => [row.id, row]));
     const sessionById = new Map(sessionRows.map((row) => [row.id, row]));
@@ -782,49 +1004,55 @@ export const createDataQualityCalendarStore = (dependencies: {
 
       const sessions = sessionsByDate.get(date) ?? [];
       const allWorkoutItems: DataQualityCalendarDay['workouts'] = [
-        ...(schedulesByDate.get(date) ?? []).map((schedule) => {
-          const linkedSession = schedule.sessionId
-            ? sessionById.get(schedule.sessionId)
-            : undefined;
-          const moved = linkedSession !== undefined && linkedSession.date !== schedule.date;
-          return {
-            id: schedule.id,
-            kind: 'scheduled_workout' as const,
-            state: moved ? ('moved' as const) : ('planned' as const),
-            name: schedule.templateName ?? 'Unavailable scheduled workout',
-            sessionStatus: linkedSession?.status ?? null,
-            scheduledWorkoutId: schedule.id,
-            sessionId: schedule.sessionId,
-            plannedDate: schedule.date,
-            sessionDate: linkedSession?.date ?? null,
-            relation:
-              linkedSession === undefined
-                ? ('unlinked' as const)
-                : moved
-                  ? ('linked_different_date' as const)
-                  : ('linked_same_date' as const),
-            relationLimitation: moved
-              ? 'Pulse retains the linked plan and session dates, but no immutable movement event is recorded.'
-              : null,
-            correctionState: 'not_applicable' as const,
-            startedAt: null,
-            completedAt: null,
-            createdAt: schedule.createdAt,
-            updatedAt: schedule.updatedAt,
-            provenance: notRecordedProvenance(
-              'Historical creator provenance is not retained for scheduled workouts.',
-            ),
-            reasonCodes: [],
-            actions: [
-              {
-                kind: 'correct_workout' as const,
-                label: 'Review scheduled workout',
-                href: `/workouts/scheduled/${schedule.id}`,
-                method: 'navigate' as const,
-              },
-            ],
-          };
-        }),
+        ...(schedulesByDate.get(date) ?? [])
+          .filter((schedule) => {
+            if (!schedule.sessionId) return true;
+            const linkedSession = sessionById.get(schedule.sessionId);
+            return linkedSession === undefined || linkedSession.date !== schedule.date;
+          })
+          .map((schedule) => {
+            const linkedSession = schedule.sessionId
+              ? sessionById.get(schedule.sessionId)
+              : undefined;
+            const moved = linkedSession !== undefined && linkedSession.date !== schedule.date;
+            return {
+              id: schedule.id,
+              kind: 'scheduled_workout' as const,
+              state: moved ? ('moved' as const) : ('planned' as const),
+              name: schedule.templateName ?? 'Unavailable scheduled workout',
+              sessionStatus: linkedSession?.status ?? null,
+              scheduledWorkoutId: schedule.id,
+              sessionId: schedule.sessionId,
+              plannedDate: schedule.date,
+              sessionDate: linkedSession?.date ?? null,
+              relation:
+                linkedSession === undefined
+                  ? ('unlinked' as const)
+                  : moved
+                    ? ('linked_different_date' as const)
+                    : ('linked_same_date' as const),
+              relationLimitation: moved
+                ? 'Pulse retains the linked plan and session dates, but no immutable movement event is recorded.'
+                : null,
+              correctionState: 'not_applicable' as const,
+              startedAt: null,
+              completedAt: null,
+              createdAt: schedule.createdAt,
+              updatedAt: schedule.updatedAt,
+              provenance: notRecordedProvenance(
+                'Historical creator provenance is not retained for scheduled workouts.',
+              ),
+              reasonCodes: [],
+              actions: [
+                {
+                  kind: 'correct_workout' as const,
+                  label: 'Review scheduled workout',
+                  href: `/workouts/scheduled/${schedule.id}`,
+                  method: 'navigate' as const,
+                },
+              ],
+            };
+          }),
         ...sessions.map((session) => {
           const linkedSchedule = session.scheduledWorkoutId
             ? scheduleById.get(session.scheduledWorkoutId)
@@ -1006,10 +1234,7 @@ export const createDataQualityCalendarStore = (dependencies: {
           trendWeight: trendWeightKg === null ? null : convertWeightFromKg(trendWeightKg, unit),
           correctionState: weight ? 'history_unavailable' : 'not_applicable',
           suspect: recordedWeightState?.suspect ?? false,
-          stale:
-            weight !== undefined &&
-            date < addDays(today, -7) &&
-            visibleWeightRows.at(-1)?.date === date,
+          stale: weight !== undefined && date < addDays(today, -7) && latestWeightDate === date,
           createdAt: weight?.createdAt ?? null,
           updatedAt: weight?.updatedAt ?? null,
           provenance: weight
@@ -1044,7 +1269,10 @@ export const createDataQualityCalendarStore = (dependencies: {
             ...(recordedWeightState?.reasonCodes ?? []),
           ]),
           events: allAlgorithmEvents.slice(0, 50),
-          omittedEventCount: Math.max(0, allAlgorithmEvents.length - 50),
+          omittedEventCount: Math.max(
+            0,
+            (algorithmEventCountByDate.get(date) ?? allAlgorithmEvents.length) - 50,
+          ),
         },
         contexts: (contextsByDate.get(date) ?? []).slice(0, 100).map((context) => ({
           id: context.id,
@@ -1069,8 +1297,14 @@ export const createDataQualityCalendarStore = (dependencies: {
             },
           ],
         })),
-        omittedWorkoutCount: Math.max(0, allWorkoutItems.length - workoutItems.length),
-        omittedContextCount: Math.max(0, (contextsByDate.get(date) ?? []).length - 100),
+        omittedWorkoutCount: Math.max(
+          0,
+          (workoutCountByDate.get(date) ?? allWorkoutItems.length) - workoutItems.length,
+        ),
+        omittedContextCount: Math.max(
+          0,
+          (contextCountByDate.get(date) ?? (contextsByDate.get(date) ?? []).length) - 100,
+        ),
       };
     });
 

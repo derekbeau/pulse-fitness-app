@@ -27,7 +27,11 @@ routes. The calendar may link to those actions but does not replace them.
 - Date-only keys are authoritative local calendar dates. Clients must not reinterpret them through
   the browser time zone.
 - The store performs a fixed set of bounded range queries and batched relation queries. Query count
-  must not grow with the number of dates or records.
+  must not grow with the number of dates or records. Program revisions are reduced to the latest
+  revision before the bounded window plus revisions that can become effective inside it. Review
+  projection filters terminal history before hydration. Workouts, contexts, check-ins, and reviews
+  use date-partitioned caps with exact per-date omitted counts so a dense early date cannot starve a
+  later date.
 - The endpoint is read-only. A GET must not change any source, review, action, target, or context row.
 
 ## Composition sources

@@ -394,9 +394,143 @@ describe('Data Quality calendar store', () => {
       'program',
       'nutrition',
       'weight',
+      'latest-weight',
       'scheduled-workouts',
       'workout-sessions',
+      'workout-counts',
     ]);
+  });
+
+  it('does not call the fulfilled same-date plan outstanding after its linked session completes', () => {
+    db.insert(scheduledWorkouts)
+      .values({
+        id: 'fulfilled-plan',
+        userId: 'user-1',
+        templateId: null,
+        date: '2026-08-17',
+        createdAt: nowMs - 10_000,
+        updatedAt: nowMs - 10_000,
+      })
+      .run();
+    db.insert(workoutSessions)
+      .values({
+        id: 'fulfilled-session',
+        userId: 'user-1',
+        scheduledWorkoutId: 'fulfilled-plan',
+        name: 'Fulfilled workout',
+        date: '2026-08-17',
+        status: 'completed',
+        startedAt: nowMs - 8_000,
+        completedAt: nowMs - 4_000,
+        createdAt: nowMs - 9_000,
+        updatedAt: nowMs - 4_000,
+      })
+      .run();
+    db.update(scheduledWorkouts)
+      .set({ sessionId: 'fulfilled-session' })
+      .where(eq(scheduledWorkouts.id, 'fulfilled-plan'))
+      .run();
+
+    const calendar = createDataQualityCalendarStore({
+      db,
+      sqlite,
+      now: () => new Date(nowMs),
+    }).getCalendar('user-1', { start: '2026-08-17', end: '2026-08-17' });
+
+    expect(calendar.days[0]?.workouts).toEqual([
+      expect.objectContaining({
+        id: 'fulfilled-session',
+        state: 'completed',
+        relation: 'linked_same_date',
+      }),
+    ]);
+    expect(calendar.summary.workout).toEqual({
+      planned: 0,
+      active: 0,
+      completed: 1,
+      cancelled: 0,
+    });
+  });
+
+  it('projects every fulfilled same-date lifecycle without a duplicate plan', () => {
+    const cases = [
+      { date: '2026-08-14', status: 'scheduled' as const },
+      { date: '2026-08-15', status: 'in-progress' as const },
+      { date: '2026-08-16', status: 'paused' as const },
+      { date: '2026-08-17', status: 'cancelled' as const },
+    ];
+    db.insert(scheduledWorkouts)
+      .values(
+        cases.map(({ date, status }, index) => ({
+          id: `matrix-plan-${status}`,
+          userId: 'user-1',
+          templateId: null,
+          date,
+          createdAt: nowMs - 20_000 + index,
+          updatedAt: nowMs - 20_000 + index,
+        })),
+      )
+      .run();
+    db.insert(workoutSessions)
+      .values(
+        cases.map(({ date, status }, index) => ({
+          id: `matrix-session-${status}`,
+          userId: 'user-1',
+          scheduledWorkoutId: `matrix-plan-${status}`,
+          name: `Matrix ${status}`,
+          date,
+          status,
+          startedAt: nowMs - 10_000 + index,
+          createdAt: nowMs - 10_000 + index,
+          updatedAt: nowMs - 10_000 + index,
+        })),
+      )
+      .run();
+    for (const { status } of cases) {
+      db.update(scheduledWorkouts)
+        .set({ sessionId: `matrix-session-${status}` })
+        .where(eq(scheduledWorkouts.id, `matrix-plan-${status}`))
+        .run();
+    }
+
+    const calendar = createDataQualityCalendarStore({
+      db,
+      sqlite,
+      now: () => new Date(nowMs),
+    }).getCalendar('user-1', { start: '2026-08-14', end: '2026-08-17' });
+
+    expect(calendar.days.flatMap((day) => day.workouts).map((item) => item.kind)).toEqual([
+      'workout_session',
+      'workout_session',
+      'workout_session',
+      'workout_session',
+    ]);
+    expect(calendar.days.flatMap((day) => day.workouts).map((item) => item.state)).toEqual([
+      'scheduled',
+      'in_progress',
+      'paused',
+      'cancelled',
+    ]);
+    expect(calendar.summary.workout).toEqual({
+      planned: 1,
+      active: 2,
+      completed: 0,
+      cancelled: 1,
+    });
+  });
+
+  it('derives current staleness from the user latest weight, not the requested range endpoint', () => {
+    seedWeight('user-1', '2026-08-01', 80, false);
+    seedWeight('user-1', '2026-08-10', 79.8, false);
+    seedWeight('user-1', '2026-08-17', 79.5, false);
+
+    const historical = createDataQualityCalendarStore({
+      db,
+      sqlite,
+      now: () => new Date(nowMs),
+    }).getCalendar('user-1', { start: '2026-08-01', end: '2026-08-10' });
+
+    expect(historical.days.find((day) => day.date === '2026-08-10')?.weight.stale).toBe(false);
   });
 
   it('does not forecast future algorithm eligibility for an active program', () => {
@@ -605,6 +739,17 @@ describe('Data Quality calendar store', () => {
     ]);
 
     db.update(workoutSessions)
+      .set({ status: 'cancelled', updatedAt: nowMs + 500 })
+      .where(eq(workoutSessions.id, 'boundary-session'))
+      .run();
+    expect(
+      store.getCalendar('user-1', {
+        start: '2026-09-01',
+        end: '2026-09-01',
+      }).days[0]?.workouts,
+    ).toEqual([expect.objectContaining({ id: 'boundary-session', state: 'cancelled' })]);
+
+    db.update(workoutSessions)
       .set({ status: 'completed', completedAt: nowMs + 1_000, updatedAt: nowMs + 2_000 })
       .where(eq(workoutSessions.id, 'boundary-session'))
       .run();
@@ -722,6 +867,143 @@ describe('Data Quality calendar store', () => {
     ]);
   });
 
+  it('keeps a deferred weekly review on its retained review date', () => {
+    seedEligibleReviewProgram();
+    const reviewStore = createAdaptiveWeeklyReviewStore({
+      db,
+      sqlite,
+      now: () => new Date(nowMs),
+    });
+    const review = reviewStore.preview('user-1', { kind: 'weekly' });
+    const deferred = reviewStore.act(
+      'user-1',
+      review.id,
+      {
+        type: 'defer',
+        expectedFingerprint: review.sourceFingerprint,
+        expectedActionSequence: review.actionSequence,
+        condition: { kind: 'until_date', localDate: '2026-08-21' },
+        reason: 'Wait for one more measurement.',
+      },
+      { type: 'user', label: 'You' },
+    );
+    expect(deferred.state).toBe('deferred');
+
+    const event = createDataQualityCalendarStore({
+      db,
+      sqlite,
+      now: () => new Date(nowMs),
+    })
+      .getCalendar('user-1', {
+        start: review.snapshot.reviewLocalDate,
+        end: review.snapshot.reviewLocalDate,
+      })
+      .days[0]?.algorithm.events.find((item) => item.id === review.id);
+    expect(event).toMatchObject({
+      effectiveDate: review.snapshot.reviewLocalDate,
+      state: 'deferred',
+    });
+  });
+
+  it('reduces large revision and action histories before Data Quality materialization', () => {
+    seedEligibleReviewProgram();
+    const reviewStore = createAdaptiveWeeklyReviewStore({
+      db,
+      sqlite,
+      now: () => new Date(nowMs),
+    });
+    const review = reviewStore.preview('user-1', { kind: 'weekly' });
+    reviewStore.act(
+      'user-1',
+      review.id,
+      {
+        type: 'ask_agent',
+        expectedActionSequence: review.actionSequence,
+        question: 'What evidence should be clarified?',
+      },
+      { type: 'user', label: 'You' },
+    );
+
+    const programRevision = sqlite
+      .prepare(
+        `select program_id as programId, user_id as userId, effective_at as effectiveAt,
+                snapshot, source, created_at as createdAt
+           from adaptive_nutrition_program_revisions
+          where user_id = 'user-1'
+          order by sequence desc limit 1`,
+      )
+      .get() as {
+      programId: string;
+      userId: string;
+      effectiveAt: number;
+      snapshot: string;
+      source: string;
+      createdAt: number;
+    };
+    const action = sqlite
+      .prepare(
+        `select user_id as userId, payload, actor_type as actorType,
+                agent_token_id as agentTokenId, actor_label as actorLabel, created_at as createdAt
+           from adaptive_nutrition_review_actions
+          where review_id = ? order by sequence desc limit 1`,
+      )
+      .get(review.id) as {
+      userId: string;
+      payload: string;
+      actorType: string;
+      agentTokenId: string | null;
+      actorLabel: string;
+      createdAt: number;
+    };
+    const insertRevision = sqlite.prepare(
+      `insert into adaptive_nutrition_program_revisions
+        (id, program_id, user_id, sequence, effective_at, snapshot, source, created_at)
+       values (?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const insertAction = sqlite.prepare(
+      `insert into adaptive_nutrition_review_actions
+        (id, review_id, user_id, sequence, type, payload, actor_type, agent_token_id, actor_label, created_at)
+       values (?, ?, ?, ?, 'ask_agent', ?, ?, ?, ?, ?)`,
+    );
+    sqlite.transaction(() => {
+      for (let sequence = 2; sequence <= 5_001; sequence += 1) {
+        insertRevision.run(
+          `large-revision-${sequence}`,
+          programRevision.programId,
+          programRevision.userId,
+          sequence,
+          programRevision.effectiveAt + sequence,
+          programRevision.snapshot,
+          programRevision.source,
+          programRevision.createdAt + sequence,
+        );
+        insertAction.run(
+          `large-action-${sequence}`,
+          review.id,
+          action.userId,
+          sequence,
+          action.payload,
+          action.actorType,
+          action.agentTokenId,
+          action.actorLabel,
+          action.createdAt + sequence,
+        );
+      }
+    })();
+
+    const event = createDataQualityCalendarStore({
+      db,
+      sqlite,
+      now: () => new Date(nowMs),
+    })
+      .getCalendar('user-1', {
+        start: review.snapshot.reviewLocalDate,
+        end: review.snapshot.reviewLocalDate,
+      })
+      .days[0]?.algorithm.events.find((item) => item.id === review.id);
+    expect(event).toMatchObject({ state: 'awaiting_clarification' });
+  });
+
   it('returns deterministic bounded truth instead of failing strict response caps on dense days', () => {
     const lifecycle = createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) });
     lifecycle.upsertProgram('user-1', programInput());
@@ -798,5 +1080,105 @@ describe('Data Quality calendar store', () => {
       [...(day?.workouts ?? [])].map((item) => item.id).sort(),
     );
     expect(dataQualityCalendarSchema.parse(calendar)).toEqual(calendar);
+  });
+
+  it('preserves every date cap and exact omission count across a fully dense 42-day range', () => {
+    const start = '2026-07-08';
+    db.insert(workoutSessions)
+      .values(
+        Array.from({ length: 42 }, (_, dayIndex) =>
+          Array.from({ length: 51 }, (_, itemIndex) => ({
+            id: `dense-range-${String(dayIndex).padStart(2, '0')}-${String(itemIndex).padStart(2, '0')}`,
+            userId: 'user-1',
+            name: `Dense range ${dayIndex}-${itemIndex}`,
+            date: addDate(start, dayIndex),
+            status: 'scheduled' as const,
+            startedAt: nowMs + dayIndex * 100 + itemIndex,
+            createdAt: nowMs + dayIndex * 100 + itemIndex,
+            updatedAt: nowMs + dayIndex * 100 + itemIndex,
+          })),
+        ).flat(),
+      )
+      .run();
+
+    const calendar = createDataQualityCalendarStore({
+      db,
+      sqlite,
+      now: () => new Date(nowMs),
+    }).getCalendar('user-1', { start, end: addDate(start, 41) });
+
+    expect(calendar.days).toHaveLength(42);
+    for (const day of calendar.days) {
+      expect(day.workouts, day.date).toHaveLength(50);
+      expect(day.omittedWorkoutCount, day.date).toBe(1);
+    }
+  });
+
+  it('preserves per-date context and event caps across a fully dense 42-day range', () => {
+    const start = '2026-06-01';
+    const lifecycle = createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) });
+    lifecycle.upsertProgram('user-1', programInput());
+    const program = lifecycle.getState('user-1').program;
+    const baseline = lifecycle.getState('user-1').pendingCheckIn;
+    if (!program || !baseline) throw new Error('Expected program and baseline');
+    lifecycle.acceptCheckIn('user-1', baseline.id, { replaceSameDateTarget: false });
+    const source = db
+      .select()
+      .from(adaptiveNutritionCheckIns)
+      .where(eq(adaptiveNutritionCheckIns.id, baseline.id))
+      .get();
+    if (!source) throw new Error('Expected accepted check-in source');
+
+    for (let dayIndex = 0; dayIndex < 42; dayIndex += 1) {
+      const date = addDate(start, dayIndex);
+      db.insert(adaptiveNutritionReviewContexts)
+        .values(
+          Array.from({ length: 101 }, (_, itemIndex) => ({
+            id: `dense-context-range-${String(dayIndex).padStart(2, '0')}-${String(itemIndex).padStart(3, '0')}`,
+            userId: 'user-1',
+            programId: program.id,
+            subjectType: 'date' as const,
+            subject: { kind: 'date' as const, localDate: date },
+            category: 'other' as const,
+            note: `Dense context ${dayIndex}-${itemIndex}`,
+            resolution: null,
+            resolutionKind: null,
+            createdBy: 'user' as const,
+            agentTokenId: null,
+            actorLabel: 'You',
+            revision: 1,
+            createdAt: nowMs + dayIndex * 1_000 + itemIndex,
+            updatedAt: nowMs + dayIndex * 1_000 + itemIndex,
+          })),
+        )
+        .run();
+      db.insert(adaptiveNutritionCheckIns)
+        .values(
+          Array.from({ length: 51 }, (_, itemIndex) => ({
+            ...source,
+            id: `dense-event-range-${String(dayIndex).padStart(2, '0')}-${String(itemIndex).padStart(2, '0')}`,
+            localDate: date,
+            status: 'declined' as const,
+            acceptedNutritionTargetId: null,
+            proposedTargets: null,
+            resolvedAt: source.resolvedAt,
+            createdAt: source.createdAt + dayIndex * 100 + itemIndex + 1,
+          })),
+        )
+        .run();
+    }
+
+    const calendar = createDataQualityCalendarStore({
+      db,
+      sqlite,
+      now: () => new Date(nowMs),
+    }).getCalendar('user-1', { start, end: addDate(start, 41) });
+
+    for (const day of calendar.days) {
+      expect(day.contexts, day.date).toHaveLength(100);
+      expect(day.omittedContextCount, day.date).toBe(1);
+      expect(day.algorithm.events, day.date).toHaveLength(50);
+      expect(day.algorithm.omittedEventCount, day.date).toBe(1);
+    }
   });
 });
