@@ -84,6 +84,7 @@ import {
   saveCompletedSessionAsTemplate,
   SESSION_SET_DELETE_NOT_IN_PROGRESS,
   SessionSetNotFoundError,
+  type SessionSetSnapshotFact,
   swapWorkoutSessionExercise,
   updateSessionSet,
   updateWorkoutSession,
@@ -445,6 +446,28 @@ const buildScheduledSnapshotSessionSeed = ({
       notes: null,
     })),
   );
+  const setSnapshotFactsByKey = Object.fromEntries(
+    persistedExercises.flatMap((exercise) =>
+      exercise.sets.map((set) => [
+        `${exercise.section ?? 'main'}::${exercise.exerciseId}::${set.setNumber}`,
+        {
+          exerciseIdSnapshot: exercise.exerciseId,
+          exerciseNameSnapshot: exercise.exerciseNameSnapshot ?? 'Unknown exercise',
+          sourceScheduledSetId: set.id,
+          targetReps: set.reps,
+          targetRepsMax: set.repsMax,
+          targetRepsMin: set.repsMin,
+          targetZone: set.targetZone,
+          targetWeight: set.targetWeight,
+          targetWeightMin: set.targetWeightMin,
+          targetWeightMax: set.targetWeightMax,
+          targetSeconds: set.targetSeconds,
+          targetDistance: set.targetDistance,
+          trackingTypeSnapshot: exercise.trackingTypeSnapshot ?? 'reps_only',
+        },
+      ]),
+    ),
+  );
 
   const programmingNotesByExerciseSection: Record<string, string | null> = {};
   const agentNotesByExerciseSection: Record<string, string | null> = {};
@@ -465,6 +488,7 @@ const buildScheduledSnapshotSessionSeed = ({
     programmingNotesByExerciseSection,
     agentNotesByExerciseSection,
     agentNotesMetaByExerciseSection,
+    setSnapshotFactsByKey,
   };
 };
 
@@ -619,6 +643,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           >
         | undefined;
       let scheduledWorkoutId: string | undefined;
+      let setSnapshotFactsByKey: Record<string, SessionSetSnapshotFact> | undefined;
       let linkScheduledWorkoutSession = false;
       let warnings: Array<z.infer<typeof workoutSessionCreateWarningSchema>> | undefined;
 
@@ -742,6 +767,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         programmingNotesByExerciseSection = scheduledSeed.programmingNotesByExerciseSection;
         agentNotesByExerciseSection = scheduledSeed.agentNotesByExerciseSection;
         agentNotesMetaByExerciseSection = scheduledSeed.agentNotesMetaByExerciseSection;
+        setSnapshotFactsByKey = scheduledSeed.setSnapshotFactsByKey;
         scheduledWorkoutId = schedule.id;
         linkScheduledWorkoutSession = true;
 
@@ -842,6 +868,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         agentNotesMetaByExerciseSection,
         scheduledWorkoutId,
         linkScheduledWorkoutSession,
+        setSnapshotFactsByKey,
       });
 
       if (!hasScheduledStart && input.templateId !== null) {
@@ -1852,6 +1879,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       id: params.id,
       userId: request.userId,
       input,
+      replaceSetSnapshots: request.method === 'PUT' && body.sets !== undefined,
     });
     if (!session) {
       return sendError(

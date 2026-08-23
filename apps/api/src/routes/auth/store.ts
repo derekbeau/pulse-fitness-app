@@ -15,7 +15,11 @@ import {
   habits,
   nutritionTargets,
   nutritionTargetEvents,
+  exerciseMuscleContributions,
   users,
+  workoutProgressionAccountDeletionScope,
+  workoutProgressionActions,
+  workoutProgressionRecommendations,
 } from '../../db/schema/index.js';
 
 export type AuthUserRecord = {
@@ -183,6 +187,14 @@ export const deleteUserAccount = async (userId: string): Promise<boolean> => {
     // The scope row exists only inside this write transaction. SQLite's single-writer lock prevents
     // another account deletion from borrowing it, and rollback restores every ordered deletion.
     tx.insert(adaptiveNutritionAccountDeletionScope).values({ userId }).run();
+    tx.insert(workoutProgressionAccountDeletionScope).values({ userId }).run();
+    tx.delete(workoutProgressionActions).where(eq(workoutProgressionActions.userId, userId)).run();
+    tx.delete(workoutProgressionRecommendations)
+      .where(eq(workoutProgressionRecommendations.userId, userId))
+      .run();
+    tx.delete(exerciseMuscleContributions)
+      .where(eq(exerciseMuscleContributions.ownerUserId, userId))
+      .run();
     tx.delete(adaptiveNutritionReviewActions)
       .where(eq(adaptiveNutritionReviewActions.userId, userId))
       .run();

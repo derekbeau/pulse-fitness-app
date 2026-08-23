@@ -1,6 +1,18 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, desc, eq, gte, inArray, isNull, lte, or, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import type {
   BatchUpsertSetsInput,
   CreateSetInput,
@@ -102,6 +114,22 @@ type SessionSetRowInput = CreateWorkoutSessionInput['sets'][number] & {
   targetWeightMax?: number | null;
   targetSeconds?: number | null;
   targetDistance?: number | null;
+};
+
+export type SessionSetSnapshotFact = {
+  sourceScheduledSetId: string | null;
+  exerciseIdSnapshot: string | null;
+  exerciseNameSnapshot: string | null;
+  trackingTypeSnapshot: ExerciseTrackingType | null;
+  targetRepsMin: number | null;
+  targetRepsMax: number | null;
+  targetReps: number | null;
+  targetZone: number | null;
+  targetWeight: number | null;
+  targetWeightMin: number | null;
+  targetWeightMax: number | null;
+  targetSeconds: number | null;
+  targetDistance: number | null;
 };
 
 export type SessionSetGroup = {
@@ -420,10 +448,17 @@ const buildWorkoutSessionExercises = (
     }));
 };
 
-const buildSessionSetRows = (sessionId: string, sets: readonly SessionSetRowInput[]) =>
+const buildSessionSetRows = (
+  sessionId: string,
+  sets: readonly SessionSetRowInput[],
+  factsByKey: Record<string, SessionSetSnapshotFact>,
+  idsByKey: Record<string, string> = {},
+) =>
   sets.map((set) => {
+    const key = `${set.section ?? 'main'}::${set.exerciseId}::${set.setNumber}`;
+    const fact = factsByKey[key];
     return {
-      id: randomUUID(),
+      id: idsByKey[key] ?? randomUUID(),
       sessionId,
       exerciseId: set.exerciseId,
       orderIndex: set.orderIndex,
@@ -434,11 +469,19 @@ const buildSessionSetRows = (sessionId: string, sets: readonly SessionSetRowInpu
       distance: set.distance,
       rpe: set.rpe ?? null,
       zone: set.zone ?? null,
-      targetWeight: set.targetWeight ?? null,
-      targetWeightMin: set.targetWeightMin ?? null,
-      targetWeightMax: set.targetWeightMax ?? null,
-      targetSeconds: set.targetSeconds ?? null,
-      targetDistance: set.targetDistance ?? null,
+      targetWeight: fact ? fact.targetWeight : (set.targetWeight ?? null),
+      targetWeightMin: fact ? fact.targetWeightMin : (set.targetWeightMin ?? null),
+      targetWeightMax: fact ? fact.targetWeightMax : (set.targetWeightMax ?? null),
+      targetSeconds: fact ? fact.targetSeconds : (set.targetSeconds ?? null),
+      targetDistance: fact ? fact.targetDistance : (set.targetDistance ?? null),
+      targetRepsMin: fact?.targetRepsMin ?? null,
+      targetRepsMax: fact?.targetRepsMax ?? null,
+      targetReps: fact?.targetReps ?? null,
+      targetZone: fact?.targetZone ?? null,
+      sourceScheduledSetId: fact?.sourceScheduledSetId ?? null,
+      exerciseIdSnapshot: fact ? fact.exerciseIdSnapshot : set.exerciseId,
+      exerciseNameSnapshot: fact ? fact.exerciseNameSnapshot : null,
+      trackingTypeSnapshot: fact ? fact.trackingTypeSnapshot : null,
       supersetGroup: set.supersetGroup,
       completed: set.completed ?? false,
       skipped: set.skipped ?? false,
@@ -577,6 +620,11 @@ export const createSessionSet = async ({
   );
   const resolvedSetNumber =
     input.setNumber <= maxExerciseSetNumber ? maxExerciseSetNumber + 1 : input.setNumber;
+  const exerciseSnapshot = db
+    .select({ name: exercises.name, trackingType: exercises.trackingType })
+    .from(exercises)
+    .where(eq(exercises.id, input.exerciseId))
+    .get();
 
   const result = db
     .insert(sessionSets)
@@ -584,6 +632,9 @@ export const createSessionSet = async ({
       id,
       sessionId,
       exerciseId: input.exerciseId,
+      exerciseIdSnapshot: input.exerciseId,
+      exerciseNameSnapshot: exerciseSnapshot?.name ?? 'Unknown exercise',
+      trackingTypeSnapshot: exerciseSnapshot?.trackingType ?? 'reps_only',
       orderIndex: nextOrderIndex,
       setNumber: resolvedSetNumber,
       weight: input.weight,
@@ -1055,6 +1106,12 @@ export const batchUpsertSessionSets = async ({
     const orderIndexByExerciseAndSection = new Map<string, number>();
     const nextOrderIndexBySection = new Map<WorkoutTemplateSectionType, number>();
     const supersetGroupByExerciseId = new Map<string, string | null>();
+    const exerciseMetadata = tx
+      .select({ id: exercises.id, name: exercises.name, trackingType: exercises.trackingType })
+      .from(exercises)
+      .where(inArray(exercises.id, [...new Set(input.sets.map((set) => set.exerciseId))]))
+      .all();
+    const metadataByExerciseId = new Map(exerciseMetadata.map((row) => [row.id, row]));
 
     for (const set of existingSets) {
       const key = `${set.section}:${set.exerciseId}`;
@@ -1077,6 +1134,7 @@ export const batchUpsertSessionSets = async ({
 
     for (const set of input.sets) {
       const normalizedSection = set.section ?? 'main';
+      const metadata = metadataByExerciseId.get(set.exerciseId);
       const orderIndexKey = `${normalizedSection}:${set.exerciseId}`;
       const hasExistingOrderIndex = orderIndexByExerciseAndSection.has(orderIndexKey);
       const nextOrderIndex =
@@ -1095,6 +1153,9 @@ export const batchUpsertSessionSets = async ({
           .update(sessionSets)
           .set({
             exerciseId: set.exerciseId,
+            exerciseIdSnapshot: set.exerciseId,
+            exerciseNameSnapshot: metadata?.name ?? 'Unknown exercise',
+            trackingTypeSnapshot: metadata?.trackingType ?? 'reps_only',
             orderIndex: nextOrderIndex,
             setNumber: set.setNumber,
             weight: set.weight,
@@ -1125,6 +1186,9 @@ export const batchUpsertSessionSets = async ({
           id: randomUUID(),
           sessionId,
           exerciseId: set.exerciseId,
+          exerciseIdSnapshot: set.exerciseId,
+          exerciseNameSnapshot: metadata?.name ?? 'Unknown exercise',
+          trackingTypeSnapshot: metadata?.trackingType ?? 'reps_only',
           orderIndex: nextOrderIndex,
           setNumber: set.setNumber,
           weight: set.weight,
@@ -1160,6 +1224,7 @@ export const createWorkoutSession = async ({
   agentNotesMetaByExerciseSection,
   scheduledWorkoutId,
   linkScheduledWorkoutSession,
+  setSnapshotFactsByKey = {},
 }: {
   id: string;
   userId: string;
@@ -1169,9 +1234,40 @@ export const createWorkoutSession = async ({
   agentNotesMetaByExerciseSection?: Record<string, WorkoutSessionExerciseAgentNotesMeta | null>;
   scheduledWorkoutId?: string;
   linkScheduledWorkoutSession?: boolean;
+  setSnapshotFactsByKey?: Record<string, SessionSetSnapshotFact>;
 }): Promise<WorkoutSession> => {
   const { db } = await import('../../db/index.js');
-  const setRows = buildSessionSetRows(id, input.sets);
+  const exerciseMetadata = db
+    .select({ id: exercises.id, name: exercises.name, trackingType: exercises.trackingType })
+    .from(exercises)
+    .where(inArray(exercises.id, [...new Set(input.sets.map((set) => set.exerciseId))]))
+    .all();
+  const metadataById = new Map(exerciseMetadata.map((row) => [row.id, row]));
+  const completeFacts = Object.fromEntries(
+    input.sets.map((set) => {
+      const key = `${set.section ?? 'main'}::${set.exerciseId}::${set.setNumber}`;
+      const metadata = metadataById.get(set.exerciseId);
+      return [
+        key,
+        setSnapshotFactsByKey[key] ?? {
+          exerciseIdSnapshot: set.exerciseId,
+          exerciseNameSnapshot: metadata?.name ?? 'Unknown exercise',
+          sourceScheduledSetId: null,
+          targetReps: null,
+          targetRepsMax: null,
+          targetRepsMin: null,
+          targetZone: null,
+          targetWeight: set.targetWeight ?? null,
+          targetWeightMin: set.targetWeightMin ?? null,
+          targetWeightMax: set.targetWeightMax ?? null,
+          targetSeconds: set.targetSeconds ?? null,
+          targetDistance: set.targetDistance ?? null,
+          trackingTypeSnapshot: metadata?.trackingType ?? 'reps_only',
+        },
+      ];
+    }),
+  );
+  const setRows = buildSessionSetRows(id, input.sets, completeFacts);
 
   db.transaction((tx) => {
     const insertResult = tx
@@ -1354,13 +1450,91 @@ export const updateWorkoutSession = async ({
   id,
   userId,
   input,
+  replaceSetSnapshots = false,
 }: {
   id: string;
   userId: string;
   input: CreateWorkoutSessionInput; // Full snapshot; the route merges the partial patch first.
+  replaceSetSnapshots?: boolean;
 }): Promise<WorkoutSession | undefined> => {
   const { db } = await import('../../db/index.js');
-  const setRows = buildSessionSetRows(id, input.sets);
+  const existingSets = db
+    .select({
+      exerciseId: sessionSets.exerciseId,
+      exerciseIdSnapshot: sessionSets.exerciseIdSnapshot,
+      exerciseNameSnapshot: sessionSets.exerciseNameSnapshot,
+      id: sessionSets.id,
+      section: sessionSets.section,
+      setNumber: sessionSets.setNumber,
+      sourceScheduledSetId: sessionSets.sourceScheduledSetId,
+      targetReps: sessionSets.targetReps,
+      targetRepsMax: sessionSets.targetRepsMax,
+      targetRepsMin: sessionSets.targetRepsMin,
+      targetZone: sessionSets.targetZone,
+      targetWeight: sessionSets.targetWeight,
+      targetWeightMin: sessionSets.targetWeightMin,
+      targetWeightMax: sessionSets.targetWeightMax,
+      targetSeconds: sessionSets.targetSeconds,
+      targetDistance: sessionSets.targetDistance,
+      trackingTypeSnapshot: sessionSets.trackingTypeSnapshot,
+    })
+    .from(sessionSets)
+    .where(eq(sessionSets.sessionId, id))
+    .all();
+  const factsByKey: Record<string, SessionSetSnapshotFact> = {};
+  const idsByKey: Record<string, string> = {};
+  for (const set of existingSets) {
+    if (replaceSetSnapshots) break;
+    if (set.exerciseId === null) continue;
+    const key = `${set.section ?? 'main'}::${set.exerciseId}::${set.setNumber}`;
+    idsByKey[key] = set.id;
+    factsByKey[key] = {
+      exerciseIdSnapshot: set.exerciseIdSnapshot,
+      exerciseNameSnapshot: set.exerciseNameSnapshot,
+      sourceScheduledSetId: set.sourceScheduledSetId,
+      targetReps: set.targetReps,
+      targetRepsMax: set.targetRepsMax,
+      targetRepsMin: set.targetRepsMin,
+      targetZone: set.targetZone,
+      targetWeight: set.targetWeight,
+      targetWeightMin: set.targetWeightMin,
+      targetWeightMax: set.targetWeightMax,
+      targetSeconds: set.targetSeconds,
+      targetDistance: set.targetDistance,
+      trackingTypeSnapshot: set.trackingTypeSnapshot,
+    };
+  }
+  const inputExerciseIds = [...new Set(input.sets.map((set) => set.exerciseId))];
+  const metadataRows =
+    inputExerciseIds.length === 0
+      ? []
+      : db
+          .select({ id: exercises.id, name: exercises.name, trackingType: exercises.trackingType })
+          .from(exercises)
+          .where(inArray(exercises.id, inputExerciseIds))
+          .all();
+  const metadataById = new Map(metadataRows.map((row) => [row.id, row]));
+  for (const set of input.sets) {
+    const key = `${set.section ?? 'main'}::${set.exerciseId}::${set.setNumber}`;
+    if (factsByKey[key]) continue;
+    const metadata = metadataById.get(set.exerciseId);
+    factsByKey[key] = {
+      exerciseIdSnapshot: set.exerciseId,
+      exerciseNameSnapshot: metadata?.name ?? null,
+      sourceScheduledSetId: null,
+      targetReps: null,
+      targetRepsMax: null,
+      targetRepsMin: null,
+      targetZone: null,
+      targetWeight: set.targetWeight ?? null,
+      targetWeightMin: set.targetWeightMin ?? null,
+      targetWeightMax: set.targetWeightMax ?? null,
+      targetSeconds: set.targetSeconds ?? null,
+      targetDistance: set.targetDistance ?? null,
+      trackingTypeSnapshot: metadata?.trackingType ?? null,
+    };
+  }
+  const setRows = buildSessionSetRows(id, input.sets, factsByKey, idsByKey);
 
   const result = db.transaction((tx) => {
     const updateResult = tx
@@ -1390,7 +1564,13 @@ export const updateWorkoutSession = async ({
       return false;
     }
 
-    tx.delete(sessionSets).where(eq(sessionSets.sessionId, id)).run();
+    tx.delete(sessionSets)
+      .where(
+        replaceSetSnapshots
+          ? eq(sessionSets.sessionId, id)
+          : and(eq(sessionSets.sessionId, id), isNotNull(sessionSets.exerciseId)),
+      )
+      .run();
 
     if (setRows.length > 0) {
       tx.insert(sessionSets).values(setRows).run();

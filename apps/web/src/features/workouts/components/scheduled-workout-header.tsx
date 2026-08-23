@@ -35,7 +35,7 @@ export function ScheduledWorkoutHeader({
             Scheduled workout
           </p>
           <h1 className="text-3xl font-semibold tracking-tight">
-            {templateName ?? 'Workout unavailable'}
+            {templateName ?? (isTemplateAvailable ? 'Custom workout' : 'Workout unavailable')}
           </h1>
           <p className="flex items-center gap-1.5 text-sm text-on-cream/85 dark:text-muted">
             <CalendarClock aria-hidden="true" className="size-4" />

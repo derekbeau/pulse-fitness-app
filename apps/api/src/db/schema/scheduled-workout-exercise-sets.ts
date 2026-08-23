@@ -23,6 +23,7 @@ export const scheduledWorkoutExerciseSets = sqliteTable(
     targetWeightMax: real('target_weight_max'),
     targetSeconds: integer('target_seconds'),
     targetDistance: real('target_distance'),
+    targetZone: integer('target_zone'),
     createdAt: integer('created_at', { mode: 'number' })
       .notNull()
       .default(sql`(unixepoch() * 1000)`)
@@ -38,6 +39,10 @@ export const scheduledWorkoutExerciseSets = sqliteTable(
     check(
       'scheduled_workout_exercise_sets_target_weight_range_check',
       sql`${table.targetWeightMin} is null or ${table.targetWeightMax} is null or ${table.targetWeightMin} <= ${table.targetWeightMax}`,
+    ),
+    check(
+      'scheduled_workout_exercise_sets_target_zone_check',
+      sql`${table.targetZone} is null or ${table.targetZone} between 1 and 5`,
     ),
   ],
 );

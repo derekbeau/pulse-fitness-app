@@ -7,6 +7,7 @@ import type {
   WorkoutTemplateSectionType,
 } from '../../db/schema/index.js';
 import {
+  exercises,
   scheduledWorkoutExerciseSets,
   scheduledWorkoutExercises,
   scheduledWorkouts,
@@ -59,6 +60,7 @@ export type ScheduledWorkoutSnapshotSet = {
   targetWeightMax: number | null;
   targetSeconds: number | null;
   targetDistance: number | null;
+  targetZone: number | null;
   createdAt: number;
 };
 
@@ -66,6 +68,8 @@ export type ScheduledWorkoutSnapshotExercise = {
   id: string;
   scheduledWorkoutId: string;
   exerciseId: string;
+  exerciseNameSnapshot: string | null;
+  trackingTypeSnapshot: typeof exercises.$inferSelect.trackingType | null;
   section: WorkoutTemplateSectionType;
   orderIndex: number;
   programmingNotes: string | null;
@@ -126,6 +130,8 @@ const scheduledWorkoutExerciseSelection = {
   id: scheduledWorkoutExercises.id,
   scheduledWorkoutId: scheduledWorkoutExercises.scheduledWorkoutId,
   exerciseId: scheduledWorkoutExercises.exerciseId,
+  exerciseNameSnapshot: scheduledWorkoutExercises.exerciseNameSnapshot,
+  trackingTypeSnapshot: scheduledWorkoutExercises.trackingTypeSnapshot,
   section: scheduledWorkoutExercises.section,
   orderIndex: scheduledWorkoutExercises.orderIndex,
   programmingNotes: scheduledWorkoutExercises.programmingNotes,
@@ -151,6 +157,7 @@ const scheduledWorkoutExerciseSetSelection = {
   targetWeightMax: scheduledWorkoutExerciseSets.targetWeightMax,
   targetSeconds: scheduledWorkoutExerciseSets.targetSeconds,
   targetDistance: scheduledWorkoutExerciseSets.targetDistance,
+  targetZone: scheduledWorkoutExerciseSets.targetZone,
   createdAt: scheduledWorkoutExerciseSets.createdAt,
 };
 
@@ -250,6 +257,7 @@ const toTemplateVersionPayload = (rows: TemplateExerciseSnapshotRow[]) =>
       targetWeightMax: set.targetWeightMax,
       targetSeconds: set.targetSeconds,
       targetDistance: set.targetDistance,
+      targetZone: null,
     })),
   }));
 
@@ -427,10 +435,24 @@ export const writeSnapshot = async ({
 
     const templateVersion = computeScheduledWorkoutTemplateVersion(templateRows);
 
+    const exerciseMetadata = tx
+      .select({ id: exercises.id, name: exercises.name, trackingType: exercises.trackingType })
+      .from(exercises)
+      .where(
+        inArray(
+          exercises.id,
+          templateRows.map((row) => row.exerciseId),
+        ),
+      )
+      .all();
+    const metadataById = new Map(exerciseMetadata.map((row) => [row.id, row]));
+
     const exerciseRows = templateRows.map((row) => ({
       id: randomUUID(),
       scheduledWorkoutId,
       exerciseId: row.exerciseId,
+      exerciseNameSnapshot: metadataById.get(row.exerciseId)?.name ?? null,
+      trackingTypeSnapshot: metadataById.get(row.exerciseId)?.trackingType ?? null,
       section: row.section,
       orderIndex: row.orderIndex,
       programmingNotes: toExerciseProgrammingNotes(row),
@@ -459,6 +481,7 @@ export const writeSnapshot = async ({
         targetWeightMax: setDraft.targetWeightMax,
         targetSeconds: setDraft.targetSeconds,
         targetDistance: setDraft.targetDistance,
+        targetZone: null,
       })),
     );
 

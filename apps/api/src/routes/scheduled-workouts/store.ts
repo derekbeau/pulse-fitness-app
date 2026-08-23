@@ -79,6 +79,7 @@ const scheduledWorkoutExerciseSetMutationSelection = {
   targetWeightMax: scheduledWorkoutExerciseSets.targetWeightMax,
   targetSeconds: scheduledWorkoutExerciseSets.targetSeconds,
   targetDistance: scheduledWorkoutExerciseSets.targetDistance,
+  targetZone: scheduledWorkoutExerciseSets.targetZone,
   repsMin: scheduledWorkoutExerciseSets.repsMin,
   repsMax: scheduledWorkoutExerciseSets.repsMax,
   reps: scheduledWorkoutExerciseSets.reps,
@@ -105,6 +106,7 @@ type ScheduledWorkoutExerciseSetMutationRow = {
   targetWeightMax: number | null;
   targetSeconds: number | null;
   targetDistance: number | null;
+  targetZone: number | null;
   repsMin: number | null;
   repsMax: number | null;
   reps: number | null;
@@ -148,6 +150,7 @@ const mapSnapshotExercise = (
     targetWeightMax: set.targetWeightMax,
     targetSeconds: set.targetSeconds,
     targetDistance: set.targetDistance,
+    targetZone: set.targetZone,
   })),
 });
 
@@ -331,6 +334,7 @@ const buildSetUpdatePayload = (
       | 'targetWeightMax'
       | 'targetSeconds'
       | 'targetDistance'
+      | 'targetZone'
       | 'repsMin'
       | 'repsMax'
       | 'reps'
@@ -351,6 +355,9 @@ const buildSetUpdatePayload = (
   }
   if (input.targetDistance !== undefined && input.targetDistance !== current.targetDistance) {
     payload.targetDistance = input.targetDistance;
+  }
+  if (input.targetZone !== undefined && input.targetZone !== current.targetZone) {
+    payload.targetZone = input.targetZone;
   }
   if (input.repsMin !== undefined && input.repsMin !== current.repsMin) {
     payload.repsMin = input.repsMin;
@@ -938,6 +945,7 @@ export const updateScheduledWorkoutExerciseSets = async ({
           targetWeightMax: setUpdate.targetWeightMax ?? null,
           targetSeconds: setUpdate.targetSeconds ?? null,
           targetDistance: setUpdate.targetDistance ?? null,
+          targetZone: setUpdate.targetZone ?? null,
           repsMin: setUpdate.repsMin ?? null,
           repsMax: setUpdate.repsMax ?? null,
           reps: setUpdate.reps ?? null,

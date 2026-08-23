@@ -18,13 +18,22 @@ import {
   adaptiveNutritionReviewContexts,
   adaptiveNutritionReviews,
   bodyWeight,
+  exerciseMuscleContributions,
+  exercises,
   mealItems,
   meals,
   nutritionLogs,
   nutritionTargetEvents,
   nutritionTargets,
+  scheduledWorkoutExercises,
+  scheduledWorkoutExerciseSets,
   scheduledWorkouts,
+  sessionSets,
   users,
+  workoutProgressionAccountDeletionScope,
+  workoutProgressionActions,
+  workoutProgressionConfigurations,
+  workoutProgressionRecommendations,
   workoutSessions,
 } from '../db/schema/index.js';
 import { createAdaptiveNutritionStore } from '../routes/adaptive-nutrition/store.js';
@@ -72,7 +81,12 @@ export type AdaptivePreviewFixtureName =
   | 'trajectory-maintenance-above'
   | 'trajectory-scale-only'
   | 'trajectory-historical'
-  | 'data-quality-calendar';
+  | 'data-quality-calendar'
+  | 'progression-accept'
+  | 'progression-edit'
+  | 'progression-stale'
+  | 'progression-agent'
+  | 'muscle-analytics';
 
 export type AdaptivePreviewFixtureRecord = {
   fixture: AdaptivePreviewFixtureName;
@@ -385,6 +399,46 @@ const FIXTURES: Array<
     expectedState: 'updating',
     note: 'A dedicated read-only month combines complete, partial, unknown, missing, pending, corrected, workout, algorithm, and agent-context evidence.',
   },
+  {
+    fixture: 'progression-accept',
+    usernameSuffix: 'wp-accept',
+    idSuffix: '0039',
+    name: 'Workout Progression · Accept',
+    expectedState: 'setup_required',
+    note: 'A dedicated scheduled workout supports explicit progression acceptance.',
+  },
+  {
+    fixture: 'progression-edit',
+    usernameSuffix: 'wp-edit',
+    idSuffix: '0040',
+    name: 'Workout Progression · Edit',
+    expectedState: 'setup_required',
+    note: 'A dedicated scheduled workout supports bounded target editing.',
+  },
+  {
+    fixture: 'progression-stale',
+    usernameSuffix: 'wp-stale',
+    idSuffix: '0041',
+    name: 'Workout Progression · Stale',
+    expectedState: 'setup_required',
+    note: 'A dedicated source session supports correction and stale-recompute coverage.',
+  },
+  {
+    fixture: 'progression-agent',
+    usernameSuffix: 'wp-agent',
+    idSuffix: '0042',
+    name: 'Workout Progression · Agent',
+    expectedState: 'setup_required',
+    note: 'A dedicated scheduled workout supports AgentToken idempotency coverage.',
+  },
+  {
+    fixture: 'muscle-analytics',
+    usernameSuffix: 'muscle',
+    idSuffix: '0043',
+    name: 'Workout Analytics · Muscle Coverage',
+    expectedState: 'setup_required',
+    note: 'Dedicated completed and planned work exposes primary and secondary muscle contributions.',
+  },
 ];
 
 const datePlus = (date: string, days: number) => {
@@ -506,6 +560,19 @@ const cleanupExistingFixtures = (db: AdaptiveDatabase) => {
         .values({ userId: fixtureUser.id })
         .onConflictDoNothing()
         .run();
+      tx.insert(workoutProgressionAccountDeletionScope)
+        .values({ userId: fixtureUser.id })
+        .onConflictDoNothing()
+        .run();
+      tx.delete(workoutProgressionActions)
+        .where(eq(workoutProgressionActions.userId, fixtureUser.id))
+        .run();
+      tx.delete(workoutProgressionRecommendations)
+        .where(eq(workoutProgressionRecommendations.userId, fixtureUser.id))
+        .run();
+      tx.delete(exerciseMuscleContributions)
+        .where(eq(exerciseMuscleContributions.ownerUserId, fixtureUser.id))
+        .run();
       tx.delete(adaptiveNutritionReviewActions)
         .where(eq(adaptiveNutritionReviewActions.userId, fixtureUser.id))
         .run();
@@ -528,6 +595,9 @@ const cleanupExistingFixtures = (db: AdaptiveDatabase) => {
       tx.delete(adaptiveNutritionPrograms)
         .where(eq(adaptiveNutritionPrograms.userId, fixtureUser.id))
         .run();
+      tx.delete(scheduledWorkouts).where(eq(scheduledWorkouts.userId, fixtureUser.id)).run();
+      tx.delete(workoutSessions).where(eq(workoutSessions.userId, fixtureUser.id)).run();
+      tx.delete(exercises).where(eq(exercises.userId, fixtureUser.id)).run();
       tx.delete(users).where(eq(users.id, fixtureUser.id)).run();
     });
   }
@@ -637,6 +707,153 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
     const fixture = createAndAcceptBaseline(name, input);
     clock = currentClock + 1000;
     return fixture;
+  };
+
+  const seedProgressionWorkout = (name: AdaptivePreviewFixtureName, scheduledOffset = 1) => {
+    const fixture = record(name);
+    const exerciseId = `${fixture.userId}-incline-press`;
+    const scheduledWorkoutId = `${fixture.userId}-scheduled`;
+    const scheduledExerciseId = `${fixture.userId}-scheduled-exercise`;
+    const sessionId = `${fixture.userId}-source-session`;
+    db.insert(exercises)
+      .values({
+        id: exerciseId,
+        userId: fixture.userId,
+        name: 'Incline dumbbell press',
+        muscleGroups: ['Chest', 'Triceps'],
+        equipment: 'Dumbbells',
+        category: 'compound',
+        trackingType: 'weight_reps',
+        tags: [],
+        formCues: ['Keep shoulders set'],
+        relatedExerciseIds: [],
+        createdAt: clock,
+        updatedAt: clock,
+      })
+      .run();
+    db.insert(workoutSessions)
+      .values({
+        id: sessionId,
+        userId: fixture.userId,
+        scheduledWorkoutId: null,
+        name: 'Upper body evidence',
+        date: datePlus(anchorDate, -3),
+        status: 'completed',
+        startedAt: clock,
+        completedAt: clock + 3_600_000,
+        timeSegments: '[]',
+        createdAt: clock,
+        updatedAt: clock + 3_600_000,
+      })
+      .run();
+    db.insert(sessionSets)
+      .values(
+        [1, 2].map((setNumber) => ({
+          id: `${fixture.userId}-source-set-${setNumber}`,
+          sessionId,
+          exerciseId,
+          orderIndex: setNumber - 1,
+          setNumber,
+          weight: 40,
+          reps: 10,
+          rpe: 8,
+          targetWeight: 40,
+          targetRepsMin: 8,
+          targetRepsMax: 10,
+          sourceScheduledSetId: `${fixture.userId}-planned-set-${setNumber}`,
+          exerciseIdSnapshot: exerciseId,
+          exerciseNameSnapshot: 'Incline dumbbell press',
+          trackingTypeSnapshot: 'weight_reps' as const,
+          completed: true,
+          skipped: false,
+          section: 'main' as const,
+          createdAt: clock + setNumber,
+        })),
+      )
+      .run();
+    db.insert(scheduledWorkouts)
+      .values({
+        id: scheduledWorkoutId,
+        userId: fixture.userId,
+        templateId: null,
+        date: datePlus(anchorDate, scheduledOffset),
+        sessionId: null,
+        createdAt: clock,
+        updatedAt: clock,
+      })
+      .run();
+    db.insert(scheduledWorkoutExercises)
+      .values({
+        id: scheduledExerciseId,
+        scheduledWorkoutId,
+        exerciseId,
+        exerciseNameSnapshot: 'Incline dumbbell press',
+        trackingTypeSnapshot: 'weight_reps',
+        section: 'main',
+        orderIndex: 0,
+        programmingNotes: 'Use a controlled range of motion.',
+        createdAt: clock,
+        updatedAt: clock,
+      })
+      .run();
+    db.insert(scheduledWorkoutExerciseSets)
+      .values(
+        [1, 2].map((setNumber) => ({
+          id: `${fixture.userId}-planned-set-${setNumber}`,
+          scheduledWorkoutExerciseId: scheduledExerciseId,
+          setNumber,
+          repsMin: 8,
+          repsMax: 10,
+          targetWeight: 40,
+          createdAt: clock,
+        })),
+      )
+      .run();
+    const configurationId = `${fixture.userId}-progression-config`;
+    db.insert(workoutProgressionConfigurations)
+      .values({
+        id: configurationId,
+        userId: fixture.userId,
+        scheduledWorkoutId,
+        scheduledWorkoutExerciseId: scheduledExerciseId,
+        revision: 1,
+        snapshot: {
+          id: configurationId,
+          userId: fixture.userId,
+          scheduledWorkoutId,
+          scheduledWorkoutExerciseId: scheduledExerciseId,
+          revision: 1,
+          policy: {
+            family: 'double_progression',
+            version: 1,
+            loadIncrement: 5,
+            loadIncreasePercent: null,
+            repRangeMin: 8,
+            repRangeMax: 10,
+            effortCeiling: 9,
+            lowEffortThreshold: 6,
+            secondsStep: null,
+            distanceStep: null,
+            zoneCeiling: null,
+            allowReduction: true,
+            contextRequired: true,
+          },
+          contextAvailability: 'available',
+          contextFacts: [],
+          priority: true,
+          actorType: 'user',
+          actorId: fixture.userId,
+          actorLabel: 'Preview user',
+          updatedAt: clock,
+        },
+        actorType: 'user',
+        agentTokenId: null,
+        actorLabel: 'Preview user',
+        updatedAt: clock,
+      })
+      .run();
+    clock += 1000;
+    return { exerciseId, fixture, scheduledWorkoutId, sessionId };
   };
 
   const baseline = record('baseline');
@@ -1077,6 +1294,78 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
     },
     { type: 'agent_token', agentTokenId: 'preview-agent', label: 'Preview Coach' },
   );
+  clock += 1000;
+
+  for (const name of [
+    'progression-accept',
+    'progression-edit',
+    'progression-stale',
+    'progression-agent',
+  ] as const) {
+    seedProgressionWorkout(name);
+  }
+
+  const muscle = seedProgressionWorkout('muscle-analytics', 0);
+  db.insert(exerciseMuscleContributions)
+    .values([
+      {
+        id: `${muscle.fixture.userId}-chest-primary`,
+        exerciseId: muscle.exerciseId,
+        ownerUserId: muscle.fixture.userId,
+        revision: 1,
+        muscle: 'Chest',
+        role: 'primary',
+        factor: 1,
+        version: 1,
+        effectiveAt: clock - 60 * DAY_MS,
+        createdAt: clock,
+      },
+      {
+        id: `${muscle.fixture.userId}-triceps-secondary`,
+        exerciseId: muscle.exerciseId,
+        ownerUserId: muscle.fixture.userId,
+        revision: 1,
+        muscle: 'Triceps',
+        role: 'secondary',
+        factor: 0.5,
+        version: 1,
+        effectiveAt: clock - 60 * DAY_MS,
+        createdAt: clock,
+      },
+    ])
+    .run();
+  const previousSessionId = `${muscle.fixture.userId}-previous-session`;
+  db.insert(workoutSessions)
+    .values({
+      id: previousSessionId,
+      userId: muscle.fixture.userId,
+      scheduledWorkoutId: null,
+      name: 'Earlier upper body evidence',
+      date: datePlus(anchorDate, -35),
+      status: 'completed',
+      startedAt: clock - 35 * DAY_MS,
+      completedAt: clock - 35 * DAY_MS + 3_600_000,
+      timeSegments: '[]',
+      createdAt: clock - 35 * DAY_MS,
+      updatedAt: clock - 35 * DAY_MS + 3_600_000,
+    })
+    .run();
+  db.insert(sessionSets)
+    .values({
+      id: `${muscle.fixture.userId}-previous-set-1`,
+      sessionId: previousSessionId,
+      exerciseId: muscle.exerciseId,
+      orderIndex: 0,
+      setNumber: 1,
+      weight: 35,
+      reps: 10,
+      rpe: 8,
+      completed: true,
+      skipped: false,
+      section: 'main',
+      createdAt: clock - 35 * DAY_MS,
+    })
+    .run();
   clock += 1000;
 
   for (const fixture of records) {

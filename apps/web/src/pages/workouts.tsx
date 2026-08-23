@@ -16,6 +16,7 @@ import {
 } from '@/features/workouts/lib/session-persistence';
 import {
   ExerciseLibrary,
+  MuscleAnalytics,
   TemplateBrowser,
   WorkoutCalendar,
   WorkoutList,
@@ -26,7 +27,7 @@ import {
   useWorkoutTemplates,
 } from '@/features/workouts/api/workouts';
 
-const WORKOUT_VIEWS = ['calendar', 'list', 'templates', 'exercises'] as const;
+const WORKOUT_VIEWS = ['calendar', 'list', 'templates', 'exercises', 'muscles'] as const;
 const WORKOUTS_ONBOARDING_DISMISSED_KEY = 'pulse.workouts.onboarding.dismissed';
 const WORKOUT_TEMPLATE_SORT_VALUES: WorkoutTemplateSort[] = [
   'name-asc',
@@ -94,7 +95,9 @@ export function WorkoutsPage() {
       return;
     }
 
-    const topTemplateIds = (templatesQuery.data?.data ?? []).slice(0, 3).map((template) => template.id);
+    const topTemplateIds = (templatesQuery.data?.data ?? [])
+      .slice(0, 3)
+      .map((template) => template.id);
     for (const templateId of topTemplateIds) {
       void prefetchWorkoutTemplate(queryClient, templateId);
     }
@@ -238,6 +241,16 @@ export function WorkoutsPage() {
         >
           Exercises
         </Button>
+        <Button
+          aria-pressed={activeView === 'muscles'}
+          className="rounded-full"
+          onClick={() => setActiveView('muscles')}
+          size="sm"
+          type="button"
+          variant={activeView === 'muscles' ? 'default' : 'ghost'}
+        >
+          Muscles
+        </Button>
       </div>
 
       {activeView === 'calendar' ? (
@@ -267,8 +280,10 @@ export function WorkoutsPage() {
             totalTemplates={templatesQuery.data?.meta.total}
           />
         )
-      ) : (
+      ) : activeView === 'exercises' ? (
         <ExerciseLibrary />
+      ) : (
+        <MuscleAnalytics />
       )}
     </section>
   );

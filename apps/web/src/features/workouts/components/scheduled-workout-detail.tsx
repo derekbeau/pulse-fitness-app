@@ -72,6 +72,7 @@ import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 import { ScheduledWorkoutHeader } from './scheduled-workout-header';
 import { SwapExerciseDialog } from './swap-exercise-dialog';
 import { ExerciseDetailModal } from './exercise-detail-modal';
+import { WorkoutProgressionReview } from './workout-progression-review';
 import {
   WorkoutExerciseCard,
   type WorkoutExerciseCardScheduledExercise,
@@ -488,6 +489,8 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
           title="Session in progress"
         />
       ) : null}
+
+      <WorkoutProgressionReview locked={isPlanLocked} scheduledWorkoutId={scheduledWorkout.id} />
 
       <ScheduledWorkoutSections
         isEditLocked={isPlanLocked}

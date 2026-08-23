@@ -30,6 +30,7 @@ import {
   scheduledWorkoutExercises,
   scheduledWorkouts,
   templateExercises,
+  workoutProgressionConfigurations,
   workoutTemplates,
 } from '../../db/schema/index.js';
 import { sendError } from '../../lib/reply.js';
@@ -141,6 +142,7 @@ const mapSnapshotExercise = (
     targetWeightMax: set.targetWeightMax,
     targetSeconds: set.targetSeconds,
     targetDistance: set.targetDistance,
+    targetZone: set.targetZone,
   })),
 });
 
@@ -733,10 +735,21 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
         }
 
         const carryOverProgrammingNotes = request.body.carryOverProgrammingNotes === true;
+        const replacementExercise = tx
+          .select({ name: exercises.name, trackingType: exercises.trackingType })
+          .from(exercises)
+          .where(eq(exercises.id, request.body.toExerciseId))
+          .get();
+        if (!replacementExercise) return false;
         for (const sourceRow of sourceRows) {
+          tx.delete(workoutProgressionConfigurations)
+            .where(eq(workoutProgressionConfigurations.scheduledWorkoutExerciseId, sourceRow.id))
+            .run();
           tx.update(scheduledWorkoutExercises)
             .set({
               exerciseId: request.body.toExerciseId,
+              exerciseNameSnapshot: replacementExercise.name,
+              trackingTypeSnapshot: replacementExercise.trackingType,
               programmingNotes: carryOverProgrammingNotes ? sourceRow.programmingNotes : null,
               agentNotes: null,
               agentNotesMeta: null,

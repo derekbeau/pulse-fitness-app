@@ -37,6 +37,7 @@ import {
   entityLinks,
   equipmentItems,
   equipmentLocations,
+  exerciseMuscleContributions,
   exercises,
   foods,
   healthConditions,
@@ -60,6 +61,9 @@ import {
   serializeWorkoutSessionFeedback,
   serializeWorkoutSessionTimeSegments,
   workoutSessions,
+  workoutProgressionActions,
+  workoutProgressionConfigurations,
+  workoutProgressionRecommendations,
   templateExercises,
   users,
   workoutTemplates,
@@ -1285,8 +1289,16 @@ describe('sessionSets schema', () => {
       'targetWeight',
       'targetWeightMin',
       'targetWeightMax',
+      'targetRepsMin',
+      'targetRepsMax',
+      'targetReps',
       'targetSeconds',
       'targetDistance',
+      'targetZone',
+      'sourceScheduledSetId',
+      'exerciseIdSnapshot',
+      'exerciseNameSnapshot',
+      'trackingTypeSnapshot',
       'supersetGroup',
       'completed',
       'skipped',
@@ -1332,6 +1344,8 @@ describe('sessionSets schema', () => {
       'session_sets_seconds_check',
       'session_sets_section_check',
       'session_sets_set_number_check',
+      'session_sets_target_reps_check',
+      'session_sets_target_zone_check',
       'session_sets_zone_check',
     ]);
   });
@@ -1397,6 +1411,8 @@ describe('scheduledWorkoutExercises schema', () => {
       'id',
       'scheduledWorkoutId',
       'exerciseId',
+      'exerciseNameSnapshot',
+      'trackingTypeSnapshot',
       'section',
       'orderIndex',
       'programmingNotes',
@@ -1426,6 +1442,7 @@ describe('scheduledWorkoutExercises schema', () => {
     ).toBe('restrict');
     expect(config.indexes.map((idx) => idx.config.name).sort()).toEqual([
       'scheduled_workout_exercises_exercise_id_idx',
+      'scheduled_workout_exercises_id_scheduled_workout_unique',
       'scheduled_workout_exercises_scheduled_workout_id_idx',
     ]);
     expect(config.checks.map((constraint) => constraint.name)).toEqual([
@@ -1451,6 +1468,7 @@ describe('scheduledWorkoutExerciseSets schema', () => {
       'targetWeightMax',
       'targetSeconds',
       'targetDistance',
+      'targetZone',
       'createdAt',
     ]);
 
@@ -1467,6 +1485,7 @@ describe('scheduledWorkoutExerciseSets schema', () => {
       'scheduled_workout_exercise_sets_reps_range_check',
       'scheduled_workout_exercise_sets_set_number_check',
       'scheduled_workout_exercise_sets_target_weight_range_check',
+      'scheduled_workout_exercise_sets_target_zone_check',
     ]);
   });
 });
@@ -1592,5 +1611,120 @@ describe('workout session time segment helpers', () => {
         } as WorkoutSessionTimeSegment,
       ]),
     ).toThrow(TypeError);
+  });
+});
+
+describe('workout progression schema', () => {
+  it('defines one explicit revisioned programming configuration per scheduled exercise', () => {
+    const columns = getTableColumns(workoutProgressionConfigurations);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'scheduledWorkoutId',
+      'scheduledWorkoutExerciseId',
+      'revision',
+      'snapshot',
+      'actorType',
+      'agentTokenId',
+      'actorLabel',
+      'updatedAt',
+    ]);
+    const config = getTableConfig(workoutProgressionConfigurations);
+    expect(config.foreignKeys).toHaveLength(4);
+    expect(config.indexes.map((index) => index.config.name)).toEqual([
+      'workout_progression_configurations_schedule_exercise_unique',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'workout_progression_configurations_actor_check',
+      'workout_progression_configurations_revision_check',
+      'workout_progression_configurations_snapshot_check',
+    ]);
+  });
+
+  it('defines immutable recommendation snapshots with owned scheduling evidence', () => {
+    const columns = getTableColumns(workoutProgressionRecommendations);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'scheduledWorkoutId',
+      'scheduledWorkoutExerciseId',
+      'exerciseId',
+      'sourceSessionId',
+      'policyFamily',
+      'policyVersion',
+      'sourceFingerprint',
+      'effectiveDate',
+      'snapshot',
+      'generatedAt',
+    ]);
+
+    const config = getTableConfig(workoutProgressionRecommendations);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(config.indexes.map((index) => index.config.name).sort()).toEqual([
+      'workout_progression_recommendations_generation_unique',
+      'workout_progression_recommendations_id_user_unique',
+      'workout_progression_recommendations_schedule_idx',
+      'workout_progression_recommendations_user_generated_idx',
+    ]);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'workout_progression_recommendations_effective_date_check',
+      'workout_progression_recommendations_fingerprint_check',
+      'workout_progression_recommendations_generated_at_check',
+      'workout_progression_recommendations_policy_family_check',
+      'workout_progression_recommendations_policy_version_check',
+      'workout_progression_recommendations_snapshot_check',
+    ]);
+  });
+
+  it('defines owned idempotent append-only action facts', () => {
+    const columns = getTableColumns(workoutProgressionActions);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'recommendationId',
+      'userId',
+      'sequence',
+      'type',
+      'payload',
+      'actorType',
+      'agentTokenId',
+      'actorLabel',
+      'idempotencyKey',
+      'requestFingerprint',
+      'createdAt',
+    ]);
+
+    const config = getTableConfig(workoutProgressionActions);
+    expect(config.foreignKeys).toHaveLength(3);
+    expect(config.indexes.map((index) => index.config.name).sort()).toEqual([
+      'workout_progression_actions_recommendation_sequence_unique',
+      'workout_progression_actions_user_created_idx',
+      'workout_progression_actions_user_idempotency_unique',
+    ]);
+  });
+
+  it('defines versioned primary and secondary muscle contributions', () => {
+    const columns = getTableColumns(exerciseMuscleContributions);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'exerciseId',
+      'ownerUserId',
+      'revision',
+      'muscle',
+      'role',
+      'factor',
+      'version',
+      'effectiveAt',
+      'createdAt',
+    ]);
+
+    const config = getTableConfig(exerciseMuscleContributions);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
+      'exercise_muscle_contributions_muscle_check',
+      'exercise_muscle_contributions_revision_check',
+      'exercise_muscle_contributions_role_factor_check',
+      'exercise_muscle_contributions_timestamps_check',
+      'exercise_muscle_contributions_version_check',
+    ]);
   });
 });

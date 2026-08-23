@@ -27,6 +27,7 @@ import { trashRoutes } from './routes/trash/index.js';
 import { v1Routes } from './routes/v1/index.js';
 import { weightRoutes } from './routes/weight/index.js';
 import { workoutSessionRoutes } from './routes/workout-sessions/index.js';
+import { workoutProgressionRoutes } from './routes/workout-progression/index.js';
 import { workoutTemplateRoutes } from './routes/workout-templates/index.js';
 
 const DEV_JWT_SECRET = 'pulse-dev-jwt-secret';
@@ -246,6 +247,7 @@ export const buildServer = () => {
   app.register(v1Routes, { prefix: '/api/v1' });
   app.register(weightRoutes, { prefix: '/api/v1/weight' });
   app.register(workoutSessionRoutes, { prefix: '/api/v1/workout-sessions' });
+  app.register(workoutProgressionRoutes, { prefix: '/api/v1/workout-progression' });
   app.register(workoutTemplateRoutes, { prefix: '/api/v1/workout-templates' });
 
   return app;
