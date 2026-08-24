@@ -290,6 +290,13 @@ const start = async () => {
     // Disable FK checks for migrations — PRAGMA foreign_keys doesn't work
     // inside transactions, and Drizzle wraps each migration in one.
     runWithForeignKeysDisabled(sqlite, () => migrate(db, { migrationsFolder }));
+    const { backfillAdaptiveProgramRevisionProjection } =
+      await import('./db/adaptive-program-revision-projection.js');
+    const programRevisionProjection = backfillAdaptiveProgramRevisionProjection(sqlite);
+    app.log.info(
+      programRevisionProjection,
+      'Adaptive nutrition program revision projection backfill passed',
+    );
     const postMigrationIntegrity = assertDatabaseIntegrity(sqlite, 'migration postflight');
     app.log.info(
       {

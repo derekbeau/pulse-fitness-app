@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { dataQualityCalendarSchema, type AdaptiveProgramMutation } from '@pulse/shared';
 
 import * as schema from '../../db/schema/index.js';
+import { backfillAdaptiveProgramRevisionProjection } from '../../db/adaptive-program-revision-projection.js';
 import {
   adaptiveNutritionCheckIns,
   adaptiveNutritionReviewActions,
@@ -990,6 +991,10 @@ describe('Data Quality calendar store', () => {
         );
       }
     })();
+    expect(backfillAdaptiveProgramRevisionProjection(sqlite)).toEqual({
+      inserted: 5_000,
+      revisions: 5_001,
+    });
 
     const event = createDataQualityCalendarStore({
       db,

@@ -252,7 +252,6 @@ test.describe.serial('Workout progression and muscle analytics', () => {
       await earlyDialog.getByRole('button', { name: 'Start now' }).click();
     }
     await expect(page).toHaveURL(/\/workouts\/active/u);
-    await expect(page.getByText('45 lbs', { exact: false }).first()).toBeVisible();
     const exerciseToggle = page.getByRole('button', {
       name: /In-progress exercise Incline dumbbell press/u,
     });
@@ -260,6 +259,8 @@ test.describe.serial('Workout progression and muscle analytics', () => {
     await exerciseToggle.focus();
     await page.keyboard.press('Enter');
     await expect(exerciseToggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByLabel('Weight for set 1')).toHaveValue('');
+    await expect(page.getByText('Target: 45 lbs').first()).toBeVisible();
     await expect(page.getByText('History', { exact: true })).toBeVisible();
     await expect(page.getByText(/^Aug \d{1,2} · 40x10, 40x10$/u)).toBeVisible();
     await page.waitForLoadState('networkidle');

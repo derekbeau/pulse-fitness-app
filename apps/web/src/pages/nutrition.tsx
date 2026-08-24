@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { type KeyboardEvent, useEffect, useState } from 'react';
+import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, UtensilsCrossed } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import { addCalendarDays, chartDateKeyInTimeZone } from '@pulse/shared';
@@ -47,6 +47,7 @@ import {
   toMealLoggedAtTimestamp,
   type MealSortDirection,
 } from '@/features/nutrition/lib/nutrition-utils';
+import { nextProgramLocalDateBoundaryMs } from '@/features/nutrition/lib/program-local-midnight';
 
 const NUTRITION_VIEWS = ['log', 'coach', 'foods', 'trends'] as const;
 
@@ -244,7 +245,7 @@ export function NutritionPage() {
       >
         {activeView === 'log' ? (
           nutritionTimeZone ? (
-            <NutritionLogTab key={nutritionTimeZone} timeZone={nutritionTimeZone} />
+            <NutritionLogTab timeZone={nutritionTimeZone} />
           ) : (
             <NutritionLogTabSkeleton />
           )
@@ -269,17 +270,28 @@ export function NutritionPage() {
   );
 }
 
-function NutritionLogTab({ timeZone }: { timeZone: string }) {
+export function NutritionLogTab({ timeZone }: { timeZone: string }) {
   const queryClient = useQueryClient();
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
   const todayDateKey = chartDateKeyInTimeZone(currentTimeMs, timeZone);
   const [selectedDate, setSelectedDate] = useState(() => todayDateKey);
+  const previousTodayDateKey = useRef(todayDateKey);
   const [mealSortDirection, setMealSortDirection] = useState<MealSortDirection>('desc');
   const { confirm, dialog } = useConfirmation();
   const dateKey = selectedDate;
 
+  const refreshCurrentTime = useCallback(() => {
+    const nextTimeMs = Date.now();
+    const nextToday = chartDateKeyInTimeZone(nextTimeMs, timeZone);
+    const previousToday = previousTodayDateKey.current;
+    if (previousToday !== nextToday) {
+      setSelectedDate((currentDate) => (currentDate === previousToday ? nextToday : currentDate));
+      previousTodayDateKey.current = nextToday;
+    }
+    setCurrentTimeMs(nextTimeMs);
+  }, [timeZone]);
+
   useEffect(() => {
-    const refreshCurrentTime = () => setCurrentTimeMs(Date.now());
     const refreshVisibleTime = () => {
       if (document.visibilityState === 'visible') refreshCurrentTime();
     };
@@ -290,7 +302,16 @@ function NutritionLogTab({ timeZone }: { timeZone: string }) {
       window.removeEventListener('focus', refreshCurrentTime);
       document.removeEventListener('visibilitychange', refreshVisibleTime);
     };
-  }, []);
+  }, [refreshCurrentTime]);
+
+  useEffect(() => refreshCurrentTime(), [refreshCurrentTime]);
+
+  useEffect(() => {
+    const nowMs = Date.now();
+    const boundaryMs = nextProgramLocalDateBoundaryMs(nowMs, timeZone);
+    const timer = window.setTimeout(refreshCurrentTime, boundaryMs - nowMs);
+    return () => window.clearTimeout(timer);
+  }, [refreshCurrentTime, timeZone, todayDateKey]);
 
   const dailyNutritionQuery = useDailyNutrition(dateKey, {
     refetchIntervalMs: getForegroundPollingInterval(NUTRITION_POLL_INTERVAL_MS),

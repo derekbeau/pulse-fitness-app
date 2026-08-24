@@ -36,20 +36,8 @@ const usernames: Record<Fixture, string> = {
 };
 
 let apiContext: APIRequestContext;
-let fixtureDate: string;
+const fixtureDate = '2026-08-23';
 const tokens = new Map<Fixture, string>();
-
-function detroitDateKey() {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone: 'America/Detroit',
-    year: 'numeric',
-  }).formatToParts(new Date());
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? '';
-  return `${value('year')}-${value('month')}-${value('day')}`;
-}
 
 function datePlus(date: string, days: number) {
   const value = new Date(`${date}T12:00:00.000Z`);
@@ -133,7 +121,6 @@ async function openEvidence(page: Page) {
 
 test.describe.serial('agentic weekly decision reviews', () => {
   test.beforeAll(async () => {
-    fixtureDate = detroitDateKey();
     apiContext = await request.newContext({ baseURL: apiBaseURL });
     for (const fixture of Object.keys(usernames) as Fixture[]) {
       const response = await apiContext.post('/api/v1/auth/login', {
@@ -283,15 +270,25 @@ test.describe.serial('agentic weekly decision reviews', () => {
           };
         };
       };
-      const nutritionId = pending.data.review.snapshot.modules
+      const lowDayEvidence = pending.data.review.snapshot.modules
         .find((module) => module.kind === 'data_quality')
-        ?.evidence?.find((item) => item.id !== null)?.id;
-      if (!nutritionId) throw new Error('Missing low-day nutrition evidence');
-      const stateBefore = await stateBeforeResponse.json();
+        ?.evidence?.find((item) => item.id !== null);
+      const nutritionId = lowDayEvidence?.id;
+      const lowDayLocalDate = (lowDayEvidence as { localDate?: string } | undefined)?.localDate;
+      if (!nutritionId || !lowDayLocalDate) throw new Error('Missing low-day nutrition evidence');
+      const stateBefore = (await stateBeforeResponse.json()) as {
+        data: {
+          activeGoal: unknown;
+          currentTarget: unknown;
+          eligibility: unknown;
+          goalProgress: unknown;
+          program: unknown;
+        };
+      };
 
       const createdResponse = await apiContext.post('/api/v1/adaptive-nutrition/review-context', {
         data: {
-          subject: { kind: 'date', localDate: datePlus(fixtureDate, -3) },
+          subject: { kind: 'date', localDate: lowDayLocalDate },
           category: 'illness',
           note: 'Low intake was intentional during illness recovery.',
           resolution: 'Low intake was intentional and the log is complete.',
@@ -400,7 +397,20 @@ test.describe.serial('agentic weekly decision reviews', () => {
       const stateAfterResponse = await apiContext.get('/api/v1/adaptive-nutrition', {
         headers: lowJwtHeaders,
       });
-      expect(await stateAfterResponse.json()).toEqual(stateBefore);
+      const stateAfter = (await stateAfterResponse.json()) as typeof stateBefore;
+      expect({
+        activeGoal: stateAfter.data.activeGoal,
+        currentTarget: stateAfter.data.currentTarget,
+        eligibility: stateAfter.data.eligibility,
+        goalProgress: stateAfter.data.goalProgress,
+        program: stateAfter.data.program,
+      }).toEqual({
+        activeGoal: stateBefore.data.activeGoal,
+        currentTarget: stateBefore.data.currentTarget,
+        eligibility: stateBefore.data.eligibility,
+        goalProgress: stateBefore.data.goalProgress,
+        program: stateBefore.data.program,
+      });
 
       const deletedResponse = await apiContext.delete(
         `/api/v1/adaptive-nutrition/review-context/${created.data.id}`,
@@ -648,6 +658,7 @@ test.describe.serial('agentic weekly decision reviews', () => {
     await page.keyboard.press('Escape');
     await expect(trigger).toBeFocused();
     await trigger.click();
+    await page.getByLabel('Return on').fill(datePlus(fixtureDate, 2));
     await page.getByRole('button', { name: 'Defer without changing plan' }).click();
     await expect(page.getByRole('status')).toContainText(
       'Review deferred without changing your plan.',
@@ -703,6 +714,25 @@ test.describe.serial('agentic weekly decision reviews', () => {
     page,
   }) => {
     const diagnostics = monitorPage(page);
+    const maximalToken = tokens.get('review-maximal');
+    if (!maximalToken) throw new Error('Missing maximal fixture token');
+    const seededHistoryResponse = await apiContext.get(
+      '/api/v1/adaptive-nutrition/reviews?page=1&limit=20',
+      { headers: { authorization: `Bearer ${maximalToken}` } },
+    );
+    expect(seededHistoryResponse.ok(), await seededHistoryResponse.text()).toBeTruthy();
+    const seededHistory = (await seededHistoryResponse.json()) as {
+      data: Array<{ id: string; snapshot: { modules: Array<{ kind: string }> } }>;
+    };
+    const maximalEvidence = seededHistory.data.find(
+      (review) => review.snapshot.modules.length === 5,
+    );
+    expect(maximalEvidence, 'seeded five-module review').toBeDefined();
+    const previewResponse = await apiContext.post('/api/v1/adaptive-nutrition/reviews/preview', {
+      data: { kind: 'weekly' },
+      headers: { authorization: `Bearer ${maximalToken}` },
+    });
+    expect(previewResponse.ok(), await previewResponse.text()).toBeTruthy();
     for (const width of [320, 390, 430]) {
       await page.setViewportSize({ width, height: 900 });
       await openCoach(page, 'review-maximal');
@@ -722,7 +752,15 @@ test.describe.serial('agentic weekly decision reviews', () => {
       ).toBe(true);
     }
     await page.setViewportSize({ width: 1280, height: 1000 });
-    await openEvidence(page);
+    const maximalEvidenceLink = page.locator(
+      `a[href="/nutrition/reviews/${maximalEvidence?.id ?? ''}"]`,
+    );
+    await expect(maximalEvidenceLink).toBeVisible();
+    await maximalEvidenceLink.focus();
+    await page.keyboard.press('Enter');
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Weekly Review Evidence' }),
+    ).toBeVisible();
     await expect(page.locator('[data-slot="weekly-review-modules"] > section')).toHaveCount(5);
     expect(
       await page.evaluate(

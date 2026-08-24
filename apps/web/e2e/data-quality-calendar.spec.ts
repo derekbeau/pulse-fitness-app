@@ -188,8 +188,10 @@ test.describe.serial('Data Quality calendar', () => {
     const diagnostics = monitorPage(page);
     await page.setViewportSize({ height: 1000, width: 390 });
     const calendar = await openCalendar(page, true);
-    const today = calendar.days.find((day) => day.isToday)?.date ?? dateKeyInDetroit();
-    const contextDate = addDays(today, -4);
+    const contextDate = calendar.days.find((day) =>
+      day.contexts.some((context) => context.note.includes('Migraine reduced appetite')),
+    )?.date;
+    if (!contextDate) throw new Error('Data Quality context fixture is missing');
     await selectDay(page, contextDate);
 
     await expect(page.getByRole('heading', { name: 'Nutrition' })).toBeVisible();
@@ -233,15 +235,28 @@ test.describe.serial('Data Quality calendar', () => {
     const diagnostics = monitorPage(page);
     await page.setViewportSize({ height: 1000, width: 430 });
     const calendar = await openCalendar(page);
-    const today = calendar.days.find((day) => day.isToday)?.date ?? dateKeyInDetroit();
+    const correctionDate = calendar.days.find(
+      (day) => day.weight.correctionState === 'history_unavailable' && day.weight.entry !== null,
+    )?.date;
+    const missingDate = calendar.days.find(
+      (day) =>
+        day.nutrition.qualityState === 'no_records' &&
+        day.workouts.some((item) => item.state === 'planned'),
+    )?.date;
+    const completedWorkoutDate = calendar.days.find((day) =>
+      day.workouts.some((item) => item.state === 'completed'),
+    )?.date;
+    if (!correctionDate || !missingDate || !completedWorkoutDate) {
+      throw new Error('Data Quality deterministic evidence dates are missing');
+    }
 
-    await selectDay(page, addDays(today, -3));
+    await selectDay(page, correctionDate);
     await expect(page.getByText('Correction history unavailable').first()).toBeVisible();
     await expect(
       page.getByRole('region', { name: 'Weight' }).getByText('Logged', { exact: true }),
     ).toBeVisible();
 
-    await selectDay(page, addDays(today, -2));
+    await selectDay(page, missingDate);
     await expect(page.getByText('No record', { exact: true })).toBeVisible();
     await expect(
       page
@@ -253,7 +268,7 @@ test.describe.serial('Data Quality calendar', () => {
       page.getByRole('region', { name: 'Workout' }).getByText('planned', { exact: true }).first(),
     ).toBeVisible();
 
-    await selectDay(page, addDays(today, -1));
+    await selectDay(page, completedWorkoutDate);
     await expect(page.getByText('Cross-domain strength session')).toBeVisible();
     await expect(
       page.getByRole('region', { name: 'Workout' }).getByText('completed', { exact: true }).first(),
@@ -263,17 +278,23 @@ test.describe.serial('Data Quality calendar', () => {
     ).toBeVisible();
     await capture(page, 'data-quality-workout-430.png');
 
-    await selectDay(page, today);
+    const latestEvidenceDay = calendar.days
+      .filter((day) => day.nutrition.qualityState === 'complete' && day.weight.entry !== null)
+      .at(-1);
+    if (!latestEvidenceDay) throw new Error('Data Quality latest evidence day is missing');
+    await selectDay(page, latestEvidenceDay.date);
+    const latestNutritionTreatment = latestEvidenceDay.nutrition.evidenceState.replaceAll('_', ' ');
+    const latestWeightTreatment = latestEvidenceDay.weight.evidenceState.replaceAll('_', ' ');
     await expect(
       page
         .getByRole('region', { name: 'Nutrition' })
-        .getByText('Pending cutoff', { exact: true })
+        .getByText(latestNutritionTreatment, { exact: true })
         .first(),
     ).toBeVisible();
     await expect(
       page
         .getByRole('region', { name: 'Weight' })
-        .getByText('Pending cutoff', { exact: true })
+        .getByText(latestWeightTreatment, { exact: true })
         .first(),
     ).toBeVisible();
     diagnostics();

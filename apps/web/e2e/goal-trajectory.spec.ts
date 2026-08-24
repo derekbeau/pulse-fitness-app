@@ -140,6 +140,7 @@ async function openTrajectory(
         status: string;
         unavailableReason?: string | null;
         projectedEndDate?: string | null;
+        points?: Array<{ date: string }>;
       } | null;
       summary: {
         kind: string;
@@ -251,24 +252,10 @@ test.describe.serial('Goal trajectory', () => {
     );
     await page.keyboard.press('Enter');
     const allResponse = await allResponsePromise;
-    const allAnalytics = (await allResponse.json()) as {
-      data: {
-        productTrend: { currentTrendWeightKg: number | null; currentTrendDate: string | null };
-      };
-    };
+    const allAnalytics = (await allResponse.json()) as { data: typeof analytics };
     expect(allAnalytics.data.productTrend).toEqual(analytics.productTrend);
     await expect(all).toHaveAttribute('aria-pressed', 'true');
     await expect(all).toBeFocused();
-
-    const lookback = page.getByLabel('Recent pace lookback');
-    await lookback.focus();
-    const lookbackResponse = page.waitForResponse(
-      (response) => response.url().includes('lookbackDays=14') && response.status() === 200,
-    );
-    await lookback.selectOption('14');
-    await lookbackResponse;
-    await expect(lookback).toHaveValue('14');
-    await expect(page.getByText('Recent pace · 14 days')).toBeVisible();
 
     const goalStart = page.getByRole('button', { name: /Goal started/u }).first();
     await goalStart.focus();
@@ -288,12 +275,26 @@ test.describe.serial('Goal trajectory', () => {
     await expect(
       exactTable.getByRole('columnheader', { name: 'Adaptive strategy trend' }),
     ).toBeVisible();
-    const lastExactDate = exactTable.locator('tbody tr').last().getByRole('button');
-    await lastExactDate.focus();
+    const forecastDate = allAnalytics.data.forecast?.points?.at(-1)?.date;
+    expect(forecastDate, 'available loss forecast point').toBeTruthy();
+    const forecastExactDate = exactTable.getByRole('button', {
+      name: uiDate(forecastDate ?? ''),
+    });
+    await forecastExactDate.focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-slot="goal-trajectory-point-detail"]')).toContainText(
       /Estimated trend/u,
     );
+
+    const lookback = page.getByLabel('Recent pace lookback');
+    await lookback.focus();
+    const lookbackResponse = page.waitForResponse(
+      (response) => response.url().includes('lookbackDays=14') && response.status() === 200,
+    );
+    await lookback.selectOption('14');
+    await lookbackResponse;
+    await expect(lookback).toHaveValue('14');
+    await expect(page.getByText('Recent pace · 14 days')).toBeVisible();
     await assertNoOverflow(page, 390);
     if (process.env.CAPTURE_ISSUE_109_SCREENSHOTS === '1') {
       await page.screenshot({ fullPage: true, path: 'artifacts/issue-109-loss-390.png' });

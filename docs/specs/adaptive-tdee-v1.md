@@ -2465,11 +2465,17 @@ or changes a nutrition log, target, program, check-in, goal, or review.
   expenditure is context, not another grade.
 - Program revisions use the same nondecreasing causal local-date fold as Energy Balance. Historical
   reads select the effective revision and program time zone without letting a later westward or
-  eastward time-zone edit rewrite an earlier daily response.
+  eastward time-zone edit rewrite an earlier daily response. Each immutable revision has an
+  immutable, indexed causal-date projection. Startup backfill validates the complete ledger with
+  the canonical fold and aborts transactionally on a sequence gap, decreasing UTC effective time,
+  malformed snapshot/time zone, or inconsistent existing projection. Future revisions append their
+  projection inside the same immediate transaction as the revision.
 - The Nutrition Log owns a literal `YYYY-MM-DD` selection in the effective program time zone. Its
   initial day, Today action, current-week boundary, status control, and adjacent/week prefetches do
   not use the browser's calendar. Date-only keys are advanced as calendar dates and are never
-  reinterpreted as instants.
+  reinterpreted as instants. A foreground timer resolves the next midnight in that IANA zone,
+  including 23- and 25-hour days, and reschedules on every rollover or time-zone change. It moves a
+  prior-today selection forward while preserving an intentionally selected historical date.
 - Target and expenditure facts expose compact audit provenance. Target provenance includes manual
   versus accepted-adaptive source, effective date, event and target identities, recorded instant,
   and accepted check-in identity when applicable. Expenditure provenance includes baseline versus
@@ -2478,11 +2484,12 @@ or changes a nutrition log, target, program, check-in, goal, or review.
   that exact selected date while announcing its state. A failed refresh keeps those facts visible,
   marks them potentially stale, and offers a scoped retry; cached facts from another date are never
   relabeled as the current selection.
-- One-day reads retain only the initial and date-effective program revisions and at most one
-  accepted expenditure check-in. Historical revision resolution walks the causal sequence only
-  until the first boundary after the requested date; live reads select the initial and latest
-  endpoints directly. Accepted check-ins are user/program scoped and selected in SQL by effective
-  date, resolution time, creation time, and ID with `limit 1`.
+- One-day reads perform direct indexed lookups for the initial revision and the greatest projected
+  causal date at or before the selected date; they neither materialize nor recursively walk the
+  lifetime revision ledger. Equal local dates resolve by greatest causal sequence. Live reads
+  select the indexed initial and latest endpoints directly. At most one accepted expenditure
+  check-in is retained, user/program scoped and selected in SQL by effective date, resolution time,
+  creation time, and ID with `limit 1`.
 
 ## Sources
 

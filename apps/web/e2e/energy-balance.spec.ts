@@ -16,19 +16,7 @@ type Fixture =
 
 let apiContext: APIRequestContext;
 const tokens = new Map<Fixture, string>();
-let fixtureDate: string;
-
-function detroitDateKey() {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone: 'America/Detroit',
-    year: 'numeric',
-  }).formatToParts(new Date());
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? '';
-  return `${value('year')}-${value('month')}-${value('day')}`;
-}
+const fixtureDate = '2026-08-23';
 
 function datePlus(date: string, days: number) {
   const value = new Date(`${date}T12:00:00.000Z`);
@@ -119,7 +107,6 @@ async function openAnalytics(page: Page, fixture: Fixture, end?: string) {
 
 test.describe.serial('Energy Balance & Expenditure analytics', () => {
   test.beforeAll(async () => {
-    fixtureDate = detroitDateKey();
     apiContext = await request.newContext({ baseURL: apiBaseURL });
     for (const fixture of [
       'updating',
@@ -146,7 +133,7 @@ test.describe.serial('Energy Balance & Expenditure analytics', () => {
     page,
   }) => {
     const assertDiagnostics = monitorPage(page);
-    await openAnalytics(page, 'analytics-goal-loss');
+    await openAnalytics(page, 'analytics-goal-loss', fixtureDate);
 
     const hero = page.locator('[data-slot="energy-state-hero"]');
     await expect(hero.getByText('Updating', { exact: true })).toBeVisible();
@@ -410,7 +397,9 @@ test.describe.serial('Energy Balance & Expenditure analytics', () => {
       .filter({ hasText: displayDate(datePlus(fixtureDate, -3)) });
     await expect(missingRow.getByRole('cell').nth(1)).toHaveText('missing');
     await expect(missingRow.getByRole('cell').nth(3)).toHaveText('Not enough data');
-    const cutoffRow = dataTable.getByRole('row').filter({ hasText: displayDate(fixtureDate) });
+    const cutoffRow = dataTable
+      .getByRole('row')
+      .filter({ hasText: displayDate(datePlus(fixtureDate, 1)) });
     await expect(cutoffRow.getByRole('cell').nth(1)).toHaveText('excluded');
     await expect(cutoffRow.getByRole('cell').nth(2)).toHaveText('2,400 kcal');
     await expect(cutoffRow.getByRole('cell').nth(3)).toHaveText('Not enough data');

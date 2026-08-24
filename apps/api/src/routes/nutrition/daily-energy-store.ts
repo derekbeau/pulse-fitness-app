@@ -45,82 +45,46 @@ const parseProgramRevision = (revision: RawProgramRevision): EffectiveProgramRev
   ),
 });
 
-const registerDateKeyFunction = (sqlite: Database.Database) => {
-  sqlite.function(
-    'pulse_daily_energy_date_key',
-    { deterministic: true },
-    (effectiveAt: number, timeZone: string) =>
-      getDateKeyInTimeZone(new Date(Number(effectiveAt)), String(timeZone)),
-  );
-};
-
 const selectProgramRevisionsForDate = ({
   localDate,
   programId,
   sqlite,
   userId,
+  observe,
 }: {
   localDate: string;
   programId: string;
   sqlite: Database.Database;
   userId: string;
-}): { effective: EffectiveProgramRevision; initial: EffectiveProgramRevision } => {
-  const rows = sqlite
-    .prepare(
-      `with recursive resolved(id, sequence, effectiveAt, snapshot, effectiveLocalDate) as (
-         select revision.id,
+  observe?: (kind: 'selected', rows: number) => void;
+}): { effective: EffectiveProgramRevision | undefined; initial: EffectiveProgramRevision } => {
+  const select = (predicate: string, ordering: string) =>
+    sqlite
+      .prepare(
+        `select revision.id,
                 revision.sequence,
-                revision.effective_at,
+                revision.effective_at as effectiveAt,
                 revision.snapshot,
-                pulse_daily_energy_date_key(
-                  revision.effective_at,
-                  json_extract(revision.snapshot, '$.timeZone')
-                )
-           from adaptive_nutrition_program_revisions revision
-          where revision.user_id = @userId
-            and revision.program_id = @programId
-            and revision.sequence = 1
-         union all
-         select next.id,
-                next.sequence,
-                next.effective_at,
-                next.snapshot,
-                max(
-                  resolved.effectiveLocalDate,
-                  pulse_daily_energy_date_key(
-                    next.effective_at,
-                    json_extract(resolved.snapshot, '$.timeZone')
-                  ),
-                  pulse_daily_energy_date_key(
-                    next.effective_at,
-                    json_extract(next.snapshot, '$.timeZone')
-                  )
-                )
-           from resolved
-           join adaptive_nutrition_program_revisions next
-             on next.user_id = @userId
-            and next.program_id = @programId
-            and next.sequence = resolved.sequence + 1
-          where resolved.effectiveLocalDate <= @localDate
-       ), candidates as (
-         select *, row_number() over (order by sequence desc) as effectiveRank
-           from resolved
-          where effectiveLocalDate <= @localDate
-       )
-       select id, sequence, effectiveAt, snapshot, effectiveLocalDate
-         from resolved
-        where sequence = 1
-       union
-       select id, sequence, effectiveAt, snapshot, effectiveLocalDate
-         from candidates
-        where effectiveRank = 1
-        order by sequence`,
-    )
-    .all({ localDate, programId, userId }) as RawProgramRevision[];
-  const parsed = rows.map(parseProgramRevision);
-  const initial = parsed.find((revision) => revision.sequence === 1);
-  const effective = parsed.at(-1);
-  if (!initial || !effective) {
+                projection.effective_local_date as effectiveLocalDate
+           from adaptive_nutrition_program_revision_dates projection
+           join adaptive_nutrition_program_revisions revision
+             on revision.id = projection.revision_id
+          where projection.user_id = @userId
+            and projection.program_id = @programId
+            and ${predicate}
+          order by ${ordering}
+          limit 1`,
+      )
+      .get({ localDate, programId, userId }) as RawProgramRevision | undefined;
+  const initialRow = select('projection.sequence = 1', 'projection.sequence asc');
+  const effectiveRow = select(
+    'projection.effective_local_date <= @localDate',
+    'projection.effective_local_date desc, projection.sequence desc',
+  );
+  const initial = initialRow ? parseProgramRevision(initialRow) : undefined;
+  const effective = effectiveRow ? parseProgramRevision(effectiveRow) : undefined;
+  observe?.('selected', Number(Boolean(initialRow)) + Number(Boolean(effectiveRow)));
+  if (!initial) {
     throw new Error('Adaptive nutrition program revision history is missing');
   }
   return { effective, initial };
@@ -130,30 +94,32 @@ const selectEndpointProgramRevisions = ({
   programId,
   sqlite,
   userId,
+  observe,
 }: {
   programId: string;
   sqlite: Database.Database;
   userId: string;
+  observe?: (kind: 'endpoints', rows: number) => void;
 }): { initial: EffectiveProgramRevision; latest: EffectiveProgramRevision } => {
   const select = (direction: 'asc' | 'desc') =>
     sqlite
       .prepare(
-        `select id,
-                sequence,
-                effective_at as effectiveAt,
-                snapshot,
-                pulse_daily_energy_date_key(
-                  effective_at,
-                  json_extract(snapshot, '$.timeZone')
-                ) as effectiveLocalDate
-           from adaptive_nutrition_program_revisions
-          where user_id = @userId and program_id = @programId
-          order by sequence ${direction}
+        `select revision.id,
+                revision.sequence,
+                revision.effective_at as effectiveAt,
+                revision.snapshot,
+                projection.effective_local_date as effectiveLocalDate
+           from adaptive_nutrition_program_revision_dates projection
+           join adaptive_nutrition_program_revisions revision
+             on revision.id = projection.revision_id
+          where projection.user_id = @userId and projection.program_id = @programId
+          order by projection.sequence ${direction}
           limit 1`,
       )
       .get({ programId, userId }) as RawProgramRevision | undefined;
   const initialRow = select('asc');
   const latestRow = select('desc');
+  observe?.('endpoints', Number(Boolean(initialRow)) + Number(Boolean(latestRow)));
   if (!initialRow || !latestRow) {
     throw new Error('Adaptive nutrition program revision history is missing');
   }
@@ -179,9 +145,9 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
   db: NutritionDatabase;
   sqlite: Database.Database;
   now?: () => Date;
+  onProgramRevisionLookup?: (kind: 'selected' | 'endpoints', rows: number) => void;
 }) => {
   const { db } = dependencies;
-  registerDateKeyFunction(dependencies.sqlite);
   const now = dependencies.now ?? (() => new Date());
 
   const getDailyEnergyAdherence = (userId: string, localDate: string): DailyEnergyAdherence => {
@@ -205,6 +171,7 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
           programId: program.id,
           sqlite: dependencies.sqlite,
           userId,
+          observe: dependencies.onProgramRevisionLookup,
         })
       : null;
     const latestProgramRevision = endpointProgramRevisions?.latest;
@@ -222,6 +189,7 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
             programId: program?.id ?? '',
             sqlite: dependencies.sqlite,
             userId,
+            observe: dependencies.onProgramRevisionLookup,
           })
       : undefined;
     const effectiveProgramRevision = selectedProgramRevisions?.effective;

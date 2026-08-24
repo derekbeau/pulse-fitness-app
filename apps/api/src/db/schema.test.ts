@@ -27,6 +27,7 @@ import {
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
   adaptiveNutritionProgramRevisions,
+  adaptiveNutritionProgramRevisionDates,
   adaptiveNutritionPrograms,
   agentTokens,
   bodyWeight,
@@ -757,6 +758,23 @@ describe('adaptive nutrition persistence schema', () => {
       'adaptive_nutrition_program_revisions_sequence_check',
       'adaptive_nutrition_program_revisions_snapshot_check',
       'adaptive_nutrition_program_revisions_source_check',
+    ]);
+  });
+
+  it('defines an indexed immutable causal-date projection', () => {
+    expect(getTableName(adaptiveNutritionProgramRevisionDates)).toBe(
+      'adaptive_nutrition_program_revision_dates',
+    );
+    const config = getTableConfig(adaptiveNutritionProgramRevisionDates);
+    expect(config.foreignKeys).toHaveLength(4);
+    expect(config.foreignKeys.every((foreignKey) => foreignKey.onDelete === 'cascade')).toBe(true);
+    expect(config.indexes.map((entry) => entry.config.name).sort()).toEqual([
+      'adaptive_nutrition_program_revision_dates_lookup_idx',
+      'adaptive_nutrition_program_revision_dates_program_sequence_unique',
+    ]);
+    expect(config.checks.map((entry) => entry.name).sort()).toEqual([
+      'adaptive_nutrition_program_revision_dates_date_check',
+      'adaptive_nutrition_program_revision_dates_sequence_check',
     ]);
   });
 

@@ -104,6 +104,10 @@ describe('Adaptive TDEE preview fixtures', () => {
       'analytics-pending': 'pending_recommendation',
       'analytics-goal-loss': 'updating',
       'daily-energy-adherence': 'updating',
+      'daily-energy-loss': 'updating',
+      'daily-energy-gain': 'updating',
+      'daily-energy-manual': 'baseline',
+      'daily-energy-revisions': 'pending_recommendation',
       'review-clean-loss': 'pending_recommendation',
       'review-clean-gain': 'pending_recommendation',
       'review-clean-maintain': 'pending_recommendation',
@@ -259,6 +263,71 @@ describe('Adaptive TDEE preview fixtures', () => {
     expect(
       dailyEnergyStore.getDailyEnergyAdherence(dailyEnergyFixture.userId, '2026-08-13').dataState,
     ).toBe('pending_cutoff');
+    expect(
+      dailyEnergyStore.getDailyEnergyAdherence(dailyEnergyFixture.userId, '2026-08-14').dataState,
+    ).toBe('future');
+    expect(
+      [-5, -6, -7, -8, -9, -10, -11].map((offset) => {
+        const fact = dailyEnergyStore.getDailyEnergyAdherence(
+          dailyEnergyFixture.userId,
+          new Date(Date.parse('2026-08-13T12:00:00.000Z') + offset * 86_400_000)
+            .toISOString()
+            .slice(0, 10),
+        );
+        return [fact.intakeMinusTargetKcal, fact.adherence];
+      }),
+    ).toEqual([
+      [125, 'on_target'],
+      [126, 'near_target'],
+      [250, 'near_target'],
+      [251, 'off_target'],
+      [-125, 'on_target'],
+      [-250, 'near_target'],
+      [-251, 'off_target'],
+    ]);
+    for (const [fixtureName, goalType] of [
+      ['daily-energy-loss', 'lose'],
+      ['daily-energy-gain', 'gain'],
+    ] as const) {
+      const fixture = first.find((candidate) => candidate.fixture === fixtureName);
+      if (!fixture) throw new Error(`Missing ${fixtureName}`);
+      expect(store.getState(fixture.userId).program?.goalType).toBe(goalType);
+      expect(dailyEnergyStore.getDailyEnergyAdherence(fixture.userId, '2026-08-12')).toMatchObject({
+        adherence: 'on_target',
+        intakeMinusTargetKcal: -100,
+      });
+    }
+    const manualFixture = first.find((fixture) => fixture.fixture === 'daily-energy-manual');
+    if (!manualFixture) throw new Error('Daily Energy manual fixture missing');
+    expect(
+      dailyEnergyStore.getDailyEnergyAdherence(manualFixture.userId, '2026-08-05'),
+    ).toMatchObject({
+      dataState: 'gradeable',
+      adherence: 'on_target',
+      target: { source: 'manual', caloriesKcal: 2_400 },
+      expenditure: null,
+    });
+    const revisionsFixture = first.find((fixture) => fixture.fixture === 'daily-energy-revisions');
+    if (!revisionsFixture) throw new Error('Daily Energy revisions fixture missing');
+    const beforeRevision = dailyEnergyStore.getDailyEnergyAdherence(
+      revisionsFixture.userId,
+      '2026-08-05',
+    );
+    const acceptedRevision = dailyEnergyStore.getDailyEnergyAdherence(
+      revisionsFixture.userId,
+      '2026-08-07',
+    );
+    const pendingRevisionDate = dailyEnergyStore.getDailyEnergyAdherence(
+      revisionsFixture.userId,
+      '2026-08-10',
+    );
+    expect(beforeRevision.expenditure).toMatchObject({ source: 'accepted_check_in' });
+    expect(acceptedRevision.expenditure).toMatchObject({ source: 'accepted_check_in' });
+    expect(beforeRevision.expenditure?.checkInId).not.toBe(acceptedRevision.expenditure?.checkInId);
+    expect(acceptedRevision.expenditure).toEqual(pendingRevisionDate.expenditure);
+    expect(pendingRevisionDate.expenditure?.caloriesKcal).not.toBe(4_100);
+    expect(beforeRevision.target?.targetEventId).not.toBe(acceptedRevision.target?.targetEventId);
+    expect(acceptedRevision.target).toEqual(pendingRevisionDate.target);
     const learning = first.find((fixture) => fixture.fixture === 'learning');
     if (!learning) throw new Error('Learning fixture missing');
     const firstLearningEligibility = store.getState(learning.userId).eligibility;

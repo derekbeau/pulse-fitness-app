@@ -9,6 +9,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import * as schema from './schema/index.js';
+import { backfillAdaptiveProgramRevisionProjection } from './adaptive-program-revision-projection.js';
 import { createAdaptiveAnalyticsStore } from '../routes/adaptive-nutrition/analytics-store.js';
 
 const sourceMigrationsFolder = fileURLToPath(new URL('../../drizzle', import.meta.url));
@@ -412,6 +413,143 @@ describe('adaptive program revision causal migration', () => {
           effectiveAt: 99,
         }),
       ).toThrow('nondecreasing effective_at');
+      expectHealthyDatabase(sqlite);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('upgrades a populated 0055 ledger into an indexed immutable causal-date projection', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-program-projection-upgrade-'));
+    tempDirs.push(root);
+    const through0055 = stageMigrationsThrough(root, 55);
+    const sqlite = new Database(join(root, 'projection.db'));
+    sqlite.pragma('foreign_keys = ON');
+    try {
+      const db = drizzle(sqlite, { schema });
+      migrate(db, { migrationsFolder: through0055 });
+      const initialAt = Date.parse('2026-08-18T00:59:00.000Z');
+      seedLegacyProgram(sqlite, {
+        userId: 'projection-user',
+        programId: 'projection-program',
+        createdAt: initialAt,
+        updatedAt: initialAt,
+        snapshot: programSnapshot({ timeZone: 'Asia/Tokyo' }),
+      });
+      const insert = sqlite.prepare(
+        `insert into adaptive_nutrition_program_revisions (
+           id, program_id, user_id, sequence, effective_at, snapshot, source, created_at
+         ) values (?, 'projection-program', 'projection-user', ?, ?, ?, 'migration', ?)`,
+      );
+      const revisions = [
+        ['projection-1', 1, initialAt, programSnapshot({ timeZone: 'Asia/Tokyo' })],
+        [
+          'projection-2',
+          2,
+          Date.parse('2026-08-18T01:00:00.000Z'),
+          programSnapshot({ timeZone: 'America/Los_Angeles' }),
+        ],
+        [
+          'projection-3',
+          3,
+          Date.parse('2026-08-18T02:00:00.000Z'),
+          programSnapshot({ timeZone: 'Asia/Tokyo' }),
+        ],
+      ] as const;
+      for (const [id, sequence, effectiveAt, revisionSnapshot] of revisions) {
+        insert.run(id, sequence, effectiveAt, JSON.stringify(revisionSnapshot), effectiveAt);
+      }
+
+      migrate(db, { migrationsFolder: sourceMigrationsFolder });
+      expect(backfillAdaptiveProgramRevisionProjection(sqlite)).toEqual({
+        inserted: 3,
+        revisions: 3,
+      });
+      expect(
+        sqlite
+          .prepare(
+            `select revision_id as revisionId, sequence, effective_local_date as effectiveLocalDate
+               from adaptive_nutrition_program_revision_dates
+              order by sequence`,
+          )
+          .all(),
+      ).toEqual([
+        { revisionId: 'projection-1', sequence: 1, effectiveLocalDate: '2026-08-18' },
+        { revisionId: 'projection-2', sequence: 2, effectiveLocalDate: '2026-08-18' },
+        { revisionId: 'projection-3', sequence: 3, effectiveLocalDate: '2026-08-18' },
+      ]);
+      const plan = sqlite
+        .prepare(
+          `explain query plan
+           select revision_id
+             from adaptive_nutrition_program_revision_dates
+            where user_id = ? and program_id = ? and effective_local_date <= ?
+            order by effective_local_date desc, sequence desc
+            limit 1`,
+        )
+        .all('projection-user', 'projection-program', '2026-08-18') as Array<{
+        detail: string;
+      }>;
+      expect(plan.some((row) => row.detail.includes('revision_dates_lookup_idx'))).toBe(true);
+      expect(() =>
+        sqlite
+          .prepare(
+            `insert into adaptive_nutrition_program_revision_dates
+              (revision_id, program_id, user_id, sequence, effective_local_date, created_at)
+             values ('projection-3', 'projection-program', 'projection-user', 4, '2026-08-19', 1)`,
+          )
+          .run(),
+      ).toThrow();
+      expectHealthyDatabase(sqlite);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('rolls back the whole projection when any legacy ledger is malformed', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-program-projection-rollback-'));
+    tempDirs.push(root);
+    const through0055 = stageMigrationsThrough(root, 55);
+    const sqlite = new Database(join(root, 'rollback.db'));
+    sqlite.pragma('foreign_keys = ON');
+    try {
+      const db = drizzle(sqlite, { schema });
+      migrate(db, { migrationsFolder: through0055 });
+      seedLegacyProgram(sqlite, {
+        userId: 'valid-user',
+        programId: 'valid-program',
+        createdAt: 100,
+        updatedAt: 100,
+      });
+      seedLegacyProgram(sqlite, {
+        userId: 'invalid-user',
+        programId: 'invalid-program',
+        createdAt: 100,
+        updatedAt: 100,
+      });
+      insertRevision(sqlite, {
+        id: 'valid-1',
+        programId: 'valid-program',
+        userId: 'valid-user',
+        sequence: 1,
+        effectiveAt: 100,
+      });
+      sqlite.exec('drop trigger adaptive_nutrition_program_revisions_insert_sequence_guard');
+      sqlite
+        .prepare(
+          `insert into adaptive_nutrition_program_revisions
+            (id, program_id, user_id, sequence, effective_at, snapshot, source, created_at)
+           values ('invalid-2', 'invalid-program', 'invalid-user', 2, 100, ?, 'migration', 100)`,
+        )
+        .run(JSON.stringify({ timeZone: 'Mars/Olympus_Mons' }));
+      migrate(db, { migrationsFolder: sourceMigrationsFolder });
+
+      expect(() => backfillAdaptiveProgramRevisionProjection(sqlite)).toThrow();
+      expect(
+        sqlite
+          .prepare('select count(*) as count from adaptive_nutrition_program_revision_dates')
+          .get(),
+      ).toEqual({ count: 0 });
       expectHealthyDatabase(sqlite);
     } finally {
       sqlite.close();

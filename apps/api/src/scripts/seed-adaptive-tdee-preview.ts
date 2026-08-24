@@ -60,6 +60,10 @@ export type AdaptivePreviewFixtureName =
   | 'analytics-pending'
   | 'analytics-goal-loss'
   | 'daily-energy-adherence'
+  | 'daily-energy-loss'
+  | 'daily-energy-gain'
+  | 'daily-energy-manual'
+  | 'daily-energy-revisions'
   | 'review-clean-loss'
   | 'review-clean-gain'
   | 'review-clean-maintain'
@@ -223,6 +227,38 @@ const FIXTURES: Array<
     name: 'Daily Energy · Adherence States',
     expectedState: 'updating',
     note: 'Dedicated complete, partial, unknown, missing, and cutoff days exercise daily energy adherence.',
+  },
+  {
+    fixture: 'daily-energy-loss',
+    usernameSuffix: 'de-loss',
+    idSuffix: '0045',
+    name: 'Daily Energy · Loss Goal',
+    expectedState: 'updating',
+    note: 'A dedicated loss program proves that adherence grading stays symmetric and goal-neutral.',
+  },
+  {
+    fixture: 'daily-energy-gain',
+    usernameSuffix: 'de-gain',
+    idSuffix: '0046',
+    name: 'Daily Energy · Gain Goal',
+    expectedState: 'updating',
+    note: 'A dedicated gain program proves that adherence grading stays symmetric and goal-neutral.',
+  },
+  {
+    fixture: 'daily-energy-manual',
+    usernameSuffix: 'de-manual',
+    idSuffix: '0047',
+    name: 'Daily Energy · Manual History',
+    expectedState: 'baseline',
+    note: 'A manual target predating the adaptive program proves manual provenance and a null pre-program expenditure gap.',
+  },
+  {
+    fixture: 'daily-energy-revisions',
+    usernameSuffix: 'de-revisions',
+    idSuffix: '0048',
+    name: 'Daily Energy · Causal Revisions',
+    expectedState: 'pending_recommendation',
+    note: 'A later accepted recommendation and a materially different pending proposal prove date-effective accepted-only target and expenditure selection.',
   },
   {
     fixture: 'review-clean-loss',
@@ -874,6 +910,7 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   [-2, -1, 0].forEach((offset) => {
     seedCompleteNutritionDay(db, learning.userId, datePlus(anchorDate, offset), clock + offset);
   });
+  seedCompleteNutritionDay(db, learning.userId, datePlus(anchorDate, 1), clock + 1);
 
   const updating = createAndAcceptBaseline('updating');
   seedEligibleHistory(db, updating.userId, anchorDate, clock);
@@ -967,7 +1004,189 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
     )
     .run();
   seedCompleteNutritionDay(db, dailyEnergy.userId, anchorDate, clock + 2);
+  seedCompleteNutritionDay(db, dailyEnergy.userId, datePlus(anchorDate, 1), clock + 3);
+  for (const [offset, calories] of [
+    [-5, 2_625],
+    [-6, 2_626],
+    [-7, 2_750],
+    [-8, 2_751],
+    [-9, 2_375],
+    [-10, 2_250],
+    [-11, 2_249],
+  ] as const) {
+    db.update(mealItems)
+      .set({ calories })
+      .where(eq(mealItems.id, `${dailyEnergy.userId}-item-${datePlus(anchorDate, offset)}`))
+      .run();
+  }
   clock += 1000;
+
+  const dailyEnergyLoss = createHistoricalBaseline(
+    'daily-energy-loss',
+    programInput({ goalType: 'lose', targetWeightKg: 75, goalRatePctPerWeek: -0.5 }),
+  );
+  seedEligibleHistory(db, dailyEnergyLoss.userId, anchorDate, clock);
+  const dailyEnergyLossTarget = db
+    .select({ calories: nutritionTargets.calories })
+    .from(nutritionTargets)
+    .where(eq(nutritionTargets.userId, dailyEnergyLoss.userId))
+    .get();
+  if (!dailyEnergyLossTarget) throw new Error('Daily Energy loss target fixture is incomplete');
+  db.update(mealItems)
+    .set({ calories: dailyEnergyLossTarget.calories - 100 })
+    .where(eq(mealItems.id, `${dailyEnergyLoss.userId}-item-${datePlus(anchorDate, -1)}`))
+    .run();
+  clock += 1000;
+
+  const dailyEnergyGain = createHistoricalBaseline(
+    'daily-energy-gain',
+    programInput({ goalType: 'gain', targetWeightKg: 88, goalRatePctPerWeek: 0.5 }),
+  );
+  seedEligibleHistory(db, dailyEnergyGain.userId, anchorDate, clock);
+  const dailyEnergyGainTarget = db
+    .select({ calories: nutritionTargets.calories })
+    .from(nutritionTargets)
+    .where(eq(nutritionTargets.userId, dailyEnergyGain.userId))
+    .get();
+  if (!dailyEnergyGainTarget) throw new Error('Daily Energy gain target fixture is incomplete');
+  db.update(mealItems)
+    .set({ calories: dailyEnergyGainTarget.calories - 100 })
+    .where(eq(mealItems.id, `${dailyEnergyGain.userId}-item-${datePlus(anchorDate, -1)}`))
+    .run();
+  clock += 1000;
+
+  const dailyEnergyManual = record('daily-energy-manual');
+  const manualCurrentClock = clock;
+  clock -= 7 * DAY_MS;
+  store.upsertProgram(dailyEnergyManual.userId, programInput());
+  store.declineCheckIn(dailyEnergyManual.userId, requirePendingId(store, dailyEnergyManual.userId));
+  clock = manualCurrentClock + 1000;
+  const manualTargetId = `${dailyEnergyManual.userId}-manual-target`;
+  const manualRecordedAt = clock - 10 * DAY_MS;
+  db.insert(nutritionTargets)
+    .values({
+      id: manualTargetId,
+      userId: dailyEnergyManual.userId,
+      calories: 2_400,
+      protein: 160,
+      carbs: 260,
+      fat: 80,
+      macroCalories: 2_400,
+      effectiveDate: datePlus(anchorDate, -10),
+      source: 'manual',
+      createdAt: manualRecordedAt,
+      updatedAt: manualRecordedAt,
+    })
+    .run();
+  db.insert(nutritionTargetEvents)
+    .values({
+      id: `${manualTargetId}-event`,
+      targetId: manualTargetId,
+      userId: dailyEnergyManual.userId,
+      sequence: 1,
+      effectiveDate: datePlus(anchorDate, -10),
+      calories: 2_400,
+      protein: 160,
+      carbs: 260,
+      fat: 80,
+      macroCalories: 2_400,
+      source: 'manual',
+      adaptiveCheckInId: null,
+      eventType: 'manual_write',
+      recordedAt: manualRecordedAt,
+      createdAt: manualRecordedAt,
+    })
+    .run();
+  seedCompleteNutritionDay(
+    db,
+    dailyEnergyManual.userId,
+    datePlus(anchorDate, -8),
+    manualRecordedAt,
+  );
+  clock += 1000;
+
+  const dailyEnergyRevisions = createHistoricalBaseline('daily-energy-revisions');
+  const revisionsCurrentClock = clock;
+  clock = Date.parse(`${datePlus(anchorDate, -6)}T16:00:00.000Z`);
+  for (let offset = -21; offset <= -7; offset += 1) {
+    seedCompleteNutritionDay(
+      db,
+      dailyEnergyRevisions.userId,
+      datePlus(anchorDate, offset),
+      clock + offset,
+    );
+  }
+  for (const [offset, weightKg] of [
+    [-21, 82],
+    [-18, 81.95],
+    [-15, 81.9],
+    [-12, 81.85],
+    [-9, 81.8],
+    [-7, 81.75],
+  ] as const) {
+    seedWeightDay(
+      db,
+      dailyEnergyRevisions.userId,
+      datePlus(anchorDate, offset),
+      weightKg,
+      clock + offset,
+    );
+  }
+  const acceptedRevision = store.previewCheckIn(dailyEnergyRevisions.userId, {
+    kind: 'manual',
+    includeToday: false,
+  });
+  store.acceptCheckIn(dailyEnergyRevisions.userId, acceptedRevision.id, {
+    replaceSameDateTarget: false,
+  });
+  const acceptedRevisionRow = db
+    .select()
+    .from(adaptiveNutritionCheckIns)
+    .where(eq(adaptiveNutritionCheckIns.id, acceptedRevision.id))
+    .get();
+  if (!acceptedRevisionRow || !acceptedRevisionRow.proposedTargets) {
+    throw new Error('Daily Energy accepted revision fixture is incomplete');
+  }
+  for (let offset = -6; offset <= -1; offset += 1) {
+    seedCompleteNutritionDay(
+      db,
+      dailyEnergyRevisions.userId,
+      datePlus(anchorDate, offset),
+      revisionsCurrentClock + offset,
+    );
+  }
+  for (const [offset, weightKg] of [
+    [-6, 81.7],
+    [-3, 81.65],
+    [-1, 81.6],
+  ] as const) {
+    seedWeightDay(
+      db,
+      dailyEnergyRevisions.userId,
+      datePlus(anchorDate, offset),
+      weightKg,
+      revisionsCurrentClock + offset,
+    );
+  }
+  db.insert(adaptiveNutritionCheckIns)
+    .values({
+      ...acceptedRevisionRow,
+      id: `${dailyEnergyRevisions.userId}-pending-competing`,
+      status: 'pending',
+      localDate: datePlus(anchorDate, -3),
+      dataFingerprint: 'd'.repeat(64),
+      proposedTdeeKcal: 4_100,
+      proposedTargets: {
+        ...acceptedRevisionRow.proposedTargets,
+        calories: 4_100,
+        effectiveDate: datePlus(anchorDate, -3),
+      },
+      acceptedNutritionTargetId: null,
+      resolvedAt: null,
+      createdAt: clock + 1000,
+    })
+    .run();
+  clock = revisionsCurrentClock + 1000;
 
   const maintenance = createHistoricalBaseline('goal-maintenance');
   seedEligibleHistory(db, maintenance.userId, anchorDate, clock);
@@ -1032,7 +1251,7 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   );
   seedEligibleHistory(db, trajectoryReached.userId, anchorDate, clock, true);
   store.previewCheckIn(trajectoryReached.userId, { kind: 'manual', includeToday: false });
-  seedWeightDay(db, trajectoryReached.userId, anchorDate, 85, clock);
+  seedWeightDay(db, trajectoryReached.userId, datePlus(anchorDate, 1), 85, clock);
   clock += 1000;
 
   const trajectoryGain = createHistoricalBaseline(
@@ -1476,10 +1695,23 @@ export async function runAdaptiveTdeePreviewSeedCli(args: string[]) {
     throw new Error('Preview database must be the regular, non-symlink Gate 0 database');
   }
   process.env.DATABASE_URL = expectedPath;
-  const [{ db, sqlite }, passwordHash] = await Promise.all([
+  const [
+    { db, sqlite },
+    { migrate },
+    { runWithForeignKeysDisabled },
+    { backfillAdaptiveProgramRevisionProjection },
+    passwordHash,
+  ] = await Promise.all([
     import('../db/index.js'),
+    import('drizzle-orm/better-sqlite3/migrator'),
+    import('../db/integrity.js'),
+    import('../db/adaptive-program-revision-projection.js'),
     bcrypt.hash(ADAPTIVE_PREVIEW_PASSWORD, 4),
   ]);
+  runWithForeignKeysDisabled(sqlite, () =>
+    migrate(db, { migrationsFolder: resolve(repoRoot, 'apps/api/drizzle') }),
+  );
+  backfillAdaptiveProgramRevisionProjection(sqlite);
   const records = seedAdaptiveTdeePreviewFixtures({
     anchorDate: parsed.anchorDate,
     db,

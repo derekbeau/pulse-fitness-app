@@ -166,6 +166,49 @@ export const adaptiveNutritionAccountDeletionScope = sqliteTable(
   },
 );
 
+export const adaptiveNutritionProgramRevisionDates = sqliteTable(
+  'adaptive_nutrition_program_revision_dates',
+  {
+    revisionId: text('revision_id')
+      .primaryKey()
+      .references(() => adaptiveNutritionProgramRevisions.id, { onDelete: 'cascade' }),
+    programId: text('program_id')
+      .notNull()
+      .references(() => adaptiveNutritionPrograms.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    sequence: integer('sequence').notNull(),
+    effectiveLocalDate: text('effective_local_date').notNull(),
+    createdAt: integer('created_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`)
+      .$defaultFn(() => Date.now()),
+  },
+  (table) => [
+    index('adaptive_nutrition_program_revision_dates_lookup_idx').on(
+      table.userId,
+      table.programId,
+      table.effectiveLocalDate,
+      table.sequence,
+    ),
+    uniqueIndex('adaptive_nutrition_program_revision_dates_program_sequence_unique').on(
+      table.programId,
+      table.sequence,
+    ),
+    foreignKey({
+      columns: [table.programId, table.userId],
+      foreignColumns: [adaptiveNutritionPrograms.id, adaptiveNutritionPrograms.userId],
+      name: 'adaptive_nutrition_program_revision_dates_program_user_fk',
+    }).onDelete('cascade'),
+    check('adaptive_nutrition_program_revision_dates_sequence_check', sql`${table.sequence} >= 1`),
+    check(
+      'adaptive_nutrition_program_revision_dates_date_check',
+      sql`${table.effectiveLocalDate} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
+    ),
+  ],
+);
+
 export const adaptiveNutritionGoals = sqliteTable(
   'adaptive_nutrition_goals',
   {

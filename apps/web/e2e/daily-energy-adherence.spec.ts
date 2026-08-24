@@ -17,7 +17,7 @@ let fixtureDate = '';
 let api: APIRequestContext;
 let token: string;
 let agentToken: { id: string; token: string };
-let currentDayMeal: { date: string; id: string } | null = null;
+const deterministicFixtureDate = '2026-08-23';
 
 function dateKeyInDetroit() {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -37,10 +37,17 @@ function addDays(date: string, amount: number) {
   return value.toISOString().slice(0, 10);
 }
 
-function monitorPage(page: Page, expectedResponses: Array<{ path: string; status: number }> = []) {
+function monitorPage(
+  page: Page,
+  expectedResponses: Array<{ path: string; status: number }> = [],
+  expectedRequestFailures: Array<{ errorText: string; method: string; path: string }> = [],
+) {
   const failures: string[] = [];
   const failedResourceConsoleMessages: string[] = [];
   let expectedFailedResourceMessages = 0;
+  const expectedRequestFailureCounts = new Map(
+    expectedRequestFailures.map((expected) => [JSON.stringify(expected), 0]),
+  );
   page.on('console', (message) => {
     if (message.type() === 'warning' || message.type() === 'error') {
       const value = `${message.type()}: ${message.text()}`;
@@ -58,11 +65,22 @@ function monitorPage(page: Page, expectedResponses: Array<{ path: string; status
     }
   });
   page.on('pageerror', (error) => failures.push(`pageerror: ${error.message}`));
-  page.on('requestfailed', (failed) =>
-    failures.push(
-      `requestfailed: ${failed.method()} ${failed.url()} ${failed.failure()?.errorText ?? ''}`,
-    ),
-  );
+  page.on('requestfailed', (failed) => {
+    const errorText = failed.failure()?.errorText ?? '';
+    const path = new URL(failed.url()).pathname;
+    const expected = expectedRequestFailures.find(
+      (candidate) =>
+        candidate.errorText === errorText &&
+        candidate.method === failed.method() &&
+        candidate.path === path,
+    );
+    if (expected) {
+      const key = JSON.stringify(expected);
+      expectedRequestFailureCounts.set(key, (expectedRequestFailureCounts.get(key) ?? 0) + 1);
+      return;
+    }
+    failures.push(`requestfailed: ${failed.method()} ${failed.url()} ${errorText}`);
+  });
   page.on('response', (response) => {
     const expectedFailure =
       response.status() >= 400 &&
@@ -77,11 +95,17 @@ function monitorPage(page: Page, expectedResponses: Array<{ path: string; status
       failures.push(`http ${response.status()}: ${response.url()}`);
     }
   });
-  return () =>
+  return () => {
+    for (const expected of expectedRequestFailures) {
+      const count = expectedRequestFailureCounts.get(JSON.stringify(expected)) ?? 0;
+      if (count !== 1)
+        failures.push(`expected request failure count ${count}: ${JSON.stringify(expected)}`);
+    }
     expect(
       failures.concat(failedResourceConsoleMessages.slice(expectedFailedResourceMessages)),
       'browser diagnostics',
     ).toEqual([]);
+  };
 }
 
 async function capture(page: Page, filename: string) {
@@ -90,8 +114,8 @@ async function capture(page: Page, filename: string) {
   await page.screenshot({ fullPage: true, path: resolve(directory, filename) });
 }
 
-async function openNutrition(page: Page, date: string) {
-  await setAuthenticatedSession(page, token);
+async function openNutrition(page: Page, date: string, sessionToken = token) {
+  await setAuthenticatedSession(page, sessionToken);
   const response = page.waitForResponse(
     (candidate) =>
       candidate.url().endsWith(`/api/v1/nutrition/${date}/energy-adherence`) &&
@@ -107,14 +131,13 @@ async function openNutrition(page: Page, date: string) {
 
 async function selectDate(page: Page, date: string) {
   let button = page.getByRole('button', { name: `Select ${date}` });
-  if ((await button.count()) === 0) {
+  for (let attempts = 0; attempts < 5 && (await button.count()) === 0; attempts += 1) {
+    const firstDateButton = page.getByRole('button', { name: /^Select /u }).first();
+    await expect(firstDateButton).toBeVisible();
     const visibleDateLabels = await page
       .getByRole('button', { name: /^Select /u })
       .allTextContents();
-    const firstVisible = await page
-      .getByRole('button', { name: /^Select /u })
-      .first()
-      .getAttribute('aria-label');
+    const firstVisible = await firstDateButton.getAttribute('aria-label');
     if (!firstVisible || visibleDateLabels.length === 0) {
       throw new Error('Nutrition week dates are unavailable');
     }
@@ -125,8 +148,8 @@ async function selectDate(page: Page, date: string) {
       })
       .click();
     button = page.getByRole('button', { name: `Select ${date}` });
-    await expect(button).toBeVisible();
   }
+  await expect(button).toBeVisible();
   await button.focus();
   await page.keyboard.press('Enter');
   await expect(button).toHaveAttribute('data-selected', 'true');
@@ -159,34 +182,21 @@ test.describe.serial('Daily energy adherence', () => {
     token = ((await login.json()) as { data: { token: string } }).data.token;
 
     const currentDate = dateKeyInDetroit();
-    for (let offset = 0; offset <= 7 && fixtureDate === ''; offset += 1) {
-      const candidate = addDays(currentDate, -offset);
-      const responses = await Promise.all(
-        [1, 2, 3, 4].map((distance) =>
-          api.get(`/api/v1/nutrition/${addDays(candidate, -distance)}/energy-adherence`, {
-            headers: { authorization: `Bearer ${token}` },
-          }),
-        ),
-      );
-      for (const response of responses) {
-        if (!response.ok()) throw new Error(await response.text());
-      }
-      const facts = await Promise.all(
-        responses.map(
-          async (response) =>
-            ((await response.json()) as { data: DailyEnergyAdherence }).data.dataState,
-        ),
-      );
-      if (
-        facts[0] === 'gradeable' &&
-        facts[1] === 'partial' &&
-        facts[2] === 'unknown' &&
-        facts[3] === 'missing'
-      ) {
-        fixtureDate = candidate;
-      }
-    }
-    expect(fixtureDate, 'daily-energy fixture anchor').not.toBe('');
+    fixtureDate = deterministicFixtureDate;
+    expect(currentDate, 'deterministic program-local browser date').toBe(
+      addDays(deterministicFixtureDate, 1),
+    );
+    const fixtureStates = await Promise.all(
+      [1, 2, 3, 4].map(async (distance) => {
+        const response = await api.get(
+          `/api/v1/nutrition/${addDays(fixtureDate, -distance)}/energy-adherence`,
+          { headers: { authorization: `Bearer ${token}` } },
+        );
+        expect(response.ok(), await response.text()).toBeTruthy();
+        return ((await response.json()) as { data: DailyEnergyAdherence }).data.dataState;
+      }),
+    );
+    expect(fixtureStates).toEqual(['gradeable', 'partial', 'unknown', 'missing']);
 
     const created = await api.post('/api/v1/agent-tokens', {
       data: { name: 'Daily energy browser parity' },
@@ -194,47 +204,9 @@ test.describe.serial('Daily energy adherence', () => {
     });
     expect(created.status(), await created.text()).toBe(201);
     agentToken = ((await created.json()) as { data: { id: string; token: string } }).data;
-
-    if (currentDate !== fixtureDate) {
-      const meal = await api.post('/api/v1/meals', {
-        data: {
-          date: currentDate,
-          name: 'Daily energy cutoff fixture',
-          items: [
-            {
-              amount: 1,
-              calories: 2_400,
-              carbs: 250,
-              fat: 80,
-              name: 'Deterministic daily total',
-              protein: 180,
-              unit: 'day',
-            },
-          ],
-        },
-        headers: { authorization: `Bearer ${token}` },
-      });
-      expect(meal.status(), await meal.text()).toBe(201);
-      currentDayMeal = {
-        date: currentDate,
-        id: ((await meal.json()) as { data: { meal: { id: string } } }).data.meal.id,
-      };
-      const completed = await api.patch(`/api/v1/nutrition/${currentDate}/status`, {
-        data: { status: 'complete' },
-        headers: { authorization: `Bearer ${token}` },
-      });
-      expect(completed.ok(), await completed.text()).toBeTruthy();
-    }
   });
 
   test.afterAll(async () => {
-    if (currentDayMeal) {
-      const removedMeal = await api.delete(
-        `/api/v1/nutrition/${currentDayMeal.date}/meals/${currentDayMeal.id}`,
-        { headers: { authorization: `Bearer ${token}` } },
-      );
-      expect(removedMeal.ok(), await removedMeal.text()).toBeTruthy();
-    }
     if (agentToken) {
       const removed = await api.delete(`/api/v1/agent-tokens/${agentToken.id}`, {
         headers: { authorization: `Bearer ${token}` },
@@ -351,6 +323,297 @@ test.describe.serial('Daily energy adherence', () => {
     await expect(page.getByText('Waiting for day cutoff')).toBeVisible();
     await expect(page.getByRole('img', { name: /Energy adherence:/u })).toHaveCount(0);
     for (const width of [320, 430, 768]) await expectNoOverflow(page, width);
+    await page.waitForLoadState('networkidle');
+    diagnostics();
+  });
+
+  test('renders exact symmetric tolerance boundaries without goal-direction bias', async ({
+    page,
+  }) => {
+    const diagnostics = monitorPage(page);
+    await page.setViewportSize({ height: 1000, width: 430 });
+    await openNutrition(page, dateKeyInDetroit());
+    const cases = [
+      { offset: -5, difference: 125, adherence: 'on_target', label: 'On target' },
+      { offset: -6, difference: 126, adherence: 'near_target', label: 'Near target' },
+      { offset: -7, difference: 250, adherence: 'near_target', label: 'Near target' },
+      { offset: -8, difference: 251, adherence: 'off_target', label: 'Outside target range' },
+      { offset: -9, difference: -125, adherence: 'on_target', label: 'On target' },
+      { offset: -10, difference: -250, adherence: 'near_target', label: 'Near target' },
+      { offset: -11, difference: -251, adherence: 'off_target', label: 'Outside target range' },
+    ] as const;
+    for (const boundary of cases) {
+      const date = addDays(fixtureDate, boundary.offset);
+      await selectDate(page, date);
+      const response = await api.get(`/api/v1/nutrition/${date}/energy-adherence`, {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(response.ok(), await response.text()).toBeTruthy();
+      const fact = ((await response.json()) as { data: DailyEnergyAdherence }).data;
+      expect(fact).toMatchObject({
+        adherence: boundary.adherence,
+        intakeMinusTargetKcal: boundary.difference,
+        innerToleranceKcal: 125,
+        outerToleranceKcal: 250,
+      });
+      await expect(
+        page.getByRole('article', { name: 'Daily energy' }).getByText(boundary.label),
+      ).toBeVisible();
+    }
+    await capture(page, 'daily-energy-boundaries-430.png');
+    diagnostics();
+  });
+
+  test('keeps gain and loss grading identical and shows manual pre-program provenance', async ({
+    page,
+  }) => {
+    const diagnostics = monitorPage(page);
+    for (const [suffix, goalType] of [
+      ['de-loss', 'lose'],
+      ['de-gain', 'gain'],
+    ] as const) {
+      const login = await api.post('/api/v1/auth/login', {
+        data: { password, username: `adaptive-preview-${suffix}` },
+      });
+      expect(login.ok(), await login.text()).toBeTruthy();
+      const fixtureToken = ((await login.json()) as { data: { token: string } }).data.token;
+      const state = await api.get('/api/v1/adaptive-nutrition', {
+        headers: { authorization: `Bearer ${fixtureToken}` },
+      });
+      expect(state.ok(), await state.text()).toBeTruthy();
+      expect(
+        ((await state.json()) as { data: { program: { goalType: string } } }).data.program.goalType,
+      ).toBe(goalType);
+      const date = addDays(fixtureDate, -1);
+      await openNutrition(page, dateKeyInDetroit(), fixtureToken);
+      await selectDate(page, date);
+      await expect(page.getByRole('article', { name: 'Daily energy' })).toContainText('On target');
+    }
+
+    const manualLogin = await api.post('/api/v1/auth/login', {
+      data: { password, username: 'adaptive-preview-de-manual' },
+    });
+    expect(manualLogin.ok(), await manualLogin.text()).toBeTruthy();
+    const manualToken = ((await manualLogin.json()) as { data: { token: string } }).data.token;
+    const preProgramDate = addDays(fixtureDate, -8);
+    await openNutrition(page, dateKeyInDetroit(), manualToken);
+    await selectDate(page, preProgramDate);
+    const card = page.getByRole('article', { name: 'Daily energy' });
+    await card.getByText('Accepted-fact provenance').click();
+    await expect(card.getByRole('region', { name: 'Target provenance' })).toContainText(
+      'Manual target',
+    );
+    await expect(card.getByRole('region', { name: 'Expenditure provenance' })).toContainText(
+      'No accepted expenditure',
+    );
+    const manualFactResponse = await api.get(
+      `/api/v1/nutrition/${preProgramDate}/energy-adherence`,
+      { headers: { authorization: `Bearer ${manualToken}` } },
+    );
+    expect(manualFactResponse.ok(), await manualFactResponse.text()).toBeTruthy();
+    expect(
+      ((await manualFactResponse.json()) as { data: DailyEnergyAdherence }).data,
+    ).toMatchObject({ target: { source: 'manual' }, expenditure: null });
+    await expectNoOverflow(page, 768);
+    await capture(page, 'daily-energy-manual-gap-768.png');
+    diagnostics();
+  });
+
+  test('switches accepted revisions by effective date and excludes a competing pending proposal', async ({
+    page,
+  }) => {
+    const diagnostics = monitorPage(page);
+    const login = await api.post('/api/v1/auth/login', {
+      data: { password, username: 'adaptive-preview-de-revisions' },
+    });
+    expect(login.ok(), await login.text()).toBeTruthy();
+    const revisionToken = ((await login.json()) as { data: { token: string } }).data.token;
+    const dates = [addDays(fixtureDate, -8), addDays(fixtureDate, -6), addDays(fixtureDate, -3)];
+    const facts: DailyEnergyAdherence[] = [];
+    for (const date of dates) {
+      const response = await api.get(`/api/v1/nutrition/${date}/energy-adherence`, {
+        headers: { authorization: `Bearer ${revisionToken}` },
+      });
+      expect(response.ok(), await response.text()).toBeTruthy();
+      facts.push(((await response.json()) as { data: DailyEnergyAdherence }).data);
+    }
+    expect(facts[0]?.expenditure?.checkInId).not.toBe(facts[1]?.expenditure?.checkInId);
+    expect(facts[1]?.expenditure).toEqual(facts[2]?.expenditure);
+    expect(facts[2]?.expenditure?.caloriesKcal).not.toBe(4_100);
+
+    await openNutrition(page, dateKeyInDetroit(), revisionToken);
+    await selectDate(page, dates[2] ?? '');
+    const card = page.getByRole('article', { name: 'Daily energy' });
+    await card.getByText('Accepted-fact provenance').click();
+    await expect(card.getByRole('region', { name: 'Expenditure provenance' })).toContainText(
+      facts[2]?.expenditure?.checkInId ?? '',
+    );
+    await expect(card).not.toContainText('4100 kcal');
+    diagnostics();
+  });
+
+  test('rolls a continuously visible opposite-zone browser at program-local midnight', async ({
+    page,
+  }) => {
+    const diagnostics = monitorPage(page);
+    const beforeMidnight = new Date('2026-08-24T03:59:50.000Z');
+    await page.clock.install({ time: beforeMidnight });
+    await openNutrition(page, '2026-08-23');
+    await expect(page.getByRole('article', { name: 'Daily energy' })).toContainText(
+      'Accepted facts for 2026-08-23',
+    );
+
+    await page.clock.fastForward(11_000);
+    await expect(page.getByRole('article', { name: 'Daily energy' })).toContainText(
+      'Accepted facts for 2026-08-24',
+    );
+    await expect(page.locator('button').filter({ hasText: /^Today$/u })).toHaveClass(/invisible/u);
+    await expectNoOverflow(page, 320);
+    diagnostics();
+  });
+
+  test('recomputes a corrected meal while keeping target and expenditure provenance unchanged', async ({
+    page,
+  }) => {
+    const diagnostics = monitorPage(page);
+    const date = addDays(fixtureDate, -5);
+    const dailyResponse = await api.get(`/api/v1/nutrition/${date}`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(dailyResponse.ok(), await dailyResponse.text()).toBeTruthy();
+    const daily = (await dailyResponse.json()) as {
+      data: {
+        meals: Array<{ meal: { id: string }; items: Array<{ id: string; calories: number }> }>;
+      };
+    };
+    const meal = daily.data.meals[0];
+    const item = meal?.items[0];
+    if (!meal || !item) throw new Error('Daily Energy correction fixture is missing');
+    const before = await api.get(`/api/v1/nutrition/${date}/energy-adherence`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const beforeFact = ((await before.json()) as { data: DailyEnergyAdherence }).data;
+    try {
+      const corrected = await api.patch(
+        `/api/v1/nutrition/${date}/meals/${meal.meal.id}/items/${item.id}`,
+        {
+          data: { calories: item.calories + 75 },
+          headers: { authorization: `Bearer ${token}` },
+        },
+      );
+      expect(corrected.ok(), await corrected.text()).toBeTruthy();
+      await openNutrition(page, dateKeyInDetroit());
+      await selectDate(page, date);
+      const after = await api.get(`/api/v1/nutrition/${date}/energy-adherence`, {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      const afterFact = ((await after.json()) as { data: DailyEnergyAdherence }).data;
+      expect(afterFact.nutrition.intakeKcal).toBe(beforeFact.nutrition.intakeKcal + 75);
+      expect(afterFact.target).toEqual(beforeFact.target);
+      expect(afterFact.expenditure).toEqual(beforeFact.expenditure);
+      await expect(page.getByRole('article', { name: 'Daily energy' })).toContainText(
+        `${afterFact.nutrition.intakeKcal} kcal`,
+      );
+    } finally {
+      const restored = await api.patch(
+        `/api/v1/nutrition/${date}/meals/${meal.meal.id}/items/${item.id}`,
+        {
+          data: { calories: item.calories },
+          headers: { authorization: `Bearer ${token}` },
+        },
+      );
+      expect(restored.ok(), await restored.text()).toBeTruthy();
+      const restoredStatus = await api.patch(`/api/v1/nutrition/${date}/status`, {
+        data: { status: 'complete' },
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(restoredStatus.ok(), await restoredStatus.text()).toBeTruthy();
+    }
+    diagnostics();
+  });
+
+  test('keeps loading and rapid date changes scoped to the selected day', async ({ page }) => {
+    const today = dateKeyInDetroit();
+    const slowDate = addDays(fixtureDate, -2);
+    const selectedDate = addDays(fixtureDate, -1);
+    const diagnostics = monitorPage(
+      page,
+      [],
+      [
+        {
+          errorText: 'net::ERR_ABORTED',
+          method: 'GET',
+          path: `/api/v1/nutrition/${slowDate}/energy-adherence`,
+        },
+      ],
+    );
+    let releaseInitial: () => void = () => {};
+    const initialRelease = new Promise<void>((resolveRelease) => {
+      releaseInitial = resolveRelease;
+    });
+    let announceInitial: () => void = () => {};
+    const initialStarted = new Promise<void>((resolveStarted) => {
+      announceInitial = resolveStarted;
+    });
+    await page.route(`**/api/v1/nutrition/${today}/energy-adherence`, async (route) => {
+      announceInitial();
+      await initialRelease;
+      await route.continue();
+    });
+    await setAuthenticatedSession(page, token);
+    const initialResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/nutrition/${today}/energy-adherence`) &&
+        response.status() === 200,
+    );
+    await page.goto('/nutrition?view=log', { waitUntil: 'domcontentloaded' });
+    await initialStarted;
+    await expect(page.getByRole('status', { name: 'Loading daily energy' })).toBeVisible();
+    releaseInitial();
+    await initialResponse;
+    await expect(page.getByRole('article', { name: 'Daily energy' })).toContainText(
+      `Accepted facts for ${today}`,
+    );
+    await page.unroute(`**/api/v1/nutrition/${today}/energy-adherence`);
+
+    await page.getByRole('button', { name: 'Go to previous week' }).click();
+    await expect(page.getByRole('button', { name: `Select ${slowDate}` })).toBeVisible();
+    let releaseSlow: () => void = () => {};
+    const slowRelease = new Promise<void>((resolveRelease) => {
+      releaseSlow = resolveRelease;
+    });
+    let announceSlow: () => void = () => {};
+    const slowStarted = new Promise<void>((resolveStarted) => {
+      announceSlow = resolveStarted;
+    });
+    await page.route(`**/api/v1/nutrition/${slowDate}/energy-adherence`, async (route) => {
+      announceSlow();
+      await slowRelease;
+      await route.continue();
+    });
+    const slowResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/nutrition/${slowDate}/energy-adherence`) &&
+        response.status() === 200,
+    );
+    await page.getByRole('button', { name: `Select ${slowDate}` }).click();
+    await slowStarted;
+    const selectedResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/nutrition/${selectedDate}/energy-adherence`) &&
+        response.status() === 200,
+    );
+    await page.getByRole('button', { name: `Select ${selectedDate}` }).click();
+    await selectedResponse;
+    await expect(page.getByRole('article', { name: 'Daily energy' })).toContainText(
+      `Accepted facts for ${selectedDate}`,
+    );
+    releaseSlow();
+    await slowResponse;
+    await expect(page.getByRole('article', { name: 'Daily energy' })).toContainText(
+      `Accepted facts for ${selectedDate}`,
+    );
+    await page.unroute(`**/api/v1/nutrition/${slowDate}/energy-adherence`);
     await page.waitForLoadState('networkidle');
     diagnostics();
   });

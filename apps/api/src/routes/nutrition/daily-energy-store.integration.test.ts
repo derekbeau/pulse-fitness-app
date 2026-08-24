@@ -12,6 +12,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { AdaptiveProgramMutation } from '@pulse/shared';
 
 import * as schema from '../../db/schema/index.js';
+import { backfillAdaptiveProgramRevisionProjection } from '../../db/adaptive-program-revision-projection.js';
 import {
   adaptiveNutritionCheckIns,
   adaptiveNutritionProgramRevisions,
@@ -426,7 +427,7 @@ describe('daily energy adherence store', () => {
     expect(after.expenditure).toEqual(before.expenditure);
   });
 
-  it('retains only bounded authoritative rows from dense irrelevant history', () => {
+  it('uses constant-row indexed lookups across dense pre-date revision history', () => {
     nowMs = Date.parse('2026-08-01T16:00:00.000Z');
     createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) }).upsertProgram(
       'user-1',
@@ -435,38 +436,27 @@ describe('daily energy adherence store', () => {
     const program = db.select().from(adaptiveNutritionPrograms).limit(1).get();
     const firstRevision = db.select().from(adaptiveNutritionProgramRevisions).limit(1).get();
     if (!program || !firstRevision) throw new Error('Expected seeded program history');
-    sqlite
-      .prepare(
-        `insert into adaptive_nutrition_program_revisions
-          (id, program_id, user_id, effective_at, sequence, snapshot, source, created_at)
-         values (@id, @programId, @userId, @effectiveAt, @sequence, @snapshot, 'program_updated', @createdAt)`,
-      )
-      .run({
-        id: 'irrelevant-invalid-revision',
+    const insertRevision = sqlite.prepare(
+      `insert into adaptive_nutrition_program_revisions
+        (id, program_id, user_id, effective_at, sequence, snapshot, source, created_at)
+       values (@id, @programId, @userId, @effectiveAt, @sequence, @snapshot, 'program_updated', @createdAt)`,
+    );
+    for (let sequence = 2; sequence <= 1001; sequence += 1) {
+      const effectiveAt = Date.parse('2026-08-01T16:00:00.000Z') + sequence;
+      insertRevision.run({
+        id: `dense-revision-${sequence}`,
         programId: program.id,
         userId: 'user-1',
-        effectiveAt: Date.parse('2026-09-01T12:00:00.000Z'),
-        sequence: 2,
-        snapshot: JSON.stringify({ timeZone: 'America/Detroit' }),
-        createdAt: Date.parse('2026-09-01T12:00:00.000Z'),
+        effectiveAt,
+        sequence,
+        snapshot: JSON.stringify(firstRevision.snapshot),
+        createdAt: effectiveAt,
       });
-    for (let sequence = 3; sequence <= 102; sequence += 1) {
-      sqlite
-        .prepare(
-          `insert into adaptive_nutrition_program_revisions
-            (id, program_id, user_id, effective_at, sequence, snapshot, source, created_at)
-           values (@id, @programId, @userId, @effectiveAt, @sequence, @snapshot, 'program_updated', @createdAt)`,
-        )
-        .run({
-          id: `irrelevant-revision-${sequence}`,
-          programId: program.id,
-          userId: 'user-1',
-          effectiveAt: Date.parse('2026-09-01T12:00:00.000Z') + sequence,
-          sequence,
-          snapshot: JSON.stringify(firstRevision.snapshot),
-          createdAt: Date.parse('2026-09-01T12:00:00.000Z') + sequence,
-        });
     }
+    expect(backfillAdaptiveProgramRevisionProjection(sqlite)).toEqual({
+      inserted: 1000,
+      revisions: 1001,
+    });
     const baselineCheckIn = db.select().from(adaptiveNutritionCheckIns).limit(1).get();
     if (!baselineCheckIn) throw new Error('Expected baseline check-in');
     db.insert(adaptiveNutritionCheckIns)
@@ -494,10 +484,12 @@ describe('daily energy adherence store', () => {
     seedNutrition('2026-08-02', 'complete', 2_400);
     nowMs = Date.parse('2026-08-18T16:00:00.000Z');
 
+    const lookups: Array<{ kind: string; rows: number }> = [];
     const result = createDailyEnergyAdherenceStore({
       db,
       sqlite,
       now: () => new Date(nowMs),
+      onProgramRevisionLookup: (kind, rows) => lookups.push({ kind, rows }),
     }).getDailyEnergyAdherence('user-1', '2026-08-02');
 
     expect(result).toMatchObject({
@@ -512,7 +504,22 @@ describe('daily energy adherence store', () => {
           `select count(*) as count from adaptive_nutrition_program_revisions where program_id = ?`,
         )
         .get(program.id),
-    ).toEqual({ count: 102 });
+    ).toEqual({ count: 1001 });
+    expect(lookups).toEqual([
+      { kind: 'endpoints', rows: 2 },
+      { kind: 'selected', rows: 2 },
+    ]);
+    const plan = sqlite
+      .prepare(
+        `explain query plan
+         select revision_id
+           from adaptive_nutrition_program_revision_dates
+          where user_id = ? and program_id = ? and effective_local_date <= ?
+          order by effective_local_date desc, sequence desc
+          limit 1`,
+      )
+      .all('user-1', program.id, '2026-08-02') as Array<{ detail: string }>;
+    expect(plan.some((row) => row.detail.includes('revision_dates_lookup_idx'))).toBe(true);
   });
 
   it.each([

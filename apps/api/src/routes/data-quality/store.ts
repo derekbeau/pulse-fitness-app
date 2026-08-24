@@ -213,12 +213,6 @@ export const createDataQualityCalendarStore = (dependencies: {
   const { db } = dependencies;
   const now = dependencies.now ?? (() => new Date());
   const observe = dependencies.onQuery ?? (() => undefined);
-  dependencies.sqlite.function(
-    'pulse_date_key',
-    { deterministic: true },
-    (effectiveAt: number, timeZone: string) =>
-      getDateKeyInTimeZone(new Date(Number(effectiveAt)), String(timeZone)),
-  );
   const reviewStore = createAdaptiveWeeklyReviewStore({ db, sqlite: dependencies.sqlite, now });
 
   const getCalendar = (userId: string, rawQuery: DataQualityCalendarQuery): DataQualityCalendar => {
@@ -287,47 +281,35 @@ export const createDataQualityCalendarStore = (dependencies: {
         (
           dependencies.sqlite
             .prepare(
-              `with recursive resolved(id, sequence, effectiveAt, snapshot, effectiveLocalDate) as (
-               select r.id,
-                      r.sequence,
-                      r.effective_at,
-                      r.snapshot,
-                      pulse_date_key(r.effective_at, json_extract(r.snapshot, '$.timeZone'))
-                 from adaptive_nutrition_program_revisions r
-                where r.user_id = @userId
-                  and r.program_id = @programId
-                  and r.sequence = (
-                    select min(first.sequence)
-                      from adaptive_nutrition_program_revisions first
-                     where first.user_id = @userId and first.program_id = @programId
-                  )
-               union all
-               select next.id,
-                      next.sequence,
-                      next.effective_at,
-                      next.snapshot,
-                      max(
-                        resolved.effectiveLocalDate,
-                        pulse_date_key(next.effective_at, json_extract(next.snapshot, '$.timeZone')),
-                        pulse_date_key(next.effective_at, json_extract(resolved.snapshot, '$.timeZone'))
-                      )
-                 from resolved
-                 join adaptive_nutrition_program_revisions next
-                   on next.user_id = @userId
-                  and next.program_id = @programId
-                  and next.sequence = resolved.sequence + 1
-             ), in_range as (
-               select *,
+              `with in_range as (
+               select revision.id,
+                      revision.sequence,
+                      revision.effective_at as effectiveAt,
+                      revision.snapshot,
+                      projection.effective_local_date as effectiveLocalDate,
                       row_number() over (
-                        partition by effectiveLocalDate order by sequence desc
+                        partition by projection.effective_local_date
+                        order by projection.sequence desc
                       ) as dateRank
-                 from resolved
-                where effectiveLocalDate between @start and @end
+                 from adaptive_nutrition_program_revision_dates projection
+                 join adaptive_nutrition_program_revisions revision
+                   on revision.id = projection.revision_id
+                where projection.user_id = @userId
+                  and projection.program_id = @programId
+                  and projection.effective_local_date between @start and @end
              ), prior as (
-               select *
-                 from resolved
-                where effectiveLocalDate < @start
-                order by sequence desc
+               select revision.id,
+                      revision.sequence,
+                      revision.effective_at as effectiveAt,
+                      revision.snapshot,
+                      projection.effective_local_date as effectiveLocalDate
+                 from adaptive_nutrition_program_revision_dates projection
+                 join adaptive_nutrition_program_revisions revision
+                   on revision.id = projection.revision_id
+                where projection.user_id = @userId
+                  and projection.program_id = @programId
+                  and projection.effective_local_date < @start
+                order by projection.effective_local_date desc, projection.sequence desc
                 limit 1
              )
              select id, sequence, effectiveAt, snapshot, effectiveLocalDate from prior
