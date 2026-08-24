@@ -293,8 +293,8 @@ describe('Adaptive TDEE preview fixtures', () => {
       if (!fixture) throw new Error(`Missing ${fixtureName}`);
       expect(store.getState(fixture.userId).program?.goalType).toBe(goalType);
       expect(dailyEnergyStore.getDailyEnergyAdherence(fixture.userId, '2026-08-12')).toMatchObject({
-        adherence: 'on_target',
-        intakeMinusTargetKcal: -100,
+        adherence: 'near_target',
+        intakeMinusTargetKcal: -200,
       });
     }
     const manualFixture = first.find((fixture) => fixture.fixture === 'daily-energy-manual');

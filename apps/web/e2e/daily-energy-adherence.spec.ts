@@ -387,7 +387,19 @@ test.describe.serial('Daily energy adherence', () => {
       const date = addDays(fixtureDate, -1);
       await openNutrition(page, dateKeyInDetroit(), fixtureToken);
       await selectDate(page, date);
-      await expect(page.getByRole('article', { name: 'Daily energy' })).toContainText('On target');
+      const factResponse = await api.get(`/api/v1/nutrition/${date}/energy-adherence`, {
+        headers: {
+          authorization: `${String.fromCharCode(66, 101, 97, 114, 101, 114, 32)}${fixtureToken}`,
+        },
+      });
+      expect(factResponse.ok(), await factResponse.text()).toBeTruthy();
+      expect(((await factResponse.json()) as { data: DailyEnergyAdherence }).data).toMatchObject({
+        adherence: 'near_target',
+        intakeMinusTargetKcal: -200,
+      });
+      await expect(page.getByRole('article', { name: 'Daily energy' })).toContainText(
+        'Near target',
+      );
     }
 
     const manualLogin = await api.post('/api/v1/auth/login', {

@@ -491,6 +491,38 @@ describe('adaptive program revision causal migration', () => {
         detail: string;
       }>;
       expect(plan.some((row) => row.detail.includes('revision_dates_lookup_idx'))).toBe(true);
+      const expenditurePlan = sqlite
+        .prepare(
+          `explain query plan
+           select id
+             from adaptive_nutrition_checkins
+            where user_id = ?
+              and program_id = ?
+              and status = 'accepted'
+              and proposed_tdee_kcal is not null
+              and resolved_at is not null
+              and resolved_at < ?
+              and coalesce(json_extract(proposed_targets, '$.effectiveDate'), local_date) <= ?
+            order by coalesce(json_extract(proposed_targets, '$.effectiveDate'), local_date) desc,
+                     resolved_at desc,
+                     created_at desc,
+                     id desc
+            limit 1`,
+        )
+        .all(
+          'projection-user',
+          'projection-program',
+          Number.MAX_SAFE_INTEGER,
+          '2026-08-18',
+        ) as Array<{
+        detail: string;
+      }>;
+      expect(
+        expenditurePlan.some((row) =>
+          row.detail.includes('adaptive_nutrition_checkins_accepted_expenditure_lookup_idx'),
+        ),
+      ).toBe(true);
+      expect(expenditurePlan.some((row) => row.detail.includes('USE TEMP B-TREE'))).toBe(false);
       expect(() =>
         sqlite
           .prepare(

@@ -1033,7 +1033,7 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
     .get();
   if (!dailyEnergyLossTarget) throw new Error('Daily Energy loss target fixture is incomplete');
   db.update(mealItems)
-    .set({ calories: dailyEnergyLossTarget.calories - 100 })
+    .set({ calories: dailyEnergyLossTarget.calories - 200 })
     .where(eq(mealItems.id, `${dailyEnergyLoss.userId}-item-${datePlus(anchorDate, -1)}`))
     .run();
   clock += 1000;
@@ -1050,7 +1050,7 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
     .get();
   if (!dailyEnergyGainTarget) throw new Error('Daily Energy gain target fixture is incomplete');
   db.update(mealItems)
-    .set({ calories: dailyEnergyGainTarget.calories - 100 })
+    .set({ calories: dailyEnergyGainTarget.calories - 200 })
     .where(eq(mealItems.id, `${dailyEnergyGain.userId}-item-${datePlus(anchorDate, -1)}`))
     .run();
   clock += 1000;

@@ -400,6 +400,13 @@
       "when": 1787788800000,
       "tag": "0056_adaptive_program_revision_dates",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "6",
+      "when": 1787875200000,
+      "tag": "0057_daily_energy_expenditure_lookup",
+      "breakpoints": true
     }
   ]
 }

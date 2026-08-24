@@ -420,6 +420,18 @@ export const adaptiveNutritionCheckIns = sqliteTable(
       table.programId,
       table.localDate,
     ),
+    index('adaptive_nutrition_checkins_accepted_expenditure_lookup_idx')
+      .on(
+        table.userId,
+        table.programId,
+        sql`coalesce(json_extract(${table.proposedTargets}, '$.effectiveDate'), ${table.localDate})`,
+        table.resolvedAt,
+        table.createdAt,
+        table.id,
+      )
+      .where(
+        sql`${table.status} = 'accepted' and ${table.proposedTdeeKcal} is not null and ${table.resolvedAt} is not null`,
+      ),
     uniqueIndex('adaptive_nutrition_checkins_pending_fingerprint_unique')
       .on(table.programId, table.dataFingerprint, table.algorithmVersion)
       .where(sql`${table.status} = 'pending'`),
