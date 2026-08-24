@@ -10,8 +10,12 @@ import { cn } from '@/lib/utils';
 type DailyEnergyAdherenceCardProps = {
   adherence?: DailyEnergyAdherence;
   error?: Error | null;
+  isFetching?: boolean;
   isLoading?: boolean;
+  isRefetchError?: boolean;
+  isStale?: boolean;
   onRetry?: () => void;
+  requestedDate?: string;
 };
 
 const stateCopy: Record<
@@ -77,10 +81,18 @@ const comparisonSentence = (value: number | null, axis: string) => {
 export function DailyEnergyAdherenceCard({
   adherence,
   error = null,
+  isFetching = false,
   isLoading = false,
+  isRefetchError = false,
+  isStale = false,
   onRetry,
+  requestedDate,
 }: DailyEnergyAdherenceCardProps) {
-  if (isLoading) {
+  const hasRequestedFacts =
+    adherence !== undefined &&
+    (requestedDate === undefined || adherence.localDate === requestedDate);
+
+  if (isLoading || (requestedDate !== undefined && !hasRequestedFacts && !error)) {
     return (
       <Card aria-label="Loading daily energy" role="status">
         <CardHeader className="gap-2">
@@ -94,7 +106,7 @@ export function DailyEnergyAdherenceCard({
     );
   }
 
-  if (error || !adherence) {
+  if (!adherence || !hasRequestedFacts) {
     return (
       <Card className="border-destructive/30" role="alert">
         <CardHeader className="gap-2">
@@ -114,7 +126,13 @@ export function DailyEnergyAdherenceCard({
 
   const grade = adherence.adherence ? gradeCopy[adherence.adherence] : null;
   const state =
-    grade ?? stateCopy[adherence.dataState as Exclude<typeof adherence.dataState, 'gradeable'>];
+    grade ??
+    (adherence.dataState === 'gradeable'
+      ? {
+          title: 'Comparison unavailable',
+          detail: 'Pulse could not verify a valid adherence label for these accepted facts.',
+        }
+      : stateCopy[adherence.dataState]);
   const target = adherence.target?.caloriesKcal ?? null;
   const expenditure = adherence.expenditure?.caloriesKcal ?? null;
   const outer = adherence.outerToleranceKcal ?? 1;
@@ -141,6 +159,32 @@ export function DailyEnergyAdherenceCard({
           <Badge variant="outline">{state.title}</Badge>
         </div>
         <p className="text-sm text-foreground">{state.detail}</p>
+        {isFetching ? (
+          <p className="text-xs text-muted" role="status">
+            Refreshing accepted facts…
+          </p>
+        ) : null}
+        {isRefetchError || (error && hasRequestedFacts) ? (
+          <div className="flex flex-wrap items-center gap-2" role="alert">
+            <p className="text-xs text-destructive">
+              Refresh failed. The accepted facts shown here may be out of date.
+            </p>
+            {onRetry ? (
+              <Button className="min-h-11" onClick={onRetry} type="button" variant="outline">
+                Retry refresh
+              </Button>
+            ) : null}
+          </div>
+        ) : isStale && !isFetching ? (
+          <div className="flex flex-wrap items-center gap-2" role="status">
+            <p className="text-xs text-muted">These accepted facts are ready to refresh.</p>
+            {onRetry ? (
+              <Button className="min-h-11" onClick={onRetry} type="button" variant="outline">
+                Refresh facts
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </CardHeader>
 
       {adherence.dataState === 'gradeable' && target !== null ? (
@@ -201,17 +245,103 @@ export function DailyEnergyAdherenceCard({
           Target adherence is symmetric: the same distance above or below the accepted target gets
           the same label. Exercise calories are not credited here.
         </p>
-        {adherence.expenditure ? (
-          <p className="mt-1">
-            Expenditure source:{' '}
-            {adherence.expenditure.source === 'accepted_check_in'
-              ? `accepted check-in effective ${adherence.expenditure.effectiveDate}`
-              : `program starting estimate effective ${adherence.expenditure.effectiveDate}`}
-            .
-          </p>
-        ) : null}
+        <details className="mt-3 rounded-xl border border-border/70 bg-background/40 px-3 py-2">
+          <summary className="flex min-h-11 cursor-pointer items-center font-medium text-foreground">
+            Accepted-fact provenance
+          </summary>
+          <div className="space-y-4 pb-2 pt-1">
+            <ProvenanceGroup title="Target">
+              {adherence.target ? (
+                <dl className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1">
+                  <ProvenanceRow
+                    label="Source"
+                    value={
+                      adherence.target.source === 'adaptive'
+                        ? 'Accepted adaptive recommendation'
+                        : 'Manual target'
+                    }
+                  />
+                  <ProvenanceRow label="Effective" value={adherence.target.effectiveDate} />
+                  <ProvenanceRow
+                    label="Recorded"
+                    value={formatRecordedAt(adherence.target.recordedAt, adherence.timeZone)}
+                  />
+                  <ProvenanceRow label="Target event ID" value={adherence.target.targetEventId} />
+                  <ProvenanceRow label="Target ID" value={adherence.target.targetId} />
+                  {adherence.target.adaptiveCheckInId ? (
+                    <ProvenanceRow
+                      label="Accepted check-in ID"
+                      value={adherence.target.adaptiveCheckInId}
+                    />
+                  ) : null}
+                </dl>
+              ) : (
+                <p>No accepted target was effective on this date.</p>
+              )}
+            </ProvenanceGroup>
+            <ProvenanceGroup title="Expenditure">
+              {adherence.expenditure ? (
+                <dl className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1">
+                  <ProvenanceRow
+                    label="Source"
+                    value={
+                      adherence.expenditure.source === 'accepted_check_in'
+                        ? 'Accepted adaptive check-in'
+                        : 'Program starting estimate'
+                    }
+                  />
+                  <ProvenanceRow label="Effective" value={adherence.expenditure.effectiveDate} />
+                  {adherence.expenditure.checkInId ? (
+                    <ProvenanceRow
+                      label="Accepted check-in ID"
+                      value={adherence.expenditure.checkInId}
+                    />
+                  ) : null}
+                  {adherence.expenditure.inputFingerprint ? (
+                    <ProvenanceRow
+                      label="Input fingerprint"
+                      value={adherence.expenditure.inputFingerprint}
+                    />
+                  ) : null}
+                </dl>
+              ) : (
+                <p>No accepted expenditure estimate was effective on this date.</p>
+              )}
+            </ProvenanceGroup>
+          </div>
+        </details>
       </CardContent>
     </Card>
+  );
+}
+
+function formatRecordedAt(value: number, timeZone: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone,
+    timeZoneName: 'short',
+  }).format(new Date(value));
+}
+
+function ProvenanceGroup({ children, title }: { children: React.ReactNode; title: string }) {
+  return (
+    <section aria-label={`${title} provenance`}>
+      <h3 className="mb-1 font-semibold text-foreground">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function ProvenanceRow({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <dt className="font-medium text-foreground">{label}</dt>
+      <dd className="min-w-0 break-all tabular-nums">{value}</dd>
+    </>
   );
 }
 

@@ -32,6 +32,52 @@ describe('calculateDailyEnergyAdherence', () => {
   });
 
   it.each([
+    { target: 2_009, inner: 100, outer: 250 },
+    { target: 2_010, inner: 101, outer: 250 },
+    { target: 2_504, inner: 125, outer: 250 },
+    { target: 2_505, inner: 125, outer: 251 },
+    { target: 2_989, inner: 149, outer: 299 },
+    { target: 2_990, inner: 150, outer: 299 },
+    { target: 3_994, inner: 150, outer: 399 },
+    { target: 3_995, inner: 150, outer: 400 },
+    { target: 4_000, inner: 150, outer: 400 },
+    { target: 4_001, inner: 150, outer: 400 },
+  ])(
+    'keeps the percentage and clamp transition exact at $target kcal',
+    ({ target, inner, outer }) => {
+      expect(
+        calculateDailyEnergyAdherence({
+          ...completeDay,
+          intakeKcal: target,
+          targetKcal: target,
+        }),
+      ).toMatchObject({ innerToleranceKcal: inner, outerToleranceKcal: outer });
+    },
+  );
+
+  it.each(['lose', 'maintain', 'gain'] as const)(
+    'uses identical symmetric distance semantics for a %s program',
+    () => {
+      const below = calculateDailyEnergyAdherence({
+        ...completeDay,
+        intakeKcal: 1_749,
+        targetKcal: 2_000,
+      });
+      const above = calculateDailyEnergyAdherence({
+        ...completeDay,
+        intakeKcal: 2_251,
+        targetKcal: 2_000,
+      });
+
+      expect(below.adherence).toBe('off_target');
+      expect(above.adherence).toBe('off_target');
+      expect(Math.abs(below.intakeMinusTargetKcal ?? 0)).toBe(
+        Math.abs(above.intakeMinusTargetKcal ?? 0),
+      );
+    },
+  );
+
+  it.each([
     { difference: -100, expected: 'on_target' },
     { difference: 100, expected: 'on_target' },
     { difference: -101, expected: 'near_target' },

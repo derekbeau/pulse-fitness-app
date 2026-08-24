@@ -118,4 +118,96 @@ describe('DailyEnergyAdherenceCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry daily energy' }));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps accepted facts visible and announces a background refresh', () => {
+    render(<DailyEnergyAdherenceCard adherence={adherence} isFetching />);
+
+    expect(screen.getByRole('article', { name: 'Daily energy' })).toHaveTextContent('2520 kcal');
+    expect(screen.getByRole('status')).toHaveTextContent('Refreshing accepted facts');
+  });
+
+  it('keeps accepted facts visible after a refetch failure and retries only the card', () => {
+    const onRetry = vi.fn();
+    render(
+      <DailyEnergyAdherenceCard
+        adherence={adherence}
+        error={new Error('offline')}
+        isRefetchError
+        onRetry={onRetry}
+      />,
+    );
+
+    expect(screen.getByRole('article', { name: 'Daily energy' })).toHaveTextContent('2520 kcal');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'accepted facts shown here may be out of date',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Retry refresh' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('labels retained accepted facts as stale and offers a scoped refresh', () => {
+    const onRetry = vi.fn();
+    render(<DailyEnergyAdherenceCard adherence={adherence} isStale onRetry={onRetry} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('ready to refresh');
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh facts' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('discloses accepted target and expenditure provenance on demand', () => {
+    render(<DailyEnergyAdherenceCard adherence={adherence} />);
+
+    const disclosure = screen.getByText('Accepted-fact provenance');
+    expect(disclosure).toBeInTheDocument();
+    fireEvent.click(disclosure);
+
+    const target = screen.getByRole('region', { name: 'Target provenance' });
+    expect(target).toHaveTextContent('Accepted adaptive recommendation');
+    expect(target).toHaveTextContent('target-event-1');
+    expect(target).toHaveTextContent('target-1');
+    expect(target).toHaveTextContent('check-in-1');
+    expect(target).toHaveTextContent(/EST|EDT/);
+    const expenditure = screen.getByRole('region', { name: 'Expenditure provenance' });
+    expect(expenditure).toHaveTextContent('Accepted adaptive check-in');
+    expect(expenditure).toHaveTextContent('check-in-1');
+    expect(expenditure).toHaveTextContent('a'.repeat(64));
+  });
+
+  it('shows manual target provenance without inventing an accepted check-in', () => {
+    if (!adherence.target) throw new Error('Expected target fixture');
+    render(
+      <DailyEnergyAdherenceCard
+        adherence={{
+          ...adherence,
+          target: {
+            ...adherence.target,
+            source: 'manual',
+            adaptiveCheckInId: null,
+          },
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Accepted-fact provenance'));
+    const target = screen.getByRole('region', { name: 'Target provenance' });
+    expect(target).toHaveTextContent('Manual target');
+    expect(target).not.toHaveTextContent('Accepted check-in ID');
+  });
+
+  it('does not relabel retained facts as a newly requested date', () => {
+    render(<DailyEnergyAdherenceCard adherence={adherence} requestedDate="2026-08-18" />);
+
+    expect(screen.getByRole('status', { name: 'Loading daily energy' })).toBeInTheDocument();
+    expect(screen.queryByText('Accepted facts for 2026-08-18')).not.toBeInTheDocument();
+  });
+
+  it('renders a defensive unavailable state for an impossible gradeable payload', () => {
+    render(
+      <DailyEnergyAdherenceCard
+        adherence={{ ...adherence, adherence: null } as DailyEnergyAdherence}
+      />,
+    );
+
+    expect(screen.getByText('Comparison unavailable')).toBeInTheDocument();
+  });
 });

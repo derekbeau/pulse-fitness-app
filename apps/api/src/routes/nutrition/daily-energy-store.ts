@@ -1,8 +1,8 @@
-import { and, asc, desc, eq, gt, lt, lte, sql } from 'drizzle-orm';
+import type Database from 'better-sqlite3';
+import { and, desc, eq, gt, isNotNull, lt, lte, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 import {
-  adaptiveCheckInDetailSchema,
   adaptiveProgramCalculationSchema,
   addCalendarDays,
   calculateDailyEnergyAdherence,
@@ -13,7 +13,6 @@ import {
 import * as schema from '../../db/schema/index.js';
 import {
   adaptiveNutritionCheckIns,
-  adaptiveNutritionProgramRevisions,
   adaptiveNutritionPrograms,
   mealItems,
   meals,
@@ -21,13 +20,145 @@ import {
   nutritionTargetEvents,
   users,
 } from '../../db/schema/index.js';
-import {
-  getDateKeyInTimeZone,
-  resolveEffectiveProgramRevisions,
-} from '../adaptive-nutrition/analytics-store.js';
+import { getDateKeyInTimeZone } from '../adaptive-nutrition/analytics-store.js';
 import { endOfLocalDateExclusive } from '../adaptive-nutrition/goal-trajectory-store.js';
 
 type NutritionDatabase = BetterSQLite3Database<typeof schema>;
+
+type ProgramSnapshot = ReturnType<typeof adaptiveProgramCalculationSchema.parse>;
+type EffectiveProgramRevision = {
+  id: string;
+  sequence: number;
+  effectiveAt: number;
+  effectiveLocalDate: string;
+  snapshot: ProgramSnapshot;
+};
+
+type RawProgramRevision = Omit<EffectiveProgramRevision, 'snapshot'> & {
+  snapshot: string | unknown;
+};
+
+const parseProgramRevision = (revision: RawProgramRevision): EffectiveProgramRevision => ({
+  ...revision,
+  snapshot: adaptiveProgramCalculationSchema.parse(
+    typeof revision.snapshot === 'string' ? JSON.parse(revision.snapshot) : revision.snapshot,
+  ),
+});
+
+const registerDateKeyFunction = (sqlite: Database.Database) => {
+  sqlite.function(
+    'pulse_daily_energy_date_key',
+    { deterministic: true },
+    (effectiveAt: number, timeZone: string) =>
+      getDateKeyInTimeZone(new Date(Number(effectiveAt)), String(timeZone)),
+  );
+};
+
+const selectProgramRevisionsForDate = ({
+  localDate,
+  programId,
+  sqlite,
+  userId,
+}: {
+  localDate: string;
+  programId: string;
+  sqlite: Database.Database;
+  userId: string;
+}): { effective: EffectiveProgramRevision; initial: EffectiveProgramRevision } => {
+  const rows = sqlite
+    .prepare(
+      `with recursive resolved(id, sequence, effectiveAt, snapshot, effectiveLocalDate) as (
+         select revision.id,
+                revision.sequence,
+                revision.effective_at,
+                revision.snapshot,
+                pulse_daily_energy_date_key(
+                  revision.effective_at,
+                  json_extract(revision.snapshot, '$.timeZone')
+                )
+           from adaptive_nutrition_program_revisions revision
+          where revision.user_id = @userId
+            and revision.program_id = @programId
+            and revision.sequence = 1
+         union all
+         select next.id,
+                next.sequence,
+                next.effective_at,
+                next.snapshot,
+                max(
+                  resolved.effectiveLocalDate,
+                  pulse_daily_energy_date_key(
+                    next.effective_at,
+                    json_extract(resolved.snapshot, '$.timeZone')
+                  ),
+                  pulse_daily_energy_date_key(
+                    next.effective_at,
+                    json_extract(next.snapshot, '$.timeZone')
+                  )
+                )
+           from resolved
+           join adaptive_nutrition_program_revisions next
+             on next.user_id = @userId
+            and next.program_id = @programId
+            and next.sequence = resolved.sequence + 1
+          where resolved.effectiveLocalDate <= @localDate
+       ), candidates as (
+         select *, row_number() over (order by sequence desc) as effectiveRank
+           from resolved
+          where effectiveLocalDate <= @localDate
+       )
+       select id, sequence, effectiveAt, snapshot, effectiveLocalDate
+         from resolved
+        where sequence = 1
+       union
+       select id, sequence, effectiveAt, snapshot, effectiveLocalDate
+         from candidates
+        where effectiveRank = 1
+        order by sequence`,
+    )
+    .all({ localDate, programId, userId }) as RawProgramRevision[];
+  const parsed = rows.map(parseProgramRevision);
+  const initial = parsed.find((revision) => revision.sequence === 1);
+  const effective = parsed.at(-1);
+  if (!initial || !effective) {
+    throw new Error('Adaptive nutrition program revision history is missing');
+  }
+  return { effective, initial };
+};
+
+const selectEndpointProgramRevisions = ({
+  programId,
+  sqlite,
+  userId,
+}: {
+  programId: string;
+  sqlite: Database.Database;
+  userId: string;
+}): { initial: EffectiveProgramRevision; latest: EffectiveProgramRevision } => {
+  const select = (direction: 'asc' | 'desc') =>
+    sqlite
+      .prepare(
+        `select id,
+                sequence,
+                effective_at as effectiveAt,
+                snapshot,
+                pulse_daily_energy_date_key(
+                  effective_at,
+                  json_extract(snapshot, '$.timeZone')
+                ) as effectiveLocalDate
+           from adaptive_nutrition_program_revisions
+          where user_id = @userId and program_id = @programId
+          order by sequence ${direction}
+          limit 1`,
+      )
+      .get({ programId, userId }) as RawProgramRevision | undefined;
+  const initialRow = select('asc');
+  const latestRow = select('desc');
+  if (!initialRow || !latestRow) {
+    throw new Error('Adaptive nutrition program revision history is missing');
+  }
+  return { initial: parseProgramRevision(initialRow), latest: parseProgramRevision(latestRow) };
+};
 
 const validTimeZone = (value: unknown): value is string => {
   if (typeof value !== 'string' || value.trim().length === 0) return false;
@@ -46,9 +177,11 @@ const preferredTimeZone = (preferences: Record<string, unknown> | null): string 
 
 export const createDailyEnergyAdherenceStore = (dependencies: {
   db: NutritionDatabase;
+  sqlite: Database.Database;
   now?: () => Date;
 }) => {
   const { db } = dependencies;
+  registerDateKeyFunction(dependencies.sqlite);
   const now = dependencies.now ?? (() => new Date());
 
   const getDailyEnergyAdherence = (userId: string, localDate: string): DailyEnergyAdherence => {
@@ -67,46 +200,31 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
       .limit(1)
       .get();
 
-    const programRevisions = program
-      ? resolveEffectiveProgramRevisions(
-          db
-            .select({
-              id: adaptiveNutritionProgramRevisions.id,
-              sequence: adaptiveNutritionProgramRevisions.sequence,
-              effectiveAt: adaptiveNutritionProgramRevisions.effectiveAt,
-              snapshot: adaptiveNutritionProgramRevisions.snapshot,
-            })
-            .from(adaptiveNutritionProgramRevisions)
-            .where(
-              and(
-                eq(adaptiveNutritionProgramRevisions.userId, userId),
-                eq(adaptiveNutritionProgramRevisions.programId, program.id),
-              ),
-            )
-            .orderBy(asc(adaptiveNutritionProgramRevisions.sequence))
-            .all()
-            .map((revision) => ({
-              ...revision,
-              snapshot: adaptiveProgramCalculationSchema.parse(revision.snapshot),
-            })),
-        )
-      : [];
-    const latestProgramRevision = programRevisions.at(-1);
+    const endpointProgramRevisions = program
+      ? selectEndpointProgramRevisions({
+          programId: program.id,
+          sqlite: dependencies.sqlite,
+          userId,
+        })
+      : null;
+    const latestProgramRevision = endpointProgramRevisions?.latest;
     const latestToday = latestProgramRevision
       ? getDateKeyInTimeZone(currentInstant, latestProgramRevision.snapshot.timeZone)
       : getDateKeyInTimeZone(currentInstant, fallbackTimeZone);
-    const effectiveProgramRevision = latestProgramRevision
+    const selectedProgramRevisions = latestProgramRevision
       ? localDate >= latestToday
-        ? latestProgramRevision
-        : ([...programRevisions]
-            .reverse()
-            .find(
-              (revision) =>
-                revision.effectiveLocalDate <= localDate &&
-                revision.effectiveAt <
-                  endOfLocalDateExclusive(localDate, revision.snapshot.timeZone),
-            ) ?? programRevisions[0])
+        ? {
+            effective: latestProgramRevision,
+            initial: endpointProgramRevisions?.initial ?? latestProgramRevision,
+          }
+        : selectProgramRevisionsForDate({
+            localDate,
+            programId: program?.id ?? '',
+            sqlite: dependencies.sqlite,
+            userId,
+          })
       : undefined;
+    const effectiveProgramRevision = selectedProgramRevisions?.effective;
     const timeZone = effectiveProgramRevision?.snapshot.timeZone ?? fallbackTimeZone;
     const todayLocalDate = getDateKeyInTimeZone(currentInstant, timeZone);
     const completedDayCutoff = addCalendarDays(todayLocalDate, -1);
@@ -160,51 +278,37 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
       .limit(1)
       .get();
 
-    const acceptedCheckIns = program
+    const acceptedEffectiveDate = sql<string>`coalesce(json_extract(${adaptiveNutritionCheckIns.proposedTargets}, '$.effectiveDate'), ${adaptiveNutritionCheckIns.localDate})`;
+    const acceptedExpenditure = program
       ? db
-          .select()
+          .select({
+            id: adaptiveNutritionCheckIns.id,
+            dataFingerprint: adaptiveNutritionCheckIns.dataFingerprint,
+            effectiveDate: acceptedEffectiveDate,
+            proposedTdeeKcal: adaptiveNutritionCheckIns.proposedTdeeKcal,
+          })
           .from(adaptiveNutritionCheckIns)
           .where(
             and(
               eq(adaptiveNutritionCheckIns.userId, userId),
               eq(adaptiveNutritionCheckIns.programId, program.id),
               eq(adaptiveNutritionCheckIns.status, 'accepted'),
+              isNotNull(adaptiveNutritionCheckIns.proposedTdeeKcal),
+              isNotNull(adaptiveNutritionCheckIns.resolvedAt),
               lt(adaptiveNutritionCheckIns.resolvedAt, causalCutoff),
+              lte(acceptedEffectiveDate, latestAvailableFactDate),
             ),
           )
           .orderBy(
-            asc(adaptiveNutritionCheckIns.resolvedAt),
-            asc(adaptiveNutritionCheckIns.createdAt),
-            asc(adaptiveNutritionCheckIns.id),
+            desc(acceptedEffectiveDate),
+            desc(adaptiveNutritionCheckIns.resolvedAt),
+            desc(adaptiveNutritionCheckIns.createdAt),
+            desc(adaptiveNutritionCheckIns.id),
           )
-          .all()
-          .map((row) => {
-            const { userId: rowUserId, programId: rowProgramId, ...detail } = row;
-            if (rowUserId !== userId || rowProgramId !== program.id) {
-              throw new Error('Adaptive check-in query escaped the requested user and program');
-            }
-            return adaptiveCheckInDetailSchema.parse(detail);
-          })
-          .filter(
-            (checkIn) =>
-              checkIn.proposedTdeeKcal !== null &&
-              (checkIn.proposedTargets?.effectiveDate ?? checkIn.localDate) <=
-                latestAvailableFactDate,
-          )
-      : [];
-    const acceptedExpenditure = [...acceptedCheckIns]
-      .sort((left, right) => {
-        const leftDate = left.proposedTargets?.effectiveDate ?? left.localDate;
-        const rightDate = right.proposedTargets?.effectiveDate ?? right.localDate;
-        return (
-          leftDate.localeCompare(rightDate) ||
-          (left.resolvedAt ?? 0) - (right.resolvedAt ?? 0) ||
-          left.createdAt - right.createdAt ||
-          left.id.localeCompare(right.id)
-        );
-      })
-      .at(-1);
-    const initialProgramRevision = programRevisions[0];
+          .limit(1)
+          .get()
+      : undefined;
+    const initialProgramRevision = selectedProgramRevisions?.initial;
     const baselineAvailable =
       initialProgramRevision !== undefined &&
       initialProgramRevision.effectiveLocalDate <= localDate &&
@@ -252,9 +356,7 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
           : acceptedExpenditure
             ? {
                 caloriesKcal: calculation.expenditureKcal,
-                effectiveDate:
-                  acceptedExpenditure.proposedTargets?.effectiveDate ??
-                  acceptedExpenditure.localDate,
+                effectiveDate: acceptedExpenditure.effectiveDate,
                 source: 'accepted_check_in',
                 checkInId: acceptedExpenditure.id,
                 inputFingerprint: acceptedExpenditure.dataFingerprint,
@@ -279,8 +381,8 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
 };
 
 const getDefaultStore = async () => {
-  const { db } = await import('../../db/index.js');
-  return createDailyEnergyAdherenceStore({ db });
+  const { db, sqlite } = await import('../../db/index.js');
+  return createDailyEnergyAdherenceStore({ db, sqlite });
 };
 
 export const getDailyEnergyAdherenceForDate = async (userId: string, localDate: string) =>

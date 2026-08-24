@@ -48,6 +48,7 @@ type RenameMealMutationContext = {
 type NutritionQueryOptions = {
   enabled?: boolean;
   refetchIntervalMs?: number;
+  staleTimeMs?: number;
 };
 
 const fetchDailyNutrition = (date: string, signal?: AbortSignal) =>
@@ -149,6 +150,7 @@ export const useDailyEnergyAdherence = (date: string, options: NutritionQueryOpt
     queryFn: ({ signal }) => fetchDailyEnergyAdherence(date, signal),
     refetchInterval: options.refetchIntervalMs ?? false,
     refetchIntervalInBackground: false,
+    staleTime: options.staleTimeMs ?? options.refetchIntervalMs ?? 30_000,
   });
 
 export const useNutritionWeekSummary = (date: string, options: NutritionQueryOptions = {}) =>

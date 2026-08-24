@@ -233,6 +233,7 @@ describe('Adaptive TDEE preview fixtures', () => {
     if (!dailyEnergyFixture) throw new Error('Daily Energy fixture missing');
     const dailyEnergyStore = createDailyEnergyAdherenceStore({
       db,
+      sqlite,
       now: () => new Date('2026-08-13T16:30:00.000Z'),
     });
     expect(

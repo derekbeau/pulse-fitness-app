@@ -2,15 +2,14 @@ import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { NutritionWeekSummary } from '@pulse/shared';
 
 import { Button } from '@/components/ui/button';
-import { formatDateKey, startOfDay } from '@/features/nutrition/lib/nutrition-utils';
 import { cn } from '@/lib/utils';
 
 const DAY_ABBREVIATIONS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
 
 type NutritionWeekStripProps = {
   days: NutritionWeekSummary;
-  selectedDate: Date;
-  onSelectDate: (date: Date) => void;
+  selectedDate: string;
+  onSelectDate: (date: string) => void;
   onPreviousWeek: () => void;
   onNextWeek: () => void;
   disableNextWeek?: boolean;
@@ -41,8 +40,6 @@ export function NutritionWeekStrip({
   disableNextWeek = false,
   className,
 }: NutritionWeekStripProps) {
-  const selectedDateKey = formatDateKey(selectedDate);
-
   return (
     <section
       className={cn('rounded-2xl border border-border/70 bg-card px-2 py-2 shadow-sm', className)}
@@ -67,7 +64,7 @@ export function NutritionWeekStrip({
           {days.map((day, index) => {
             const dateNumber = new Date(`${day.date}T12:00:00Z`).getUTCDate();
             const dayLabel = DAY_ABBREVIATIONS[index] ?? '·';
-            const isSelected = day.date === selectedDateKey;
+            const isSelected = day.date === selectedDate;
             const indicatorState = getIndicatorState(day.mealCount, day.completeness);
             const progress = day.completeness;
 
@@ -83,8 +80,7 @@ export function NutritionWeekStrip({
                   )}
                   data-selected={isSelected ? 'true' : 'false'}
                   type="button"
-                  // Intentionally local time; nutrition page date state and keys are local-day based.
-                  onClick={() => onSelectDate(startOfDay(new Date(`${day.date}T00:00:00`)))}
+                  onClick={() => onSelectDate(day.date)}
                 >
                   <span className="text-[0.65rem] font-semibold uppercase tracking-[0.14em]">
                     {dayLabel}

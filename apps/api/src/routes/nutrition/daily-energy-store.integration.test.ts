@@ -53,6 +53,13 @@ const programInput = (timeZone = 'America/Detroit'): AdaptiveProgramMutation => 
   supersedePending: false,
 });
 
+const programInputForGoal = (goalType: 'lose' | 'maintain' | 'gain'): AdaptiveProgramMutation => ({
+  ...programInput(),
+  goalType,
+  targetWeightKg: goalType === 'maintain' ? null : goalType === 'lose' ? 75 : 85,
+  goalRatePctPerWeek: goalType === 'maintain' ? 0 : goalType === 'lose' ? -0.5 : 0.5,
+});
+
 const seedNutrition = (
   date: string,
   status: 'complete' | 'partial' | 'unknown',
@@ -122,6 +129,35 @@ const seedManualTargetEvent = (input: {
     .run();
 };
 
+const seedCheckIn = (input: {
+  id: string;
+  status: 'pending' | 'accepted' | 'declined' | 'superseded' | 'held';
+  localDate: string;
+  effectiveDate: string;
+  proposedTdeeKcal: number;
+  resolvedAt: number | null;
+  createdAt?: number;
+}) => {
+  const base = db.select().from(adaptiveNutritionCheckIns).limit(1).get();
+  if (!base || !base.proposedTargets) throw new Error('Expected a program baseline check-in');
+  db.insert(adaptiveNutritionCheckIns)
+    .values({
+      ...base,
+      id: input.id,
+      status: input.status,
+      kind: 'manual',
+      calculationState: input.status === 'held' ? 'holding' : 'updating',
+      localDate: input.localDate,
+      dataFingerprint: input.id.slice(0, 1).padEnd(64, 'a'),
+      proposedTdeeKcal: input.proposedTdeeKcal,
+      proposedTargets: { ...base.proposedTargets, effectiveDate: input.effectiveDate },
+      acceptedNutritionTargetId: null,
+      resolvedAt: input.resolvedAt,
+      createdAt: input.createdAt ?? nowMs,
+    })
+    .run();
+};
+
 beforeAll(() => {
   tempDir = mkdtempSync(join(tmpdir(), 'pulse-daily-energy-'));
   sqlite = new Database(join(tempDir, 'test.db'));
@@ -160,10 +196,11 @@ beforeEach(() => {
 describe('daily energy adherence store', () => {
   it('uses deterministic program baseline expenditure before any recommendation is accepted', () => {
     nowMs = Date.parse('2026-08-01T16:00:00.000Z');
-    createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) }).upsertProgram(
-      'user-1',
-      programInput(),
-    );
+    const lifecycle = createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) });
+    lifecycle.upsertProgram('user-1', programInput());
+    const baseline = lifecycle.getState('user-1').pendingCheckIn;
+    if (!baseline) throw new Error('Expected baseline check-in');
+    lifecycle.declineCheckIn('user-1', baseline.id);
     seedManualTargetEvent({
       id: 'target-event-1',
       effectiveDate: '2026-08-01',
@@ -175,6 +212,7 @@ describe('daily energy adherence store', () => {
 
     const result = createDailyEnergyAdherenceStore({
       db,
+      sqlite,
       now: () => new Date(nowMs),
     }).getDailyEnergyAdherence('user-1', '2026-08-02');
 
@@ -202,7 +240,7 @@ describe('daily energy adherence store', () => {
       calories: 2_000,
     });
     nowMs = Date.parse('2026-08-18T16:00:00.000Z');
-    const store = createDailyEnergyAdherenceStore({ db, now: () => new Date(nowMs) });
+    const store = createDailyEnergyAdherenceStore({ db, sqlite, now: () => new Date(nowMs) });
 
     expect(store.getDailyEnergyAdherence('user-1', '2026-08-04')).toMatchObject({
       dataState: 'unavailable',
@@ -219,6 +257,264 @@ describe('daily energy adherence store', () => {
     });
   });
 
+  it('switches accepted expenditure exactly on its effective date and ignores competing states', () => {
+    nowMs = Date.parse('2026-08-01T16:00:00.000Z');
+    const lifecycle = createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) });
+    lifecycle.upsertProgram('user-1', programInput());
+    const pendingBaseline = lifecycle.getState('user-1').pendingCheckIn;
+    if (!pendingBaseline) throw new Error('Expected baseline check-in');
+    lifecycle.declineCheckIn('user-1', pendingBaseline.id);
+    seedManualTargetEvent({
+      id: 'accepted-target',
+      effectiveDate: '2026-08-01',
+      recordedAt: nowMs,
+      calories: 2_400,
+    });
+    seedCheckIn({
+      id: 'b-accepted',
+      status: 'accepted',
+      localDate: '2026-08-09',
+      effectiveDate: '2026-08-11',
+      proposedTdeeKcal: 2_600,
+      resolvedAt: Date.parse('2026-08-10T12:00:00.000Z'),
+    });
+    for (const [id, status, calories] of [
+      ['c-pending', 'pending', 4_100],
+      ['d-held', 'held', 4_200],
+      ['e-declined', 'declined', 4_300],
+      ['f-superseded', 'superseded', 4_400],
+    ] as const) {
+      seedCheckIn({
+        id,
+        status,
+        localDate: '2026-08-10',
+        effectiveDate: '2026-08-10',
+        proposedTdeeKcal: calories,
+        resolvedAt: status === 'pending' ? null : Date.parse('2026-08-10T13:00:00.000Z'),
+      });
+    }
+    seedNutrition('2026-08-10', 'complete', 2_400);
+    seedNutrition('2026-08-11', 'complete', 2_400);
+    nowMs = Date.parse('2026-08-18T16:00:00.000Z');
+    const store = createDailyEnergyAdherenceStore({ db, sqlite, now: () => new Date(nowMs) });
+
+    expect(store.getDailyEnergyAdherence('user-1', '2026-08-10')).toMatchObject({
+      target: { targetEventId: 'accepted-target', caloriesKcal: 2_400 },
+      expenditure: { caloriesKcal: 2_760, source: 'program_baseline' },
+    });
+    expect(store.getDailyEnergyAdherence('user-1', '2026-08-11')).toMatchObject({
+      target: { targetEventId: 'accepted-target', caloriesKcal: 2_400 },
+      expenditure: {
+        caloriesKcal: 2_600,
+        source: 'accepted_check_in',
+        checkInId: 'b-accepted',
+      },
+      intakeMinusExpenditureKcal: -200,
+    });
+  });
+
+  it('keeps pre-program expenditure null instead of backfilling the baseline', () => {
+    nowMs = Date.parse('2026-08-05T16:00:00.000Z');
+    createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) }).upsertProgram(
+      'user-1',
+      programInput(),
+    );
+    seedManualTargetEvent({
+      id: 'historical-target',
+      effectiveDate: '2026-08-01',
+      recordedAt: Date.parse('2026-08-01T12:00:00.000Z'),
+      calories: 2_400,
+    });
+    seedNutrition('2026-08-04', 'complete', 2_400);
+    nowMs = Date.parse('2026-08-18T16:00:00.000Z');
+
+    expect(
+      createDailyEnergyAdherenceStore({
+        db,
+        sqlite,
+        now: () => new Date(nowMs),
+      }).getDailyEnergyAdherence('user-1', '2026-08-04'),
+    ).toMatchObject({
+      expenditure: null,
+      intakeMinusExpenditureKcal: null,
+      reasonCodes: ['NO_ACCEPTED_EXPENDITURE'],
+    });
+  });
+
+  it.each(['lose', 'maintain', 'gain'] as const)(
+    'keeps symmetric grading goal-neutral for a %s program',
+    (goalType) => {
+      nowMs = Date.parse('2026-08-01T16:00:00.000Z');
+      createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) }).upsertProgram(
+        'user-1',
+        programInputForGoal(goalType),
+      );
+      seedManualTargetEvent({
+        id: `target-${goalType}`,
+        effectiveDate: '2026-08-01',
+        recordedAt: nowMs,
+        calories: 2_000,
+      });
+      seedNutrition('2026-08-02', 'complete', 2_251);
+      nowMs = Date.parse('2026-08-03T16:00:00.000Z');
+
+      expect(
+        createDailyEnergyAdherenceStore({
+          db,
+          sqlite,
+          now: () => new Date(nowMs),
+        }).getDailyEnergyAdherence('user-1', '2026-08-02'),
+      ).toMatchObject({
+        adherence: 'off_target',
+        intakeMinusTargetKcal: 251,
+        innerToleranceKcal: 100,
+        outerToleranceKcal: 250,
+      });
+    },
+  );
+
+  it('selects historical target revisions without rewriting earlier accepted truth', () => {
+    seedManualTargetEvent({
+      id: 'target-old',
+      effectiveDate: '2026-08-01',
+      recordedAt: Date.parse('2026-08-01T12:00:00.000Z'),
+      calories: 2_400,
+    });
+    seedManualTargetEvent({
+      id: 'target-revised',
+      effectiveDate: '2026-08-12',
+      recordedAt: Date.parse('2026-08-11T12:00:00.000Z'),
+      calories: 2_200,
+    });
+    seedNutrition('2026-08-10', 'complete', 2_400);
+    seedNutrition('2026-08-12', 'complete', 2_400);
+    const store = createDailyEnergyAdherenceStore({ db, sqlite, now: () => new Date(nowMs) });
+
+    expect(store.getDailyEnergyAdherence('user-1', '2026-08-10').target).toMatchObject({
+      targetEventId: 'target-old',
+      caloriesKcal: 2_400,
+    });
+    expect(store.getDailyEnergyAdherence('user-1', '2026-08-12').target).toMatchObject({
+      targetEventId: 'target-revised',
+      caloriesKcal: 2_200,
+    });
+  });
+
+  it('recomputes corrected meal snapshots without changing target or expenditure provenance', () => {
+    nowMs = Date.parse('2026-08-01T16:00:00.000Z');
+    createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) }).upsertProgram(
+      'user-1',
+      programInput(),
+    );
+    seedManualTargetEvent({
+      id: 'fixed-target',
+      effectiveDate: '2026-08-01',
+      recordedAt: nowMs,
+      calories: 2_400,
+    });
+    seedNutrition('2026-08-10', 'complete', 2_400);
+    nowMs = Date.parse('2026-08-18T16:00:00.000Z');
+    const store = createDailyEnergyAdherenceStore({ db, sqlite, now: () => new Date(nowMs) });
+    const before = store.getDailyEnergyAdherence('user-1', '2026-08-10');
+
+    db.update(mealItems).set({ calories: 2_650 }).where(eq(mealItems.id, 'item-2026-08-10')).run();
+    const after = store.getDailyEnergyAdherence('user-1', '2026-08-10');
+
+    expect(after.nutrition.intakeKcal).toBe(2_650);
+    expect(after.intakeMinusTargetKcal).toBe(250);
+    expect(after.target).toEqual(before.target);
+    expect(after.expenditure).toEqual(before.expenditure);
+  });
+
+  it('retains only bounded authoritative rows from dense irrelevant history', () => {
+    nowMs = Date.parse('2026-08-01T16:00:00.000Z');
+    createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) }).upsertProgram(
+      'user-1',
+      programInput(),
+    );
+    const program = db.select().from(adaptiveNutritionPrograms).limit(1).get();
+    const firstRevision = db.select().from(adaptiveNutritionProgramRevisions).limit(1).get();
+    if (!program || !firstRevision) throw new Error('Expected seeded program history');
+    sqlite
+      .prepare(
+        `insert into adaptive_nutrition_program_revisions
+          (id, program_id, user_id, effective_at, sequence, snapshot, source, created_at)
+         values (@id, @programId, @userId, @effectiveAt, @sequence, @snapshot, 'program_updated', @createdAt)`,
+      )
+      .run({
+        id: 'irrelevant-invalid-revision',
+        programId: program.id,
+        userId: 'user-1',
+        effectiveAt: Date.parse('2026-09-01T12:00:00.000Z'),
+        sequence: 2,
+        snapshot: JSON.stringify({ timeZone: 'America/Detroit' }),
+        createdAt: Date.parse('2026-09-01T12:00:00.000Z'),
+      });
+    for (let sequence = 3; sequence <= 102; sequence += 1) {
+      sqlite
+        .prepare(
+          `insert into adaptive_nutrition_program_revisions
+            (id, program_id, user_id, effective_at, sequence, snapshot, source, created_at)
+           values (@id, @programId, @userId, @effectiveAt, @sequence, @snapshot, 'program_updated', @createdAt)`,
+        )
+        .run({
+          id: `irrelevant-revision-${sequence}`,
+          programId: program.id,
+          userId: 'user-1',
+          effectiveAt: Date.parse('2026-09-01T12:00:00.000Z') + sequence,
+          sequence,
+          snapshot: JSON.stringify(firstRevision.snapshot),
+          createdAt: Date.parse('2026-09-01T12:00:00.000Z') + sequence,
+        });
+    }
+    const baselineCheckIn = db.select().from(adaptiveNutritionCheckIns).limit(1).get();
+    if (!baselineCheckIn) throw new Error('Expected baseline check-in');
+    db.insert(adaptiveNutritionCheckIns)
+      .values({
+        ...baselineCheckIn,
+        id: 'irrelevant-invalid-check-in',
+        status: 'accepted',
+        kind: 'manual',
+        calculationState: 'updating',
+        localDate: '2026-08-10',
+        dataFingerprint: 'f'.repeat(64),
+        proposedTdeeKcal: 9_999,
+        proposedTargets: { effectiveDate: '2026-09-02' } as typeof baselineCheckIn.proposedTargets,
+        acceptedNutritionTargetId: null,
+        resolvedAt: Date.parse('2026-08-10T12:00:00.000Z'),
+        createdAt: Date.parse('2026-08-10T12:00:00.000Z'),
+      })
+      .run();
+    seedManualTargetEvent({
+      id: 'bounded-target',
+      effectiveDate: '2026-08-01',
+      recordedAt: nowMs,
+      calories: 2_400,
+    });
+    seedNutrition('2026-08-02', 'complete', 2_400);
+    nowMs = Date.parse('2026-08-18T16:00:00.000Z');
+
+    const result = createDailyEnergyAdherenceStore({
+      db,
+      sqlite,
+      now: () => new Date(nowMs),
+    }).getDailyEnergyAdherence('user-1', '2026-08-02');
+
+    expect(result).toMatchObject({
+      localDate: '2026-08-02',
+      timeZone: 'America/Detroit',
+      target: { targetEventId: 'bounded-target' },
+      expenditure: { caloriesKcal: 2_760, source: 'program_baseline' },
+    });
+    expect(
+      sqlite
+        .prepare(
+          `select count(*) as count from adaptive_nutrition_program_revisions where program_id = ?`,
+        )
+        .get(program.id),
+    ).toEqual({ count: 102 });
+  });
+
   it.each([
     { date: '2026-08-17', status: 'partial' as const, state: 'partial' },
     { date: '2026-08-16', status: 'unknown' as const, state: 'unknown' },
@@ -232,10 +528,11 @@ describe('daily energy adherence store', () => {
     seedNutrition(date, status, 2_400);
 
     expect(
-      createDailyEnergyAdherenceStore({ db, now: () => new Date(nowMs) }).getDailyEnergyAdherence(
-        'user-1',
-        date,
-      ),
+      createDailyEnergyAdherenceStore({
+        db,
+        sqlite,
+        now: () => new Date(nowMs),
+      }).getDailyEnergyAdherence('user-1', date),
     ).toMatchObject({ dataState: state, adherence: null });
   });
 
@@ -249,10 +546,11 @@ describe('daily energy adherence store', () => {
     seedNutrition('2026-08-18', 'complete', 2_400);
 
     expect(
-      createDailyEnergyAdherenceStore({ db, now: () => new Date(nowMs) }).getDailyEnergyAdherence(
-        'user-1',
-        '2026-08-18',
-      ),
+      createDailyEnergyAdherenceStore({
+        db,
+        sqlite,
+        now: () => new Date(nowMs),
+      }).getDailyEnergyAdherence('user-1', '2026-08-18'),
     ).toMatchObject({
       todayLocalDate: '2026-08-18',
       completedDayCutoff: '2026-08-17',
@@ -270,10 +568,11 @@ describe('daily energy adherence store', () => {
     });
 
     expect(
-      createDailyEnergyAdherenceStore({ db, now: () => new Date(nowMs) }).getDailyEnergyAdherence(
-        'user-1',
-        '2026-08-20',
-      ),
+      createDailyEnergyAdherenceStore({
+        db,
+        sqlite,
+        now: () => new Date(nowMs),
+      }).getDailyEnergyAdherence('user-1', '2026-08-20'),
     ).toMatchObject({
       dataState: 'future',
       target: null,
@@ -296,6 +595,7 @@ describe('daily energy adherence store', () => {
     nowMs = Date.parse('2026-08-18T00:59:00.000Z');
     const before = createDailyEnergyAdherenceStore({
       db,
+      sqlite,
       now: () => new Date(nowMs),
     }).getDailyEnergyAdherence('user-1', '2026-08-02');
     nowMs = Date.parse('2026-08-18T01:00:00.000Z');
@@ -305,11 +605,93 @@ describe('daily energy adherence store', () => {
     });
     const after = createDailyEnergyAdherenceStore({
       db,
+      sqlite,
       now: () => new Date(nowMs),
     }).getDailyEnergyAdherence('user-1', '2026-08-02');
 
     expect(after).toEqual(before);
     expect(after.timeZone).toBe('Asia/Tokyo');
+  });
+
+  it('keeps historical facts byte-stable after an eastward time-zone edit', () => {
+    nowMs = Date.parse('2026-08-01T16:00:00.000Z');
+    const lifecycle = createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) });
+    lifecycle.upsertProgram('user-1', programInput('America/Los_Angeles'));
+    seedManualTargetEvent({
+      id: 'target-event-1',
+      effectiveDate: '2026-08-01',
+      recordedAt: nowMs,
+      calories: 2_400,
+    });
+    seedNutrition('2026-08-02', 'complete', 2_400);
+    nowMs = Date.parse('2026-08-18T00:59:00.000Z');
+    const before = createDailyEnergyAdherenceStore({
+      db,
+      sqlite,
+      now: () => new Date(nowMs),
+    }).getDailyEnergyAdherence('user-1', '2026-08-02');
+    nowMs = Date.parse('2026-08-18T01:00:00.000Z');
+    lifecycle.upsertProgram('user-1', {
+      ...programInput('Asia/Tokyo'),
+      supersedePending: true,
+    });
+    const after = createDailyEnergyAdherenceStore({
+      db,
+      sqlite,
+      now: () => new Date(nowMs),
+    }).getDailyEnergyAdherence('user-1', '2026-08-02');
+
+    expect(after).toEqual(before);
+    expect(after.timeZone).toBe('America/Los_Angeles');
+  });
+
+  it.each([
+    {
+      name: 'Detroit before spring DST',
+      timeZone: 'America/Detroit',
+      instant: '2026-03-08T04:30:00.000Z',
+      today: '2026-03-07',
+      selected: '2026-03-07',
+      state: 'pending_cutoff',
+    },
+    {
+      name: 'Detroit after spring DST',
+      timeZone: 'America/Detroit',
+      instant: '2026-03-08T07:30:00.000Z',
+      today: '2026-03-08',
+      selected: '2026-03-07',
+      state: 'gradeable',
+    },
+    {
+      name: 'UTC at the same pre-DST instant',
+      timeZone: 'UTC',
+      instant: '2026-03-08T04:30:00.000Z',
+      today: '2026-03-08',
+      selected: '2026-03-07',
+      state: 'gradeable',
+    },
+  ])('uses the program calendar at $name', ({ instant, selected, state, timeZone, today }) => {
+    nowMs = Date.parse('2026-03-01T16:00:00.000Z');
+    createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) }).upsertProgram(
+      'user-1',
+      programInput(timeZone),
+    );
+    seedManualTargetEvent({
+      id: 'dst-target',
+      effectiveDate: '2026-03-01',
+      recordedAt: nowMs,
+      calories: 2_400,
+    });
+    seedNutrition(selected, 'complete', 2_400);
+    nowMs = Date.parse(instant);
+
+    expect(
+      createDailyEnergyAdherenceStore({
+        db,
+        sqlite,
+        now: () => new Date(nowMs),
+      }).getDailyEnergyAdherence('user-1', selected),
+    ).toMatchObject({ timeZone, todayLocalDate: today, dataState: state });
   });
 
   it('is read-only across nutrition and adaptive ledgers', () => {
@@ -321,10 +703,11 @@ describe('daily energy adherence store', () => {
       checkIns: db.select({ value: count() }).from(adaptiveNutritionCheckIns).get()?.value,
     };
 
-    createDailyEnergyAdherenceStore({ db, now: () => new Date(nowMs) }).getDailyEnergyAdherence(
-      'user-1',
-      '2026-08-17',
-    );
+    createDailyEnergyAdherenceStore({
+      db,
+      sqlite,
+      now: () => new Date(nowMs),
+    }).getDailyEnergyAdherence('user-1', '2026-08-17');
 
     const after = {
       logs: db.select({ value: count() }).from(nutritionLogs).get()?.value,

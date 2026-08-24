@@ -263,7 +263,11 @@ test('dashboard Trend Weight honors the selected historical date', async ({ page
         url.searchParams.get('end') === historicalDate
       );
     });
-    await page.locator(`[data-slot="calendar-day"][data-date="${historicalDate}"]`).click();
+    const historicalDay = page.locator(`[data-slot="calendar-day"][data-date="${historicalDate}"]`);
+    if ((await historicalDay.count()) === 0) {
+      await page.getByRole('button', { name: 'Previous week' }).click();
+    }
+    await historicalDay.click();
     expect((await analyticsResponse).ok()).toBeTruthy();
 
     await expect(page.getByText('Historical view')).toBeVisible();

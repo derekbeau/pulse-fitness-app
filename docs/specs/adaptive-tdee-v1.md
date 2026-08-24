@@ -2466,6 +2466,23 @@ or changes a nutrition log, target, program, check-in, goal, or review.
 - Program revisions use the same nondecreasing causal local-date fold as Energy Balance. Historical
   reads select the effective revision and program time zone without letting a later westward or
   eastward time-zone edit rewrite an earlier daily response.
+- The Nutrition Log owns a literal `YYYY-MM-DD` selection in the effective program time zone. Its
+  initial day, Today action, current-week boundary, status control, and adjacent/week prefetches do
+  not use the browser's calendar. Date-only keys are advanced as calendar dates and are never
+  reinterpreted as instants.
+- Target and expenditure facts expose compact audit provenance. Target provenance includes manual
+  versus accepted-adaptive source, effective date, event and target identities, recorded instant,
+  and accepted check-in identity when applicable. Expenditure provenance includes baseline versus
+  accepted-check-in source, effective date, check-in identity, and input fingerprint.
+- Initial loading has no accepted fact to show. A background refresh retains the last response for
+  that exact selected date while announcing its state. A failed refresh keeps those facts visible,
+  marks them potentially stale, and offers a scoped retry; cached facts from another date are never
+  relabeled as the current selection.
+- One-day reads retain only the initial and date-effective program revisions and at most one
+  accepted expenditure check-in. Historical revision resolution walks the causal sequence only
+  until the first boundary after the requested date; live reads select the initial and latest
+  endpoints directly. Accepted check-ins are user/program scoped and selected in SQL by effective
+  date, resolution time, creation time, and ID with `limit 1`.
 
 ## Sources
 

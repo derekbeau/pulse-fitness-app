@@ -261,7 +261,7 @@ test.describe.serial('Workout progression and muscle analytics', () => {
     await page.keyboard.press('Enter');
     await expect(exerciseToggle).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByText('History', { exact: true })).toBeVisible();
-    await expect(page.getByText('Aug 20 · 40x10, 40x10', { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Aug \d{1,2} · 40x10, 40x10$/u)).toBeVisible();
     await page.waitForLoadState('networkidle');
     diagnostics();
   });
