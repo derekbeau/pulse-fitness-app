@@ -16,6 +16,15 @@ import {
   mergeFoods,
   updateFood,
 } from './store.js';
+import {
+  FoodAnalyticsNotFoundError,
+  FoodAnalyticsTimeZoneConflictError,
+} from './analytics-store.js';
+
+const analyticsMocks = vi.hoisted(() => ({
+  getAnalytics: vi.fn(),
+  getDetail: vi.fn(),
+}));
 
 vi.mock('./store.js', () => ({
   FoodMergeSameIdError: class FoodMergeSameIdError extends Error {
@@ -34,6 +43,16 @@ vi.mock('./store.js', () => ({
   listFoods: vi.fn(),
   mergeFoods: vi.fn(),
   updateFood: vi.fn(),
+}));
+
+vi.mock('./analytics-store.js', () => ({
+  FoodAnalyticsNotFoundError: class FoodAnalyticsNotFoundError extends Error {},
+  FoodAnalyticsTimeZoneConflictError: class FoodAnalyticsTimeZoneConflictError extends Error {
+    constructor() {
+      super('Requested time zone does not match the effective nutrition program time zone');
+    }
+  },
+  createFoodAnalyticsStore: vi.fn(() => analyticsMocks),
 }));
 
 vi.mock('../../middleware/store.js', () => ({
@@ -119,6 +138,86 @@ const buildFood = (
   ...overrides,
 });
 
+const buildAnalyticsDetail = () => ({
+  range: {
+    kind: '30d' as const,
+    startDate: '2026-07-27',
+    endDate: '2026-08-25',
+    calendarDays: 30,
+    timeZone: 'America/Detroit',
+    timeZoneSource: 'request' as const,
+    isHistorical: false,
+  },
+  food: {
+    foodId: '00000000-0000-4000-8000-000000000001',
+    name: 'Greek Yogurt',
+    brand: null,
+    tags: ['protein'],
+    currentDefinition: {
+      servingSize: '1 cup',
+      servingGrams: 170,
+      calories: 150,
+      protein: 15,
+      carbs: 10,
+      fat: 3,
+      fiber: null,
+      sugar: null,
+      proteinPer100Kcal: 10,
+      caloriesPer100Grams: 88.235,
+      macroDerivedCalories: 127,
+      macroCalorieDifference: 23,
+      macroCalorieTolerance: 10,
+      verified: true,
+      source: 'Label',
+      notes: null,
+      updatedAt: 1_700_000_000_000,
+    },
+    observed: {
+      usageOccurrences: 1,
+      distinctLoggedDays: 1,
+      lastLoggedLocalDate: '2026-08-24',
+      totalCalories: 150,
+      totalProtein: 15,
+      linkedCalorieSharePercent: 100,
+      proteinPer100Kcal: 10,
+      caloriesPer100Grams: 88.235,
+      portion: {
+        state: 'compatible' as const,
+        unit: 'g',
+        medianQuantity: 170,
+        recentQuantity: 170,
+        recentLocalDate: '2026-08-24',
+        evidenceCount: 1,
+      },
+      dayStates: {
+        complete: { occurrences: 1, distinctDays: 1 },
+        partial: { occurrences: 0, distinctDays: 0 },
+        unknown: { occurrences: 0, distinctDays: 0 },
+      },
+    },
+    definitionReviewReasons: ['MACRO_CALORIE_MISMATCH' as const],
+  },
+  occurrences: [
+    {
+      mealItemId: '10000000-0000-4000-8000-000000000001',
+      mealId: '20000000-0000-4000-8000-000000000001',
+      localDate: '2026-08-24',
+      mealName: 'Lunch',
+      mealTime: '12:00',
+      quantity: 170,
+      unit: 'g',
+      calories: 150,
+      protein: 15,
+      carbs: 10,
+      fat: 3,
+      nutritionDayState: 'complete' as const,
+    },
+  ],
+  occurrenceMeta: { page: 1, limit: 25, total: 1 },
+  snapshotNotice:
+    'Editing this saved food changes future defaults only. Historical meal snapshots stay unchanged.' as const,
+});
+
 describe('foods routes', () => {
   beforeEach(() => {
     vi.mocked(createFood).mockReset();
@@ -127,11 +226,289 @@ describe('foods routes', () => {
     vi.mocked(listFoods).mockReset();
     vi.mocked(mergeFoods).mockReset();
     vi.mocked(updateFood).mockReset();
+    analyticsMocks.getAnalytics.mockReset();
+    analyticsMocks.getDetail.mockReset();
     vi.mocked(findAgentTokenByHash).mockReset();
     vi.mocked(findUserAuthById).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-foods-secret';
+  });
+
+  it('returns identical server-owned analytics facts for JWT and AgentToken callers', async () => {
+    const analytics = {
+      data: {
+        range: {
+          kind: '30d' as const,
+          startDate: '2026-07-27',
+          endDate: '2026-08-25',
+          calendarDays: 30,
+          timeZone: 'America/Detroit',
+          timeZoneSource: 'request' as const,
+          isHistorical: false,
+        },
+        summary: {
+          savedFoodsTotal: 0,
+          savedFoodsUsed: 0,
+          linkedUsageOccurrences: 0,
+          distinctLoggedDays: 0,
+          linkedFoodCalories: 0,
+          totalMealItemCalories: 0,
+          linkedCaloriesPercent: null,
+          unlinkedMealItemCount: 0,
+          unlinkedMealItemCalories: 0,
+          inactiveLinkedMealItemCount: 0,
+          inactiveLinkedMealItemCalories: 0,
+          unresolvedLinkedMealItemCount: 0,
+          unresolvedLinkedMealItemCalories: 0,
+          definitionsNeedingReview: 0,
+          dayStates: {
+            complete: { occurrences: 0, distinctDays: 0 },
+            partial: { occurrences: 0, distinctDays: 0 },
+            unknown: { occurrences: 0, distinctDays: 0 },
+          },
+        },
+        items: [],
+        availableTags: [],
+      },
+      meta: { page: 1, limit: 25, total: 0 },
+    };
+    analyticsMocks.getAnalytics.mockReturnValue(analytics);
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const jwt = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const url = '/api/v1/foods/analytics?end=2026-08-25&timeZone=America%2FDetroit';
+      const [jwtResponse, agentResponse] = await Promise.all([
+        app.inject({ method: 'GET', url, headers: createAuthorizationHeader(jwt) }),
+        app.inject({
+          method: 'GET',
+          url,
+          headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
+        }),
+      ]);
+
+      expect(jwtResponse.statusCode).toBe(200);
+      expect(agentResponse.statusCode).toBe(200);
+      expect(jwtResponse.json()).toEqual(agentResponse.json());
+      expect(jwtResponse.json()).toEqual(analytics);
+      expect(analyticsMocks.getAnalytics).toHaveBeenCalledTimes(2);
+      expect(analyticsMocks.getAnalytics).toHaveBeenNthCalledWith(1, 'user-1', {
+        range: '30d',
+        end: '2026-08-25',
+        timeZone: 'America/Detroit',
+        q: undefined,
+        tags: undefined,
+        sort: 'most_used',
+        usage: 'any',
+        verification: 'any',
+        review: 'any',
+        grams: 'any',
+        page: 1,
+        limit: 25,
+      });
+      expect(analyticsMocks.getAnalytics).toHaveBeenNthCalledWith(2, 'user-1', {
+        range: '30d',
+        end: '2026-08-25',
+        timeZone: 'America/Detroit',
+        q: undefined,
+        tags: undefined,
+        sort: 'most_used',
+        usage: 'any',
+        verification: 'any',
+        review: 'any',
+        grams: 'any',
+        page: 1,
+        limit: 25,
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects invalid analytics queries before the store and maps missing detail to 404', async () => {
+    analyticsMocks.getDetail.mockImplementation(() => {
+      throw new FoodAnalyticsNotFoundError();
+    });
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const jwt = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const [invalid, missing] = await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/foods/analytics?range=7d&limit=101',
+          headers: createAuthorizationHeader(jwt),
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/foods/00000000-0000-4000-8000-000000000001/analytics',
+          headers: createAuthorizationHeader(jwt),
+        }),
+      ]);
+
+      expect(invalid.statusCode).toBe(400);
+      expect(analyticsMocks.getAnalytics).not.toHaveBeenCalled();
+      expect(missing.statusCode).toBe(404);
+      expect(missing.json()).toEqual({
+        error: { code: 'FOOD_NOT_FOUND', message: 'Food not found' },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('returns identical detail evidence for JWT and AgentToken callers', async () => {
+    const detail = buildAnalyticsDetail();
+    analyticsMocks.getDetail.mockReturnValue(detail);
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({ id: 'agent-token-1', userId: 'user-1' });
+    const app = buildServer();
+    try {
+      await app.ready();
+      const jwt = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const url =
+        '/api/v1/foods/00000000-0000-4000-8000-000000000001/analytics?end=2026-08-25&timeZone=America%2FDetroit';
+      const [jwtResponse, agentResponse] = await Promise.all([
+        app.inject({ method: 'GET', url, headers: createAuthorizationHeader(jwt) }),
+        app.inject({
+          method: 'GET',
+          url,
+          headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
+        }),
+      ]);
+      expect(jwtResponse.statusCode).toBe(200);
+      expect(agentResponse.statusCode).toBe(200);
+      expect(jwtResponse.json()).toEqual(agentResponse.json());
+      expect(jwtResponse.json()).toEqual({ data: detail });
+      expect(analyticsMocks.getDetail).toHaveBeenNthCalledWith(
+        1,
+        'user-1',
+        '00000000-0000-4000-8000-000000000001',
+        expect.objectContaining({ end: '2026-08-25', timeZone: 'America/Detroit' }),
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it.each([
+    ['range', '/api/v1/foods/analytics?range=7d'],
+    ['sort', '/api/v1/foods/analytics?sort=unknown'],
+    ['usage', '/api/v1/foods/analytics?usage=maybe'],
+    ['page', '/api/v1/foods/analytics?page=0'],
+    ['limit', '/api/v1/foods/analytics?limit=101'],
+    ['timeZone', '/api/v1/foods/analytics?timeZone=Not%2FAZone'],
+  ])('rejects invalid analytics %s independently', async (_field, url) => {
+    const app = buildServer();
+    try {
+      await app.ready();
+      const jwt = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'GET',
+        url,
+        headers: createAuthorizationHeader(jwt),
+      });
+      expect(response.statusCode).toBe(400);
+      expect(analyticsMocks.getAnalytics).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it.each([
+    [
+      'occurrence page',
+      '/api/v1/foods/00000000-0000-4000-8000-000000000001/analytics?occurrencePage=0',
+    ],
+    [
+      'occurrence limit',
+      '/api/v1/foods/00000000-0000-4000-8000-000000000001/analytics?occurrenceLimit=101',
+    ],
+    ['range', '/api/v1/foods/00000000-0000-4000-8000-000000000001/analytics?range=7d'],
+    [
+      'timezone',
+      '/api/v1/foods/00000000-0000-4000-8000-000000000001/analytics?timeZone=Not%2FAZone',
+    ],
+  ])('rejects invalid analytics detail %s before calling the store', async (_field, url) => {
+    const app = buildServer();
+    try {
+      await app.ready();
+      const jwt = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const response = await app.inject({
+        method: 'GET',
+        url,
+        headers: createAuthorizationHeader(jwt),
+      });
+      expect(response.statusCode).toBe(400);
+      expect(analyticsMocks.getDetail).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('maps analytics timezone conflicts and future ranges to stable errors', async () => {
+    analyticsMocks.getAnalytics
+      .mockImplementationOnce(() => {
+        throw new FoodAnalyticsTimeZoneConflictError();
+      })
+      .mockImplementationOnce(() => {
+        throw new RangeError('Food analytics end date cannot be in the future');
+      });
+    const app = buildServer();
+    try {
+      await app.ready();
+      const jwt = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const [conflict, future] = await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/foods/analytics?timeZone=Asia%2FTokyo',
+          headers: createAuthorizationHeader(jwt),
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/foods/analytics?end=2099-01-01',
+          headers: createAuthorizationHeader(jwt),
+        }),
+      ]);
+      expect(conflict.json()).toEqual({
+        error: {
+          code: 'FOOD_ANALYTICS_TIME_ZONE_CONFLICT',
+          message: 'Requested time zone does not match the effective nutrition program time zone',
+        },
+      });
+      expect(future.json()).toEqual({
+        error: {
+          code: 'FOOD_ANALYTICS_INVALID_RANGE',
+          message: 'Food analytics end date cannot be in the future',
+        },
+      });
+    } finally {
+      await app.close();
+    }
   });
 
   afterEach(() => {

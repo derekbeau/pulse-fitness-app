@@ -1,4 +1,4 @@
-import { and, count, eq, isNull, sql, type SQL } from 'drizzle-orm';
+import { and, count, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 import type {
   CreateFoodInput,
   Food,
@@ -472,25 +472,27 @@ export const mergeFoods = async (
       throw new FoodMergeNotFoundError('loser');
     }
 
-    const affectedNutritionLogs = tx
-      .selectDistinct({ id: nutritionLogs.id })
+    const ownedLoserItems = tx
+      .select({ itemId: mealItems.id, nutritionLogId: nutritionLogs.id })
       .from(mealItems)
       .innerJoin(meals, eq(meals.id, mealItems.mealId))
       .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
       .where(and(eq(mealItems.foodId, loserId), eq(nutritionLogs.userId, userId)))
       .all();
 
-    // We scope winner/loser lookup by user first; UUID food IDs are globally unique, so this relink is user-safe.
-    const relinkResult = tx
-      .update(mealItems)
-      .set({ foodId: winnerId })
-      .where(eq(mealItems.foodId, loserId))
-      .run();
-    if (relinkResult.changes > 0) {
-      downgradeCompleteNutritionLogs(
-        tx,
-        affectedNutritionLogs.map((log) => log.id),
-      );
+    if (ownedLoserItems.length > 0) {
+      tx.update(mealItems)
+        .set({ foodId: winnerId })
+        .where(
+          inArray(
+            mealItems.id,
+            ownedLoserItems.map((item) => item.itemId),
+          ),
+        )
+        .run();
+      downgradeCompleteNutritionLogs(tx, [
+        ...new Set(ownedLoserItems.map((item) => item.nutritionLogId)),
+      ]);
     }
 
     const now = Date.now();

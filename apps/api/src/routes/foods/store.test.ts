@@ -487,7 +487,7 @@ describe('foods store', () => {
         }),
       },
       {
-        all: [],
+        all: [{ itemId: 'meal-item-1', nutritionLogId: 'nutrition-log-1' }],
       },
       {
         get: buildStoredFood({
@@ -509,26 +509,27 @@ describe('foods store', () => {
         lastUsedAt: 1_700_000_400_000,
       }),
     );
-    expect(dbState.updateSets).toHaveLength(3);
+    expect(dbState.updateSets).toHaveLength(4);
     expect(dbState.updateSets[0]).toEqual({
       foodId: winnerId,
     });
-    expect(dbState.updateSets[1]).toMatchObject({
+    expect(dbState.updateSets[1]).toMatchObject({ status: 'partial' });
+    expect(dbState.updateSets[2]).toMatchObject({
       usageCount: 11,
       lastUsedAt: 1_700_000_400_000,
       updatedAt: expect.any(Number),
     });
-    expect(dbState.updateSets[2]).toMatchObject({
+    expect(dbState.updateSets[3]).toMatchObject({
       deletedAt: expect.any(String),
       updatedAt: expect.any(Number),
     });
 
     const relinkWhereText = flattenSql(dbState.updateWhereCalls[0]);
-    expect(relinkWhereText).toContain(`food_id = ${loserId}`);
-    const winnerWhereText = flattenSql(dbState.updateWhereCalls[1]);
+    expect(relinkWhereText).toContain('id in');
+    const winnerWhereText = flattenSql(dbState.updateWhereCalls[2]);
     expect(winnerWhereText).toContain(`id = ${winnerId}`);
     expect(winnerWhereText).toContain('user_id = user-1');
-    const loserWhereText = flattenSql(dbState.updateWhereCalls[2]);
+    const loserWhereText = flattenSql(dbState.updateWhereCalls[3]);
     expect(loserWhereText).toContain(`id = ${loserId}`);
     expect(loserWhereText).toContain('user_id = user-1');
   });
@@ -552,7 +553,7 @@ describe('foods store', () => {
         }),
       },
       {
-        all: [],
+        all: [{ itemId: 'meal-item-1', nutritionLogId: 'nutrition-log-1' }],
       },
       {
         get: buildStoredFood({
@@ -566,7 +567,7 @@ describe('foods store', () => {
     const { mergeFoods } = await import('./store.js');
     await mergeFoods('user-1', winnerId, loserId);
 
-    expect(dbState.updateSets[1]).toMatchObject({
+    expect(dbState.updateSets[2]).toMatchObject({
       lastUsedAt: 1_700_000_500_000,
     });
   });

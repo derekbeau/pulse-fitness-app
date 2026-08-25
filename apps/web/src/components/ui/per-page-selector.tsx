@@ -21,10 +21,13 @@ export function PerPageSelector({
     : DEFAULT_PER_PAGE;
 
   return (
-    <Select onValueChange={(nextValue) => onChange(Number(nextValue))} value={String(selectedValue)}>
+    <Select
+      onValueChange={(nextValue) => onChange(Number(nextValue))}
+      value={String(selectedValue)}
+    >
       <SelectTrigger
         aria-label={ariaLabel}
-        className={cn('h-9 min-h-9 w-[6.5rem] text-xs sm:text-sm', triggerClassName)}
+        className={cn('h-11 min-h-11 w-[6.5rem] text-xs sm:text-sm', triggerClassName)}
       >
         <SelectValue>{`${selectedValue} / page`}</SelectValue>
       </SelectTrigger>

@@ -1,4 +1,4 @@
-import type { FoodQueryParams } from '@pulse/shared';
+import type { FoodAnalyticsDetailQuery, FoodAnalyticsQuery, FoodQueryParams } from '@pulse/shared';
 
 function normalizeListParams(params?: Partial<FoodQueryParams>) {
   return {
@@ -18,6 +18,12 @@ export const foodQueryKeys = {
       ? (['foods', 'list', normalizeListParams(params)] as const)
       : (['foods', 'list'] as const),
   detail: (id: string) => ['foods', 'detail', id] as const,
+  analytics: (params?: FoodAnalyticsQuery) =>
+    params ? (['foods', 'analytics', params] as const) : (['foods', 'analytics'] as const),
+  analyticsDetail: (id: string, params?: FoodAnalyticsDetailQuery) =>
+    params
+      ? (['foods', 'analytics', 'detail', id, params] as const)
+      : (['foods', 'analytics', 'detail', id] as const),
   list: (params?: Partial<FoodQueryParams>) =>
     params
       ? (['foods', 'list', normalizeListParams(params)] as const)

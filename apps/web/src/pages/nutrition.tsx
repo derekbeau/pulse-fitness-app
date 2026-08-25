@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FoodList } from '@/features/foods';
+import { FoodLibraryWorkspace } from '@/features/foods';
 import {
   AdaptiveCoach,
   NutritionDayStatusControl,
@@ -252,7 +252,7 @@ export function NutritionPage() {
         ) : activeView === 'coach' ? (
           <AdaptiveCoach />
         ) : activeView === 'foods' ? (
-          <FoodList />
+          <FoodLibraryWorkspace referenceDate={trendsReferenceDate} timeZone={nutritionTimeZone} />
         ) : trendsReferenceDate ? (
           <NutritionTrends referenceDate={trendsReferenceDate} />
         ) : (
@@ -271,14 +271,36 @@ export function NutritionPage() {
 }
 
 export function NutritionLogTab({ timeZone }: { timeZone: string }) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
   const todayDateKey = chartDateKeyInTimeZone(currentTimeMs, timeZone);
-  const [selectedDate, setSelectedDate] = useState(() => todayDateKey);
+  const requestedDate = searchParams.get('date');
+  const initialDate =
+    requestedDate && /^\d{4}-\d{2}-\d{2}$/u.test(requestedDate) ? requestedDate : todayDateKey;
+  const [internalSelectedDate, setSelectedDate] = useState(() => initialDate);
+  const selectedDate =
+    requestedDate && /^\d{4}-\d{2}-\d{2}$/u.test(requestedDate)
+      ? requestedDate
+      : internalSelectedDate;
   const previousTodayDateKey = useRef(todayDateKey);
   const [mealSortDirection, setMealSortDirection] = useState<MealSortDirection>('desc');
   const { confirm, dialog } = useConfirmation();
   const dateKey = selectedDate;
+
+  const selectDate = useCallback(
+    (nextDate: string | ((current: string) => string)) => {
+      const resolved = typeof nextDate === 'function' ? nextDate(selectedDate) : nextDate;
+      setSelectedDate(resolved);
+      setSearchParams((previous) => {
+        const next = new URLSearchParams(previous);
+        next.set('date', resolved);
+        next.delete('meal');
+        return next;
+      });
+    },
+    [selectedDate, setSearchParams],
+  );
 
   const refreshCurrentTime = useCallback(() => {
     const nextTimeMs = Date.now();
@@ -369,6 +391,24 @@ export function NutritionLogTab({ timeZone }: { timeZone: string }) {
     renameMealMutation.isError && renameMealMutation.error instanceof Error
       ? renameMealMutation.error.message
       : null;
+  const handledMealDeepLink = useRef<string | null>(null);
+
+  useEffect(() => {
+    const mealId = searchParams.get('meal');
+    const deepLinkKey = mealId ? `${selectedDate}:${mealId}` : null;
+    if (
+      !mealId ||
+      deepLinkKey === handledMealDeepLink.current ||
+      isLoadingDay ||
+      !selectedMeals.some((meal) => meal.id === mealId)
+    )
+      return;
+    const element = document.getElementById(`nutrition-meal-${mealId}`);
+    if (!element) return;
+    element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    element.focus({ preventScroll: true });
+    handledMealDeepLink.current = deepLinkKey;
+  }, [isLoadingDay, searchParams, selectedDate, selectedMeals]);
 
   useEffect(() => {
     const previousDateKey = addCalendarDays(selectedDate, -1);
@@ -423,7 +463,7 @@ export function NutritionLogTab({ timeZone }: { timeZone: string }) {
           size="sm"
           type="button"
           variant="link"
-          onClick={() => setSelectedDate(todayDateKey)}
+          onClick={() => selectDate(todayDateKey)}
         >
           Today
         </Button>
@@ -437,13 +477,13 @@ export function NutritionLogTab({ timeZone }: { timeZone: string }) {
           disableNextWeek={isViewingCurrentWeek}
           selectedDate={selectedDate}
           onNextWeek={() =>
-            setSelectedDate(
+            selectDate(
               (currentDate) =>
                 [addCalendarDays(currentDate, 7), todayDateKey].sort()[0] ?? todayDateKey,
             )
           }
-          onPreviousWeek={() => setSelectedDate((currentDate) => addCalendarDays(currentDate, -7))}
-          onSelectDate={setSelectedDate}
+          onPreviousWeek={() => selectDate((currentDate) => addCalendarDays(currentDate, -7))}
+          onSelectDate={selectDate}
         />
       ) : weekSummaryQuery.isError ? (
         <p className="text-sm text-muted">Unable to load week summary.</p>
@@ -531,18 +571,26 @@ export function NutritionLogTab({ timeZone }: { timeZone: string }) {
               </div>
             ) : selectedMeals.length > 0 ? (
               selectedMeals.map((meal) => (
-                <MealCard
+                <div
+                  className="scroll-mt-24 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  id={`nutrition-meal-${meal.id}`}
                   key={meal.id}
-                  isDeleting={
-                    deleteMealMutation.isPending && deleteMealMutation.variables?.mealId === meal.id
-                  }
-                  isRenaming={
-                    renameMealMutation.isPending && renameMealMutation.variables?.mealId === meal.id
-                  }
-                  meal={meal}
-                  onDelete={handleDeleteMeal}
-                  onRename={handleRenameMeal}
-                />
+                  tabIndex={-1}
+                >
+                  <MealCard
+                    isDeleting={
+                      deleteMealMutation.isPending &&
+                      deleteMealMutation.variables?.mealId === meal.id
+                    }
+                    isRenaming={
+                      renameMealMutation.isPending &&
+                      renameMealMutation.variables?.mealId === meal.id
+                    }
+                    meal={meal}
+                    onDelete={handleDeleteMeal}
+                    onRename={handleRenameMeal}
+                  />
+                </div>
               ))
             ) : (
               <EmptyState
@@ -551,7 +599,7 @@ export function NutritionLogTab({ timeZone }: { timeZone: string }) {
                     ? undefined
                     : {
                         label: 'Go to today',
-                        onClick: () => setSelectedDate(todayDateKey),
+                        onClick: () => selectDate(todayDateKey),
                       }
                 }
                 description="Ask your agent to log a meal."

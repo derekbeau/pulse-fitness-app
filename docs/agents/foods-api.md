@@ -83,8 +83,8 @@ curl -s 'http://localhost:3001/api/v1/foods?sort=name' \
 curl -s 'http://localhost:3001/api/v1/foods?q=chicken&sort=name' \
   -H 'Authorization: Bearer <token>'
 
-# High protein foods
-curl -s 'http://localhost:3001/api/v1/foods?sort=protein&limit=10' \
+# Highest-calorie definitions
+curl -s 'http://localhost:3001/api/v1/foods?sort=calories&limit=10' \
   -H 'Authorization: Bearer <token>'
 ```
 
@@ -93,15 +93,48 @@ curl -s 'http://localhost:3001/api/v1/foods?sort=protein&limit=10' \
 | Param   | Default | Description                              |
 | ------- | ------- | ---------------------------------------- |
 | `q`     | —       | Search name and brand (case-insensitive) |
-| `sort`  | `name`  | `name`, `recent`, or `protein`           |
+| `sort`  | `name`  | `name`, `recent`, `usage`, or `calories` |
 | `page`  | `1`     | Page number (min 1)                      |
 | `limit` | `50`    | Items per page (1–100)                   |
 
 **Sort modes:**
 
 - `name` — alphabetical (case-insensitive)
-- `recent` — by `lastUsedAt` descending (nulls last), then name
-- `protein` — by protein descending, then name
+- `recent` — by definition `updatedAt` descending, then name
+- `usage` — by lifetime usage counter descending, then name
+- `calories` — by the current definition's calories descending, then name
+
+These list fields describe the current saved-food library. They are not selected-range analytics.
+Use the analytics endpoints below for historical usage, contribution, and protein-density facts.
+
+### Food analytics — `GET /api/v1/foods/analytics`
+
+Returns a pagination-independent selected-range summary and a server-filtered, server-sorted page of
+active saved foods. `30d` and `90d` are inclusive program-local calendar ranges; `all` begins with
+the user's first nutrition log. Historical totals always come from meal-item calorie and macro
+snapshots and are linked only by `foodId`. Current definitions are returned separately.
+
+```bash
+curl -s 'http://localhost:3001/api/v1/foods/analytics?range=30d&sort=most_used&page=1&limit=25' \
+  -H 'Authorization: Bearer <token>'
+```
+
+Supported filters are `usage`, `verification`, `review`, `servingGrams`, normalized `tags`, and
+text search `q`. Supported sorts are `most_used`, `most_recent`, `calorie_contribution`,
+`protein_contribution`, `protein_density`, `calorie_density`, `needs_review`, and `name`. Every sort
+has deterministic name, brand, and food-ID tie breakers, so pagination cannot duplicate or skip a
+food.
+
+The summary distinguishes active linked, unlinked, inactive-linked, and unresolved meal items. Its
+linked calorie share uses all meal-item calories as the denominator. Each row's share uses only
+active linked-food calories as the denominator.
+
+### Food analytics detail — `GET /api/v1/foods/:id/analytics`
+
+Returns the same current-definition and selected-range observed facts for one active owned food,
+plus a bounded page of recent linked occurrences. Occurrences expose the nutrition-log local date,
+day status, meal identity, recorded portion, and immutable calorie/macro snapshot. A missing,
+foreign, or soft-deleted food returns `404 FOOD_NOT_FOUND`.
 
 ### Update a food — `PUT /api/v1/foods/:id`
 

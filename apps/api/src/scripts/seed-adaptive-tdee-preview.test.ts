@@ -24,6 +24,7 @@ import { createAdaptiveWeeklyReviewStore } from '../routes/adaptive-nutrition/re
 import { createAdaptiveGoalReadStore } from '../routes/adaptive-nutrition/goal-store.js';
 import { createDataQualityCalendarStore } from '../routes/data-quality/store.js';
 import { createDailyEnergyAdherenceStore } from '../routes/nutrition/daily-energy-store.js';
+import { createFoodAnalyticsStore } from '../routes/foods/analytics-store.js';
 
 import {
   ADAPTIVE_PREVIEW_USERNAME_PREFIX,
@@ -159,6 +160,7 @@ describe('Adaptive TDEE preview fixtures', () => {
       'progression-stale': 'setup_required',
       'progression-agent': 'setup_required',
       'muscle-analytics': 'setup_required',
+      'food-analytics': 'setup_required',
     });
     for (const fixture of first) {
       expect(store.getState(fixture.userId).state).toBe(fixture.expectedState);
@@ -443,6 +445,49 @@ describe('Adaptive TDEE preview fixtures', () => {
     expect(second.find((fixture) => fixture.fixture === 'goal-maintenance')?.username).toBe(
       'adaptive-preview-maintain',
     );
+    expect(second.find((fixture) => fixture.fixture === 'food-analytics')?.username).toBe(
+      'adaptive-preview-food',
+    );
+    const foodFixture = second.find((fixture) => fixture.fixture === 'food-analytics');
+    if (!foodFixture) throw new Error('Missing food analytics fixture');
+    const foodAnalytics = createFoodAnalyticsStore({
+      sqlite,
+      now: () => new Date('2026-08-13T16:30:00.000Z'),
+    }).getAnalytics(foodFixture.userId, {
+      range: '30d',
+      end: '2026-08-13',
+      timeZone: 'America/Detroit',
+      sort: 'most_used',
+      usage: 'any',
+      verification: 'any',
+      review: 'any',
+      grams: 'any',
+      page: 1,
+      limit: 25,
+    });
+    expect(foodAnalytics.data.summary).toMatchObject({
+      savedFoodsTotal: 7,
+      savedFoodsUsed: 6,
+      linkedUsageOccurrences: 9,
+      distinctLoggedDays: 5,
+      linkedFoodCalories: 1620,
+      totalMealItemCalories: 1775,
+      linkedCaloriesPercent: (1620 * 100) / 1775,
+      unlinkedMealItemCount: 1,
+      unlinkedMealItemCalories: 80,
+      inactiveLinkedMealItemCount: 1,
+      inactiveLinkedMealItemCalories: 75,
+      definitionsNeedingReview: 4,
+    });
+    expect(foodAnalytics.data.items[0]).toMatchObject({
+      name: 'Greek Yogurt',
+      observed: {
+        usageOccurrences: 4,
+        totalCalories: 570,
+        totalProtein: 57,
+        portion: { state: 'mixed_units', evidenceCount: 4 },
+      },
+    });
     expect(second.find((fixture) => fixture.fixture === 'goal-change-pending')?.username).toBe(
       'adaptive-preview-goal-pending',
     );
