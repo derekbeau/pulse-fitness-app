@@ -1,4 +1,4 @@
-import { lstatSync, realpathSync } from 'node:fs';
+import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 
 import bcrypt from 'bcryptjs';
@@ -1251,7 +1251,7 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   );
   seedEligibleHistory(db, trajectoryReached.userId, anchorDate, clock, true);
   store.previewCheckIn(trajectoryReached.userId, { kind: 'manual', includeToday: false });
-  seedWeightDay(db, trajectoryReached.userId, datePlus(anchorDate, 1), 85, clock);
+  seedWeightDay(db, trajectoryReached.userId, anchorDate, 85, clock);
   clock += 1000;
 
   const trajectoryGain = createHistoricalBaseline(
@@ -1655,6 +1655,13 @@ const dateKeyInDetroit = (date: Date) => {
 };
 
 export const resolveAdaptivePreviewSeedNow = (anchorDate: string, current: Date) => {
+  const contract = JSON.parse(
+    readFileSync(
+      resolve(import.meta.dirname, '../../../../scripts/adaptive-preview-fixture-contract.v1.json'),
+      'utf8',
+    ),
+  ) as { anchorDate: string; seedNow: string };
+  if (anchorDate === contract.anchorDate) return new Date(contract.seedNow);
   if (anchorDate !== dateKeyInDetroit(current)) {
     return new Date(`${anchorDate}T16:00:00.000Z`);
   }
@@ -1695,23 +1702,12 @@ export async function runAdaptiveTdeePreviewSeedCli(args: string[]) {
     throw new Error('Preview database must be the regular, non-symlink Gate 0 database');
   }
   process.env.DATABASE_URL = expectedPath;
-  const [
-    { db, sqlite },
-    { migrate },
-    { runWithForeignKeysDisabled },
-    { backfillAdaptiveProgramRevisionProjection },
-    passwordHash,
-  ] = await Promise.all([
+  const [{ db, sqlite }, { migratePulseDatabase }, passwordHash] = await Promise.all([
     import('../db/index.js'),
-    import('drizzle-orm/better-sqlite3/migrator'),
-    import('../db/integrity.js'),
-    import('../db/adaptive-program-revision-projection.js'),
+    import('../db/migrate.js'),
     bcrypt.hash(ADAPTIVE_PREVIEW_PASSWORD, 4),
   ]);
-  runWithForeignKeysDisabled(sqlite, () =>
-    migrate(db, { migrationsFolder: resolve(repoRoot, 'apps/api/drizzle') }),
-  );
-  backfillAdaptiveProgramRevisionProjection(sqlite);
+  migratePulseDatabase(sqlite, { migrationsFolder: resolve(repoRoot, 'apps/api/drizzle') });
   const records = seedAdaptiveTdeePreviewFixtures({
     anchorDate: parsed.anchorDate,
     db,

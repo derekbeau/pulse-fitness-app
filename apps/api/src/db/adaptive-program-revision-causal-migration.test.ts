@@ -9,7 +9,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import * as schema from './schema/index.js';
-import { backfillAdaptiveProgramRevisionProjection } from './adaptive-program-revision-projection.js';
+import { migratePulseDatabase } from './migrate.js';
 import { createAdaptiveAnalyticsStore } from '../routes/adaptive-nutrition/analytics-store.js';
 
 const sourceMigrationsFolder = fileURLToPath(new URL('../../drizzle', import.meta.url));
@@ -460,10 +460,9 @@ describe('adaptive program revision causal migration', () => {
         insert.run(id, sequence, effectiveAt, JSON.stringify(revisionSnapshot), effectiveAt);
       }
 
-      migrate(db, { migrationsFolder: sourceMigrationsFolder });
-      expect(backfillAdaptiveProgramRevisionProjection(sqlite)).toEqual({
-        inserted: 3,
-        revisions: 3,
+      expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
+        applied: 2,
+        projectionRevisions: 3,
       });
       expect(
         sqlite
@@ -538,7 +537,65 @@ describe('adaptive program revision causal migration', () => {
     }
   });
 
-  it('rolls back the whole projection when any legacy ledger is malformed', () => {
+  it.each([
+    {
+      name: 'a second program starts with a sequence gap',
+      mutate(sqlite: Database.Database) {
+        sqlite.exec('drop trigger adaptive_nutrition_program_revisions_insert_sequence_guard');
+        sqlite
+          .prepare(
+            `insert into adaptive_nutrition_program_revisions
+              (id, program_id, user_id, sequence, effective_at, snapshot, source, created_at)
+             values ('invalid-2', 'invalid-program', 'invalid-user', 2, 100, ?, 'migration', 100)`,
+          )
+          .run(JSON.stringify(programSnapshot()));
+      },
+    },
+    {
+      name: 'a full snapshot contains an invalid IANA timezone',
+      mutate(sqlite: Database.Database) {
+        sqlite
+          .prepare(
+            `insert into adaptive_nutrition_program_revisions
+              (id, program_id, user_id, sequence, effective_at, snapshot, source, created_at)
+             values ('invalid-1', 'invalid-program', 'invalid-user', 1, 100, ?, 'migration', 100)`,
+          )
+          .run(JSON.stringify({ ...programSnapshot(), timeZone: 'Mars/Olympus_Mons' }));
+      },
+    },
+    {
+      name: 'a program snapshot is not a full strict calculation snapshot',
+      mutate(sqlite: Database.Database) {
+        sqlite
+          .prepare(
+            `insert into adaptive_nutrition_program_revisions
+              (id, program_id, user_id, sequence, effective_at, snapshot, source, created_at)
+             values ('invalid-1', 'invalid-program', 'invalid-user', 1, 100, ?, 'migration', 100)`,
+          )
+          .run(JSON.stringify({ timeZone: 'America/Detroit' }));
+      },
+    },
+    {
+      name: 'a later revision has a decreasing timestamp',
+      mutate(sqlite: Database.Database) {
+        insertRevision(sqlite, {
+          id: 'invalid-1',
+          programId: 'invalid-program',
+          userId: 'invalid-user',
+          sequence: 1,
+          effectiveAt: 200,
+        });
+        sqlite.exec('drop trigger adaptive_nutrition_program_revisions_insert_effective_at_guard');
+        sqlite
+          .prepare(
+            `insert into adaptive_nutrition_program_revisions
+              (id, program_id, user_id, sequence, effective_at, snapshot, source, created_at)
+             values ('invalid-2', 'invalid-program', 'invalid-user', 2, 100, ?, 'migration', 100)`,
+          )
+          .run(JSON.stringify(programSnapshot()));
+      },
+    },
+  ])('atomically rejects 0056 when $name', ({ mutate }) => {
     const root = mkdtempSync(join(tmpdir(), 'pulse-program-projection-rollback-'));
     tempDirs.push(root);
     const through0055 = stageMigrationsThrough(root, 55);
@@ -566,17 +623,164 @@ describe('adaptive program revision causal migration', () => {
         sequence: 1,
         effectiveAt: 100,
       });
-      sqlite.exec('drop trigger adaptive_nutrition_program_revisions_insert_sequence_guard');
+      mutate(sqlite);
+
+      expect(() =>
+        migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder }),
+      ).toThrow();
+      expect(
+        sqlite
+          .prepare(
+            `select count(*) as count
+               from sqlite_master
+              where type = 'table'
+                and name = 'adaptive_nutrition_program_revision_dates'`,
+          )
+          .get(),
+      ).toEqual({ count: 0 });
+      expect(
+        sqlite.prepare('select max(created_at) as createdAt from __drizzle_migrations').get(),
+      ).toEqual({ createdAt: 1787702400000 });
+      expectHealthyDatabase(sqlite);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('rolls back an injected interruption before 0056 commits and retries cleanly', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-program-projection-interruption-'));
+    tempDirs.push(root);
+    const through0055 = stageMigrationsThrough(root, 55);
+    const sqlite = new Database(join(root, 'interruption.db'));
+    sqlite.pragma('foreign_keys = ON');
+    try {
+      migrate(drizzle(sqlite, { schema }), { migrationsFolder: through0055 });
+      seedLegacyProgram(sqlite, {
+        userId: 'retry-user',
+        programId: 'retry-program',
+        createdAt: 100,
+        updatedAt: 100,
+      });
+      insertRevision(sqlite, {
+        id: 'retry-1',
+        programId: 'retry-program',
+        userId: 'retry-user',
+        sequence: 1,
+        effectiveAt: 100,
+      });
+
+      expect(() =>
+        migratePulseDatabase(sqlite, {
+          migrationsFolder: sourceMigrationsFolder,
+          beforeProjectionCommit: () => {
+            throw new Error('simulated process interruption before migration commit');
+          },
+        }),
+      ).toThrow('simulated process interruption');
+      expect(
+        sqlite
+          .prepare(
+            `select count(*) as count from sqlite_master
+              where type = 'table' and name = 'adaptive_nutrition_program_revision_dates'`,
+          )
+          .get(),
+      ).toEqual({ count: 0 });
+      expect(
+        sqlite.prepare('select max(created_at) as createdAt from __drizzle_migrations').get(),
+      ).toEqual({ createdAt: 1787702400000 });
+
+      expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
+        applied: 2,
+        projectionRevisions: 1,
+      });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
+        applied: 0,
+        projectionRevisions: undefined,
+      });
+      expect(
+        sqlite
+          .prepare(
+            'select revision_id as revisionId from adaptive_nutrition_program_revision_dates',
+          )
+          .all(),
+      ).toEqual([{ revisionId: 'retry-1' }]);
+      expectHealthyDatabase(sqlite);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('retries cleanly after an operator corrects a rejected source ledger', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-program-projection-corrected-'));
+    tempDirs.push(root);
+    const through0055 = stageMigrationsThrough(root, 55);
+    const sqlite = new Database(join(root, 'corrected.db'));
+    sqlite.pragma('foreign_keys = ON');
+    try {
+      migrate(drizzle(sqlite, { schema }), { migrationsFolder: through0055 });
+      seedLegacyProgram(sqlite, {
+        userId: 'corrected-user',
+        programId: 'corrected-program',
+        createdAt: 100,
+        updatedAt: 100,
+      });
       sqlite
         .prepare(
           `insert into adaptive_nutrition_program_revisions
             (id, program_id, user_id, sequence, effective_at, snapshot, source, created_at)
-           values ('invalid-2', 'invalid-program', 'invalid-user', 2, 100, ?, 'migration', 100)`,
+           values ('corrected-1', 'corrected-program', 'corrected-user', 1, 100, ?, 'migration', 100)`,
         )
-        .run(JSON.stringify({ timeZone: 'Mars/Olympus_Mons' }));
-      migrate(db, { migrationsFolder: sourceMigrationsFolder });
+        .run(JSON.stringify({ ...programSnapshot(), timeZone: 'Mars/Olympus_Mons' }));
 
-      expect(() => backfillAdaptiveProgramRevisionProjection(sqlite)).toThrow();
+      expect(() =>
+        migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder }),
+      ).toThrow();
+      expect(
+        sqlite
+          .prepare(
+            `select count(*) as count from sqlite_master
+              where type = 'table' and name = 'adaptive_nutrition_program_revision_dates'`,
+          )
+          .get(),
+      ).toEqual({ count: 0 });
+
+      sqlite
+        .prepare('insert into adaptive_nutrition_account_deletion_scope (user_id) values (?)')
+        .run('corrected-user');
+      sqlite
+        .prepare('delete from adaptive_nutrition_program_revisions where id = ?')
+        .run('corrected-1');
+      sqlite
+        .prepare('delete from adaptive_nutrition_account_deletion_scope where user_id = ?')
+        .run('corrected-user');
+      insertRevision(sqlite, {
+        id: 'corrected-1',
+        programId: 'corrected-program',
+        userId: 'corrected-user',
+        sequence: 1,
+        effectiveAt: 100,
+      });
+
+      expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
+        applied: 2,
+        projectionRevisions: 1,
+      });
+      expectHealthyDatabase(sqlite);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('installs the full journal on a fresh empty database through the canonical runner', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pulse-program-projection-fresh-'));
+    tempDirs.push(root);
+    const sqlite = new Database(join(root, 'fresh.db'));
+    sqlite.pragma('foreign_keys = ON');
+    try {
+      expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
+        applied: 58,
+        projectionRevisions: 0,
+      });
       expect(
         sqlite
           .prepare('select count(*) as count from adaptive_nutrition_program_revision_dates')

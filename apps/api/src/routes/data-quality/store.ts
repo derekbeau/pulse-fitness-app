@@ -41,6 +41,7 @@ import {
   getDateKeyInTimeZone,
   type EffectiveProgramRevision,
 } from '../adaptive-nutrition/analytics-store.js';
+import { getApplicationNow } from '../../lib/clock.js';
 import { createAdaptiveWeeklyReviewStore } from '../adaptive-nutrition/review-store.js';
 
 type DataQualityDatabase = BetterSQLite3Database<typeof schema>;
@@ -211,7 +212,7 @@ export const createDataQualityCalendarStore = (dependencies: {
   onQuery?: (source: string) => void;
 }) => {
   const { db } = dependencies;
-  const now = dependencies.now ?? (() => new Date());
+  const now = dependencies.now ?? getApplicationNow;
   const observe = dependencies.onQuery ?? (() => undefined);
   const reviewStore = createAdaptiveWeeklyReviewStore({ db, sqlite: dependencies.sqlite, now });
 

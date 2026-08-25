@@ -5,6 +5,7 @@ import type { DailyEnergyAdherence } from '@pulse/shared';
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
 
 import { setAuthenticatedSession } from './auth-session';
+import { adaptivePreviewFixtureContract } from './adaptive-preview-fixture-contract';
 import { apiBaseURL } from './test-env';
 
 // The fixture program is America/Detroit. Keeping the browser on the opposite side of the
@@ -17,19 +18,7 @@ let fixtureDate = '';
 let api: APIRequestContext;
 let token: string;
 let agentToken: { id: string; token: string };
-const deterministicFixtureDate = '2026-08-23';
-
-function dateKeyInDetroit() {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone: 'America/Detroit',
-    year: 'numeric',
-  }).formatToParts(new Date());
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((value) => value.type === type)?.value ?? '';
-  return `${part('year')}-${part('month')}-${part('day')}`;
-}
+const deterministicFixtureDate = adaptivePreviewFixtureContract.anchorDate;
 
 function addDays(date: string, amount: number) {
   const value = new Date(`${date}T12:00:00.000Z`);
@@ -175,17 +164,19 @@ async function expectNoOverflow(page: Page, width: number) {
 }
 
 test.describe.serial('Daily energy adherence', () => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    if (!testInfo.title.startsWith('rolls a continuously visible')) {
+      await page.clock.setFixedTime(new Date(adaptivePreviewFixtureContract.serverNow));
+    }
+  });
+
   test.beforeAll(async () => {
     api = await request.newContext({ baseURL: apiBaseURL });
     const login = await api.post('/api/v1/auth/login', { data: { password, username } });
     expect(login.ok(), await login.text()).toBeTruthy();
     token = ((await login.json()) as { data: { token: string } }).data.token;
 
-    const currentDate = dateKeyInDetroit();
     fixtureDate = deterministicFixtureDate;
-    expect(currentDate, 'deterministic program-local browser date').toBe(
-      addDays(deterministicFixtureDate, 1),
-    );
     const fixtureStates = await Promise.all(
       [1, 2, 3, 4].map(async (distance) => {
         const response = await api.get(
@@ -218,7 +209,7 @@ test.describe.serial('Daily energy adherence', () => {
 
   test('renders accepted historical facts and exact AgentToken parity', async ({ page }) => {
     const diagnostics = monitorPage(page);
-    const today = dateKeyInDetroit();
+    const today = fixtureDate;
     const completeDate = addDays(fixtureDate, -1);
     await page.setViewportSize({ height: 1000, width: 390 });
     const current = await openNutrition(page, today);
@@ -303,7 +294,7 @@ test.describe.serial('Daily energy adherence', () => {
 
   test('keeps partial, unknown, missing, and cutoff days ungraded', async ({ page }) => {
     const diagnostics = monitorPage(page);
-    const today = dateKeyInDetroit();
+    const today = fixtureDate;
     await page.setViewportSize({ height: 1000, width: 320 });
     await openNutrition(page, today);
     const cases = [
@@ -332,7 +323,7 @@ test.describe.serial('Daily energy adherence', () => {
   }) => {
     const diagnostics = monitorPage(page);
     await page.setViewportSize({ height: 1000, width: 430 });
-    await openNutrition(page, dateKeyInDetroit());
+    await openNutrition(page, fixtureDate);
     const cases = [
       { offset: -5, difference: 125, adherence: 'on_target', label: 'On target' },
       { offset: -6, difference: 126, adherence: 'near_target', label: 'Near target' },
@@ -385,7 +376,7 @@ test.describe.serial('Daily energy adherence', () => {
         ((await state.json()) as { data: { program: { goalType: string } } }).data.program.goalType,
       ).toBe(goalType);
       const date = addDays(fixtureDate, -1);
-      await openNutrition(page, dateKeyInDetroit(), fixtureToken);
+      await openNutrition(page, fixtureDate, fixtureToken);
       await selectDate(page, date);
       const factResponse = await api.get(`/api/v1/nutrition/${date}/energy-adherence`, {
         headers: {
@@ -408,7 +399,7 @@ test.describe.serial('Daily energy adherence', () => {
     expect(manualLogin.ok(), await manualLogin.text()).toBeTruthy();
     const manualToken = ((await manualLogin.json()) as { data: { token: string } }).data.token;
     const preProgramDate = addDays(fixtureDate, -8);
-    await openNutrition(page, dateKeyInDetroit(), manualToken);
+    await openNutrition(page, fixtureDate, manualToken);
     await selectDate(page, preProgramDate);
     const card = page.getByRole('article', { name: 'Daily energy' });
     await card.getByText('Accepted-fact provenance').click();
@@ -453,7 +444,7 @@ test.describe.serial('Daily energy adherence', () => {
     expect(facts[1]?.expenditure).toEqual(facts[2]?.expenditure);
     expect(facts[2]?.expenditure?.caloriesKcal).not.toBe(4_100);
 
-    await openNutrition(page, dateKeyInDetroit(), revisionToken);
+    await openNutrition(page, fixtureDate, revisionToken);
     await selectDate(page, dates[2] ?? '');
     const card = page.getByRole('article', { name: 'Daily energy' });
     await card.getByText('Accepted-fact provenance').click();
@@ -514,7 +505,7 @@ test.describe.serial('Daily energy adherence', () => {
         },
       );
       expect(corrected.ok(), await corrected.text()).toBeTruthy();
-      await openNutrition(page, dateKeyInDetroit());
+      await openNutrition(page, fixtureDate);
       await selectDate(page, date);
       const after = await api.get(`/api/v1/nutrition/${date}/energy-adherence`, {
         headers: { authorization: `Bearer ${token}` },
@@ -545,7 +536,7 @@ test.describe.serial('Daily energy adherence', () => {
   });
 
   test('keeps loading and rapid date changes scoped to the selected day', async ({ page }) => {
-    const today = dateKeyInDetroit();
+    const today = fixtureDate;
     const slowDate = addDays(fixtureDate, -2);
     const selectedDate = addDays(fixtureDate, -1);
     const diagnostics = monitorPage(
@@ -588,7 +579,6 @@ test.describe.serial('Daily energy adherence', () => {
     );
     await page.unroute(`**/api/v1/nutrition/${today}/energy-adherence`);
 
-    await page.getByRole('button', { name: 'Go to previous week' }).click();
     await expect(page.getByRole('button', { name: `Select ${slowDate}` })).toBeVisible();
     let releaseSlow: () => void = () => {};
     const slowRelease = new Promise<void>((resolveRelease) => {
@@ -634,7 +624,7 @@ test.describe.serial('Daily energy adherence', () => {
     page,
   }) => {
     test.setTimeout(70_000);
-    const today = dateKeyInDetroit();
+    const today = fixtureDate;
     const path = `/api/v1/nutrition/${today}/energy-adherence`;
     const diagnostics = monitorPage(page, [{ path, status: 503 }]);
     let responseMode: 'background-error' | 'initial-error' | 'success' = 'initial-error';

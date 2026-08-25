@@ -1,6 +1,7 @@
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
 
 import { setAuthenticatedSession } from './auth-session';
+import { adaptivePreviewFixtureContract } from './adaptive-preview-fixture-contract';
 import { apiBaseURL } from './test-env';
 
 test.use({ timezoneId: 'America/Detroit' });
@@ -16,7 +17,7 @@ type Fixture =
 
 let apiContext: APIRequestContext;
 const tokens = new Map<Fixture, string>();
-const fixtureDate = '2026-08-23';
+const fixtureDate = adaptivePreviewFixtureContract.anchorDate;
 
 function datePlus(date: string, days: number) {
   const value = new Date(`${date}T12:00:00.000Z`);
@@ -163,19 +164,58 @@ test.describe.serial('Energy Balance & Expenditure analytics', () => {
     await page.keyboard.press('Enter');
     const oneWeekPayload = (await (await oneWeekResponse).json()) as {
       data: {
-        summary: {
-          observedTrendEndDate: string;
-          predictedModeledDays: number;
+        range: {
+          preset: string;
+          startDate: string;
+          endDate: string;
+          aggregation: string;
+          calendarDays: number;
         };
+        summary: {
+          completeNutritionDays: number;
+          excludedNutritionDays: number;
+          observedTrendStartDate: string;
+          observedTrendEndDate: string;
+          observedTrendWeightChangeKg: number;
+          predictedModeledDays: number;
+          predictedWeightChangeKg: number;
+        };
+        points: Array<{
+          periodEnd: string;
+          intakeKcal: number | null;
+          targetKcal: number | null;
+          expenditureKcal: number | null;
+        }>;
       };
     };
-    const expectedObservedEnd = datePlus(fixtureDate, -1);
-    expect(oneWeekPayload.data.summary.predictedModeledDays).toBe(5);
-    expect(oneWeekPayload.data.summary.observedTrendEndDate).toBe(expectedObservedEnd);
+    const energyContract = adaptivePreviewFixtureContract.energyBalance;
+    expect(oneWeekPayload.data.range).toEqual(energyContract.range);
+    expect(oneWeekPayload.data.summary).toMatchObject({
+      completeNutritionDays: energyContract.completeNutritionDays,
+      excludedNutritionDays: energyContract.excludedNutritionDays,
+      observedTrendStartDate: energyContract.observedTrendStartDate,
+      observedTrendEndDate: energyContract.observedTrendEndDate,
+      observedTrendWeightChangeKg: energyContract.observedTrendWeightChangeKg,
+      predictedModeledDays: energyContract.predictedModeledDays,
+      predictedWeightChangeKg: energyContract.predictedWeightChangeKg,
+    });
+    const expectedObservedEnd = energyContract.observedTrendEndDate;
+    expect(
+      oneWeekPayload.data.points.find(
+        (point) => point.periodEnd === energyContract.endingObservation.date,
+      ),
+    ).toMatchObject({
+      periodEnd: energyContract.endingObservation.date,
+      intakeKcal: energyContract.endingObservation.intakeKcal,
+      targetKcal: energyContract.endingObservation.targetKcal,
+      expenditureKcal: energyContract.endingObservation.expenditureKcal,
+    });
     await expect(oneWeek).toHaveAttribute('aria-pressed', 'true');
     await expect(oneWeek).toBeFocused();
     await expect(page.getByText(/One-week changes are especially sensitive/)).toBeVisible();
-    await expect(page.getByText('Predicted · 5 daily intervals')).toBeVisible();
+    await expect(
+      page.getByText(`Predicted · ${energyContract.predictedModeledDays} daily intervals`),
+    ).toBeVisible();
     await expect(
       page.getByText(new RegExp(`up to, but not including, ${displayDate(expectedObservedEnd)}`)),
     ).toBeVisible();
@@ -197,8 +237,18 @@ test.describe.serial('Energy Balance & Expenditure analytics', () => {
       hasText: displayDate(expectedObservedEnd),
     });
     const endingObservationCells = endingObservationRow.getByRole('cell');
-    await expect(endingObservationCells.nth(2)).toHaveText('2,400 kcal');
-    await expect(endingObservationCells.nth(3)).toHaveText('2,400 kcal');
+    await expect(endingObservationCells.nth(2)).toHaveText(
+      `${energyContract.endingObservation.intakeKcal.toLocaleString('en-US')} kcal`,
+    );
+    await expect(endingObservationCells.nth(3)).toHaveText(
+      `${energyContract.endingObservation.intakeKcal.toLocaleString('en-US')} kcal`,
+    );
+    await expect(endingObservationCells.nth(4)).toHaveText(
+      `${energyContract.endingObservation.targetKcal.toLocaleString('en-US')} kcal`,
+    );
+    await expect(endingObservationCells.nth(5)).toHaveText(
+      `${energyContract.endingObservation.expenditureKcal.toLocaleString('en-US')} kcal`,
+    );
     await expect(endingObservationCells.nth(6)).not.toHaveText('Not enough data');
     assertDiagnostics();
   });
@@ -397,9 +447,7 @@ test.describe.serial('Energy Balance & Expenditure analytics', () => {
       .filter({ hasText: displayDate(datePlus(fixtureDate, -3)) });
     await expect(missingRow.getByRole('cell').nth(1)).toHaveText('missing');
     await expect(missingRow.getByRole('cell').nth(3)).toHaveText('Not enough data');
-    const cutoffRow = dataTable
-      .getByRole('row')
-      .filter({ hasText: displayDate(datePlus(fixtureDate, 1)) });
+    const cutoffRow = dataTable.getByRole('row').filter({ hasText: displayDate(fixtureDate) });
     await expect(cutoffRow.getByRole('cell').nth(1)).toHaveText('excluded');
     await expect(cutoffRow.getByRole('cell').nth(2)).toHaveText('2,400 kcal');
     await expect(cutoffRow.getByRole('cell').nth(3)).toHaveText('Not enough data');

@@ -70,6 +70,7 @@ import {
 
 import * as schema from '../../db/schema/index.js';
 import { insertAdaptiveProgramRevisionProjection } from '../../db/adaptive-program-revision-projection.js';
+import { getApplicationNow } from '../../lib/clock.js';
 import {
   adaptiveNutritionCheckIns,
   adaptiveNutritionGoalCompletions,
@@ -387,7 +388,7 @@ export const createAdaptiveNutritionStore = (options: {
   runInTransaction?: <T>(operation: () => T) => T;
 }) => {
   const { db, sqlite } = options;
-  const now = options.now ?? (() => new Date());
+  const now = options.now ?? getApplicationNow;
 
   const immediate = <T>(operation: () => T): T =>
     options.runInTransaction

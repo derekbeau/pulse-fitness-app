@@ -1,6 +1,6 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import Database from 'better-sqlite3';
@@ -10,6 +10,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import * as schema from '../db/schema/index.js';
+import { migratePulseDatabase } from '../db/migrate.js';
 import {
   adaptiveNutritionGoalCompletions,
   adaptiveNutritionGoals,
@@ -17,6 +18,8 @@ import {
   users,
 } from '../db/schema/index.js';
 import { createAdaptiveNutritionStore } from '../routes/adaptive-nutrition/store.js';
+import { createAdaptiveAnalyticsStore } from '../routes/adaptive-nutrition/analytics-store.js';
+import { createAdaptiveGoalTrajectoryStore } from '../routes/adaptive-nutrition/goal-trajectory-store.js';
 import { createAdaptiveWeeklyReviewStore } from '../routes/adaptive-nutrition/review-store.js';
 import { createAdaptiveGoalReadStore } from '../routes/adaptive-nutrition/goal-store.js';
 import { createDataQualityCalendarStore } from '../routes/data-quality/store.js';
@@ -29,6 +32,26 @@ import {
 } from './seed-adaptive-tdee-preview.js';
 
 const migrationsFolder = fileURLToPath(new URL('../../drizzle', import.meta.url));
+const fixtureContract = JSON.parse(
+  readFileSync(
+    resolve(import.meta.dirname, '../../../../scripts/adaptive-preview-fixture-contract.v1.json'),
+    'utf8',
+  ),
+) as {
+  anchorDate: string;
+  seedNow: string;
+  serverNow: string;
+  readiness: { learning: Record<string, unknown>; updating: Record<string, unknown> };
+  weeklyReview: Record<string, unknown> & { lowDay: Record<string, unknown> };
+  dataQuality: {
+    range: { startDate: string; endDate: string };
+    contextDate: string;
+    days: Array<Record<string, unknown> & { date: string }>;
+  };
+  energyBalance: Record<string, unknown> & { range: Record<string, unknown> };
+  trajectory: Record<string, unknown> & { selectedPoint: Record<string, unknown> };
+  workoutProgression: Record<string, unknown>;
+};
 const tempDirectories: string[] = [];
 
 afterEach(() => {
@@ -476,6 +499,141 @@ describe('Adaptive TDEE preview fixtures', () => {
     expect(db.select({ total: count() }).from(adaptiveNutritionGoalCompletions).get()).toEqual({
       total: 0,
     });
+    sqlite.close();
+  });
+
+  it('matches the independent 2026-08-23 fixture contract across all repaired domains', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'pulse-adaptive-contract-'));
+    tempDirectories.push(directory);
+    const sqlite = new Database(join(directory, 'contract.db'));
+    sqlite.pragma('foreign_keys = ON');
+    const db = drizzle(sqlite, { schema });
+    migratePulseDatabase(sqlite, { migrationsFolder });
+    const records = seedAdaptiveTdeePreviewFixtures({
+      anchorDate: fixtureContract.anchorDate,
+      db,
+      now: new Date(fixtureContract.seedNow),
+      passwordHash: 'fixture-password-hash',
+      sqlite,
+    });
+    const fixture = (name: string) => {
+      const value = records.find((candidate) => candidate.fixture === name);
+      if (!value) throw new Error(`Missing ${name} fixture`);
+      return value;
+    };
+    const now = () => new Date(fixtureContract.serverNow);
+    const adaptiveStore = createAdaptiveNutritionStore({ db, sqlite, now });
+    expect(adaptiveStore.getState(fixture('learning').userId).eligibility).toMatchObject(
+      fixtureContract.readiness.learning,
+    );
+    expect(adaptiveStore.getState(fixture('updating').userId).eligibility).toMatchObject(
+      fixtureContract.readiness.updating,
+    );
+
+    const review = createAdaptiveWeeklyReviewStore({ db, sqlite, now }).getPending(
+      fixture('review-low-day').userId,
+    );
+    expect(review?.snapshot).toMatchObject({
+      reviewLocalDate: fixtureContract.weeklyReview.reviewLocalDate,
+      analysisStart: fixtureContract.weeklyReview.analysisStart,
+      analysisEnd: fixtureContract.weeklyReview.analysisEnd,
+      headline: fixtureContract.weeklyReview.headline,
+      contexts: [],
+    });
+    const qualityModule = review?.snapshot.modules.find((module) => module.kind === 'data_quality');
+    expect(qualityModule).toMatchObject({
+      requiresClarification: true,
+      evidence: [
+        expect.objectContaining({
+          localDate: fixtureContract.weeklyReview.lowDay.localDate,
+          state: fixtureContract.weeklyReview.lowDay.state,
+          label: fixtureContract.weeklyReview.lowDay.label,
+          reasonCodes: [fixtureContract.weeklyReview.lowDay.reasonCode],
+        }),
+      ],
+    });
+
+    const calendar = createDataQualityCalendarStore({ db, sqlite, now }).getCalendar(
+      fixture('data-quality-calendar').userId,
+      {
+        start: fixtureContract.dataQuality.range.startDate,
+        end: fixtureContract.dataQuality.range.endDate,
+      },
+    );
+    expect(
+      calendar.days.map((day) => ({
+        date: day.date,
+        nutritionQuality: day.nutrition.qualityState,
+        nutritionEvidence: day.nutrition.evidenceState,
+        weightEvidence: day.weight.evidenceState,
+        ...(day.workouts[0] ? { workoutState: day.workouts[0].state } : {}),
+      })),
+    ).toEqual(fixtureContract.dataQuality.days);
+
+    const energy = createAdaptiveAnalyticsStore({ db, now }).getAnalytics(
+      fixture('analytics-goal-loss').userId,
+      { range: '1w', aggregation: 'auto' },
+    );
+    expect(energy.range).toEqual(fixtureContract.energyBalance.range);
+    expect(energy.summary).toMatchObject({
+      predictedModeledDays: fixtureContract.energyBalance.predictedModeledDays,
+      observedTrendStartDate: fixtureContract.energyBalance.observedTrendStartDate,
+      observedTrendEndDate: fixtureContract.energyBalance.observedTrendEndDate,
+      predictedWeightChangeKg: fixtureContract.energyBalance.predictedWeightChangeKg,
+      observedTrendWeightChangeKg: fixtureContract.energyBalance.observedTrendWeightChangeKg,
+      completeNutritionDays: fixtureContract.energyBalance.completeNutritionDays,
+      excludedNutritionDays: fixtureContract.energyBalance.excludedNutritionDays,
+    });
+
+    const trajectoryUser = fixture('trajectory-loss').userId;
+    const goal = adaptiveStore.getCurrentGoal(trajectoryUser).goal;
+    const trajectory = createAdaptiveGoalTrajectoryStore({ db, now }).getTrajectory(
+      trajectoryUser,
+      goal.id,
+      { range: '1m', lookbackDays: 28 },
+    );
+    expect(trajectory.summary).toMatchObject({
+      currentTrendWeightKg: fixtureContract.trajectory.currentAdaptiveTrendWeightKg,
+      currentTrendDate: fixtureContract.trajectory.currentDate,
+      selectedRateKgPerWeek: fixtureContract.trajectory.selectedRateKgPerWeek,
+      paceState: fixtureContract.trajectory.paceState,
+    });
+    expect(
+      trajectory.trendPoints.find(
+        (point) => point.date === fixtureContract.trajectory.selectedPoint.date,
+      ),
+    ).toMatchObject(fixtureContract.trajectory.selectedPoint);
+
+    const progressionUser = fixture('progression-accept').userId;
+    const progressionRows = sqlite
+      .prepare(
+        `select session.date, session_set.weight, session_set.reps, session_set.rpe
+           from workout_sessions session
+           join session_sets session_set on session_set.session_id = session.id
+          where session.user_id = ?
+          order by session_set.set_number`,
+      )
+      .all(progressionUser) as Array<{
+      date: string;
+      weight: number;
+      reps: number;
+      rpe: number;
+    }>;
+    expect(progressionRows.map((row) => row.date)).toEqual([
+      fixtureContract.workoutProgression.historyDate,
+      fixtureContract.workoutProgression.historyDate,
+    ]);
+    expect(progressionRows.map((row) => row.weight)).toEqual(
+      fixtureContract.workoutProgression.completedWeights,
+    );
+    expect(progressionRows.map((row) => row.reps)).toEqual(
+      fixtureContract.workoutProgression.completedReps,
+    );
+    expect(progressionRows.map((row) => row.rpe)).toEqual(
+      fixtureContract.workoutProgression.completedRpe,
+    );
+    expect(sqlite.pragma('foreign_key_check')).toEqual([]);
+    expect(sqlite.pragma('integrity_check')).toEqual([{ integrity_check: 'ok' }]);
     sqlite.close();
   });
 });

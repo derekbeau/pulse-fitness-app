@@ -1,6 +1,7 @@
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
 
 import { setAuthenticatedSession } from './auth-session';
+import { adaptivePreviewFixtureContract } from './adaptive-preview-fixture-contract';
 import { apiBaseURL } from './test-env';
 
 test.use({ timezoneId: 'America/Detroit' });
@@ -255,7 +256,11 @@ test.describe.serial('agentic weekly decision reviews', () => {
     const otherAgentHeaders = { authorization: `AgentToken ${otherAgent.data.token}` };
     try {
       await openCoach(page, 'review-low-day');
-      await expect(page.getByRole('heading', { name: /Clarify one logged day/ })).toBeVisible();
+      await expect(
+        page.getByRole('heading', {
+          name: adaptivePreviewFixtureContract.weeklyReview.headline,
+        }),
+      ).toBeVisible();
       const [pendingResponse, stateBeforeResponse] = await Promise.all([
         apiContext.get('/api/v1/adaptive-nutrition/reviews/pending', {
           headers: lowJwtHeaders,
@@ -266,15 +271,55 @@ test.describe.serial('agentic weekly decision reviews', () => {
         data: {
           review: {
             id: string;
-            snapshot: { modules: Array<{ kind: string; evidence?: Array<{ id: string | null }> }> };
+            snapshot: {
+              reviewLocalDate: string;
+              analysisStart: string;
+              analysisEnd: string;
+              headline: string;
+              contexts: unknown[];
+              modules: Array<{
+                kind: string;
+                requiresClarification?: boolean;
+                evidence?: Array<{
+                  id: string | null;
+                  localDate?: string;
+                  state?: string;
+                  label?: string;
+                  detail?: string;
+                  reasonCodes?: string[];
+                }>;
+              }>;
+            };
           };
         };
       };
+      const reviewContract = adaptivePreviewFixtureContract.weeklyReview;
+      expect(pending.data.review.snapshot).toMatchObject({
+        reviewLocalDate: reviewContract.reviewLocalDate,
+        analysisStart: reviewContract.analysisStart,
+        analysisEnd: reviewContract.analysisEnd,
+        headline: reviewContract.headline,
+        contexts: [],
+      });
+      const dataQualityModule = pending.data.review.snapshot.modules.find(
+        (module) => module.kind === 'data_quality',
+      );
+      expect(dataQualityModule?.requiresClarification).toBe(true);
+      expect(dataQualityModule?.evidence).toHaveLength(reviewContract.clarificationCount);
+      expect(dataQualityModule?.evidence?.[0]).toMatchObject({
+        localDate: reviewContract.lowDay.localDate,
+        state: reviewContract.lowDay.state,
+        label: reviewContract.lowDay.label,
+        reasonCodes: [reviewContract.lowDay.reasonCode],
+      });
+      expect(dataQualityModule?.evidence?.[0]?.detail).toContain(
+        `${reviewContract.lowDay.calories} kcal`,
+      );
       const lowDayEvidence = pending.data.review.snapshot.modules
         .find((module) => module.kind === 'data_quality')
         ?.evidence?.find((item) => item.id !== null);
       const nutritionId = lowDayEvidence?.id;
-      const lowDayLocalDate = (lowDayEvidence as { localDate?: string } | undefined)?.localDate;
+      const lowDayLocalDate = lowDayEvidence?.localDate;
       if (!nutritionId || !lowDayLocalDate) throw new Error('Missing low-day nutrition evidence');
       const stateBefore = (await stateBeforeResponse.json()) as {
         data: {
@@ -360,7 +405,7 @@ test.describe.serial('agentic weekly decision reviews', () => {
         refreshed.data.snapshot.modules.find((module) => module.kind === 'data_quality')
           ?.requiresClarification,
       ).toBe(false);
-      await expect(page.getByRole('heading', { name: /Clarify one logged day/ })).toHaveCount(0);
+      await expect(page.getByRole('heading', { name: reviewContract.headline })).toHaveCount(0);
       await openEvidence(page);
       const contextSection = page.getByRole('heading', { name: 'Context records' }).locator('..');
       await expect(
@@ -752,8 +797,10 @@ test.describe.serial('agentic weekly decision reviews', () => {
       ).toBe(true);
     }
     await page.setViewportSize({ width: 1280, height: 1000 });
-    const maximalEvidenceLink = page.locator(
-      `a[href="/nutrition/reviews/${maximalEvidence?.id ?? ''}"]`,
+    const maximalEvidenceLink = page.getByRole('link', { name: 'Review all evidence' });
+    await expect(maximalEvidenceLink).toHaveAttribute(
+      'href',
+      `/nutrition/reviews/${maximalEvidence?.id ?? ''}`,
     );
     await expect(maximalEvidenceLink).toBeVisible();
     await maximalEvidenceLink.focus();

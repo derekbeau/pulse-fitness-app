@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
 
 import { setAuthenticatedSession } from './auth-session';
+import { adaptivePreviewFixtureContract } from './adaptive-preview-fixture-contract';
 import { apiBaseURL } from './test-env';
 
 test.use({ timezoneId: 'America/Detroit' });
@@ -50,15 +51,7 @@ const tokens = new Map<Fixture, string>();
 let agentToken: { id: string; token: string } | undefined;
 
 function dateKeyInDetroit() {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone: 'America/Detroit',
-    year: 'numeric',
-  }).formatToParts(new Date());
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((value) => value.type === type)?.value ?? '';
-  return `${part('year')}-${part('month')}-${part('day')}`;
+  return adaptivePreviewFixtureContract.anchorDate;
 }
 
 function addDays(date: string, amount: number) {
@@ -123,8 +116,11 @@ async function scheduledWorkoutId(fixture: Fixture) {
     { headers: { authorization: `Bearer ${token}` } },
   );
   expect(response.ok(), `${fixture} scheduled workout`).toBeTruthy();
-  const payload = (await response.json()) as { data: Array<{ id: string }> };
+  const payload = (await response.json()) as { data: Array<{ id: string; date: string }> };
   expect(payload.data).toHaveLength(1);
+  expect(payload.data[0]?.date).toBe(
+    adaptivePreviewFixtureContract.workoutProgression.scheduledDate,
+  );
   return payload.data[0]?.id ?? '';
 }
 
@@ -191,19 +187,26 @@ test.describe.serial('Workout progression and muscle analytics', () => {
     const diagnostics = monitorPage(page);
     const { id, progression } = await openPlanning(page, 'accept', 390);
     const recommendation = progression.recommendations[0];
-    expect(recommendation).toMatchObject({ decision: 'increase', confidence: 'supported' });
-    expect(recommendation?.evidence.priorTargets.map((target) => target.weight)).toEqual([40, 40]);
-    expect(recommendation?.evidence.performance).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          prescribed: expect.objectContaining({ weight: 40, repsMin: 8, repsMax: 10 }),
-          reps: 10,
-          rpe: 8,
-          weight: 40,
-        }),
-      ]),
+    const progressionContract = adaptivePreviewFixtureContract.workoutProgression;
+    expect(recommendation).toMatchObject({
+      decision: progressionContract.decision,
+      confidence: progressionContract.confidence,
+    });
+    expect(recommendation?.evidence.priorTargets.map((target) => target.weight)).toEqual(
+      progressionContract.priorTargetWeights,
     );
-    expect(recommendation?.recommendedTargets.map((target) => target.weight)).toEqual([45, 45]);
+    expect(recommendation?.evidence.performance.map((set) => set.weight)).toEqual(
+      progressionContract.completedWeights,
+    );
+    expect(recommendation?.evidence.performance.map((set) => set.reps)).toEqual(
+      progressionContract.completedReps,
+    );
+    expect(recommendation?.evidence.performance.map((set) => set.rpe)).toEqual(
+      progressionContract.completedRpe,
+    );
+    expect(recommendation?.recommendedTargets.map((target) => target.weight)).toEqual(
+      progressionContract.recommendedTargetWeights,
+    );
     await expect(page.getByText(recommendation?.facts[0] ?? '')).toBeVisible();
     const comparison = page.getByRole('table', {
       name: 'Incline dumbbell press exact progression comparison',
@@ -229,7 +232,9 @@ test.describe.serial('Workout progression and muscle analytics', () => {
     const beforePayload = (await before.json()) as {
       data: { exercises: Array<{ sets: Array<{ targetWeight: number | null }> }> };
     };
-    expect(beforePayload.data.exercises[0]?.sets.map((set) => set.targetWeight)).toEqual([40, 40]);
+    expect(beforePayload.data.exercises[0]?.sets.map((set) => set.targetWeight)).toEqual(
+      progressionContract.priorTargetWeights,
+    );
 
     const accepted = page.waitForResponse(
       (response) =>
@@ -260,9 +265,11 @@ test.describe.serial('Workout progression and muscle analytics', () => {
     await page.keyboard.press('Enter');
     await expect(exerciseToggle).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByLabel('Weight for set 1')).toHaveValue('');
-    await expect(page.getByText('Target: 45 lbs').first()).toBeVisible();
+    await expect(
+      page.getByText(`Target: ${progressionContract.acceptedTargetWeights[0]} lbs`).first(),
+    ).toBeVisible();
     await expect(page.getByText('History', { exact: true })).toBeVisible();
-    await expect(page.getByText(/^Aug \d{1,2} · 40x10, 40x10$/u)).toBeVisible();
+    await expect(page.getByText(progressionContract.historyLabel, { exact: true })).toBeVisible();
     await page.waitForLoadState('networkidle');
     diagnostics();
   });

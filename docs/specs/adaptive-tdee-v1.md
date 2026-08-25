@@ -2466,10 +2466,15 @@ or changes a nutrition log, target, program, check-in, goal, or review.
 - Program revisions use the same nondecreasing causal local-date fold as Energy Balance. Historical
   reads select the effective revision and program time zone without letting a later westward or
   eastward time-zone edit rewrite an earlier daily response. Each immutable revision has an
-  immutable, indexed causal-date projection. Startup backfill validates the complete ledger with
-  the canonical fold and aborts transactionally on a sequence gap, decreasing UTC effective time,
-  malformed snapshot/time zone, or inconsistent existing projection. Future revisions append their
-  projection inside the same immediate transaction as the revision.
+  immutable, indexed causal-date projection. The canonical application migration runner treats
+  migration 0056 as one SQLite transaction: it preflights every complete ledger with the canonical
+  fold before running the 0056 DDL, creates the table/indexes/guards, inserts every projected row,
+  verifies source/projection row-count and identity equality, and only then inserts the Drizzle
+  migration-journal row. A sequence gap, decreasing UTC effective time, malformed snapshot/time
+  zone, inconsistent projection, or interruption before commit therefore leaves no 0056 schema,
+  journal entry, or partial projection. Replays validate an already-applied projection rather than
+  silently repairing it. Future revisions append their projection inside the same immediate
+  transaction as the revision.
 - The Nutrition Log owns a literal `YYYY-MM-DD` selection in the effective program time zone. Its
   initial day, Today action, current-week boundary, status control, and adjacent/week prefetches do
   not use the browser's calendar. Date-only keys are advanced as calendar dates and are never
@@ -2490,6 +2495,12 @@ or changes a nutrition log, target, program, check-in, goal, or review.
   select the indexed initial and latest endpoints directly. At most one accepted expenditure
   check-in is retained, user/program scoped and selected in SQL by effective date, resolution time,
   creation time, and ID with `limit 1`.
+- Installed-browser preview verification is anchored by
+  `scripts/adaptive-preview-fixture-contract.v1.json`. Its seed date, seed instant, non-production
+  Gate 0 clock, readiness counts, clarification/context evidence, modeled-day reconciliation,
+  trajectory facts, and workout-progression targets are literal independent expectations. Tests
+  first compare each API response with that versioned contract and then compare rendered UI with
+  the same facts; they never derive expected copy or counts from the response under test.
 
 ## Sources
 

@@ -23,6 +23,12 @@ type RawRevision = Omit<UnresolvedProgramRevision, 'snapshot'> & {
   createdAt: number;
 };
 
+export type ProgramRevisionProjectionRow = EffectiveProgramRevision & {
+  programId: string;
+  userId: string;
+  createdAt: number;
+};
+
 export const getDateKeyInTimeZone = (date: Date, timeZone: string) => {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -87,7 +93,9 @@ const parseRawRevision = (
   ),
 });
 
-export const backfillAdaptiveProgramRevisionProjection = (sqlite: Database.Database) => {
+export const planAdaptiveProgramRevisionProjection = (
+  sqlite: Database.Database,
+): ProgramRevisionProjectionRow[] => {
   const raw = sqlite
     .prepare(
       `select id,
@@ -102,7 +110,7 @@ export const backfillAdaptiveProgramRevisionProjection = (sqlite: Database.Datab
     )
     .all() as RawRevision[];
 
-  const expected: EffectiveProgramRevision[] = [];
+  const expected: ProgramRevisionProjectionRow[] = [];
   let currentProgramId: string | undefined;
   let current: EffectiveProgramRevision | undefined;
   for (const rawRevision of raw) {
@@ -112,64 +120,109 @@ export const backfillAdaptiveProgramRevisionProjection = (sqlite: Database.Datab
       current = undefined;
     }
     current = resolveNextEffectiveProgramRevision(current, revision);
-    expected.push(current);
+    expected.push(current as ProgramRevisionProjectionRow);
   }
 
-  const transaction = sqlite.transaction(() => {
-    const existing = sqlite
-      .prepare(
-        `select revision_id as revisionId,
-                program_id as programId,
-                user_id as userId,
-                sequence,
-                effective_local_date as effectiveLocalDate,
-                created_at as createdAt
-           from adaptive_nutrition_program_revision_dates
-          order by program_id, sequence`,
-      )
-      .all() as Array<{
-      revisionId: string;
-      programId: string;
-      userId: string;
-      sequence: number;
-      effectiveLocalDate: string;
-      createdAt: number;
-    }>;
-    const expectedById = new Map(expected.map((entry) => [entry.id, entry]));
-    for (const row of existing) {
-      const match = expectedById.get(row.revisionId);
-      if (
-        !match ||
-        match.programId !== row.programId ||
-        match.userId !== row.userId ||
-        match.sequence !== row.sequence ||
-        match.effectiveLocalDate !== row.effectiveLocalDate
-      ) {
-        throw new Error('Adaptive nutrition program revision projection is inconsistent');
-      }
-    }
+  return expected;
+};
 
-    const existingIds = new Set(existing.map((entry) => entry.revisionId));
-    const insert = sqlite.prepare(
-      `insert into adaptive_nutrition_program_revision_dates (
-         revision_id, program_id, user_id, sequence, effective_local_date, created_at
-       ) values (@revisionId, @programId, @userId, @sequence, @effectiveLocalDate, @createdAt)`,
-    );
-    let inserted = 0;
-    for (const entry of expected) {
-      if (existingIds.has(entry.id)) continue;
-      insert.run({
-        revisionId: entry.id,
-        programId: entry.programId,
-        userId: entry.userId,
-        sequence: entry.sequence,
-        effectiveLocalDate: entry.effectiveLocalDate,
-        createdAt: entry.createdAt,
-      });
-      inserted += 1;
+const readProjectionRows = (sqlite: Database.Database) =>
+  sqlite
+    .prepare(
+      `select revision_id as revisionId,
+              program_id as programId,
+              user_id as userId,
+              sequence,
+              effective_local_date as effectiveLocalDate,
+              created_at as createdAt
+         from adaptive_nutrition_program_revision_dates
+        order by program_id, sequence`,
+    )
+    .all() as Array<{
+    revisionId: string;
+    programId: string;
+    userId: string;
+    sequence: number;
+    effectiveLocalDate: string;
+    createdAt: number;
+  }>;
+
+export const assertAdaptiveProgramRevisionProjection = (
+  sqlite: Database.Database,
+  expected = planAdaptiveProgramRevisionProjection(sqlite),
+) => {
+  const existing = readProjectionRows(sqlite);
+  if (existing.length !== expected.length) {
+    throw new Error('Adaptive nutrition program revision projection row count is inconsistent');
+  }
+  for (let index = 0; index < expected.length; index += 1) {
+    const source = expected[index];
+    const projection = existing[index];
+    if (
+      !source ||
+      !projection ||
+      source.id !== projection.revisionId ||
+      source.programId !== projection.programId ||
+      source.userId !== projection.userId ||
+      source.sequence !== projection.sequence ||
+      source.effectiveLocalDate !== projection.effectiveLocalDate ||
+      source.createdAt !== projection.createdAt
+    ) {
+      throw new Error('Adaptive nutrition program revision projection is inconsistent');
     }
-    return { inserted, revisions: expected.length };
-  });
+  }
+  return { revisions: expected.length };
+};
+
+export const populateAdaptiveProgramRevisionProjection = (
+  sqlite: Database.Database,
+  expected: ProgramRevisionProjectionRow[],
+) => {
+  const existing = readProjectionRows(sqlite);
+  const expectedById = new Map(expected.map((entry) => [entry.id, entry]));
+  for (const row of existing) {
+    const match = expectedById.get(row.revisionId);
+    if (
+      !match ||
+      match.programId !== row.programId ||
+      match.userId !== row.userId ||
+      match.sequence !== row.sequence ||
+      match.effectiveLocalDate !== row.effectiveLocalDate ||
+      match.createdAt !== row.createdAt
+    ) {
+      throw new Error('Adaptive nutrition program revision projection is inconsistent');
+    }
+  }
+
+  const existingIds = new Set(existing.map((entry) => entry.revisionId));
+  const insert = sqlite.prepare(
+    `insert into adaptive_nutrition_program_revision_dates (
+       revision_id, program_id, user_id, sequence, effective_local_date, created_at
+     ) values (@revisionId, @programId, @userId, @sequence, @effectiveLocalDate, @createdAt)`,
+  );
+  let inserted = 0;
+  for (const entry of expected) {
+    if (existingIds.has(entry.id)) continue;
+    insert.run({
+      revisionId: entry.id,
+      programId: entry.programId,
+      userId: entry.userId,
+      sequence: entry.sequence,
+      effectiveLocalDate: entry.effectiveLocalDate,
+      createdAt: entry.createdAt,
+    });
+    inserted += 1;
+  }
+  assertAdaptiveProgramRevisionProjection(sqlite, expected);
+  return { inserted, revisions: expected.length };
+};
+
+export const backfillAdaptiveProgramRevisionProjection = (sqlite: Database.Database) => {
+  const expected = planAdaptiveProgramRevisionProjection(sqlite);
+
+  const transaction = sqlite.transaction(() =>
+    populateAdaptiveProgramRevisionProjection(sqlite, expected),
+  );
 
   return transaction.immediate();
 };

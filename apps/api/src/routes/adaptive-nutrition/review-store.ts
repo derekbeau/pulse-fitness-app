@@ -51,6 +51,7 @@ import {
   users,
 } from '../../db/schema/index.js';
 import { parseWorkoutSessionFeedback } from '../../db/schema/workout-session-feedback.js';
+import { getApplicationNow } from '../../lib/clock.js';
 import { createAdaptiveAnalyticsStore } from './analytics-store.js';
 import {
   AdaptiveCheckInNotAcceptableError,
@@ -392,7 +393,7 @@ export const createAdaptiveWeeklyReviewStore = (options: {
   now?: () => Date;
 }) => {
   const { db, sqlite } = options;
-  const now = options.now ?? (() => new Date());
+  const now = options.now ?? getApplicationNow;
   const immediate = <T>(operation: () => T) => sqlite.transaction(operation).immediate();
   const adaptiveStore = createAdaptiveNutritionStore({
     db,

@@ -1,9 +1,19 @@
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
 
 import { apiBaseURL } from './test-env';
+import { adaptivePreviewFixtureContract } from './adaptive-preview-fixture-contract';
 
 const authTokenStorageKey = 'pulse-auth-token';
 const fixturePassword = 'adaptive-preview-only';
+
+function displayContractDate(date: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+    year: 'numeric',
+  }).format(new Date(`${date}T12:00:00.000Z`));
+}
 const fixtureNames = [
   'setup',
   'baseline',
@@ -163,51 +173,50 @@ test.describe.serial('Adaptive TDEE deterministic preview fixtures', () => {
         };
       }
     ).data.eligibility;
+    const expectedLearning = adaptivePreviewFixtureContract.readiness.learning;
+    expect(learningEligibility).toMatchObject(expectedLearning);
     await expect(
-      learningReadiness.getByText(`${learningEligibility.completeNutritionDaysLogged} logged`),
+      learningReadiness.getByText(`${expectedLearning.completeNutritionDaysLogged} logged`),
     ).toBeVisible();
     await expect(
-      learningReadiness.getByText(`${learningEligibility.weighInsLogged} logged`),
+      learningReadiness.getByText(`${expectedLearning.weighInsLogged} logged`),
     ).toBeVisible();
     const learningNutritionProgress = learningReadiness.getByRole('progressbar', {
       name: 'Complete nutrition: Usable with weight trend',
     });
     await expect(learningNutritionProgress).toContainText(
-      `${learningEligibility.completeNutritionDaysUsable} / 12`,
+      `${expectedLearning.completeNutritionDaysUsable} / 12`,
     );
     await expect(learningNutritionProgress).toHaveAttribute(
       'aria-valuenow',
-      String(learningEligibility.completeNutritionDaysUsable),
+      String(expectedLearning.completeNutritionDaysUsable),
     );
     await expect(learningNutritionProgress).toHaveAttribute(
       'aria-valuetext',
-      `${learningEligibility.completeNutritionDaysUsable} usable nutrition ${learningEligibility.completeNutritionDaysUsable === 1 ? 'day' : 'days'}; 12 required`,
+      `${expectedLearning.completeNutritionDaysUsable} usable nutrition days; 12 required`,
     );
     const learningWeightProgress = learningReadiness.getByRole('progressbar', {
       name: 'Scale weigh-ins: Usable after daily cutoff',
     });
-    await expect(learningWeightProgress).toContainText(`${learningEligibility.weighInsUsable} / 3`);
+    await expect(learningWeightProgress).toContainText(`${expectedLearning.weighInsUsable} / 3`);
     await expect(learningWeightProgress).toHaveAttribute(
       'aria-valuenow',
-      String(learningEligibility.weighInsUsable),
+      String(expectedLearning.weighInsUsable),
     );
-    if (learningEligibility.completeNutritionDaysPendingCutoff > 0) {
-      await expect(
-        learningReadiness.getByText(
-          /complete nutrition day is saved for .+ It will enter coaching analysis after that local day ends in America\/Detroit\./,
-        ),
-      ).toBeVisible();
-    }
-    if (learningEligibility.weighInsPendingCutoff > 0) {
-      await expect(
-        learningReadiness.getByText(
-          /weigh-in is saved for .+ It will enter coaching analysis after that local day ends in America\/Detroit\./,
-        ),
-      ).toBeVisible();
-    }
+    const pendingCutoffLabel = displayContractDate(expectedLearning.pendingCutoffDate);
     await expect(
       learningReadiness.getByText(
-        `${learningEligibility.completeNutritionDaysBeforeWeightTrend} complete nutrition days were logged before your weight trend began. They stay in your history but do not count toward this coaching window.`,
+        `${expectedLearning.completeNutritionDaysPendingCutoff} complete nutrition day is saved for ${pendingCutoffLabel}. It will enter coaching analysis after that local day ends in America/Detroit.`,
+      ),
+    ).toBeVisible();
+    await expect(
+      learningReadiness.getByText(
+        `${expectedLearning.weighInsPendingCutoff} weigh-in is saved for ${pendingCutoffLabel}. It will enter coaching analysis after that local day ends in America/Detroit.`,
+      ),
+    ).toBeVisible();
+    await expect(
+      learningReadiness.getByText(
+        `${expectedLearning.completeNutritionDaysBeforeWeightTrend} complete nutrition days were logged before your weight trend began. They stay in your history but do not count toward this coaching window.`,
       ),
     ).toBeVisible();
 
@@ -224,16 +233,20 @@ test.describe.serial('Adaptive TDEE deterministic preview fixtures', () => {
       headers: { authorization: `Bearer ${updatingToken}` },
     });
     expect(updatingStateResponse.ok()).toBeTruthy();
-    const updatingUsableDays = (
+    const updatingEligibility = (
       (await updatingStateResponse.json()) as {
-        data: { eligibility: { completeNutritionDaysUsable: number } };
+        data: { eligibility: typeof learningEligibility };
       }
-    ).data.eligibility.completeNutritionDaysUsable;
-    await expect(updatingNutritionProgress).toContainText(`${updatingUsableDays} / 12`);
+    ).data.eligibility;
+    const expectedUpdating = adaptivePreviewFixtureContract.readiness.updating;
+    expect(updatingEligibility).toMatchObject(expectedUpdating);
+    await expect(updatingNutritionProgress).toContainText(
+      `${expectedUpdating.completeNutritionDaysUsable} / 12`,
+    );
     await expect(updatingNutritionProgress).toHaveAttribute('aria-valuenow', '12');
     await expect(updatingNutritionProgress).toHaveAttribute(
       'aria-valuetext',
-      `${updatingUsableDays} usable nutrition days; 12 required`,
+      `${expectedUpdating.completeNutritionDaysUsable} usable nutrition days; 12 required`,
     );
 
     await openCoach(page, 'holding');

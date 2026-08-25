@@ -22,6 +22,7 @@ import {
 } from '../../db/schema/index.js';
 import { getDateKeyInTimeZone } from '../adaptive-nutrition/analytics-store.js';
 import { endOfLocalDateExclusive } from '../adaptive-nutrition/goal-trajectory-store.js';
+import { getApplicationNow } from '../../lib/clock.js';
 
 type NutritionDatabase = BetterSQLite3Database<typeof schema>;
 
@@ -148,7 +149,7 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
   onProgramRevisionLookup?: (kind: 'selected' | 'endpoints', rows: number) => void;
 }) => {
   const { db } = dependencies;
-  const now = dependencies.now ?? (() => new Date());
+  const now = dependencies.now ?? getApplicationNow;
 
   const getDailyEnergyAdherence = (userId: string, localDate: string): DailyEnergyAdherence => {
     const currentInstant = now();

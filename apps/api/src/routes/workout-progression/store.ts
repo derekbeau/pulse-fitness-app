@@ -21,6 +21,7 @@ import {
 import { and, asc, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 
 import { db } from '../../db/index.js';
+import { getApplicationNowMs } from '../../lib/clock.js';
 import {
   scheduledWorkoutExerciseSets,
   scheduledWorkoutExercises,
@@ -431,7 +432,7 @@ function mapDecisionState(action: string): WorkoutProgressionRecommendation['sta
 export async function configureWorkoutProgression({
   actor,
   input: rawInput,
-  now = Date.now(),
+  now = getApplicationNowMs(),
   scheduledWorkoutExerciseId,
   userId,
 }: {
@@ -614,7 +615,7 @@ async function projectRecommendation(
 
 export async function previewWorkoutProgression({
   effectiveDate,
-  generatedAt = Date.now(),
+  generatedAt = getApplicationNowMs(),
   scheduledWorkoutId,
   userId,
 }: {
@@ -830,7 +831,7 @@ function assertBoundedEdit(
 export async function applyWorkoutProgressionAction({
   actor,
   input: rawInput,
-  now = Date.now(),
+  now = getApplicationNowMs(),
   recommendationId,
   userId,
 }: {

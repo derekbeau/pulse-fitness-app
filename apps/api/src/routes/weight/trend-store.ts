@@ -19,6 +19,7 @@ import { and, asc, eq, lte } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 import * as schema from '../../db/schema/index.js';
+import { getApplicationNow } from '../../lib/clock.js';
 import {
   adaptiveNutritionCheckIns,
   adaptiveNutritionGoalRevisions,
@@ -83,7 +84,7 @@ const headlineFor = (current: ReturnType<typeof calculateCanonicalTrendWeightCur
 
 export const createTrendWeightStore = (dependencies: { db: TrendDatabase; now?: () => Date }) => {
   const { db } = dependencies;
-  const now = dependencies.now ?? (() => new Date());
+  const now = dependencies.now ?? getApplicationNow;
 
   const getAnalytics = (userId: string, rawQuery: TrendWeightQuery): TrendWeightAnalytics => {
     const query = trendWeightQuerySchema.parse(rawQuery);

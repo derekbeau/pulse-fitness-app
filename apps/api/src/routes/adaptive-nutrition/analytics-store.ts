@@ -51,6 +51,7 @@ import {
   getDateKeyInTimeZone,
   resolveEffectiveProgramRevisions,
 } from '../../db/adaptive-program-revision-projection.js';
+import { getApplicationNow } from '../../lib/clock.js';
 import { AdaptiveProgramNotFoundError } from './store.js';
 
 type AdaptiveDatabase = BetterSQLite3Database<typeof schema>;
@@ -105,7 +106,7 @@ export const createAdaptiveAnalyticsStore = (dependencies: {
   now?: () => Date;
 }) => {
   const { db } = dependencies;
-  const now = dependencies.now ?? (() => new Date());
+  const now = dependencies.now ?? getApplicationNow;
 
   const getAnalytics = (
     userId: string,

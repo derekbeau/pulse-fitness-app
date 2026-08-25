@@ -5,6 +5,7 @@ import type { DataQualityCalendar } from '@pulse/shared';
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
 
 import { setAuthenticatedSession } from './auth-session';
+import { adaptivePreviewFixtureContract } from './adaptive-preview-fixture-contract';
 import { apiBaseURL } from './test-env';
 
 test.use({ timezoneId: 'America/Detroit' });
@@ -16,15 +17,7 @@ let token: string;
 let agentToken: { id: string; token: string };
 
 function dateKeyInDetroit() {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone: 'America/Detroit',
-    year: 'numeric',
-  }).formatToParts(new Date());
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((value) => value.type === type)?.value ?? '';
-  return `${part('year')}-${part('month')}-${part('day')}`;
+  return adaptivePreviewFixtureContract.anchorDate;
 }
 
 function addDays(date: string, amount: number) {
@@ -159,6 +152,10 @@ async function expectNoOverflowAndTouchTargets(page: Page, width: number) {
 }
 
 test.describe.serial('Data Quality calendar', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(new Date(adaptivePreviewFixtureContract.serverNow));
+  });
+
   test.beforeAll(async () => {
     api = await request.newContext({ baseURL: apiBaseURL });
     const login = await api.post('/api/v1/auth/login', { data: { password, username } });
@@ -188,18 +185,45 @@ test.describe.serial('Data Quality calendar', () => {
     const diagnostics = monitorPage(page);
     await page.setViewportSize({ height: 1000, width: 390 });
     const calendar = await openCalendar(page, true);
-    const contextDate = calendar.days.find((day) =>
-      day.contexts.some((context) => context.note.includes('Migraine reduced appetite')),
-    )?.date;
-    if (!contextDate) throw new Error('Data Quality context fixture is missing');
+    const expected = adaptivePreviewFixtureContract.dataQuality;
+    for (const expectedDay of expected.days) {
+      const actualDay = calendar.days.find((day) => day.date === expectedDay.date);
+      expect(actualDay, `fixture day ${expectedDay.date}`).toBeTruthy();
+      expect(actualDay).toMatchObject({
+        nutrition: {
+          qualityState: expectedDay.nutritionQuality,
+          evidenceState: expectedDay.nutritionEvidence,
+        },
+        weight: { evidenceState: expectedDay.weightEvidence },
+      });
+      if (expectedDay.workoutState) {
+        expect(actualDay?.workouts).toEqual(
+          expect.arrayContaining([expect.objectContaining({ state: expectedDay.workoutState })]),
+        );
+      }
+    }
+    const contextDay = calendar.days.find((day) => day.date === expected.contextDate);
+    expect(contextDay?.contexts).toEqual([
+      expect.objectContaining({
+        category: expected.context.category,
+        note: expected.context.note,
+        provenance: {
+          type: expected.context.provenanceType,
+          agentTokenId: 'preview-agent',
+          label: expected.context.provenanceLabel,
+        },
+        revision: expected.context.revision,
+      }),
+    ]);
+    const contextDate = expected.contextDate;
     await selectDay(page, contextDate);
 
     await expect(page.getByRole('heading', { name: 'Nutrition' })).toBeVisible();
+    await expect(page.getByText(expected.context.note)).toBeVisible();
+    await expect(page.getByText(`AgentToken · ${expected.context.provenanceLabel}`)).toBeVisible();
     await expect(
-      page.getByText('Migraine reduced appetite and changed the planned training day.'),
+      page.getByText(`date · revision ${expected.context.revision}`, { exact: false }),
     ).toBeVisible();
-    await expect(page.getByText('AgentToken · Preview Coach')).toBeVisible();
-    await expect(page.getByText('date · revision 1', { exact: false })).toBeVisible();
     await expect(page.getByText('partial', { exact: true }).first()).toBeVisible();
     await expect(
       page.getByText(
