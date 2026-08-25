@@ -40,6 +40,7 @@ import {
   adaptiveGoalSelection,
   AdaptiveGoalNotFoundError,
 } from './goal-store.js';
+import { getApplicationNow } from '../../lib/clock.js';
 
 type AdaptiveDatabase = BetterSQLite3Database<typeof schema>;
 
@@ -117,7 +118,7 @@ export const createAdaptiveGoalTrajectoryStore = (dependencies: {
   now?: () => Date;
 }) => {
   const { db } = dependencies;
-  const now = dependencies.now ?? (() => new Date());
+  const now = dependencies.now ?? getApplicationNow;
 
   const getTrajectory = (
     userId: string,

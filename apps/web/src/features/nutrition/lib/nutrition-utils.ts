@@ -149,7 +149,8 @@ export function formatDayLabel(date: string): string {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
-  }).format(new Date(`${date}T12:00:00`));
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T00:00:00Z`));
 }
 
 export function formatCompactDayLabel(date: Date): string {

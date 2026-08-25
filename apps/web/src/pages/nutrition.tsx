@@ -1,7 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { type KeyboardEvent, useEffect, useState } from 'react';
+import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, UtensilsCrossed } from 'lucide-react';
 import { useSearchParams } from 'react-router';
+import { addCalendarDays, chartDateKeyInTimeZone } from '@pulse/shared';
 
 import { MealCardSkeleton } from '@/components/skeletons';
 import { PageHeader } from '@/components/layout/page-header';
@@ -20,9 +21,15 @@ import {
 } from '@/features/adaptive-nutrition';
 import { nutritionTrendReferenceDate } from '@/features/nutrition/components/nutrition-trend-reference';
 import { NutritionTrends } from '@/features/nutrition/components/nutrition-trends';
-import { MealCard, NutritionMacroRings, NutritionWeekStrip } from '@/features/nutrition';
+import {
+  DailyEnergyAdherenceCard,
+  MealCard,
+  NutritionMacroRings,
+  NutritionWeekStrip,
+} from '@/features/nutrition';
 import {
   prefetchNutritionDay,
+  useDailyEnergyAdherence,
   useDailyNutrition,
   useDeleteMeal,
   useRenameMeal,
@@ -35,15 +42,12 @@ import {
   getForegroundPollingInterval,
 } from '@/lib/query-polling';
 import {
-  formatDateKey,
   formatDayLabel,
-  isSameDay,
-  addDays,
   sortMeals,
   toMealLoggedAtTimestamp,
-  startOfDay,
   type MealSortDirection,
 } from '@/features/nutrition/lib/nutrition-utils';
+import { nextProgramLocalDateBoundaryMs } from '@/features/nutrition/lib/program-local-midnight';
 
 const NUTRITION_VIEWS = ['log', 'coach', 'foods', 'trends'] as const;
 
@@ -122,6 +126,11 @@ export function NutritionPage() {
             <ul className="list-disc space-y-1 pl-5">
               <li>Ask the agent to log, correct, or delete meals when something is off.</li>
               <li>Daily summary and macro rings show actual intake compared with your targets.</li>
+              <li>
+                Daily energy compares complete past days with the accepted target and expenditure
+                effective on that date. Partial, unknown, missing, and current days are never
+                graded.
+              </li>
               <li>Meal items snapshot calories/macros at log time for historical consistency.</li>
               <li>Food definition edits later will not retroactively change past meal macros.</li>
               <li>
@@ -235,7 +244,11 @@ export function NutritionPage() {
         role="tabpanel"
       >
         {activeView === 'log' ? (
-          <NutritionLogTab />
+          nutritionTimeZone ? (
+            <NutritionLogTab timeZone={nutritionTimeZone} />
+          ) : (
+            <NutritionLogTabSkeleton />
+          )
         ) : activeView === 'coach' ? (
           <AdaptiveCoach />
         ) : activeView === 'foods' ? (
@@ -257,17 +270,56 @@ export function NutritionPage() {
   );
 }
 
-function NutritionLogTab() {
+export function NutritionLogTab({ timeZone }: { timeZone: string }) {
   const queryClient = useQueryClient();
-  const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
+  const todayDateKey = chartDateKeyInTimeZone(currentTimeMs, timeZone);
+  const [selectedDate, setSelectedDate] = useState(() => todayDateKey);
+  const previousTodayDateKey = useRef(todayDateKey);
   const [mealSortDirection, setMealSortDirection] = useState<MealSortDirection>('desc');
   const { confirm, dialog } = useConfirmation();
-  const dateKey = formatDateKey(selectedDate);
+  const dateKey = selectedDate;
+
+  const refreshCurrentTime = useCallback(() => {
+    const nextTimeMs = Date.now();
+    const nextToday = chartDateKeyInTimeZone(nextTimeMs, timeZone);
+    const previousToday = previousTodayDateKey.current;
+    if (previousToday !== nextToday) {
+      setSelectedDate((currentDate) => (currentDate === previousToday ? nextToday : currentDate));
+      previousTodayDateKey.current = nextToday;
+    }
+    setCurrentTimeMs(nextTimeMs);
+  }, [timeZone]);
+
+  useEffect(() => {
+    const refreshVisibleTime = () => {
+      if (document.visibilityState === 'visible') refreshCurrentTime();
+    };
+
+    window.addEventListener('focus', refreshCurrentTime);
+    document.addEventListener('visibilitychange', refreshVisibleTime);
+    return () => {
+      window.removeEventListener('focus', refreshCurrentTime);
+      document.removeEventListener('visibilitychange', refreshVisibleTime);
+    };
+  }, [refreshCurrentTime]);
+
+  useEffect(() => refreshCurrentTime(), [refreshCurrentTime]);
+
+  useEffect(() => {
+    const nowMs = Date.now();
+    const boundaryMs = nextProgramLocalDateBoundaryMs(nowMs, timeZone);
+    const timer = window.setTimeout(refreshCurrentTime, boundaryMs - nowMs);
+    return () => window.clearTimeout(timer);
+  }, [refreshCurrentTime, timeZone, todayDateKey]);
 
   const dailyNutritionQuery = useDailyNutrition(dateKey, {
     refetchIntervalMs: getForegroundPollingInterval(NUTRITION_POLL_INTERVAL_MS),
   });
   const dailySummaryQuery = useNutritionSummary(dateKey, {
+    refetchIntervalMs: getForegroundPollingInterval(NUTRITION_POLL_INTERVAL_MS),
+  });
+  const dailyEnergyQuery = useDailyEnergyAdherence(dateKey, {
     refetchIntervalMs: getForegroundPollingInterval(NUTRITION_POLL_INTERVAL_MS),
   });
   const weekSummaryQuery = useNutritionWeekSummary(dateKey, {
@@ -303,8 +355,8 @@ function NutritionLogTab() {
   const dailyTotals = dailySummaryQuery.data?.actual;
   const dailyTargets = dailySummaryQuery.data?.target ?? null;
   const isLoadingDay = dailyNutritionQuery.isLoading || dailySummaryQuery.isLoading;
-  const isSelectedDateToday = isSameDay(selectedDate, new Date());
-  const isViewingCurrentWeek = isSameWeek(selectedDate, new Date());
+  const isSelectedDateToday = selectedDate === todayDateKey;
+  const isViewingCurrentWeek = getWeekStart(selectedDate) === getWeekStart(todayDateKey);
   const nutritionError =
     (dailyNutritionQuery.isError && dailyNutritionQuery.error) ||
     (dailySummaryQuery.isError && dailySummaryQuery.error) ||
@@ -319,8 +371,8 @@ function NutritionLogTab() {
       : null;
 
   useEffect(() => {
-    const previousDateKey = formatDateKey(addDays(selectedDate, -1));
-    const nextDateKey = formatDateKey(addDays(selectedDate, 1));
+    const previousDateKey = addCalendarDays(selectedDate, -1);
+    const nextDateKey = addCalendarDays(selectedDate, 1);
 
     void prefetchNutritionDay(queryClient, previousDateKey);
     void prefetchNutritionDay(queryClient, nextDateKey);
@@ -371,7 +423,7 @@ function NutritionLogTab() {
           size="sm"
           type="button"
           variant="link"
-          onClick={() => setSelectedDate(startOfDay(new Date()))}
+          onClick={() => setSelectedDate(todayDateKey)}
         >
           Today
         </Button>
@@ -384,8 +436,13 @@ function NutritionLogTab() {
           days={weekSummaryQuery.data}
           disableNextWeek={isViewingCurrentWeek}
           selectedDate={selectedDate}
-          onNextWeek={() => setSelectedDate((currentDate) => addDays(currentDate, 7))}
-          onPreviousWeek={() => setSelectedDate((currentDate) => addDays(currentDate, -7))}
+          onNextWeek={() =>
+            setSelectedDate(
+              (currentDate) =>
+                [addCalendarDays(currentDate, 7), todayDateKey].sort()[0] ?? todayDateKey,
+            )
+          }
+          onPreviousWeek={() => setSelectedDate((currentDate) => addCalendarDays(currentDate, -7))}
           onSelectDate={setSelectedDate}
         />
       ) : weekSummaryQuery.isError ? (
@@ -396,6 +453,20 @@ function NutritionLogTab() {
         date={dateKey}
         isToday={isSelectedDateToday}
         status={dailyNutritionQuery.data?.log.status ?? null}
+      />
+
+      <DailyEnergyAdherenceCard
+        adherence={dailyEnergyQuery.data?.localDate === dateKey ? dailyEnergyQuery.data : undefined}
+        error={dailyEnergyQuery.isError ? dailyEnergyQuery.error : null}
+        isFetching={dailyEnergyQuery.isFetching}
+        isLoading={
+          dailyEnergyQuery.isPending ||
+          (dailyEnergyQuery.data?.localDate !== dateKey && dailyEnergyQuery.isFetching)
+        }
+        isRefetchError={dailyEnergyQuery.isRefetchError}
+        isStale={dailyEnergyQuery.isStale}
+        onRetry={() => void dailyEnergyQuery.refetch()}
+        requestedDate={dateKey}
       />
 
       {nutritionError ? (
@@ -480,7 +551,7 @@ function NutritionLogTab() {
                     ? undefined
                     : {
                         label: 'Go to today',
-                        onClick: () => setSelectedDate(startOfDay(new Date())),
+                        onClick: () => setSelectedDate(todayDateKey),
                       }
                 }
                 description="Ask your agent to log a meal."
@@ -539,13 +610,24 @@ function NutritionWeekStripSkeleton() {
   );
 }
 
-function isSameWeek(left: Date, right: Date) {
-  return getWeekStart(left).getTime() === getWeekStart(right).getTime();
+function getWeekStart(date: string) {
+  const dayOfWeek = new Date(`${date}T00:00:00Z`).getUTCDay();
+  const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  return addCalendarDays(date, offsetToMonday);
 }
 
-function getWeekStart(date: Date) {
-  const normalizedDate = startOfDay(date);
-  const dayOfWeek = normalizedDate.getDay();
-  const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  return addDays(normalizedDate, offsetToMonday);
+function NutritionLogTabSkeleton() {
+  return (
+    <section aria-label="Loading nutrition log calendar" className="space-y-4" role="status">
+      <Skeleton className="h-5 w-64 max-w-full bg-muted/70" />
+      <NutritionWeekStripSkeleton />
+      <Skeleton className="h-56 w-full rounded-2xl bg-muted/70" />
+      <NutritionRingsSkeleton />
+      <div aria-label="Loading nutrition meals" className="space-y-2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <MealCardSkeleton key={index} />
+        ))}
+      </div>
+    </section>
+  );
 }

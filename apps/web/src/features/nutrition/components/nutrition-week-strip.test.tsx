@@ -77,7 +77,7 @@ describe('NutritionWeekStrip', () => {
       <NutritionWeekStrip
         days={weekSummary}
         disableNextWeek={false}
-        selectedDate={new Date('2026-03-06T09:00:00')}
+        selectedDate="2026-03-06"
         onNextWeek={() => {}}
         onPreviousWeek={() => {}}
         onSelectDate={() => {}}
@@ -110,7 +110,7 @@ describe('NutritionWeekStrip', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-03' }));
 
-    expect(onSelectDate).toHaveBeenCalledWith(new Date('2026-03-03T00:00:00'));
+    expect(onSelectDate).toHaveBeenCalledWith('2026-03-03');
   });
 
   it('renders indicator states for empty, partial, and complete days', () => {

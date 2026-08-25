@@ -1,6 +1,7 @@
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
 
 import { setAuthenticatedSession } from './auth-session';
+import { adaptivePreviewFixtureContract } from './adaptive-preview-fixture-contract';
 import { apiBaseURL } from './test-env';
 
 test.use({ timezoneId: 'America/Detroit' });
@@ -140,10 +141,14 @@ async function openTrajectory(
         status: string;
         unavailableReason?: string | null;
         projectedEndDate?: string | null;
+        points?: Array<{ date: string }>;
       } | null;
       summary: {
         kind: string;
         currentTrendWeightKg?: number | null;
+        currentTrendDate?: string | null;
+        latestScale?: { date: string; weightKg: number } | null;
+        selectedRateKgPerWeek?: number;
         paceState?: string;
         rangeStatus?: string;
         originalPlannedChangeKg?: number;
@@ -153,8 +158,11 @@ async function openTrajectory(
       trendPoints: Array<{
         date: string;
         trendWeightKg: number | null;
+        scaleWeightKg: number | null;
+        adaptiveStrategyTrendWeightKg: number | null;
         targetWeightKg: number | null;
         evidenceState: string;
+        section: string;
       }>;
       annotations: Array<{ date: string; kind: string; label: string }>;
       completionReview: {
@@ -215,6 +223,26 @@ test.describe.serial('Goal trajectory', () => {
     const diagnostics = monitorPage(page);
     await page.setViewportSize({ width: 390, height: 1000 });
     const { analytics } = await openTrajectory(page, 'trajectory-loss');
+    const trajectoryContract = adaptivePreviewFixtureContract.trajectory;
+    expect(analytics.summary).toMatchObject({
+      kind: 'weight_change',
+      currentTrendWeightKg: trajectoryContract.currentAdaptiveTrendWeightKg,
+      currentTrendDate: trajectoryContract.currentDate,
+      latestScale: {
+        date: trajectoryContract.currentDate,
+        weightKg: trajectoryContract.latestScaleWeightKg,
+      },
+      selectedRateKgPerWeek: trajectoryContract.selectedRateKgPerWeek,
+      paceState: trajectoryContract.paceState,
+    });
+    expect(analytics.actualRate).toMatchObject({
+      kgPerWeek: trajectoryContract.actualRateKgPerWeek,
+      observedWeightCount: trajectoryContract.actualRateObservationCount,
+      spanDays: trajectoryContract.actualRateSpanDays,
+    });
+    expect(
+      analytics.trendPoints.find((point) => point.date === trajectoryContract.selectedPoint.date),
+    ).toMatchObject(trajectoryContract.selectedPoint);
     await expect(page.getByRole('heading', { name: /Lose to/u })).toBeVisible();
     expect(analytics.trendSource).toBe('product_trend_weight_v1');
     expect(analytics.strategyTrendSource).toBe('adaptive_model_trend');
@@ -251,14 +279,47 @@ test.describe.serial('Goal trajectory', () => {
     );
     await page.keyboard.press('Enter');
     const allResponse = await allResponsePromise;
-    const allAnalytics = (await allResponse.json()) as {
-      data: {
-        productTrend: { currentTrendWeightKg: number | null; currentTrendDate: string | null };
-      };
-    };
+    const allAnalytics = (await allResponse.json()) as { data: typeof analytics };
     expect(allAnalytics.data.productTrend).toEqual(analytics.productTrend);
     await expect(all).toHaveAttribute('aria-pressed', 'true');
     await expect(all).toBeFocused();
+
+    const goalStart = page.getByRole('button', { name: /Goal started/u }).first();
+    await goalStart.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-slot="goal-trajectory-point-detail"]')).toContainText(
+      /goal started/u,
+    );
+    await expect(page.locator('[data-slot="goal-trajectory-point-detail"]')).toContainText(
+      uiDate(trajectoryContract.goalStartDate),
+    );
+
+    const exactSummary = page.getByText('Exact trajectory values');
+    await exactSummary.focus();
+    await page.keyboard.press('Enter');
+    const exactTable = page.getByRole('table', { name: /Exact values for the goal trajectory/u });
+    await expect(exactTable).toBeVisible();
+    const selectedPointRow = exactTable.getByRole('row').filter({
+      hasText: uiDate(trajectoryContract.selectedPoint.date),
+    });
+    await expect(selectedPointRow).toContainText('scale only');
+    await expect(selectedPointRow).toContainText('180.8 lbs');
+    await expect(
+      exactTable.getByRole('columnheader', { name: 'Product Trend Weight' }),
+    ).toBeVisible();
+    await expect(
+      exactTable.getByRole('columnheader', { name: 'Adaptive strategy trend' }),
+    ).toBeVisible();
+    const forecastDate = allAnalytics.data.forecast?.points?.at(-1)?.date;
+    expect(forecastDate, 'available loss forecast point').toBeTruthy();
+    const forecastExactDate = exactTable.getByRole('button', {
+      name: uiDate(forecastDate ?? ''),
+    });
+    await forecastExactDate.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-slot="goal-trajectory-point-detail"]')).toContainText(
+      /Estimated trend/u,
+    );
 
     const lookback = page.getByLabel('Recent pace lookback');
     await lookback.focus();
@@ -269,31 +330,6 @@ test.describe.serial('Goal trajectory', () => {
     await lookbackResponse;
     await expect(lookback).toHaveValue('14');
     await expect(page.getByText('Recent pace · 14 days')).toBeVisible();
-
-    const goalStart = page.getByRole('button', { name: /Goal started/u }).first();
-    await goalStart.focus();
-    await page.keyboard.press('Enter');
-    await expect(page.locator('[data-slot="goal-trajectory-point-detail"]')).toContainText(
-      /goal started/u,
-    );
-
-    const exactSummary = page.getByText('Exact trajectory values');
-    await exactSummary.focus();
-    await page.keyboard.press('Enter');
-    const exactTable = page.getByRole('table', { name: /Exact values for the goal trajectory/u });
-    await expect(exactTable).toBeVisible();
-    await expect(
-      exactTable.getByRole('columnheader', { name: 'Product Trend Weight' }),
-    ).toBeVisible();
-    await expect(
-      exactTable.getByRole('columnheader', { name: 'Adaptive strategy trend' }),
-    ).toBeVisible();
-    const lastExactDate = exactTable.locator('tbody tr').last().getByRole('button');
-    await lastExactDate.focus();
-    await page.keyboard.press('Enter');
-    await expect(page.locator('[data-slot="goal-trajectory-point-detail"]')).toContainText(
-      /Estimated trend/u,
-    );
     await assertNoOverflow(page, 390);
     if (process.env.CAPTURE_ISSUE_109_SCREENSHOTS === '1') {
       await page.screenshot({ fullPage: true, path: 'artifacts/issue-109-loss-390.png' });

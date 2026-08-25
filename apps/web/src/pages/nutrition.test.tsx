@@ -1,11 +1,15 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import type { DailyNutrition, DailyNutritionMeal, NutritionMacroTotals } from '@pulse/shared';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { NutritionPage } from '@/pages/nutrition';
+import { NutritionLogTab, NutritionPage } from '@/pages/nutrition';
 import { createQueryClientWrapper } from '@/test/query-client';
+
+const flushNutritionTimers = async () => {
+  await vi.advanceTimersByTimeAsync(10_000);
+};
 
 type DateState = {
   daily: DailyNutrition;
@@ -105,7 +109,12 @@ function createMeal(args: {
   };
 }
 
-function createNutritionApiMock(initialState: Record<string, DateState>) {
+function createNutritionApiMock(
+  initialState: Record<string, DateState>,
+  options: { timeZone?: string; today?: string } = {},
+) {
+  const timeZone = options.timeZone ?? 'America/Detroit';
+  const today = options.today ?? '2026-03-06';
   const state = new Map<string, DateState>(
     Object.entries(initialState).map(([date, value]) => [
       date,
@@ -123,8 +132,31 @@ function createNutritionApiMock(initialState: Record<string, DateState>) {
 
     if (url.pathname === '/api/v1/adaptive-nutrition' && method === 'GET') {
       return createJsonResponse({
-        state: 'setup_required',
-        program: null,
+        state: 'baseline',
+        program: {
+          activityLevel: null,
+          activityMultiplier: null,
+          algorithmVersion: 'adaptive-tdee-v1',
+          baselineTdeeKcal: 2400,
+          birthDate: null,
+          calculatedBaselineTdeeKcal: null,
+          createdAt: 1,
+          estimatedRmrKcal: null,
+          fatAllocationPct: 30,
+          goalRatePctPerWeek: 0,
+          goalType: 'maintain',
+          heightCm: null,
+          id: 'program-1',
+          manualBaselineTdeeKcal: 2400,
+          proteinGrams: 180,
+          rmrEquation: 'manual_tdee',
+          status: 'active',
+          systemCalorieFloorKcal: 1440,
+          targetWeightKg: null,
+          timeZone,
+          updatedAt: 1,
+          userCalorieFloorKcal: 1440,
+        },
         currentTarget: null,
         latestAcceptedCheckIn: null,
         pendingCheckIn: null,
@@ -202,6 +234,103 @@ function createNutritionApiMock(initialState: Record<string, DateState>) {
         meals,
         actual,
         target: dateState.target,
+      });
+    }
+
+    if (method === 'GET' && pathParts.length === 5 && pathParts[4] === 'energy-adherence') {
+      const actual = calculateActuals(dateState.daily);
+      const status = dateState.daily?.log.status ?? null;
+      const hasTarget = dateState.target !== null && dateState.target.calories > 0;
+      const dataState =
+        date > today
+          ? 'future'
+          : date === today
+            ? status === 'complete'
+              ? 'pending_cutoff'
+              : 'in_progress'
+            : status === null
+              ? 'missing'
+              : status === 'partial'
+                ? 'partial'
+                : status === 'unknown'
+                  ? 'unknown'
+                  : hasTarget
+                    ? 'gradeable'
+                    : 'unavailable';
+      const targetCalories = dateState.target?.calories ?? null;
+      const inner =
+        targetCalories === null
+          ? null
+          : Math.max(100, Math.min(150, Math.round(targetCalories * 0.05)));
+      const outer =
+        targetCalories === null
+          ? null
+          : Math.max(250, Math.min(400, Math.round(targetCalories * 0.1)));
+      const difference =
+        targetCalories === null || status === null
+          ? null
+          : Math.round(actual.calories) - Math.round(targetCalories);
+      const adherence =
+        dataState !== 'gradeable' || difference === null || inner === null || outer === null
+          ? null
+          : Math.abs(difference) <= inner
+            ? 'on_target'
+            : Math.abs(difference) <= outer
+              ? 'near_target'
+              : 'off_target';
+      const stateReason =
+        dataState === 'future'
+          ? 'FUTURE_DATE_NOT_GRADED'
+          : dataState === 'in_progress'
+            ? 'CURRENT_DAY_IN_PROGRESS'
+            : dataState === 'pending_cutoff'
+              ? 'COMPLETE_NUTRITION_PENDING_COMPLETED_DAY_CUTOFF'
+              : dataState === 'partial'
+                ? 'PARTIAL_NUTRITION_NOT_GRADED'
+                : dataState === 'unknown'
+                  ? 'UNKNOWN_NUTRITION_NOT_GRADED'
+                  : dataState === 'missing'
+                    ? 'MISSING_NUTRITION_NOT_GRADED'
+                    : null;
+
+      return createJsonResponse({
+        localDate: date,
+        timeZone,
+        todayLocalDate: today,
+        completedDayCutoff: new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000)
+          .toISOString()
+          .slice(0, 10),
+        isHistorical: date < today,
+        dataState,
+        nutrition: {
+          logId: dateState.daily?.log.id ?? null,
+          status,
+          intakeKcal: status === null ? null : Math.round(actual.calories),
+          mealCount: dateState.daily?.meals.length ?? 0,
+          itemCount: dateState.daily?.meals.flatMap((entry) => entry.items).length ?? 0,
+        },
+        target: hasTarget
+          ? {
+              targetEventId: 'event-1',
+              targetId: 'target-1',
+              effectiveDate: '2026-03-01',
+              recordedAt: 1_772_380_800_000,
+              caloriesKcal: Math.round(targetCalories ?? 0),
+              source: 'manual',
+              adaptiveCheckInId: null,
+            }
+          : null,
+        expenditure: null,
+        intakeMinusTargetKcal: difference,
+        intakeMinusExpenditureKcal: null,
+        innerToleranceKcal: inner,
+        outerToleranceKcal: outer,
+        adherence,
+        reasonCodes: [
+          ...(stateReason ? [stateReason] : []),
+          ...(!hasTarget ? ['NO_ACCEPTED_TARGET'] : []),
+          'NO_ACCEPTED_EXPENDITURE',
+        ],
       });
     }
 
@@ -354,6 +483,17 @@ function renderNutritionPage(
             />
           </Routes>
         </QueryClientWrapper>
+      </MemoryRouter>
+    ),
+  });
+}
+
+function renderNutritionLogTab(timeZone: string) {
+  const { wrapper: QueryClientWrapper } = createQueryClientWrapper();
+  return render(<NutritionLogTab timeZone={timeZone} />, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <MemoryRouter>
+        <QueryClientWrapper>{children}</QueryClientWrapper>
       </MemoryRouter>
     ),
   });
@@ -782,6 +922,209 @@ describe('NutritionPage', () => {
     ]);
   });
 
+  it.each([
+    {
+      name: 'Detroit before the spring DST boundary',
+      instant: '2026-03-08T04:30:00.000Z',
+      timeZone: 'America/Detroit',
+      today: '2026-03-07',
+      label: 'Saturday, March 7',
+    },
+    {
+      name: 'Detroit after the spring DST boundary',
+      instant: '2026-03-08T07:30:00.000Z',
+      timeZone: 'America/Detroit',
+      today: '2026-03-08',
+      label: 'Sunday, March 8',
+    },
+    {
+      name: 'Tokyo across the opposite-side browser date boundary',
+      instant: '2026-03-06T15:30:00.000Z',
+      timeZone: 'Asia/Tokyo',
+      today: '2026-03-07',
+      label: 'Saturday, March 7',
+    },
+    {
+      name: 'Kiritimati across the opposite-side browser date boundary',
+      instant: '2026-03-06T12:30:00.000Z',
+      timeZone: 'Pacific/Kiritimati',
+      today: '2026-03-07',
+      label: 'Saturday, March 7',
+    },
+  ])(
+    'uses the program-local Nutrition Log date in $name',
+    async ({ instant, label, timeZone, today }) => {
+      vi.setSystemTime(new Date(instant));
+      const { fetchMock } = createNutritionApiMock(
+        { [today]: { daily: null, target: TARGETS } },
+        { timeZone, today },
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      renderNutritionPage();
+      await vi.advanceTimersByTimeAsync(1_000);
+      await Promise.resolve();
+
+      expect(screen.getByText(new RegExp(`Agent-logged meals for ${label}`))).toBeInTheDocument();
+      expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input).endsWith(`/api/v1/nutrition/${today}/energy-adherence`),
+        ),
+      ).toBe(true);
+      expect(screen.getByRole('button', { name: /^Today$/ })).toHaveClass('invisible');
+      expect(screen.getByRole('button', { name: 'Go to next week' })).toBeDisabled();
+    },
+  );
+
+  it('rolls a continuously visible today view at program-local midnight', async () => {
+    vi.setSystemTime(new Date('2026-03-07T04:59:58.000Z'));
+    const { fetchMock } = createNutritionApiMock(
+      {
+        '2026-03-06': { daily: null, target: TARGETS },
+        '2026-03-07': { daily: null, target: TARGETS },
+      },
+      { today: '2026-03-06' },
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_100));
+    expect(screen.getByText(/Saturday, March 7/)).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).endsWith('/api/v1/nutrition/2026-03-07/energy-adherence'),
+      ),
+    ).toBe(true);
+    expect(screen.getByRole('button', { name: /^Today$/ })).toHaveClass('invisible');
+  });
+
+  it.each([
+    {
+      label: 'spring-forward 23-hour day',
+      instant: '2026-03-09T03:59:58.000Z',
+      previous: '2026-03-08',
+      next: '2026-03-09',
+    },
+    {
+      label: 'fall-back 25-hour day',
+      instant: '2026-11-02T04:59:58.000Z',
+      previous: '2026-11-01',
+      next: '2026-11-02',
+    },
+  ])('rolls after the Detroit $label', async ({ instant, next, previous }) => {
+    vi.setSystemTime(new Date(instant));
+    const { fetchMock } = createNutritionApiMock(
+      {
+        [previous]: { daily: null, target: TARGETS },
+        [next]: { daily: null, target: TARGETS },
+      },
+      { today: previous },
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).endsWith(`/api/v1/nutrition/${previous}/energy-adherence`),
+      ),
+    ).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(1_100);
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).endsWith(`/api/v1/nutrition/${next}/energy-adherence`),
+      ),
+    ).toBe(true);
+  });
+
+  it('preserves an intentionally selected historical date across midnight', async () => {
+    vi.setSystemTime(new Date('2026-03-07T04:59:58.000Z'));
+    const { fetchMock } = createNutritionApiMock(
+      {
+        '2026-03-05': { daily: null, target: TARGETS },
+        '2026-03-06': { daily: null, target: TARGETS },
+        '2026-03-07': { daily: null, target: TARGETS },
+      },
+      { today: '2026-03-06' },
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage();
+    await vi.advanceTimersByTimeAsync(1_000);
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
+    await vi.advanceTimersByTimeAsync(1_100);
+
+    expect(screen.getByText(/Thursday, March 5/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Today$/ })).not.toHaveClass('invisible');
+  });
+
+  it('reschedules the boundary and moves a prior-today view when the program zone changes', async () => {
+    vi.setSystemTime(new Date('2026-03-06T09:59:58.000Z'));
+    const { fetchMock } = createNutritionApiMock(
+      {
+        '2026-03-06': { daily: null, target: TARGETS },
+        '2026-03-07': { daily: null, target: TARGETS },
+      },
+      { today: '2026-03-06' },
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const view = renderNutritionLogTab('America/Detroit');
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
+
+    view.rerender(<NutritionLogTab timeZone="Pacific/Kiritimati" />);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
+
+    await act(async () => vi.advanceTimersByTimeAsync(2_100));
+    expect(screen.getByText(/Saturday, March 7/)).toBeInTheDocument();
+  });
+
+  it('never flashes a delayed prior-date energy response under a newer selected date', async () => {
+    const { fetchMock: baseFetchMock } = createNutritionApiMock({
+      '2026-03-06': { daily: null, target: TARGETS },
+      '2026-03-05': { daily: null, target: TARGETS },
+      '2026-03-04': { daily: null, target: TARGETS },
+    });
+    const delayed = createDeferredResponse();
+    const delayedResponse = await baseFetchMock('/api/v1/nutrition/2026-03-05/energy-adherence');
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === 'string' ? input : input.toString(), 'http://localhost');
+      if (
+        url.pathname === '/api/v1/nutrition/2026-03-05/energy-adherence' &&
+        (init?.method ?? 'GET') === 'GET'
+      ) {
+        return delayed.promise;
+      }
+      return baseFetchMock(input, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage();
+    await vi.advanceTimersByTimeAsync(1_000);
+    await Promise.resolve();
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-04' }));
+    await vi.advanceTimersByTimeAsync(1_000);
+    await Promise.resolve();
+
+    expect(screen.getByRole('article', { name: 'Daily energy' })).toHaveTextContent(
+      'Accepted facts for 2026-03-04',
+    );
+    delayed.resolve(delayedResponse);
+    await vi.advanceTimersByTimeAsync(1_000);
+    await Promise.resolve();
+    expect(screen.getByRole('article', { name: 'Daily energy' })).toHaveTextContent(
+      'Accepted facts for 2026-03-04',
+    );
+    expect(screen.queryByText('Accepted facts for 2026-03-05')).not.toBeInTheDocument();
+  });
+
   it('loads today from API, shows empty state, and blocks future navigation', async () => {
     const { fetchMock } = createNutritionApiMock({
       '2026-03-06': {
@@ -809,7 +1152,7 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     expect(screen.getByRole('heading', { name: 'Nutrition' })).toBeInTheDocument();
@@ -862,7 +1205,7 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     const strip = screen.getByRole('list', { name: 'Nutrition week summary' });
@@ -872,7 +1215,7 @@ describe('NutritionPage', () => {
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     expect(screen.getByText(/Thursday, March 5/)).toBeInTheDocument();
@@ -909,7 +1252,7 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     expect(screen.getByText('Unable to load week summary.')).toBeInTheDocument();
@@ -928,7 +1271,7 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Help' }));
@@ -959,11 +1302,11 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     expect(screen.getByText(/Thursday, March 5/)).toBeInTheDocument();
@@ -973,7 +1316,7 @@ describe('NutritionPage', () => {
     expect(screen.getByRole('button', { name: /^Today$/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Go to today' }));
 
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
@@ -1008,11 +1351,11 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     expect(screen.getByText(/Thursday, March 5/)).toBeInTheDocument();
@@ -1047,11 +1390,11 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     const sortToggle = screen.getByRole('button', { name: /toggle meal sort direction/i });
@@ -1093,22 +1436,22 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: /toggle meal sort direction/i }));
     expectMealsInDisplayOrder(['Breakfast', 'Lunch', 'Snacks', 'Dinner']);
 
     fireEvent.click(screen.getByRole('button', { name: 'Today' }));
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     expectMealsInDisplayOrder(['Breakfast', 'Lunch', 'Snacks', 'Dinner']);
@@ -1141,11 +1484,11 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     expect(getMealHeading('Breakfast')).toBeInTheDocument();
@@ -1206,11 +1549,11 @@ describe('NutritionPage', () => {
 
     const view = renderNutritionPage();
 
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Rename Breakfast' }));
@@ -1234,11 +1577,11 @@ describe('NutritionPage', () => {
     view.unmount();
     renderNutritionPage();
 
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     expect(getMealHeading('Early Meal')).toBeInTheDocument();
@@ -1270,14 +1613,14 @@ describe('NutritionPage', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     renderNutritionPage();
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: /Complete All intake is logged/ }));
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
     expect(screen.getByRole('button', { name: /Complete All intake is logged/ })).toHaveAttribute(
       'aria-pressed',
@@ -1288,7 +1631,7 @@ describe('NutritionPage', () => {
     const input = screen.getByRole('textbox', { name: 'Meal name for Breakfast' });
     fireEvent.change(input, { target: { value: 'Edited Breakfast' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     expect(screen.getByRole('button', { name: /Partial Something is missing/ })).toHaveAttribute(
@@ -1324,11 +1667,11 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     fireEvent.click(screen.getByRole('button', { name: 'Rename Breakfast' }));
@@ -1403,7 +1746,7 @@ describe('NutritionPage', () => {
 
     renderNutritionPage();
 
-    await vi.runAllTimersAsync();
+    await flushNutritionTimers();
     await Promise.resolve();
 
     expect(screen.getByText(/No daily macro target is set yet/i)).toBeInTheDocument();

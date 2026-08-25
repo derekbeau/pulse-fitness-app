@@ -7,6 +7,7 @@ import {
   updateAgentTokenLastUsedAt,
 } from '../../middleware/store.js';
 import { trackFoodUsage } from '../foods/store.js';
+import { getDailyEnergyAdherenceForDate } from './daily-energy-store.js';
 
 import {
   createMealForDate,
@@ -37,6 +38,10 @@ vi.mock('./store.js', () => ({
   getNutritionWeekSummaryForDate: vi.fn(),
   patchMealById: vi.fn(),
   patchMealItemById: vi.fn(),
+}));
+
+vi.mock('./daily-energy-store.js', () => ({
+  getDailyEnergyAdherenceForDate: vi.fn(),
 }));
 
 vi.mock('./status-store.js', async (importOriginal) => {
@@ -347,6 +352,7 @@ describe('nutrition routes', () => {
     vi.mocked(findAgentTokenByHash).mockReset();
     vi.mocked(findUserAuthById).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockReset();
+    vi.mocked(getDailyEnergyAdherenceForDate).mockReset();
     vi.mocked(trackFoodUsage).mockResolvedValue(undefined);
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-nutrition-routes-secret';
@@ -1359,6 +1365,91 @@ describe('nutrition routes', () => {
     }
   });
 
+  it('returns identical accepted daily energy facts for JWT and AgentToken callers', async () => {
+    const adherence = {
+      localDate: '2026-03-09',
+      timeZone: 'America/Detroit',
+      todayLocalDate: '2026-03-10',
+      completedDayCutoff: '2026-03-09',
+      isHistorical: true,
+      dataState: 'gradeable' as const,
+      nutrition: {
+        logId: 'log-1',
+        status: 'complete' as const,
+        intakeKcal: 2_100,
+        mealCount: 3,
+        itemCount: 8,
+      },
+      target: {
+        targetEventId: 'target-event-1',
+        targetId: 'target-1',
+        effectiveDate: '2026-03-01',
+        recordedAt: 1_772_380_800_000,
+        caloriesKcal: 2_000,
+        source: 'adaptive' as const,
+        adaptiveCheckInId: 'check-in-1',
+      },
+      expenditure: {
+        caloriesKcal: 2_500,
+        effectiveDate: '2026-03-01',
+        source: 'accepted_check_in' as const,
+        checkInId: 'check-in-1',
+        inputFingerprint: 'a'.repeat(64),
+      },
+      intakeMinusTargetKcal: 100,
+      intakeMinusExpenditureKcal: -400,
+      innerToleranceKcal: 100,
+      outerToleranceKcal: 250,
+      adherence: 'on_target' as const,
+      reasonCodes: [],
+    };
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
+    vi.mocked(getDailyEnergyAdherenceForDate).mockResolvedValue(adherence);
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const [jwtResponse, agentResponse] = await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/2026-03-09/energy-adherence',
+          headers: createAuthorizationHeader(authToken),
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/2026-03-09/energy-adherence',
+          headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
+        }),
+      ]);
+
+      expect(jwtResponse.statusCode).toBe(200);
+      expect(agentResponse.statusCode).toBe(200);
+      expect(jwtResponse.json()).toEqual(agentResponse.json());
+      expect(jwtResponse.json()).toEqual({ data: adherence });
+      expect(vi.mocked(getDailyEnergyAdherenceForDate)).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(getDailyEnergyAdherenceForDate)).toHaveBeenNthCalledWith(
+        1,
+        'user-1',
+        '2026-03-09',
+      );
+      expect(vi.mocked(getDailyEnergyAdherenceForDate)).toHaveBeenNthCalledWith(
+        2,
+        'user-1',
+        '2026-03-09',
+      );
+      expect(vi.mocked(updateAgentTokenLastUsedAt)).toHaveBeenCalledWith('agent-token-1');
+    } finally {
+      await app.close();
+    }
+  });
+
   it('validates date and meal payloads', async () => {
     const app = buildServer();
 
@@ -1372,6 +1463,7 @@ describe('nutrition routes', () => {
         invalidDateResponse,
         invalidCalendarDateResponse,
         invalidSummaryDateResponse,
+        invalidEnergyDateResponse,
         invalidWeekDateResponse,
         invalidPayloadResponse,
         invalidDeleteParamsResponse,
@@ -1391,6 +1483,11 @@ describe('nutrition routes', () => {
         app.inject({
           method: 'GET',
           url: '/api/v1/nutrition/03-09-2026/summary',
+          headers: createAuthorizationHeader(authToken),
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/nutrition/03-09-2026/energy-adherence',
           headers: createAuthorizationHeader(authToken),
         }),
         app.inject({
@@ -1443,6 +1540,12 @@ describe('nutrition routes', () => {
       expectValidationError(invalidSummaryDateResponse.json(), {
         method: 'GET',
         url: '/api/v1/nutrition/03-09-2026/summary',
+        instancePath: '/date',
+      });
+      expect(invalidEnergyDateResponse.statusCode).toBe(400);
+      expectValidationError(invalidEnergyDateResponse.json(), {
+        method: 'GET',
+        url: '/api/v1/nutrition/03-09-2026/energy-adherence',
         instancePath: '/date',
       });
       expect(invalidWeekDateResponse.statusCode).toBe(400);

@@ -20,7 +20,6 @@ import {
   addCalendarDays,
   type AdaptiveCheckInDetail,
   type AdaptiveNutritionDay,
-  type AdaptiveProgramCalculation,
   type AdaptiveReasonCode,
   type AdaptiveWeightEntry,
   type EnergyBalanceAnalytics,
@@ -43,6 +42,16 @@ import {
   nutritionLogs,
   nutritionTargets,
 } from '../../db/schema/index.js';
+export {
+  getDateKeyInTimeZone,
+  resolveEffectiveProgramRevisions,
+} from '../../db/adaptive-program-revision-projection.js';
+export type { EffectiveProgramRevision } from '../../db/adaptive-program-revision-projection.js';
+import {
+  getDateKeyInTimeZone,
+  resolveEffectiveProgramRevisions,
+} from '../../db/adaptive-program-revision-projection.js';
+import { getApplicationNow } from '../../lib/clock.js';
 import { AdaptiveProgramNotFoundError } from './store.js';
 
 type AdaptiveDatabase = BetterSQLite3Database<typeof schema>;
@@ -61,20 +70,6 @@ export class AdaptiveAnalyticsPreProgramEndError extends Error {
   }
 }
 
-export const getDateKeyInTimeZone = (date: Date, timeZone: string) => {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-  const year = parts.find((part) => part.type === 'year')?.value;
-  const month = parts.find((part) => part.type === 'month')?.value;
-  const day = parts.find((part) => part.type === 'day')?.value;
-  if (!year || !month || !day) throw new RangeError('Unable to format program time zone');
-  return `${year}-${month}-${day}`;
-};
-
 const datesBetween = (startDate: string, endDate: string) => {
   const dates: string[] = [];
   for (let date = startDate; date <= endDate; date = addCalendarDays(date, 1)) dates.push(date);
@@ -82,44 +77,6 @@ const datesBetween = (startDate: string, endDate: string) => {
 };
 
 const unique = <T>(values: readonly T[]): T[] => [...new Set(values)];
-
-export type EffectiveProgramRevision = {
-  id: string;
-  sequence: number;
-  effectiveAt: number;
-  effectiveLocalDate: string;
-  snapshot: AdaptiveProgramCalculation;
-};
-
-export const resolveEffectiveProgramRevisions = (
-  revisions: Array<Omit<EffectiveProgramRevision, 'effectiveLocalDate'>>,
-): EffectiveProgramRevision[] => {
-  const resolved: EffectiveProgramRevision[] = [];
-  for (const [index, revision] of revisions.entries()) {
-    const previous = resolved.at(-1);
-    if (revision.sequence !== index + 1) {
-      throw new Error('Adaptive nutrition program revision sequence is not contiguous');
-    }
-    if (previous && revision.effectiveAt < previous.effectiveAt) {
-      throw new Error('Adaptive nutrition program revision timestamps are not causal');
-    }
-    const effectiveAt = new Date(revision.effectiveAt);
-    const candidateDates = [getDateKeyInTimeZone(effectiveAt, revision.snapshot.timeZone)];
-    if (previous) {
-      candidateDates.push(
-        previous.effectiveLocalDate,
-        getDateKeyInTimeZone(effectiveAt, previous.snapshot.timeZone),
-      );
-    }
-    resolved.push({
-      ...revision,
-      effectiveLocalDate: candidateDates.reduce((latest, candidate) =>
-        candidate > latest ? candidate : latest,
-      ),
-    });
-  }
-  return resolved;
-};
 
 const acceptedExpenditureEffectiveDate = (checkIn: AdaptiveCheckInDetail) =>
   checkIn.proposedTargets?.effectiveDate ?? checkIn.localDate;
@@ -149,7 +106,7 @@ export const createAdaptiveAnalyticsStore = (dependencies: {
   now?: () => Date;
 }) => {
   const { db } = dependencies;
-  const now = dependencies.now ?? (() => new Date());
+  const now = dependencies.now ?? getApplicationNow;
 
   const getAnalytics = (
     userId: string,

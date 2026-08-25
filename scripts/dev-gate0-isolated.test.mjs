@@ -14,6 +14,7 @@ import { afterEach, describe, it } from 'node:test';
 
 import {
   GATE0_DATABASE_RELATIVE_PATH,
+  GATE0_FIXTURE_NOW,
   GATE0_WEIGHT_MAP_RELATIVE_PATH,
   createGate0Environment,
   resolveGate0Config,
@@ -57,6 +58,7 @@ describe('Gate 0 isolated development startup', () => {
       resolve(repoRoot, GATE0_WEIGHT_MAP_RELATIVE_PATH),
     );
     assert.equal(environment.PORT, '3102');
+    assert.equal(environment.PULSE_TEST_NOW, GATE0_FIXTURE_NOW);
     assert.equal(environment.API_URL, 'http://127.0.0.1:5274');
     assert.equal(environment.VITE_API_PORT, '3102');
     assert.equal(environment.VITE_API_PROXY_TARGET, 'http://127.0.0.1:3102');

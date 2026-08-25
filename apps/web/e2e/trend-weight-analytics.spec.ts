@@ -4,9 +4,13 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { setAuthenticatedSession } from './auth-session';
+import { adaptivePreviewFixtureContract } from './adaptive-preview-fixture-contract';
 import { apiBaseURL } from './test-env';
 
 test.use({ timezoneId: 'America/Detroit' });
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(new Date(adaptivePreviewFixtureContract.serverNow));
+});
 
 const password = 'trend-weight-preview-only';
 
@@ -16,7 +20,7 @@ const dateKeyInTimeZone = (timeZone: string) => {
     month: '2-digit',
     timeZone,
     year: 'numeric',
-  }).formatToParts(new Date());
+  }).formatToParts(new Date(adaptivePreviewFixtureContract.serverNow));
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((value) => value.type === type)?.value ?? '';
   return `${part('year')}-${part('month')}-${part('day')}`;

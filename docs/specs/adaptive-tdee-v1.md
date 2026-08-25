@@ -2434,6 +2434,74 @@ completes a goal, or applies a catch-up adjustment.
   must agree with the materialized current target. JWT and AgentToken callers receive the same strict
   facts, but the GET exposes no decision or mutation capability.
 
+## 41. Daily energy adherence
+
+`GET /api/v1/nutrition/:date/energy-adherence` is the read-only, server-authoritative daily
+comparison used by the Nutrition Log. The selected program-local calendar date drives the
+response. JWT and AgentToken callers receive the same strict facts, and the endpoint never creates
+or changes a nutrition log, target, program, check-in, goal, or review.
+
+- Intake is the rounded sum of immutable meal-item calorie snapshots on the selected nutrition log.
+  Exercise calories are not credited and no workout fact changes the classification.
+- Target is the latest causally visible `nutrition_target_events` row effective on or before the
+  selected date. A backdated event is invisible before its real `recordedAt`; pending, held,
+  declined, superseded, and future-effective recommendations are never active targets.
+- Expenditure begins with the deterministic baseline stored in the initial program revision on the
+  causal program-start date. Only an accepted check-in with non-null proposed expenditure replaces
+  it on that check-in's proposed target effective date, or its local date when no proposed target is
+  present. Its immutable check-in ID and input fingerprint are returned. A missing historical
+  target or expenditure stays null; Pulse never writes zero or backfills a later fact.
+- Complete past days with accepted targets are gradeable. Current-local complete days remain
+  `pending_cutoff`; other current days are `in_progress`. Partial, unknown, missing, and future days
+  disclose their evidence but have null adherence. A complete past day without an accepted target
+  is `unavailable` rather than fabricated.
+- The target comparison is deliberately goal-neutral and symmetric. The inner tolerance is 5% of
+  accepted target calories clamped to 100–150 kcal. The outer tolerance is 10% clamped to 250–400
+  kcal. Absolute difference at either boundary receives the less severe label: at or inside the
+  inner band is `on_target`, outside inner through outer is `near_target`, and outside outer is
+  `off_target`. Loss, gain, and maintenance use the same signed-distance rule.
+- `intakeMinusTargetKcal` and `intakeMinusExpenditureKcal` are signed algebraic facts computed from
+  the exposed rounded calories. Adherence is based only on the accepted target difference;
+  expenditure is context, not another grade.
+- Program revisions use the same nondecreasing causal local-date fold as Energy Balance. Historical
+  reads select the effective revision and program time zone without letting a later westward or
+  eastward time-zone edit rewrite an earlier daily response. Each immutable revision has an
+  immutable, indexed causal-date projection. The canonical application migration runner treats
+  migration 0056 as one SQLite transaction: it preflights every complete ledger with the canonical
+  fold before running the 0056 DDL, creates the table/indexes/guards, inserts every projected row,
+  verifies source/projection row-count and identity equality, and only then inserts the Drizzle
+  migration-journal row. A sequence gap, decreasing UTC effective time, malformed snapshot/time
+  zone, inconsistent projection, or interruption before commit therefore leaves no 0056 schema,
+  journal entry, or partial projection. Replays validate an already-applied projection rather than
+  silently repairing it. Future revisions append their projection inside the same immediate
+  transaction as the revision.
+- The Nutrition Log owns a literal `YYYY-MM-DD` selection in the effective program time zone. Its
+  initial day, Today action, current-week boundary, status control, and adjacent/week prefetches do
+  not use the browser's calendar. Date-only keys are advanced as calendar dates and are never
+  reinterpreted as instants. A foreground timer resolves the next midnight in that IANA zone,
+  including 23- and 25-hour days, and reschedules on every rollover or time-zone change. It moves a
+  prior-today selection forward while preserving an intentionally selected historical date.
+- Target and expenditure facts expose compact audit provenance. Target provenance includes manual
+  versus accepted-adaptive source, effective date, event and target identities, recorded instant,
+  and accepted check-in identity when applicable. Expenditure provenance includes baseline versus
+  accepted-check-in source, effective date, check-in identity, and input fingerprint.
+- Initial loading has no accepted fact to show. A background refresh retains the last response for
+  that exact selected date while announcing its state. A failed refresh keeps those facts visible,
+  marks them potentially stale, and offers a scoped retry; cached facts from another date are never
+  relabeled as the current selection.
+- One-day reads perform direct indexed lookups for the initial revision and the greatest projected
+  causal date at or before the selected date; they neither materialize nor recursively walk the
+  lifetime revision ledger. Equal local dates resolve by greatest causal sequence. Live reads
+  select the indexed initial and latest endpoints directly. At most one accepted expenditure
+  check-in is retained, user/program scoped and selected in SQL by effective date, resolution time,
+  creation time, and ID with `limit 1`.
+- Installed-browser preview verification is anchored by
+  `scripts/adaptive-preview-fixture-contract.v1.json`. Its seed date, seed instant, non-production
+  Gate 0 clock, readiness counts, clarification/context evidence, modeled-day reconciliation,
+  trajectory facts, and workout-progression targets are literal independent expectations. Tests
+  first compare each API response with that versioned contract and then compare rendered UI with
+  the same facts; they never derive expected copy or counts from the response under test.
+
 ## Sources
 
 [1] https://help.macrofactorapp.com/en/articles/20-expenditure — MacroFactor: Expenditure

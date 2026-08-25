@@ -5,21 +5,14 @@ import { resolve } from 'node:path';
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
 
 import { setAuthenticatedSession } from './auth-session';
+import { adaptivePreviewFixtureContract } from './adaptive-preview-fixture-contract';
 import { apiBaseURL } from './test-env';
 
 const password = 'chart-exploration-preview-only';
 let api: APIRequestContext;
 
 function dateKeyInDetroit() {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone: 'America/Detroit',
-    year: 'numeric',
-  }).formatToParts(new Date());
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((value) => value.type === type)?.value ?? '';
-  return `${part('year')}-${part('month')}-${part('day')}`;
+  return adaptivePreviewFixtureContract.anchorDate;
 }
 
 function addDays(date: string, days: number) {
@@ -113,6 +106,10 @@ async function captureElement(page: Page, selector: ReturnType<Page['locator']>,
 
 test.beforeAll(async () => {
   api = await request.newContext({ baseURL: apiBaseURL });
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(new Date(adaptivePreviewFixtureContract.serverNow));
 });
 
 test.afterAll(async () => {

@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "anchorDate": "2026-08-23",
+  "seedNow": "2026-08-23T16:00:00.000Z",
+  "serverNow": "2026-08-23T16:30:00.000Z",
+  "timeZone": "America/Detroit",
+  "readiness": {
+    "learning": {
+      "completeNutritionDaysLogged": 3,
+      "completeNutritionDaysUsable": 0,
+      "completeNutritionDaysBeforeWeightTrend": 2,
+      "completeNutritionDaysPendingCutoff": 1,
+      "weighInsLogged": 1,
+      "weighInsUsable": 0,
+      "weighInsPendingCutoff": 1,
+      "analysisEndDate": "2026-08-22",
+      "pendingCutoffDate": "2026-08-23"
+    },
+    "updating": {
+      "completeNutritionDaysLogged": 21,
+      "completeNutritionDaysUsable": 21,
+      "completeNutritionDaysBeforeWeightTrend": 0,
+      "completeNutritionDaysPendingCutoff": 0,
+      "weighInsLogged": 9,
+      "weighInsUsable": 8,
+      "weighInsPendingCutoff": 1,
+      "analysisEndDate": "2026-08-22",
+      "pendingCutoffDate": "2026-08-23"
+    }
+  },
+  "weeklyReview": {
+    "fixture": "review-low-day",
+    "reviewLocalDate": "2026-08-23",
+    "analysisStart": "2026-08-02",
+    "analysisEnd": "2026-08-22",
+    "headline": "Clarify one logged day before deciding",
+    "clarificationCount": 1,
+    "lowDay": {
+      "localDate": "2026-08-20",
+      "calories": 550,
+      "state": "logged",
+      "label": "Complete day needs confirmation",
+      "reasonCode": "LIKELY_PARTIAL_NUTRITION"
+    },
+    "initialContextCount": 0
+  },
+  "dataQuality": {
+    "range": { "startDate": "2026-08-19", "endDate": "2026-08-23" },
+    "contextDate": "2026-08-19",
+    "context": {
+      "category": "illness",
+      "note": "Migraine reduced appetite and changed the planned training day.",
+      "provenanceType": "agent_token",
+      "provenanceLabel": "Preview Coach",
+      "revision": 1
+    },
+    "days": [
+      {
+        "date": "2026-08-19",
+        "nutritionQuality": "partial",
+        "nutritionEvidence": "excluded",
+        "weightEvidence": "missing"
+      },
+      {
+        "date": "2026-08-20",
+        "nutritionQuality": "unknown",
+        "nutritionEvidence": "excluded",
+        "weightEvidence": "usable"
+      },
+      {
+        "date": "2026-08-21",
+        "nutritionQuality": "no_records",
+        "nutritionEvidence": "missing",
+        "weightEvidence": "missing",
+        "workoutState": "planned"
+      },
+      {
+        "date": "2026-08-22",
+        "nutritionQuality": "complete",
+        "nutritionEvidence": "usable",
+        "weightEvidence": "usable",
+        "workoutState": "completed"
+      },
+      {
+        "date": "2026-08-23",
+        "nutritionQuality": "complete",
+        "nutritionEvidence": "pending_cutoff",
+        "weightEvidence": "pending_cutoff"
+      }
+    ]
+  },
+  "energyBalance": {
+    "fixture": "analytics-goal-loss",
+    "range": {
+      "preset": "1w",
+      "startDate": "2026-08-17",
+      "endDate": "2026-08-23",
+      "aggregation": "daily",
+      "calendarDays": 7
+    },
+    "predictedModeledDays": 5,
+    "observedTrendStartDate": "2026-08-17",
+    "observedTrendEndDate": "2026-08-22",
+    "predictedWeightChangeKg": -0.0649,
+    "observedTrendWeightChangeKg": -0.0715,
+    "completeNutritionDays": 6,
+    "excludedNutritionDays": 1,
+    "endingObservation": {
+      "date": "2026-08-22",
+      "intakeKcal": 2400,
+      "targetKcal": 2050,
+      "expenditureKcal": 2500
+    }
+  },
+  "trajectory": {
+    "fixture": "trajectory-loss",
+    "goalStartDate": "2026-08-02",
+    "goalType": "lose",
+    "targetWeightKg": 75,
+    "startAdaptiveTrendWeightKg": 82,
+    "currentDate": "2026-08-22",
+    "currentAdaptiveTrendWeightKg": 81.80240426231752,
+    "latestScaleWeightKg": 81.65,
+    "selectedRateKgPerWeek": -0.40901202,
+    "actualRateKgPerWeek": -0.07110071,
+    "actualRateObservationCount": 8,
+    "actualRateSpanDays": 20,
+    "paceState": "slower_than_selected",
+    "selectedPoint": {
+      "date": "2026-08-02",
+      "section": "historical",
+      "evidenceState": "scale_only",
+      "adaptiveStrategyTrendWeightKg": 82,
+      "scaleWeightKg": 82
+    }
+  },
+  "workoutProgression": {
+    "fixture": "progression-accept",
+    "scheduledDate": "2026-08-24",
+    "historyDate": "2026-08-20",
+    "exercise": "Incline dumbbell press",
+    "decision": "increase",
+    "confidence": "supported",
+    "priorTargetWeights": [40, 40],
+    "completedWeights": [40, 40],
+    "completedReps": [10, 10],
+    "completedRpe": [8, 8],
+    "recommendedTargetWeights": [45, 45],
+    "acceptedTargetWeights": [45, 45],
+    "historyLabel": "Aug 20 · 40x10, 40x10"
+  }
+}

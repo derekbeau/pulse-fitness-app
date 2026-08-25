@@ -1,5 +1,6 @@
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
 
+import { adaptivePreviewFixtureContract } from './adaptive-preview-fixture-contract';
 import { apiBaseURL } from './test-env';
 
 const authTokenStorageKey = 'pulse-auth-token';
@@ -87,13 +88,17 @@ function detroitDateKey() {
     month: '2-digit',
     timeZone: 'America/Detroit',
     year: 'numeric',
-  }).formatToParts(new Date());
+  }).formatToParts(new Date(adaptivePreviewFixtureContract.serverNow));
   const value = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((part) => part.type === type)?.value;
   return `${value('year')}-${value('month')}-${value('day')}`;
 }
 
 test.describe.serial('Adaptive TDEE Coach', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(new Date(adaptivePreviewFixtureContract.serverNow));
+  });
+
   test.beforeAll(async () => {
     apiContext = await request.newContext({ baseURL: apiBaseURL });
     const response = await apiContext.post('/api/v1/auth/register', {

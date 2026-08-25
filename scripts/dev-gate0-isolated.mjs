@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import console from 'node:console';
-import { constants, lstatSync, realpathSync } from 'node:fs';
+import { constants, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { access } from 'node:fs/promises';
 import net from 'node:net';
 import { dirname, resolve } from 'node:path';
@@ -14,6 +14,10 @@ export const GATE0_WEB_PORT = 5274;
 export const GATE0_DATABASE_RELATIVE_PATH = 'apps/api/data/pulse-tdee-dev.db';
 export const GATE0_WEIGHT_MAP_RELATIVE_PATH = 'apps/api/data/body-weight-legacy-unit-map.json';
 export const GATE0_DEFAULT_WEB_HOST = '127.0.0.1';
+const fixtureContract = JSON.parse(
+  readFileSync(new URL('./adaptive-preview-fixture-contract.v1.json', import.meta.url), 'utf8'),
+);
+export const GATE0_FIXTURE_NOW = fixtureContract.serverNow;
 
 export const validateGate0WebHost = (host) => {
   if (host === GATE0_DEFAULT_WEB_HOST) return host;
@@ -83,6 +87,7 @@ export const createGate0Environment = (baseEnvironment, config) => ({
   BODY_WEIGHT_LEGACY_UNIT_MAP_PATH: config.weightMapPath,
   API_URL: `http://${config.webHost}:${config.webPort}`,
   PORT: String(config.apiPort),
+  PULSE_TEST_NOW: GATE0_FIXTURE_NOW,
   VITE_API_PORT: String(config.proxyPort),
   VITE_API_PROXY_TARGET: `http://127.0.0.1:${config.proxyPort}`,
   VITE_PORT: String(config.webPort),

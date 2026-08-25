@@ -10,7 +10,7 @@
     "test": "vitest run",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
-    "db:migrate": "NODE_OPTIONS='--require tsx/cjs' drizzle-kit generate && drizzle-kit migrate",
+    "db:migrate": "NODE_OPTIONS='--require tsx/cjs' drizzle-kit generate && tsx src/scripts/migrate-database.ts",
     "db:backfill:scheduled-workout-snapshots": "tsx src/db/backfill/run-scheduled-workout-snapshot-backfill.ts",
     "db:repair:workout-exercise-links": "tsx src/scripts/repair-workout-exercise-links.ts",
     "db:studio": "drizzle-kit studio"

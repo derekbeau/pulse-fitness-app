@@ -1,13 +1,18 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   DailyNutrition,
+  DailyEnergyAdherence,
   DeleteMealResult,
   NutritionMeal,
   NutritionSummary,
   NutritionWeekSummary,
   NutritionLogStatus,
 } from '@pulse/shared';
-import { dailyNutritionSchema, nutritionLogSchema } from '@pulse/shared';
+import {
+  dailyEnergyAdherenceSchema,
+  dailyNutritionSchema,
+  nutritionLogSchema,
+} from '@pulse/shared';
 import { toast } from 'sonner';
 
 import {
@@ -43,6 +48,7 @@ type RenameMealMutationContext = {
 type NutritionQueryOptions = {
   enabled?: boolean;
   refetchIntervalMs?: number;
+  staleTimeMs?: number;
 };
 
 const fetchDailyNutrition = (date: string, signal?: AbortSignal) =>
@@ -56,6 +62,12 @@ const fetchNutritionSummary = (date: string, signal?: AbortSignal) =>
     method: 'GET',
     signal,
   });
+
+const fetchDailyEnergyAdherence = (date: string, signal?: AbortSignal) =>
+  apiRequest<unknown>(`/api/v1/nutrition/${date}/energy-adherence`, {
+    method: 'GET',
+    signal,
+  }).then((value) => dailyEnergyAdherenceSchema.parse(value));
 
 const fetchNutritionWeekSummary = (date: string, signal?: AbortSignal) => {
   const dateOnly = date.length > 10 ? date.slice(0, 10) : date;
@@ -131,6 +143,16 @@ export const useNutritionSummary = (date: string, options: NutritionQueryOptions
     refetchIntervalInBackground: false,
   });
 
+export const useDailyEnergyAdherence = (date: string, options: NutritionQueryOptions = {}) =>
+  useQuery<DailyEnergyAdherence>({
+    enabled: (options.enabled ?? true) && date.length > 0,
+    queryKey: nutritionQueryKeys.energyAdherence(date),
+    queryFn: ({ signal }) => fetchDailyEnergyAdherence(date, signal),
+    refetchInterval: options.refetchIntervalMs ?? false,
+    refetchIntervalInBackground: false,
+    staleTime: options.staleTimeMs ?? options.refetchIntervalMs ?? 30_000,
+  });
+
 export const useNutritionWeekSummary = (date: string, options: NutritionQueryOptions = {}) =>
   useQuery({
     enabled: (options.enabled ?? true) && date.length > 0,
@@ -150,6 +172,10 @@ export const prefetchNutritionDay = async (queryClient: QueryClient, date: strin
       queryKey: nutritionQueryKeys.summary(date),
       queryFn: ({ signal }) => fetchNutritionSummary(date, signal),
     }),
+    queryClient.prefetchQuery({
+      queryKey: nutritionQueryKeys.energyAdherence(date),
+      queryFn: ({ signal }) => fetchDailyEnergyAdherence(date, signal),
+    }),
   ]);
 };
 
@@ -165,6 +191,9 @@ export const useDeleteMeal = () => {
         }),
         queryClient.invalidateQueries({
           queryKey: nutritionQueryKeys.summary(variables.date),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: nutritionQueryKeys.energyAdherence(variables.date),
         }),
         queryClient.invalidateQueries({
           queryKey: nutritionQueryKeys.weekSummary(variables.date),
@@ -216,6 +245,9 @@ export const useRenameMeal = () => {
           queryKey: nutritionQueryKeys.summary(variables.date),
         }),
         queryClient.invalidateQueries({
+          queryKey: nutritionQueryKeys.energyAdherence(variables.date),
+        }),
+        queryClient.invalidateQueries({
           queryKey: nutritionQueryKeys.weekSummary(variables.date),
         }),
         invalidateQueryKeys(queryClient, crossFeatureInvalidationMap.mealMutation()),
@@ -233,6 +265,9 @@ export const useUpdateNutritionStatus = () => {
     onSuccess: async (_result, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: nutritionQueryKeys.day(variables.date) }),
+        queryClient.invalidateQueries({
+          queryKey: nutritionQueryKeys.energyAdherence(variables.date),
+        }),
         queryClient.invalidateQueries({ queryKey: adaptiveNutritionQueryKey }),
         queryClient.invalidateQueries({ queryKey: dataQualityQueryKey }),
       ]);

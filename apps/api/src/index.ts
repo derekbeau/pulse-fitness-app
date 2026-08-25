@@ -257,9 +257,9 @@ const start = async () => {
   const app = buildServer();
 
   try {
-    const [{ db, sqlite }, { migrate }] = await Promise.all([
+    const [{ sqlite }, { migratePulseDatabase }] = await Promise.all([
       import('./db/index.js'),
-      import('drizzle-orm/better-sqlite3/migrator'),
+      import('./db/migrate.js'),
     ]);
     const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url));
     const { prepareCanonicalWeightMigrationFromEnvironment } =
@@ -275,8 +275,7 @@ const start = async () => {
       'Canonical body-weight migration preflight passed',
     );
 
-    const { assertDatabaseIntegrity, runWithForeignKeysDisabled } =
-      await import('./db/integrity.js');
+    const { assertDatabaseIntegrity } = await import('./db/integrity.js');
     const preMigrationIntegrity = assertDatabaseIntegrity(sqlite, 'migration preflight');
     app.log.info(
       {
@@ -287,9 +286,8 @@ const start = async () => {
       'Database migration integrity preflight passed',
     );
 
-    // Disable FK checks for migrations — PRAGMA foreign_keys doesn't work
-    // inside transactions, and Drizzle wraps each migration in one.
-    runWithForeignKeysDisabled(sqlite, () => migrate(db, { migrationsFolder }));
+    const migration = migratePulseDatabase(sqlite, { migrationsFolder });
+    app.log.info(migration, 'Atomic database migrations passed');
     const postMigrationIntegrity = assertDatabaseIntegrity(sqlite, 'migration postflight');
     app.log.info(
       {

@@ -5,6 +5,7 @@ import type { DataQualityCalendar } from '@pulse/shared';
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
 
 import { setAuthenticatedSession } from './auth-session';
+import { adaptivePreviewFixtureContract } from './adaptive-preview-fixture-contract';
 import { apiBaseURL } from './test-env';
 
 test.use({ timezoneId: 'America/Detroit' });
@@ -16,15 +17,7 @@ let token: string;
 let agentToken: { id: string; token: string };
 
 function dateKeyInDetroit() {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone: 'America/Detroit',
-    year: 'numeric',
-  }).formatToParts(new Date());
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((value) => value.type === type)?.value ?? '';
-  return `${part('year')}-${part('month')}-${part('day')}`;
+  return adaptivePreviewFixtureContract.anchorDate;
 }
 
 function addDays(date: string, amount: number) {
@@ -159,6 +152,10 @@ async function expectNoOverflowAndTouchTargets(page: Page, width: number) {
 }
 
 test.describe.serial('Data Quality calendar', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(new Date(adaptivePreviewFixtureContract.serverNow));
+  });
+
   test.beforeAll(async () => {
     api = await request.newContext({ baseURL: apiBaseURL });
     const login = await api.post('/api/v1/auth/login', { data: { password, username } });
@@ -188,16 +185,45 @@ test.describe.serial('Data Quality calendar', () => {
     const diagnostics = monitorPage(page);
     await page.setViewportSize({ height: 1000, width: 390 });
     const calendar = await openCalendar(page, true);
-    const today = calendar.days.find((day) => day.isToday)?.date ?? dateKeyInDetroit();
-    const contextDate = addDays(today, -4);
+    const expected = adaptivePreviewFixtureContract.dataQuality;
+    for (const expectedDay of expected.days) {
+      const actualDay = calendar.days.find((day) => day.date === expectedDay.date);
+      expect(actualDay, `fixture day ${expectedDay.date}`).toBeTruthy();
+      expect(actualDay).toMatchObject({
+        nutrition: {
+          qualityState: expectedDay.nutritionQuality,
+          evidenceState: expectedDay.nutritionEvidence,
+        },
+        weight: { evidenceState: expectedDay.weightEvidence },
+      });
+      if (expectedDay.workoutState) {
+        expect(actualDay?.workouts).toEqual(
+          expect.arrayContaining([expect.objectContaining({ state: expectedDay.workoutState })]),
+        );
+      }
+    }
+    const contextDay = calendar.days.find((day) => day.date === expected.contextDate);
+    expect(contextDay?.contexts).toEqual([
+      expect.objectContaining({
+        category: expected.context.category,
+        note: expected.context.note,
+        provenance: {
+          type: expected.context.provenanceType,
+          agentTokenId: 'preview-agent',
+          label: expected.context.provenanceLabel,
+        },
+        revision: expected.context.revision,
+      }),
+    ]);
+    const contextDate = expected.contextDate;
     await selectDay(page, contextDate);
 
     await expect(page.getByRole('heading', { name: 'Nutrition' })).toBeVisible();
+    await expect(page.getByText(expected.context.note)).toBeVisible();
+    await expect(page.getByText(`AgentToken · ${expected.context.provenanceLabel}`)).toBeVisible();
     await expect(
-      page.getByText('Migraine reduced appetite and changed the planned training day.'),
+      page.getByText(`date · revision ${expected.context.revision}`, { exact: false }),
     ).toBeVisible();
-    await expect(page.getByText('AgentToken · Preview Coach')).toBeVisible();
-    await expect(page.getByText('date · revision 1', { exact: false })).toBeVisible();
     await expect(page.getByText('partial', { exact: true }).first()).toBeVisible();
     await expect(
       page.getByText(
@@ -233,15 +259,28 @@ test.describe.serial('Data Quality calendar', () => {
     const diagnostics = monitorPage(page);
     await page.setViewportSize({ height: 1000, width: 430 });
     const calendar = await openCalendar(page);
-    const today = calendar.days.find((day) => day.isToday)?.date ?? dateKeyInDetroit();
+    const correctionDate = calendar.days.find(
+      (day) => day.weight.correctionState === 'history_unavailable' && day.weight.entry !== null,
+    )?.date;
+    const missingDate = calendar.days.find(
+      (day) =>
+        day.nutrition.qualityState === 'no_records' &&
+        day.workouts.some((item) => item.state === 'planned'),
+    )?.date;
+    const completedWorkoutDate = calendar.days.find((day) =>
+      day.workouts.some((item) => item.state === 'completed'),
+    )?.date;
+    if (!correctionDate || !missingDate || !completedWorkoutDate) {
+      throw new Error('Data Quality deterministic evidence dates are missing');
+    }
 
-    await selectDay(page, addDays(today, -3));
+    await selectDay(page, correctionDate);
     await expect(page.getByText('Correction history unavailable').first()).toBeVisible();
     await expect(
       page.getByRole('region', { name: 'Weight' }).getByText('Logged', { exact: true }),
     ).toBeVisible();
 
-    await selectDay(page, addDays(today, -2));
+    await selectDay(page, missingDate);
     await expect(page.getByText('No record', { exact: true })).toBeVisible();
     await expect(
       page
@@ -253,7 +292,7 @@ test.describe.serial('Data Quality calendar', () => {
       page.getByRole('region', { name: 'Workout' }).getByText('planned', { exact: true }).first(),
     ).toBeVisible();
 
-    await selectDay(page, addDays(today, -1));
+    await selectDay(page, completedWorkoutDate);
     await expect(page.getByText('Cross-domain strength session')).toBeVisible();
     await expect(
       page.getByRole('region', { name: 'Workout' }).getByText('completed', { exact: true }).first(),
@@ -263,17 +302,23 @@ test.describe.serial('Data Quality calendar', () => {
     ).toBeVisible();
     await capture(page, 'data-quality-workout-430.png');
 
-    await selectDay(page, today);
+    const latestEvidenceDay = calendar.days
+      .filter((day) => day.nutrition.qualityState === 'complete' && day.weight.entry !== null)
+      .at(-1);
+    if (!latestEvidenceDay) throw new Error('Data Quality latest evidence day is missing');
+    await selectDay(page, latestEvidenceDay.date);
+    const latestNutritionTreatment = latestEvidenceDay.nutrition.evidenceState.replaceAll('_', ' ');
+    const latestWeightTreatment = latestEvidenceDay.weight.evidenceState.replaceAll('_', ' ');
     await expect(
       page
         .getByRole('region', { name: 'Nutrition' })
-        .getByText('Pending cutoff', { exact: true })
+        .getByText(latestNutritionTreatment, { exact: true })
         .first(),
     ).toBeVisible();
     await expect(
       page
         .getByRole('region', { name: 'Weight' })
-        .getByText('Pending cutoff', { exact: true })
+        .getByText(latestWeightTreatment, { exact: true })
         .first(),
     ).toBeVisible();
     diagnostics();

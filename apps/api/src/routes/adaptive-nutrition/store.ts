@@ -69,6 +69,8 @@ import {
 } from '@pulse/shared';
 
 import * as schema from '../../db/schema/index.js';
+import { insertAdaptiveProgramRevisionProjection } from '../../db/adaptive-program-revision-projection.js';
+import { getApplicationNow } from '../../lib/clock.js';
 import {
   adaptiveNutritionCheckIns,
   adaptiveNutritionGoalCompletions,
@@ -386,7 +388,7 @@ export const createAdaptiveNutritionStore = (options: {
   runInTransaction?: <T>(operation: () => T) => T;
 }) => {
   const { db, sqlite } = options;
-  const now = options.now ?? (() => new Date());
+  const now = options.now ?? getApplicationNow;
 
   const immediate = <T>(operation: () => T): T =>
     options.runInTransaction
@@ -427,18 +429,29 @@ export const createAdaptiveNutritionStore = (options: {
       .get();
     if (previous && JSON.stringify(previous.snapshot) === JSON.stringify(snapshot)) return;
 
+    const revisionId = randomUUID();
+    const sequence = (previous?.sequence ?? 0) + 1;
     db.insert(adaptiveNutritionProgramRevisions)
       .values({
-        id: randomUUID(),
+        id: revisionId,
         programId: program.id,
         userId,
-        sequence: (previous?.sequence ?? 0) + 1,
+        sequence,
         effectiveAt,
         snapshot,
         source,
         createdAt: effectiveAt,
       })
       .run();
+    insertAdaptiveProgramRevisionProjection(sqlite, {
+      id: revisionId,
+      programId: program.id,
+      userId,
+      sequence,
+      effectiveAt,
+      snapshot,
+      createdAt: effectiveAt,
+    });
   };
 
   const findActiveGoal = (userId: string, programId: string): ActiveGoalContext | null => {
