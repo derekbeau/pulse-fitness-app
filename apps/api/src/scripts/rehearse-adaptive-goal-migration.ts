@@ -4,11 +4,10 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 
 import { backfillAdaptiveNutritionGoals } from '../db/adaptive-goal-backfill.js';
 import { prepareCanonicalWeightMigrationFromEnvironment } from '../db/canonical-weight-migration.js';
+import { migratePulseDatabase } from '../db/migrate.js';
 
 type Arguments = { source: string; output: string };
 
@@ -56,9 +55,9 @@ export const rehearseAdaptiveGoalMigration = ({ source, output }: Arguments) => 
   try {
     const foreignKeyViolationsBefore = sqlite.pragma('foreign_key_check') as unknown[];
     const weightPreflight = prepareCanonicalWeightMigrationFromEnvironment(sqlite);
-    sqlite.pragma('foreign_keys = OFF');
-    migrate(drizzle(sqlite), { migrationsFolder: resolve(process.cwd(), 'drizzle') });
-    sqlite.pragma('foreign_keys = ON');
+    const migration = migratePulseDatabase(sqlite, {
+      migrationsFolder: resolve(process.cwd(), 'drizzle'),
+    });
     const backfill = backfillAdaptiveNutritionGoals(sqlite);
     const quickCheck = sqlite.pragma('quick_check') as Array<{ quick_check: string }>;
     const foreignKeyViolations = sqlite.pragma('foreign_key_check') as unknown[];
@@ -82,6 +81,7 @@ export const rehearseAdaptiveGoalMigration = ({ source, output }: Arguments) => 
       sourceBefore,
       sourceAfter,
       weightPreflight,
+      migration,
       backfill,
       quickCheck,
       foreignKeyViolationsBefore,
