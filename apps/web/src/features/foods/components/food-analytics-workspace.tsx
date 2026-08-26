@@ -304,43 +304,43 @@ function FoodAnalyticsTable({
       >
         <table className="w-full min-w-[900px] table-fixed border-collapse text-sm">
           <colgroup>
-            <col className="w-[150px]" />
-            <col className="w-[88px]" />
-            <col className="w-[54px]" />
-            <col className="w-[96px]" />
+            <col className="w-[140px]" />
+            <col className="w-[112px]" />
+            <col className="w-[64px]" />
             <col className="w-[92px]" />
-            <col className="w-[108px]" />
-            <col className="w-[110px]" />
-            <col className="w-[70px]" />
+            <col className="w-[88px]" />
+            <col className="w-[102px]" />
+            <col className="w-[104px]" />
+            <col className="w-[68px]" />
             <col className="w-[132px]" />
           </colgroup>
-          <thead className="bg-muted/45 text-left text-xs tracking-wide text-muted-foreground uppercase">
+          <thead className="bg-muted/45 text-left text-xs tracking-wide text-muted-foreground uppercase [&_th]:whitespace-normal">
             <tr>
-              <th aria-sort={ariaSort('name')} className="px-4 py-3" scope="col">
+              <th aria-sort={ariaSort('name')} className="px-3 py-3" scope="col">
                 Food
               </th>
-              <th aria-sort={ariaSort('most_used')} className="px-4 py-3" scope="col">
+              <th aria-sort={ariaSort('most_used')} className="px-3 py-3" scope="col">
                 Occurrences
               </th>
-              <th className="px-4 py-3" scope="col">
+              <th className="px-3 py-3" scope="col">
                 Days
               </th>
-              <th aria-sort={ariaSort('calorie_contribution')} className="px-4 py-3" scope="col">
+              <th aria-sort={ariaSort('calorie_contribution')} className="px-3 py-3" scope="col">
                 Observed calories
               </th>
-              <th aria-sort={ariaSort('protein_contribution')} className="px-4 py-3" scope="col">
+              <th aria-sort={ariaSort('protein_contribution')} className="px-3 py-3" scope="col">
                 Observed protein
               </th>
-              <th aria-sort={ariaSort('protein_density')} className="px-4 py-3" scope="col">
+              <th aria-sort={ariaSort('protein_density')} className="px-3 py-3" scope="col">
                 Observed protein density
               </th>
-              <th aria-sort={ariaSort('calorie_density')} className="px-4 py-3" scope="col">
+              <th aria-sort={ariaSort('calorie_density')} className="px-3 py-3" scope="col">
                 Current calorie density
               </th>
-              <th className="px-4 py-3" scope="col">
+              <th className="px-3 py-3" scope="col">
                 Share
               </th>
-              <th aria-sort={ariaSort('needs_review')} className="px-4 py-3" scope="col">
+              <th aria-sort={ariaSort('needs_review')} className="px-3 py-3" scope="col">
                 Review
               </th>
             </tr>

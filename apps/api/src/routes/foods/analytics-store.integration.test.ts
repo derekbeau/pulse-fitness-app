@@ -658,46 +658,49 @@ describe('food analytics store', () => {
       queries.push(name);
       observedQueries.push({ name, statement });
     });
-    store.getAnalytics('user-1', {
-      range: '30d',
-      end: '2026-08-25',
-      timeZone: 'America/Detroit',
-      sort: 'most_used',
-      usage: 'any',
-      verification: 'any',
-      review: 'any',
-      grams: 'any',
-      page: 1,
-      limit: 1,
-    });
-    expect(queries).toEqual([
-      'program-authority',
-      'summary',
-      'saved-food-total',
-      'review-total',
-      'row-count',
-      'rows',
-      'portions',
-      'tags',
-    ]);
+    for (const range of ['30d', '90d'] as const) {
+      queries.length = 0;
+      store.getAnalytics('user-1', {
+        range,
+        end: '2026-08-25',
+        timeZone: 'America/Detroit',
+        sort: 'most_used',
+        usage: 'any',
+        verification: 'any',
+        review: 'any',
+        grams: 'any',
+        page: 1,
+        limit: 1,
+      });
+      expect(queries, `${range} list statements`).toEqual([
+        'program-authority',
+        'summary',
+        'saved-food-total',
+        'review-total',
+        'row-count',
+        'rows',
+        'portions',
+        'tags',
+      ]);
 
-    queries.length = 0;
-    store.getDetail('user-1', ids.yogurt, {
-      range: '30d',
-      end: '2026-08-25',
-      timeZone: 'America/Detroit',
-      occurrencePage: 1,
-      occurrenceLimit: 1,
-    });
-    expect(queries).toEqual([
-      'program-authority',
-      'summary',
-      'row-count',
-      'rows',
-      'portions',
-      'occurrence-count',
-      'occurrences',
-    ]);
+      queries.length = 0;
+      store.getDetail('user-1', ids.yogurt, {
+        range,
+        end: '2026-08-25',
+        timeZone: 'America/Detroit',
+        occurrencePage: 1,
+        occurrenceLimit: 1,
+      });
+      expect(queries, `${range} detail statements`).toEqual([
+        'program-authority',
+        'summary',
+        'row-count',
+        'rows',
+        'portions',
+        'occurrence-count',
+        'occurrences',
+      ]);
+    }
 
     const productionStatements = observedQueries.filter(
       (query): query is Required<ObservedQuery> =>
@@ -761,23 +764,40 @@ describe('food analytics store', () => {
   it('keeps bounded presets insensitive to 100,000 old linked occurrences', () => {
     const observedQueries: ObservedQuery[] = [];
     const store = setup((name, statement) => observedQueries.push({ name, statement }));
-    const read = () => store.getAnalytics('user-1', { ...baseQuery, limit: 1 });
-    expect(read().data.items[0]?.observed.totalCalories).toBe(300);
-    const rowsQuery = observedQueries.find(
-      (query): query is Required<ObservedQuery> => query.name === 'rows' && query.statement != null,
-    );
-    if (!rowsQuery || !sqlite) throw new Error('Expected captured row query');
-    const prepared = sqlite.prepare(rowsQuery.statement.sql);
-    const medianRuntime = () => {
-      const values = Array.from({ length: 5 }, () => {
-        const started = performance.now();
-        prepared.all(rowsQuery.statement.parameters);
-        return performance.now() - started;
-      }).sort((a, b) => a - b);
-      return values[2] ?? Number.POSITIVE_INFINITY;
-    };
-    medianRuntime();
-    const beforeMs = medianRuntime();
+    if (!sqlite) throw new Error('Expected test database');
+    insertDay(sqlite, '2026-05-27', 'complete', []);
+    const presets = [
+      { range: '30d' as const, startDate: '2026-07-27', expectedCalories: 300 },
+      { range: '90d' as const, startDate: '2026-05-28', expectedCalories: 1_299 },
+    ];
+    const read = (range: '30d' | '90d') =>
+      store.getAnalytics('user-1', { ...baseQuery, range, limit: 1 });
+    for (const preset of presets) {
+      expect(read(preset.range).data.items[0]?.observed.totalCalories).toBe(
+        preset.expectedCalories,
+      );
+    }
+    const measurements = presets.map((preset) => {
+      const rowsQuery = observedQueries.find(
+        (query): query is Required<ObservedQuery> =>
+          query.name === 'rows' &&
+          query.statement != null &&
+          query.statement.parameters.startDate === preset.startDate,
+      );
+      if (!rowsQuery) throw new Error(`Expected captured ${preset.range} row query`);
+      const prepared = sqlite?.prepare(rowsQuery.statement.sql);
+      if (!prepared) throw new Error('Expected test database');
+      const medianRuntime = () => {
+        const values = Array.from({ length: 5 }, () => {
+          const started = performance.now();
+          prepared.all(rowsQuery.statement.parameters);
+          return performance.now() - started;
+        }).sort((a, b) => a - b);
+        return values[2] ?? Number.POSITIVE_INFINITY;
+      };
+      medianRuntime();
+      return { ...preset, medianRuntime, beforeMs: medianRuntime(), rowsQuery };
+    });
 
     sqlite.exec(`
       with digits(n) as (values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9)),
@@ -788,30 +808,38 @@ describe('food analytics store', () => {
       insert into meal_items
         (id, meal_id, food_id, name, amount, unit, calories, protein, carbs, fat, created_at)
       select printf('dense-old-%06d', n),
-             '20000000-0000-4000-8000-000020260726',
+             '20000000-0000-4000-8000-000020260527',
              '${ids.yogurt}', 'Greek Yogurt', 1, 'serving', 999, 99, 0, 0, 1000 + n
         from sequence;
     `);
 
-    const after = read();
-    expect(after.data.items[0]?.observed.totalCalories).toBe(300);
-    const afterMs = medianRuntime();
-    expect(afterMs).toBeLessThan(Math.max(15, beforeMs * 8));
+    for (const measurement of measurements) {
+      expect(read(measurement.range).data.items[0]?.observed.totalCalories).toBe(
+        measurement.expectedCalories,
+      );
+      const afterMs = measurement.medianRuntime();
+      expect(afterMs, `${measurement.range} dense-history runtime`).toBeLessThan(
+        measurement.beforeMs + 1,
+      );
 
-    const details = (
-      sqlite
-        .prepare(`explain query plan ${rowsQuery.statement.sql}`)
-        .all(rowsQuery.statement.parameters) as Array<{ detail: string }>
-    ).map((row) => row.detail);
-    expect(details).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('MATERIALIZE range_logs'),
-        expect.stringContaining('nutrition_logs_user_id_date_unique'),
-        expect.stringContaining('meals_nutrition_log_id_idx'),
-        expect.stringContaining('meal_items_meal_id_idx'),
-      ]),
-    );
-    expect(details.some((detail) => detail.includes('meal_items_food_id_idx'))).toBe(false);
+      const details = (
+        sqlite
+          .prepare(`explain query plan ${measurement.rowsQuery.statement.sql}`)
+          .all(measurement.rowsQuery.statement.parameters) as Array<{ detail: string }>
+      ).map((row) => row.detail);
+      expect(details, `${measurement.range} dense-history plan`).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('MATERIALIZE range_logs'),
+          expect.stringContaining('nutrition_logs_user_id_date_unique'),
+          expect.stringContaining('meals_nutrition_log_id_idx'),
+          expect.stringContaining('meal_items_meal_id_idx'),
+        ]),
+      );
+      expect(
+        details.some((detail) => detail.includes('meal_items_food_id_idx')),
+        `${measurement.range} does not scan lifetime food history`,
+      ).toBe(false);
+    }
   });
 
   it('selects one indexed program revision and fails closed when the latest projection is missing', () => {

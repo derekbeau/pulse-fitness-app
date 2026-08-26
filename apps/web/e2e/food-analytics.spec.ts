@@ -139,6 +139,25 @@ async function expectNoOverflow(page: Page, width: number) {
       '768px search remains usable inside the sidebar layout',
     ).toBeGreaterThan(240);
   }
+  if (width >= 1024) {
+    const headers = page.getByRole('columnheader');
+    for (let index = 0; index < (await headers.count()); index += 1) {
+      const header = headers.nth(index);
+      expect(
+        await header.evaluate((element) => element.scrollWidth <= element.clientWidth),
+        `${width}px table header ${index} clipping`,
+      ).toBe(true);
+      if (index === 0) continue;
+      const previousBox = await headers.nth(index - 1).boundingBox();
+      const box = await header.boundingBox();
+      expect(previousBox, `${width}px previous table header ${index - 1}`).not.toBeNull();
+      expect(box, `${width}px table header ${index}`).not.toBeNull();
+      expect(
+        (previousBox?.x ?? 0) + (previousBox?.width ?? 0),
+        `${width}px table headers ${index - 1} and ${index} do not overlap`,
+      ).toBeLessThanOrEqual((box?.x ?? 0) + 0.5);
+    }
+  }
   for (const name of ['30D', '90D', 'All']) {
     const box = await page.getByRole('button', { name, exact: true }).boundingBox();
     expect(box?.height, `${name} touch target at ${width}px`).toBeGreaterThanOrEqual(44);

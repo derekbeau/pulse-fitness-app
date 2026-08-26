@@ -1293,6 +1293,39 @@ describe('NutritionPage', () => {
     expect(document.getElementById('nutrition-meal-meal-lunch')).toHaveFocus();
   });
 
+  it('focuses a matching meal when date and meal are present on the initial URL', async () => {
+    const { fetchMock } = createNutritionApiMock({
+      '2026-03-06': { daily: null, target: TARGETS },
+      '2026-03-05': {
+        daily: {
+          log: {
+            id: 'log-2026-03-05',
+            userId: 'user-1',
+            date: '2026-03-05',
+            notes: null,
+            status: 'complete',
+            statusUpdatedAt: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          meals: previousDayMeals,
+        },
+        target: TARGETS,
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage('/nutrition?view=log&date=2026-03-05&meal=meal-lunch', {
+      includeLocationProbe: true,
+    });
+    await flushNutritionTimers();
+
+    expect(document.getElementById('nutrition-meal-meal-lunch')).toHaveFocus();
+    expect(screen.getByTestId('location-search')).toHaveTextContent(
+      '?view=log&date=2026-03-05&meal=meal-lunch',
+    );
+  });
+
   it('clears historical date and meal state when the authenticated session changes', async () => {
     useAuthStore.setState({
       user: { id: 'user-a', username: 'a', name: null },

@@ -119,8 +119,9 @@ curl -s 'http://localhost:3001/api/v1/foods/analytics?range=30d&sort=most_used&p
   -H 'Authorization: Bearer <token>'
 ```
 
-Supported filters are `usage`, `verification`, `review`, `servingGrams`, normalized `tags`, and
-text search `q`. Supported sorts are `most_used`, `most_recent`, `calorie_contribution`,
+Supported filters are `usage`, `verification`, `review`, `grams` (`any`, `has_grams`, or
+`missing_grams`), normalized `tags`, and text search `q`. Supported sorts are `most_used`,
+`most_recent`, `calorie_contribution`,
 `protein_contribution`, `protein_density`, `calorie_density`, `needs_review`, and `name`. Every sort
 has deterministic name, brand, and food-ID tie breakers, so pagination cannot duplicate or skip a
 food.
