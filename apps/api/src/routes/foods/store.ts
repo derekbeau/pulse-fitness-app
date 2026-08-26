@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
+import { and, count, eq, isNull, sql, type SQL } from 'drizzle-orm';
 import type {
   CreateFoodInput,
   Food,
@@ -9,7 +9,6 @@ import type {
 } from '@pulse/shared';
 
 import { foods, mealItems, meals, nutritionLogs } from '../../db/schema/index.js';
-import { downgradeCompleteNutritionLogs } from '../../db/nutrition-completeness.js';
 
 export type FoodRecord = Food;
 
@@ -472,30 +471,45 @@ export const mergeFoods = async (
       throw new FoodMergeNotFoundError('loser');
     }
 
-    const ownedLoserItems = tx
-      .select({ itemId: mealItems.id, nutritionLogId: nutritionLogs.id })
-      .from(mealItems)
-      .innerJoin(meals, eq(meals.id, mealItems.mealId))
-      .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
-      .where(and(eq(mealItems.foodId, loserId), eq(nutritionLogs.userId, userId)))
-      .all();
-
-    if (ownedLoserItems.length > 0) {
-      tx.update(mealItems)
-        .set({ foodId: winnerId })
-        .where(
-          inArray(
-            mealItems.id,
-            ownedLoserItems.map((item) => item.itemId),
-          ),
-        )
-        .run();
-      downgradeCompleteNutritionLogs(tx, [
-        ...new Set(ownedLoserItems.map((item) => item.nutritionLogId)),
-      ]);
-    }
-
     const now = Date.now();
+
+    tx.update(nutritionLogs)
+      .set({
+        status: 'partial',
+        statusUpdatedAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(nutritionLogs.userId, userId),
+          eq(nutritionLogs.status, 'complete'),
+          sql`exists (
+            select 1
+            from ${meals}
+            inner join ${mealItems} on ${mealItems.mealId} = ${meals.id}
+            where ${meals.nutritionLogId} = ${nutritionLogs.id}
+              and ${mealItems.foodId} = ${loserId}
+          )`,
+        ),
+      )
+      .run();
+
+    tx.update(mealItems)
+      .set({ foodId: winnerId })
+      .where(
+        and(
+          eq(mealItems.foodId, loserId),
+          sql`exists (
+            select 1
+            from ${meals}
+            inner join ${nutritionLogs} on ${nutritionLogs.id} = ${meals.nutritionLogId}
+            where ${meals.id} = ${mealItems.mealId}
+              and ${nutritionLogs.userId} = ${userId}
+          )`,
+        ),
+      )
+      .run();
+
     const updatedWinnerUsageCount = winner.usageCount + loser.usageCount;
     const updatedWinnerLastUsedAt = mergeLastUsedAt(winner.lastUsedAt, loser.lastUsedAt);
 

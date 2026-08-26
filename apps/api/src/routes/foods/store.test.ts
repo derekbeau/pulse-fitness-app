@@ -487,9 +487,6 @@ describe('foods store', () => {
         }),
       },
       {
-        all: [{ itemId: 'meal-item-1', nutritionLogId: 'nutrition-log-1' }],
-      },
-      {
         get: buildStoredFood({
           id: winnerId,
           usageCount: 11,
@@ -510,10 +507,10 @@ describe('foods store', () => {
       }),
     );
     expect(dbState.updateSets).toHaveLength(4);
-    expect(dbState.updateSets[0]).toEqual({
+    expect(dbState.updateSets[0]).toMatchObject({ status: 'partial' });
+    expect(dbState.updateSets[1]).toEqual({
       foodId: winnerId,
     });
-    expect(dbState.updateSets[1]).toMatchObject({ status: 'partial' });
     expect(dbState.updateSets[2]).toMatchObject({
       usageCount: 11,
       lastUsedAt: 1_700_000_400_000,
@@ -524,8 +521,10 @@ describe('foods store', () => {
       updatedAt: expect.any(Number),
     });
 
-    const relinkWhereText = flattenSql(dbState.updateWhereCalls[0]);
-    expect(relinkWhereText).toContain('id in');
+    const relinkWhereText = flattenSql(dbState.updateWhereCalls[1]);
+    expect(relinkWhereText).toContain(`food_id = ${loserId}`);
+    expect(relinkWhereText).toContain('exists');
+    expect(relinkWhereText).toContain('user_id = user-1');
     const winnerWhereText = flattenSql(dbState.updateWhereCalls[2]);
     expect(winnerWhereText).toContain(`id = ${winnerId}`);
     expect(winnerWhereText).toContain('user_id = user-1');
@@ -551,9 +550,6 @@ describe('foods store', () => {
           usageCount: 3,
           lastUsedAt: 1_700_000_500_000,
         }),
-      },
-      {
-        all: [{ itemId: 'meal-item-1', nutritionLogId: 'nutrition-log-1' }],
       },
       {
         get: buildStoredFood({

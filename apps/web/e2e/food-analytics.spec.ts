@@ -157,6 +157,22 @@ async function expectNoOverflow(page: Page, width: number) {
         `${width}px table headers ${index - 1} and ${index} do not overlap`,
       ).toBeLessThanOrEqual((box?.x ?? 0) + 0.5);
     }
+    const foodCells = page.getByTestId('food-analytics-table-food');
+    for (let index = 0; index < (await foodCells.count()); index += 1) {
+      expect(
+        await foodCells.nth(index).evaluate((element) => {
+          const content = element.getBoundingClientRect();
+          const cell = element.parentElement?.getBoundingClientRect();
+          return (
+            cell != null &&
+            content.left >= cell.left - 0.5 &&
+            content.right <= cell.right + 0.5 &&
+            element.scrollWidth <= element.clientWidth
+          );
+        }),
+        `${width}px food row ${index} stays inside its column`,
+      ).toBe(true);
+    }
   }
   for (const name of ['30D', '90D', 'All']) {
     const box = await page.getByRole('button', { name, exact: true }).boundingBox();

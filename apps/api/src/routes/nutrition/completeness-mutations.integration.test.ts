@@ -359,4 +359,66 @@ describe('complete nutrition day mutation downgrades', () => {
       unresolvedLinkedMealItemCount: 0,
     });
   });
+
+  it('merges more owned occurrences than the SQLite variable limit without leaking ownership', async () => {
+    const { mergeFoods } = await import('../foods/store.js');
+    dbModule.db
+      .insert(foods)
+      .values([
+        {
+          id: 'food-winner',
+          userId: 'user-1',
+          name: 'Winner',
+          calories: 100,
+          protein: 10,
+          carbs: 10,
+          fat: 2,
+        },
+        {
+          id: 'food-loser',
+          userId: 'user-1',
+          name: 'Loser',
+          calories: 100,
+          protein: 10,
+          carbs: 10,
+          fat: 2,
+        },
+      ])
+      .run();
+    dbModule.db
+      .update(mealItems)
+      .set({ foodId: 'food-loser' })
+      .where(eq(mealItems.id, 'item-1'))
+      .run();
+
+    dbModule.sqlite.exec(`
+      with digits(n) as (values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9)),
+      sequence(value) as (
+        select ((((a.n * 10 + b.n) * 10 + c.n) * 10 + d.n) * 10 + e.n) + 1
+        from digits a, digits b, digits c, digits d, digits e
+      )
+      insert into meal_items
+        (id, meal_id, food_id, name, amount, unit, calories, protein, carbs, fat, created_at)
+      select printf('bulk-loser-%05d', value), 'meal-1', 'food-loser', 'Loser',
+             1, 'serving', 100, 10, 10, 2, value
+      from sequence
+      where value <= 32766;
+    `);
+
+    await expect(mergeFoods('user-1', 'food-winner', 'food-loser')).resolves.toMatchObject({
+      id: 'food-winner',
+    });
+
+    expect(getStatus()?.status).toBe('partial');
+    expect(
+      dbModule.sqlite
+        .prepare('select count(*) as count from meal_items where food_id = ?')
+        .get('food-winner'),
+    ).toEqual({ count: 32767 });
+    expect(
+      dbModule.sqlite
+        .prepare('select count(*) as count from meal_items where food_id = ?')
+        .get('food-loser'),
+    ).toEqual({ count: 0 });
+  });
 });

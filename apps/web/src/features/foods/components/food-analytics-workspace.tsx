@@ -350,14 +350,15 @@ function FoodAnalyticsTable({
               <tr key={item.foodId}>
                 <td className="px-4 py-4 align-top">
                   <Button
-                    className="h-auto min-h-11 justify-start px-0 text-left"
+                    className="h-auto min-h-11 w-full min-w-0 justify-start whitespace-normal px-0 text-left"
+                    data-testid="food-analytics-table-food"
                     onClick={() => onOpen(item.foodId)}
                     type="button"
                     variant="link"
                   >
-                    <span>
-                      <span className="block font-semibold">{item.name}</span>
-                      <span className="block text-xs text-muted-foreground">
+                    <span className="w-full min-w-0">
+                      <span className="block break-words font-semibold">{item.name}</span>
+                      <span className="block break-words text-xs text-muted-foreground">
                         {item.brand ?? 'No brand'}
                       </span>
                     </span>
