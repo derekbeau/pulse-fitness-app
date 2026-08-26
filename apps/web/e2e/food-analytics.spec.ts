@@ -112,6 +112,33 @@ async function expectNoOverflow(page: Page, width: number) {
     ),
     `${width}px page overflow`,
   ).toBe(true);
+  if (width < 1024) {
+    const cards = page.getByTestId('food-analytics-card');
+    for (let index = 0; index < (await cards.count()); index += 1) {
+      const card = cards.nth(index);
+      expect(
+        await card.evaluate((element) => element.scrollWidth <= element.clientWidth),
+        `${width}px analytics card ${index} clipping`,
+      ).toBe(true);
+      const meaningful = card.locator(
+        '[data-slot="badge"], [data-testid="food-analytics-card-metric"], button',
+      );
+      for (let childIndex = 0; childIndex < (await meaningful.count()); childIndex += 1) {
+        const child = meaningful.nth(childIndex);
+        expect(
+          await child.evaluate((element) => element.scrollWidth <= element.clientWidth),
+          `${width}px analytics card ${index} child ${childIndex} clipping`,
+        ).toBe(true);
+      }
+    }
+  }
+  if (width === 768) {
+    const searchBox = await page.getByRole('textbox', { name: 'Search saved foods' }).boundingBox();
+    expect(
+      searchBox?.width,
+      '768px search remains usable inside the sidebar layout',
+    ).toBeGreaterThan(240);
+  }
   for (const name of ['30D', '90D', 'All']) {
     const box = await page.getByRole('button', { name, exact: true }).boundingBox();
     expect(box?.height, `${name} touch target at ${width}px`).toBeGreaterThanOrEqual(44);
@@ -227,6 +254,26 @@ test('renders exact contribution truth, all server filters, pagination, keyboard
   await expectNoOverflow(page, 768);
   await capture(page, 'food-analytics-cards-768-light.png');
   await expectNoOverflow(page, 1280);
+  const tableRegion = page.getByTestId('food-analytics-table-region');
+  await expect(page.getByText(/More columns are available horizontally/u)).toBeVisible();
+  await tableRegion.focus();
+  await expect(tableRegion).toBeFocused();
+  const tableGeometry = await tableRegion.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  if (tableGeometry.scrollWidth > tableGeometry.clientWidth) {
+    const initialTableScroll = await tableRegion.evaluate((element) => element.scrollLeft);
+    await page.keyboard.press('ArrowRight');
+    await expect
+      .poll(() => tableRegion.evaluate((element) => element.scrollLeft))
+      .toBeGreaterThan(initialTableScroll);
+  } else {
+    await expect(page.getByRole('columnheader', { name: 'Review' })).toBeVisible();
+  }
+  await tableRegion.evaluate((element) => {
+    element.scrollLeft = 0;
+  });
   await capture(page, 'food-analytics-table-1280-light.png');
 
   await page.setViewportSize({ width: 1280, height: 1000 });

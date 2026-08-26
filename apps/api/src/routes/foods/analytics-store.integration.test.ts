@@ -16,6 +16,7 @@ import { createAdaptiveNutritionStore } from '../adaptive-nutrition/store.js';
 import {
   createFoodAnalyticsStore,
   FoodAnalyticsNotFoundError,
+  FoodAnalyticsProgramProjectionError,
   FoodAnalyticsTimeZoneConflictError,
 } from './analytics-store.js';
 
@@ -670,7 +671,7 @@ describe('food analytics store', () => {
       limit: 1,
     });
     expect(queries).toEqual([
-      'program-time-zone',
+      'program-authority',
       'summary',
       'saved-food-total',
       'review-total',
@@ -689,7 +690,7 @@ describe('food analytics store', () => {
       occurrenceLimit: 1,
     });
     expect(queries).toEqual([
-      'program-time-zone',
+      'program-authority',
       'summary',
       'row-count',
       'rows',
@@ -700,7 +701,7 @@ describe('food analytics store', () => {
 
     const productionStatements = observedQueries.filter(
       (query): query is Required<ObservedQuery> =>
-        query.statement !== undefined && query.name !== 'program-time-zone',
+        query.statement !== undefined && !query.name.startsWith('program-'),
     );
     expect(new Set(productionStatements.map((query) => query.name))).toEqual(
       new Set([
@@ -723,7 +724,8 @@ describe('food analytics store', () => {
           .all(query.statement.parameters) as Array<{ detail: string }>
       ).map((row) => row.detail),
     }));
-    const foodDrivenEvidenceNames = new Set([
+    const rangeEvidenceNames = new Set([
+      'summary',
       'review-total',
       'row-count',
       'rows',
@@ -732,7 +734,13 @@ describe('food analytics store', () => {
       'occurrences',
     ]);
     for (const plan of plans) {
-      if (plan.name === 'summary') {
+      if (rangeEvidenceNames.has(plan.name)) {
+        expect(plan.details, `${plan.name}: bounded range is materialized`).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining('MATERIALIZE range_logs'),
+            expect.stringContaining('MATERIALIZE range_items'),
+          ]),
+        );
         expect(plan.details, `${plan.name}: nutrition log range index`).toEqual(
           expect.arrayContaining([expect.stringContaining('nutrition_logs_user_id_date_unique')]),
         );
@@ -742,21 +750,195 @@ describe('food analytics store', () => {
         expect(plan.details, `${plan.name}: meal item index`).toEqual(
           expect.arrayContaining([expect.stringContaining('meal_items_meal_id_idx')]),
         );
-      } else if (foodDrivenEvidenceNames.has(plan.name)) {
-        expect(plan.details, `${plan.name}: food-scoped meal item index`).toEqual(
-          expect.arrayContaining([expect.stringContaining('meal_items_food_id_idx')]),
-        );
-        expect(plan.details, `${plan.name}: meal primary-key lookup`).toEqual(
-          expect.arrayContaining([expect.stringContaining('sqlite_autoindex_meals_1')]),
-        );
-        expect(plan.details, `${plan.name}: nutrition log primary-key lookup`).toEqual(
-          expect.arrayContaining([expect.stringContaining('sqlite_autoindex_nutrition_logs_1')]),
-        );
       } else {
         expect(plan.details, `${plan.name}: owned foods index`).toEqual(
           expect.arrayContaining([expect.stringContaining('idx_foods_user_id_deleted_at')]),
         );
       }
     }
+  });
+
+  it('keeps bounded presets insensitive to 100,000 old linked occurrences', () => {
+    const observedQueries: ObservedQuery[] = [];
+    const store = setup((name, statement) => observedQueries.push({ name, statement }));
+    const read = () => store.getAnalytics('user-1', { ...baseQuery, limit: 1 });
+    expect(read().data.items[0]?.observed.totalCalories).toBe(300);
+    const rowsQuery = observedQueries.find(
+      (query): query is Required<ObservedQuery> => query.name === 'rows' && query.statement != null,
+    );
+    if (!rowsQuery || !sqlite) throw new Error('Expected captured row query');
+    const prepared = sqlite.prepare(rowsQuery.statement.sql);
+    const medianRuntime = () => {
+      const values = Array.from({ length: 5 }, () => {
+        const started = performance.now();
+        prepared.all(rowsQuery.statement.parameters);
+        return performance.now() - started;
+      }).sort((a, b) => a - b);
+      return values[2] ?? Number.POSITIVE_INFINITY;
+    };
+    medianRuntime();
+    const beforeMs = medianRuntime();
+
+    sqlite.exec(`
+      with digits(n) as (values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9)),
+      sequence(n) as (
+        select a.n + b.n * 10 + c.n * 100 + d.n * 1000 + e.n * 10000
+          from digits a cross join digits b cross join digits c cross join digits d cross join digits e
+      )
+      insert into meal_items
+        (id, meal_id, food_id, name, amount, unit, calories, protein, carbs, fat, created_at)
+      select printf('dense-old-%06d', n),
+             '20000000-0000-4000-8000-000020260726',
+             '${ids.yogurt}', 'Greek Yogurt', 1, 'serving', 999, 99, 0, 0, 1000 + n
+        from sequence;
+    `);
+
+    const after = read();
+    expect(after.data.items[0]?.observed.totalCalories).toBe(300);
+    const afterMs = medianRuntime();
+    expect(afterMs).toBeLessThan(Math.max(15, beforeMs * 8));
+
+    const details = (
+      sqlite
+        .prepare(`explain query plan ${rowsQuery.statement.sql}`)
+        .all(rowsQuery.statement.parameters) as Array<{ detail: string }>
+    ).map((row) => row.detail);
+    expect(details).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('MATERIALIZE range_logs'),
+        expect.stringContaining('nutrition_logs_user_id_date_unique'),
+        expect.stringContaining('meals_nutrition_log_id_idx'),
+        expect.stringContaining('meal_items_meal_id_idx'),
+      ]),
+    );
+    expect(details.some((detail) => detail.includes('meal_items_food_id_idx'))).toBe(false);
+  });
+
+  it('selects one indexed program revision and fails closed when the latest projection is missing', () => {
+    const initialStore = setup();
+    if (!sqlite) throw new Error('Expected test database');
+    const input: AdaptiveProgramMutation = {
+      status: 'active',
+      timeZone: 'America/Detroit',
+      heightCm: null,
+      birthDate: null,
+      rmrEquation: 'manual_tdee',
+      activityLevel: null,
+      manualBaselineTdeeKcal: 2500,
+      goalType: 'maintain',
+      targetWeightKg: null,
+      goalRatePctPerWeek: 0,
+      proteinGrams: 160,
+      fatAllocationPct: 30,
+      currentWeight: { weight: 80, unit: 'kg' },
+      rebaseline: false,
+      supersedePending: false,
+    };
+    createAdaptiveNutritionStore({
+      db: drizzle(sqlite),
+      sqlite,
+      now: () => new Date('2026-08-20T16:00:00.000Z'),
+    }).upsertProgram('user-1', input);
+    const program = sqlite
+      .prepare('select id from adaptive_nutrition_programs where user_id = ?')
+      .get('user-1') as { id: string };
+    const first = sqlite
+      .prepare(
+        `select sequence, effective_at as effectiveAt, snapshot
+           from adaptive_nutrition_program_revisions
+          where program_id = ? order by sequence desc limit 1`,
+      )
+      .get(program.id) as { sequence: number; effectiveAt: number; snapshot: string };
+    const insertRevision = sqlite.prepare(
+      `insert into adaptive_nutrition_program_revisions
+        (id, program_id, user_id, sequence, effective_at, snapshot, source, created_at)
+       values (@id, @programId, 'user-1', @sequence, @effectiveAt, @snapshot, 'program_updated', @effectiveAt)`,
+    );
+    const insertDate = sqlite.prepare(
+      `insert into adaptive_nutrition_program_revision_dates
+        (revision_id, program_id, user_id, sequence, effective_local_date, created_at)
+       values (@id, @programId, 'user-1', @sequence, @effectiveLocalDate, @effectiveAt)`,
+    );
+    sqlite.transaction(() => {
+      for (let offset = 1; offset <= 2_000; offset += 1) {
+        const sequence = first.sequence + offset;
+        const id = `dense-revision-${String(sequence).padStart(6, '0')}`;
+        const timeZone = offset % 2 === 0 ? 'Asia/Tokyo' : 'America/Los_Angeles';
+        const snapshot = JSON.stringify({ ...JSON.parse(first.snapshot), timeZone });
+        const values = {
+          id,
+          programId: program.id,
+          sequence,
+          effectiveAt: first.effectiveAt + offset,
+          effectiveLocalDate: '2026-08-21',
+          snapshot,
+        };
+        insertRevision.run(values);
+        insertDate.run(values);
+      }
+    })();
+
+    const observed: ObservedQuery[] = [];
+    const store = createFoodAnalyticsStore({
+      sqlite,
+      now: () => new Date('2026-08-25T16:00:00.000Z'),
+      onQuery: (name, statement) => observed.push({ name, statement }),
+    });
+    expect(
+      store.getAnalytics('user-1', { ...baseQuery, timeZone: 'Asia/Tokyo' }).data.range,
+    ).toMatchObject({
+      timeZone: 'Asia/Tokyo',
+      timeZoneSource: 'adaptive_program',
+    });
+    expect(
+      store.getAnalytics('user-1', {
+        ...baseQuery,
+        end: '2026-08-21',
+        timeZone: 'Asia/Tokyo',
+      }).data.range.timeZone,
+    ).toBe('Asia/Tokyo');
+    expect(
+      initialStore.getAnalytics('user-1', {
+        ...baseQuery,
+        end: '2026-08-19',
+        timeZone: 'Pacific/Kiritimati',
+      }).data.range,
+    ).toMatchObject({ timeZone: 'Pacific/Kiritimati', timeZoneSource: 'request' });
+
+    const programQueries = observed.filter(
+      (query): query is Required<ObservedQuery> =>
+        query.statement !== undefined && query.name.startsWith('program-'),
+    );
+    for (const query of programQueries) {
+      expect(
+        sqlite.prepare(query.statement.sql).all(query.statement.parameters),
+        `${query.name}: constant-row selection`,
+      ).toHaveLength(1);
+      const plan = (
+        sqlite
+          .prepare(`explain query plan ${query.statement.sql}`)
+          .all(query.statement.parameters) as Array<{ detail: string }>
+      ).map((row) => row.detail);
+      if (query.name === 'program-authority') {
+        expect(plan.join('\n')).toContain('adaptive_nutrition_programs_user_id_unique');
+      } else if (query.name === 'program-latest-revision') {
+        expect(plan.join('\n')).toContain(
+          'adaptive_nutrition_program_revisions_program_sequence_unique',
+        );
+      } else if (query.name === 'program-historical-revision') {
+        expect(plan.join('\n')).toContain('adaptive_nutrition_program_revision_dates_lookup_idx');
+      }
+    }
+
+    sqlite.exec(
+      "insert into adaptive_nutrition_account_deletion_scope (user_id) values ('user-1')",
+    );
+    sqlite
+      .prepare('delete from adaptive_nutrition_program_revision_dates where sequence = ?')
+      .run(first.sequence + 2_000);
+    sqlite.exec("delete from adaptive_nutrition_account_deletion_scope where user_id = 'user-1'");
+    expect(() => store.getAnalytics('user-1', { ...baseQuery, timeZone: 'Asia/Tokyo' })).toThrow(
+      FoodAnalyticsProgramProjectionError,
+    );
   });
 });

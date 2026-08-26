@@ -189,16 +189,16 @@ function SummaryMetric({ label, value, detail }: { label: string; value: string;
 function ReviewBadges({ item }: { item: FoodAnalyticsItem }) {
   if (item.definitionReviewReasons.length === 0) {
     return (
-      <Badge className="gap-1" variant="outline">
+      <Badge className="max-w-full gap-1 whitespace-normal" variant="outline">
         <CheckCircle2 className="size-3.5" /> Clear
       </Badge>
     );
   }
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex min-w-0 flex-wrap gap-1.5">
       {item.definitionReviewReasons.map((reason) => (
-        <Badge className="gap-1" key={reason} variant="secondary">
-          <AlertCircle className="size-3.5" /> {REVIEW_LABELS[reason]}
+        <Badge className="max-w-full gap-1 whitespace-normal" key={reason} variant="secondary">
+          <AlertCircle className="size-3.5 shrink-0" /> {REVIEW_LABELS[reason]}
         </Badge>
       ))}
     </div>
@@ -207,29 +207,43 @@ function ReviewBadges({ item }: { item: FoodAnalyticsItem }) {
 
 function FoodAnalyticsCard({ item, onOpen }: { item: FoodAnalyticsItem; onOpen: () => void }) {
   return (
-    <article className="rounded-3xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
-      <div className="flex min-w-0 items-start justify-between gap-3">
+    <article
+      className="min-w-0 rounded-3xl border border-border/70 bg-card p-4 shadow-sm sm:p-5"
+      data-testid="food-analytics-card"
+    >
+      <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:justify-between">
         <div className="min-w-0">
           <h3 className="truncate text-base font-semibold">{item.name}</h3>
           <p className="truncate text-sm text-muted-foreground">
             {item.brand ?? 'No brand listed'}
           </p>
         </div>
-        <Badge variant={item.currentDefinition.verified ? 'default' : 'outline'}>
+        <Badge
+          className="max-w-full shrink-0 whitespace-normal"
+          variant={item.currentDefinition.verified ? 'default' : 'outline'}
+        >
           {item.currentDefinition.verified ? 'Verified' : 'Unverified'}
         </Badge>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <div className="rounded-2xl bg-muted/45 p-3">
+      <div className="mt-4 grid min-w-0 gap-2 sm:grid-cols-2">
+        <div
+          className="min-w-0 rounded-2xl bg-muted/45 p-3"
+          data-testid="food-analytics-card-metric"
+        >
           <p className="text-xs font-semibold text-muted-foreground">Observed in range</p>
-          <p className="mt-1 text-lg font-semibold">{item.observed.usageOccurrences} occurrences</p>
+          <p className="mt-1 break-words text-lg font-semibold">
+            {item.observed.usageOccurrences} occurrences
+          </p>
           <p className="text-xs text-muted-foreground">
             {item.observed.distinctLoggedDays} days · {formatNumber(item.observed.totalCalories)}{' '}
             kcal
           </p>
         </div>
-        <div className="rounded-2xl bg-muted/45 p-3">
+        <div
+          className="min-w-0 rounded-2xl bg-muted/45 p-3"
+          data-testid="food-analytics-card-metric"
+        >
           <p className="text-xs font-semibold text-muted-foreground">Protein contribution</p>
           <p className="mt-1 text-lg font-semibold">
             {formatNumber(item.observed.totalProtein, 1)} g
@@ -250,8 +264,14 @@ function FoodAnalyticsCard({ item, onOpen }: { item: FoodAnalyticsItem; onOpen: 
       <div className="mt-3">
         <ReviewBadges item={item} />
       </div>
-      <Button className="mt-4 min-h-11 w-full" onClick={onOpen} type="button" variant="outline">
-        View {item.name} analytics <ArrowUpRight className="size-4" />
+      <Button
+        className="mt-4 h-auto min-h-11 w-full min-w-0 whitespace-normal"
+        onClick={onOpen}
+        type="button"
+        variant="outline"
+      >
+        <span className="min-w-0 break-words">View {item.name} analytics</span>{' '}
+        <ArrowUpRight className="size-4 shrink-0" />
       </Button>
     </article>
   );
@@ -269,81 +289,105 @@ function FoodAnalyticsTable({
   const ariaSort = (key: FoodAnalyticsSort) =>
     sort === key ? (key === 'name' ? ('ascending' as const) : ('descending' as const)) : undefined;
   return (
-    <div className="hidden overflow-x-auto rounded-3xl border border-border bg-card lg:block">
-      <table className="w-full min-w-[960px] border-collapse text-sm">
-        <thead className="bg-muted/45 text-left text-xs tracking-wide text-muted-foreground uppercase">
-          <tr>
-            <th aria-sort={ariaSort('name')} className="px-4 py-3" scope="col">
-              Food
-            </th>
-            <th aria-sort={ariaSort('most_used')} className="px-4 py-3" scope="col">
-              Occurrences
-            </th>
-            <th className="px-4 py-3" scope="col">
-              Days
-            </th>
-            <th aria-sort={ariaSort('calorie_contribution')} className="px-4 py-3" scope="col">
-              Observed calories
-            </th>
-            <th aria-sort={ariaSort('protein_contribution')} className="px-4 py-3" scope="col">
-              Observed protein
-            </th>
-            <th aria-sort={ariaSort('protein_density')} className="px-4 py-3" scope="col">
-              Observed protein density
-            </th>
-            <th aria-sort={ariaSort('calorie_density')} className="px-4 py-3" scope="col">
-              Current calorie density
-            </th>
-            <th className="px-4 py-3" scope="col">
-              Share
-            </th>
-            <th aria-sort={ariaSort('needs_review')} className="px-4 py-3" scope="col">
-              Review
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border/70">
-          {items.map((item) => (
-            <tr key={item.foodId}>
-              <td className="px-4 py-4 align-top">
-                <Button
-                  className="h-auto min-h-11 justify-start px-0 text-left"
-                  onClick={() => onOpen(item.foodId)}
-                  type="button"
-                  variant="link"
-                >
-                  <span>
-                    <span className="block font-semibold">{item.name}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {item.brand ?? 'No brand'}
-                    </span>
-                  </span>
-                </Button>
-              </td>
-              <td className="px-4 py-4 align-top">{item.observed.usageOccurrences}</td>
-              <td className="px-4 py-4 align-top">{item.observed.distinctLoggedDays}</td>
-              <td className="px-4 py-4 align-top">
-                {formatNumber(item.observed.totalCalories)} kcal
-              </td>
-              <td className="px-4 py-4 align-top">
-                {formatNumber(item.observed.totalProtein, 1)} g
-              </td>
-              <td className="px-4 py-4 align-top">
-                {formatDensity(item.observed.proteinPer100Kcal, 'g / 100 kcal')}
-              </td>
-              <td className="px-4 py-4 align-top">
-                {formatDensity(item.currentDefinition.caloriesPer100Grams, 'kcal / 100 g')}
-              </td>
-              <td className="px-4 py-4 align-top">
-                {formatPercent(item.observed.linkedCalorieSharePercent)}
-              </td>
-              <td className="max-w-64 px-4 py-4 align-top">
-                <ReviewBadges item={item} />
-              </td>
+    <div className="hidden lg:block">
+      <p className="mb-2 text-xs text-muted-foreground" id="food-analytics-table-scroll-help">
+        More columns are available horizontally. Focus the table region and use arrow keys to
+        scroll.
+      </p>
+      <div
+        aria-describedby="food-analytics-table-scroll-help"
+        aria-label="Food analytics table"
+        className="overflow-x-auto rounded-3xl border border-border bg-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        role="region"
+        tabIndex={0}
+        data-testid="food-analytics-table-region"
+      >
+        <table className="w-full min-w-[900px] table-fixed border-collapse text-sm">
+          <colgroup>
+            <col className="w-[150px]" />
+            <col className="w-[88px]" />
+            <col className="w-[54px]" />
+            <col className="w-[96px]" />
+            <col className="w-[92px]" />
+            <col className="w-[108px]" />
+            <col className="w-[110px]" />
+            <col className="w-[70px]" />
+            <col className="w-[132px]" />
+          </colgroup>
+          <thead className="bg-muted/45 text-left text-xs tracking-wide text-muted-foreground uppercase">
+            <tr>
+              <th aria-sort={ariaSort('name')} className="px-4 py-3" scope="col">
+                Food
+              </th>
+              <th aria-sort={ariaSort('most_used')} className="px-4 py-3" scope="col">
+                Occurrences
+              </th>
+              <th className="px-4 py-3" scope="col">
+                Days
+              </th>
+              <th aria-sort={ariaSort('calorie_contribution')} className="px-4 py-3" scope="col">
+                Observed calories
+              </th>
+              <th aria-sort={ariaSort('protein_contribution')} className="px-4 py-3" scope="col">
+                Observed protein
+              </th>
+              <th aria-sort={ariaSort('protein_density')} className="px-4 py-3" scope="col">
+                Observed protein density
+              </th>
+              <th aria-sort={ariaSort('calorie_density')} className="px-4 py-3" scope="col">
+                Current calorie density
+              </th>
+              <th className="px-4 py-3" scope="col">
+                Share
+              </th>
+              <th aria-sort={ariaSort('needs_review')} className="px-4 py-3" scope="col">
+                Review
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-border/70">
+            {items.map((item) => (
+              <tr key={item.foodId}>
+                <td className="px-4 py-4 align-top">
+                  <Button
+                    className="h-auto min-h-11 justify-start px-0 text-left"
+                    onClick={() => onOpen(item.foodId)}
+                    type="button"
+                    variant="link"
+                  >
+                    <span>
+                      <span className="block font-semibold">{item.name}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {item.brand ?? 'No brand'}
+                      </span>
+                    </span>
+                  </Button>
+                </td>
+                <td className="px-4 py-4 align-top">{item.observed.usageOccurrences}</td>
+                <td className="px-4 py-4 align-top">{item.observed.distinctLoggedDays}</td>
+                <td className="px-4 py-4 align-top">
+                  {formatNumber(item.observed.totalCalories)} kcal
+                </td>
+                <td className="px-4 py-4 align-top">
+                  {formatNumber(item.observed.totalProtein, 1)} g
+                </td>
+                <td className="px-4 py-4 align-top">
+                  {formatDensity(item.observed.proteinPer100Kcal, 'g / 100 kcal')}
+                </td>
+                <td className="px-4 py-4 align-top">
+                  {formatDensity(item.currentDefinition.caloriesPer100Grams, 'kcal / 100 g')}
+                </td>
+                <td className="px-4 py-4 align-top">
+                  {formatPercent(item.observed.linkedCalorieSharePercent)}
+                </td>
+                <td className="px-3 py-4 align-top [&_[data-slot=badge]]:w-full [&_[data-slot=badge]]:justify-start">
+                  <ReviewBadges item={item} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -914,7 +958,7 @@ export function FoodAnalyticsWorkspace({
 
       <Card id="food-analytics-results">
         <CardContent className="space-y-4 pt-5">
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]">
+          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]">
             <Label className="sr-only" htmlFor="food-analytics-search">
               Search saved foods
             </Label>

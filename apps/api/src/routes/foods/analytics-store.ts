@@ -124,6 +124,13 @@ export class FoodAnalyticsTimeZoneConflictError extends Error {
   }
 }
 
+export class FoodAnalyticsProgramProjectionError extends Error {
+  constructor() {
+    super('Adaptive nutrition program revision projection is unavailable or inconsistent');
+    this.name = 'FoodAnalyticsProgramProjectionError';
+  }
+}
+
 const numberValue = (value: number | null | undefined) => Number(value ?? 0);
 
 const dayStatesFromRow = (row: {
@@ -155,14 +162,14 @@ const normalizeTags = (raw: string): string[] => {
     : [];
 };
 
-const rangeItemsCte = `
-  with range_logs as (
+const rangeItemsCte = (range: AnalyticsRangeContext) => `
+  with range_logs as materialized (
     select id, date, status
       from nutrition_logs
      where user_id = @userId
-       and (@startDate is null or date >= @startDate)
+       ${range.queryStartDate === null ? '' : 'and date >= @startDate'}
        and date <= @endDate
-  ), range_items as (
+  ), range_items as materialized (
     select mi.id as mealItemId,
            mi.food_id as foodId,
            mi.amount,
@@ -187,7 +194,7 @@ const rangeItemsCte = `
       left join foods f on f.id = mi.food_id and f.user_id = @userId
   )`;
 
-const observedCte = `${rangeItemsCte}, observed as (
+const observedCte = (range: AnalyticsRangeContext) => `${rangeItemsCte(range)}, observed as (
   select foodId,
          cast(count(*) as integer) as usageOccurrences,
          cast(count(distinct localDate) as integer) as distinctLoggedDays,
@@ -361,25 +368,113 @@ export const createFoodAnalyticsStore = (dependencies: {
     userId: string,
     query: Pick<FoodAnalyticsQuery, 'range' | 'end' | 'timeZone'>,
   ): AnalyticsRangeContext => {
-    observe('program-time-zone');
-    const revisionRows = sqlite
-      .prepare(
-        `select d.effective_local_date as effectiveLocalDate, r.snapshot
-           from adaptive_nutrition_program_revision_dates d
-           join adaptive_nutrition_program_revisions r on r.id = d.revision_id
-          where d.user_id = ?
-          order by d.sequence`,
-      )
-      .all(userId) as Array<{ effectiveLocalDate: string; snapshot: string }>;
-    const revisions = revisionRows.map((row) => ({
-      effectiveLocalDate: row.effectiveLocalDate,
-      snapshot: adaptiveProgramCalculationSchema.parse(JSON.parse(row.snapshot)),
-    }));
     const requestedEnd = query.end;
-    const effectiveRevision = requestedEnd
-      ? [...revisions].reverse().find((revision) => revision.effectiveLocalDate <= requestedEnd)
-      : revisions.at(-1);
-    const programTimeZone = effectiveRevision?.snapshot.timeZone;
+    const authorityStatement =
+      'select id as programId from adaptive_nutrition_programs where user_id = @userId limit 1';
+    const authorityParameters = { userId };
+    observe('program-authority', { sql: authorityStatement, parameters: authorityParameters });
+    const authority = sqlite.prepare(authorityStatement).get(authorityParameters) as
+      | { programId: string }
+      | undefined;
+
+    type ProjectedRevisionRow = {
+      revisionId: string;
+      revisionProgramId: string;
+      revisionUserId: string;
+      revisionSequence: number;
+      projectionRevisionId: string | null;
+      projectionProgramId: string | null;
+      projectionUserId: string | null;
+      projectionSequence: number | null;
+      effectiveLocalDate: string | null;
+      snapshot: string;
+    };
+
+    let selectedRevision: ProjectedRevisionRow | undefined;
+    if (authority) {
+      const latestStatement = `select r.id as revisionId,
+                                      r.program_id as revisionProgramId,
+                                      r.user_id as revisionUserId,
+                                      r.sequence as revisionSequence,
+                                      d.revision_id as projectionRevisionId,
+                                      d.program_id as projectionProgramId,
+                                      d.user_id as projectionUserId,
+                                      d.sequence as projectionSequence,
+                                      d.effective_local_date as effectiveLocalDate,
+                                      r.snapshot
+                                 from adaptive_nutrition_program_revisions r
+                                 left join adaptive_nutrition_program_revision_dates d
+                                   on d.revision_id = r.id
+                                where r.user_id = @userId and r.program_id = @programId
+                                order by r.sequence desc
+                                limit 1`;
+      const latestParameters = { userId, programId: authority.programId };
+      observe('program-latest-revision', {
+        sql: latestStatement,
+        parameters: latestParameters,
+      });
+      const latestRevision = sqlite.prepare(latestStatement).get(latestParameters) as
+        | ProjectedRevisionRow
+        | undefined;
+      const projectionIsConsistent =
+        latestRevision !== undefined &&
+        latestRevision.revisionProgramId === authority.programId &&
+        latestRevision.revisionUserId === userId &&
+        latestRevision.projectionRevisionId === latestRevision.revisionId &&
+        latestRevision.projectionProgramId === authority.programId &&
+        latestRevision.projectionUserId === userId &&
+        latestRevision.projectionSequence === latestRevision.revisionSequence &&
+        latestRevision.effectiveLocalDate !== null;
+      if (!projectionIsConsistent) throw new FoodAnalyticsProgramProjectionError();
+
+      if (requestedEnd) {
+        const historicalStatement = `select r.id as revisionId,
+                                             r.program_id as revisionProgramId,
+                                             r.user_id as revisionUserId,
+                                             r.sequence as revisionSequence,
+                                             d.revision_id as projectionRevisionId,
+                                             d.program_id as projectionProgramId,
+                                             d.user_id as projectionUserId,
+                                             d.sequence as projectionSequence,
+                                             d.effective_local_date as effectiveLocalDate,
+                                             r.snapshot
+                                        from adaptive_nutrition_program_revision_dates d
+                                        join adaptive_nutrition_program_revisions r
+                                          on r.id = d.revision_id
+                                       where d.user_id = @userId
+                                         and d.program_id = @programId
+                                         and d.effective_local_date <= @requestedEnd
+                                       order by d.effective_local_date desc, d.sequence desc
+                                       limit 1`;
+        const historicalParameters = {
+          userId,
+          programId: authority.programId,
+          requestedEnd,
+        };
+        observe('program-historical-revision', {
+          sql: historicalStatement,
+          parameters: historicalParameters,
+        });
+        selectedRevision = sqlite.prepare(historicalStatement).get(historicalParameters) as
+          | ProjectedRevisionRow
+          | undefined;
+      } else {
+        selectedRevision = latestRevision;
+      }
+    }
+
+    if (
+      selectedRevision &&
+      (selectedRevision.projectionRevisionId !== selectedRevision.revisionId ||
+        selectedRevision.projectionProgramId !== authority?.programId ||
+        selectedRevision.projectionUserId !== userId ||
+        selectedRevision.projectionSequence !== selectedRevision.revisionSequence)
+    ) {
+      throw new FoodAnalyticsProgramProjectionError();
+    }
+    const programTimeZone = selectedRevision
+      ? adaptiveProgramCalculationSchema.parse(JSON.parse(selectedRevision.snapshot)).timeZone
+      : undefined;
     if (programTimeZone && query.timeZone && programTimeZone !== query.timeZone) {
       throw new FoodAnalyticsTimeZoneConflictError();
     }
@@ -417,7 +512,7 @@ export const createFoodAnalyticsStore = (dependencies: {
 
   const loadSummary = (userId: string, range: AnalyticsRangeContext): SummaryRow => {
     const parameters = { userId, startDate: range.queryStartDate, endDate: range.endDate };
-    const statement = `${rangeItemsCte}
+    const statement = `${rangeItemsCte(range)}
          select cast(count(*) as integer) as totalMealItemCount,
                 coalesce(sum(calories), 0) as totalMealItemCalories,
                 cast(sum(case when ownedFoodId is not null and foodDeletedAt is null then 1 else 0 end) as integer) as linkedUsageOccurrences,
@@ -450,7 +545,7 @@ export const createFoodAnalyticsStore = (dependencies: {
   };
 
   const loadDefinitionsNeedingReview = (userId: string, range: AnalyticsRangeContext) => {
-    const statement = `${observedCte}
+    const statement = `${observedCte(range)}
              select cast(count(*) as integer) as total
                from foods f
                left join observed o on o.foodId = f.id
@@ -491,7 +586,7 @@ export const createFoodAnalyticsStore = (dependencies: {
       endDate: range.endDate,
       ...filters.parameters,
     };
-    const countStatement = `${observedCte}
+    const countStatement = `${observedCte(range)}
              select cast(count(*) as integer) as total
                from foods f
                left join observed o on o.foodId = f.id
@@ -505,7 +600,7 @@ export const createFoodAnalyticsStore = (dependencies: {
       limit: onlyFoodId ? 1 : query.limit,
       offset: onlyFoodId ? 0 : (query.page - 1) * query.limit,
     };
-    const rowStatement = `${observedCte}
+    const rowStatement = `${observedCte(range)}
          ${rowSelection}
           where ${filters.sql}
           order by ${buildSort(query.sort)}
@@ -527,7 +622,7 @@ export const createFoodAnalyticsStore = (dependencies: {
       endDate: range.endDate,
       ...foodParameters,
     };
-    const statement = `${rangeItemsCte}, portions as (
+    const statement = `${rangeItemsCte(range)}, portions as (
            select foodId,
                   case when displayQuantity is not null and trim(coalesce(displayUnit, '')) <> ''
                        then displayQuantity else amount end as quantity,
@@ -698,7 +793,7 @@ export const createFoodAnalyticsStore = (dependencies: {
       const row = rows[0];
       if (!row) throw new FoodAnalyticsNotFoundError();
       const portion = loadPortions(userId, range, [foodId]).get(foodId);
-      const occurrenceCountStatement = `${rangeItemsCte}
+      const occurrenceCountStatement = `${rangeItemsCte(range)}
                select cast(count(*) as integer) as total
                  from range_items
                 where foodId = @foodId and ownedFoodId is not null and foodDeletedAt is null`;
@@ -727,7 +822,7 @@ export const createFoodAnalyticsStore = (dependencies: {
         limit: detailQuery.occurrenceLimit,
         offset: (detailQuery.occurrencePage - 1) * detailQuery.occurrenceLimit,
       };
-      const occurrenceStatement = `${rangeItemsCte}
+      const occurrenceStatement = `${rangeItemsCte(range)}
            select mealItemId,
                   mealId,
                   localDate,

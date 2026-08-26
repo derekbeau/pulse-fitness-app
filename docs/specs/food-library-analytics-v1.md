@@ -15,6 +15,18 @@ future revision is never backfilled. When no revision is effective, the validate
 UTC when omitted) is used. A caller-supplied zone that conflicts with the effective program zone is
 rejected rather than silently changing calendar membership.
 
+Bounded presets materialize the authenticated user's selected `nutrition_logs(user_id, date)`
+slice before joining meals and meal items. They never begin from a food's lifetime item index; old
+out-of-range occurrences therefore do not add proportional work. `All` intentionally scans the
+owned lifetime. Summary, rows, portions, and detail occurrences all reuse this range-first contract
+without mutable rollups or per-food queries.
+
+Program-zone resolution is also bounded. Live requests select the latest immutable revision by
+sequence with `LIMIT 1`; explicit historical requests select the highest sequence whose projected
+causal local date is on or before the requested end, also with `LIMIT 1`. Both lookups are scoped to
+the authoritative owned program. A present program with a missing or inconsistent latest projection
+fails closed; an end before the valid program history retains the request-zone or UTC fallback.
+
 Complete, partial, and unknown nutrition days all contribute their recorded snapshots. The response
 preserves those day states so partial or unknown evidence is never presented as complete.
 
