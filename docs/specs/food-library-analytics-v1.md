@@ -24,8 +24,10 @@ without mutable rollups or per-food queries.
 Program-zone resolution is also bounded. Live requests select the latest immutable revision by
 sequence with `LIMIT 1`; explicit historical requests select the highest sequence whose projected
 causal local date is on or before the requested end, also with `LIMIT 1`. Both lookups are scoped to
-the authoritative owned program. A present program with a missing or inconsistent latest projection
-fails closed; an end before the valid program history retains the request-zone or UTC fallback.
+the authoritative owned program. A trigger-maintained per-program projection count is compared with
+the latest contiguous revision sequence before any timezone is accepted, so a missing latest or
+intermediate projection fails closed without scanning the lifetime ledger. An end before valid
+program history retains the request-zone or UTC fallback.
 
 Complete, partial, and unknown nutrition days all contribute their recorded snapshots. The response
 preserves those day states so partial or unknown evidence is never presented as complete.

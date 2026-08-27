@@ -120,22 +120,23 @@ async function openNutrition(page: Page, date: string, sessionToken = token) {
 
 async function selectDate(page: Page, date: string) {
   let button = page.getByRole('button', { name: `Select ${date}` });
-  for (let attempts = 0; attempts < 5 && (await button.count()) === 0; attempts += 1) {
+  for (let attempts = 0; attempts < 8 && (await button.count()) === 0; attempts += 1) {
     const firstDateButton = page.getByRole('button', { name: /^Select /u }).first();
     await expect(firstDateButton).toBeVisible();
-    const visibleDateLabels = await page
-      .getByRole('button', { name: /^Select /u })
-      .allTextContents();
     const firstVisible = await firstDateButton.getAttribute('aria-label');
-    if (!firstVisible || visibleDateLabels.length === 0) {
-      throw new Error('Nutrition week dates are unavailable');
-    }
+    if (!firstVisible) throw new Error('Nutrition week dates are unavailable');
     const firstDate = firstVisible.replace('Select ', '');
+    const movingBackward = date < firstDate;
+    const expectedFirstDate = addDays(firstDate, movingBackward ? -7 : 7);
     await page
       .getByRole('button', {
-        name: date < firstDate ? 'Go to previous week' : 'Go to next week',
+        name: movingBackward ? 'Go to previous week' : 'Go to next week',
       })
       .click();
+    await expect(
+      page.getByRole('button', { name: `Select ${expectedFirstDate}` }),
+      `nutrition week anchored at ${expectedFirstDate}`,
+    ).toBeVisible();
     button = page.getByRole('button', { name: `Select ${date}` });
   }
   await expect(button).toBeVisible();

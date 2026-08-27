@@ -842,6 +842,113 @@ describe('food analytics store', () => {
     }
   });
 
+  it('fails closed when an intermediate historical projection is missing', () => {
+    setup();
+    if (!sqlite) throw new Error('Expected test database');
+    const input: AdaptiveProgramMutation = {
+      status: 'active',
+      timeZone: 'America/Detroit',
+      heightCm: null,
+      birthDate: null,
+      rmrEquation: 'manual_tdee',
+      activityLevel: null,
+      manualBaselineTdeeKcal: 2500,
+      goalType: 'maintain',
+      targetWeightKg: null,
+      goalRatePctPerWeek: 0,
+      proteinGrams: 160,
+      fatAllocationPct: 30,
+      currentWeight: { weight: 80, unit: 'kg' },
+      rebaseline: false,
+      supersedePending: false,
+    };
+    createAdaptiveNutritionStore({
+      db: drizzle(sqlite),
+      sqlite,
+      now: () => new Date('2026-08-20T16:00:00.000Z'),
+    }).upsertProgram('user-1', input);
+    const program = sqlite
+      .prepare('select id from adaptive_nutrition_programs where user_id = ?')
+      .get('user-1') as { id: string };
+    const first = sqlite
+      .prepare(
+        `select sequence, effective_at as effectiveAt, snapshot
+           from adaptive_nutrition_program_revisions
+          where program_id = ? order by sequence desc limit 1`,
+      )
+      .get(program.id) as { sequence: number; effectiveAt: number; snapshot: string };
+    const insertRevision = sqlite.prepare(
+      `insert into adaptive_nutrition_program_revisions
+        (id, program_id, user_id, sequence, effective_at, snapshot, source, created_at)
+       values (@id, @programId, 'user-1', @sequence, @effectiveAt, @snapshot, 'program_updated', @effectiveAt)`,
+    );
+    const insertDate = sqlite.prepare(
+      `insert into adaptive_nutrition_program_revision_dates
+        (revision_id, program_id, user_id, sequence, effective_local_date, created_at)
+       values (@id, @programId, 'user-1', @sequence, @effectiveLocalDate, @effectiveAt)`,
+    );
+    const revisions = [
+      {
+        id: 'middle-revision',
+        sequence: first.sequence + 1,
+        date: '2026-08-21',
+        zone: 'America/Los_Angeles',
+      },
+      {
+        id: 'latest-revision',
+        sequence: first.sequence + 2,
+        date: '2026-08-23',
+        zone: 'Asia/Tokyo',
+      },
+    ];
+    for (const revision of revisions) {
+      const values = {
+        id: revision.id,
+        programId: program.id,
+        sequence: revision.sequence,
+        effectiveAt: first.effectiveAt + revision.sequence,
+        effectiveLocalDate: revision.date,
+        snapshot: JSON.stringify({ ...JSON.parse(first.snapshot), timeZone: revision.zone }),
+      };
+      insertRevision.run(values);
+      insertDate.run(values);
+    }
+    const store = createFoodAnalyticsStore({
+      sqlite,
+      now: () => new Date('2026-08-25T16:00:00.000Z'),
+    });
+    expect(
+      store.getAnalytics('user-1', {
+        ...baseQuery,
+        end: '2026-08-21',
+        timeZone: 'America/Los_Angeles',
+      }).data.range.timeZone,
+    ).toBe('America/Los_Angeles');
+
+    sqlite.exec(
+      "insert into adaptive_nutrition_account_deletion_scope (user_id) values ('user-1')",
+    );
+    sqlite
+      .prepare('delete from adaptive_nutrition_program_revision_dates where revision_id = ?')
+      .run('middle-revision');
+    sqlite.exec("delete from adaptive_nutrition_account_deletion_scope where user_id = 'user-1'");
+
+    expect(() =>
+      store.getAnalytics('user-1', {
+        ...baseQuery,
+        end: '2026-08-21',
+        timeZone: undefined,
+      }),
+    ).toThrow(FoodAnalyticsProgramProjectionError);
+    expect(() =>
+      store.getAnalytics('user-1', {
+        ...baseQuery,
+        end: '2026-08-21',
+        timeZone: 'America/Los_Angeles',
+      }),
+    ).toThrow(FoodAnalyticsProgramProjectionError);
+  });
+
   it('selects one indexed program revision and fails closed when the latest projection is missing', () => {
     const initialStore = setup();
     if (!sqlite) throw new Error('Expected test database');

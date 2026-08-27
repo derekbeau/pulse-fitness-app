@@ -369,12 +369,17 @@ export const createFoodAnalyticsStore = (dependencies: {
     query: Pick<FoodAnalyticsQuery, 'range' | 'end' | 'timeZone'>,
   ): AnalyticsRangeContext => {
     const requestedEnd = query.end;
-    const authorityStatement =
-      'select id as programId from adaptive_nutrition_programs where user_id = @userId limit 1';
+    const authorityStatement = `select p.id as programId,
+                                       i.projection_count as projectionCount
+                                  from adaptive_nutrition_programs p
+                                  left join adaptive_nutrition_program_revision_projection_integrity i
+                                    on i.program_id = p.id and i.user_id = p.user_id
+                                 where p.user_id = @userId
+                                 limit 1`;
     const authorityParameters = { userId };
     observe('program-authority', { sql: authorityStatement, parameters: authorityParameters });
     const authority = sqlite.prepare(authorityStatement).get(authorityParameters) as
-      | { programId: string }
+      | { programId: string; projectionCount: number | null }
       | undefined;
 
     type ProjectedRevisionRow = {
@@ -418,6 +423,8 @@ export const createFoodAnalyticsStore = (dependencies: {
         | undefined;
       const projectionIsConsistent =
         latestRevision !== undefined &&
+        authority.projectionCount !== null &&
+        authority.projectionCount === latestRevision.revisionSequence &&
         latestRevision.revisionProgramId === authority.programId &&
         latestRevision.revisionUserId === userId &&
         latestRevision.projectionRevisionId === latestRevision.revisionId &&

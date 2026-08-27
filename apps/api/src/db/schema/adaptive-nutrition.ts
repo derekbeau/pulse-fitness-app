@@ -209,6 +209,31 @@ export const adaptiveNutritionProgramRevisionDates = sqliteTable(
   ],
 );
 
+export const adaptiveNutritionProgramRevisionProjectionIntegrity = sqliteTable(
+  'adaptive_nutrition_program_revision_projection_integrity',
+  {
+    programId: text('program_id')
+      .primaryKey()
+      .references(() => adaptiveNutritionPrograms.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    projectionCount: integer('projection_count').notNull().default(0),
+  },
+  (table) => [
+    index('adaptive_nutrition_program_revision_projection_integrity_user_id_idx').on(table.userId),
+    foreignKey({
+      columns: [table.programId, table.userId],
+      foreignColumns: [adaptiveNutritionPrograms.id, adaptiveNutritionPrograms.userId],
+      name: 'adaptive_nutrition_program_revision_projection_integrity_program_user_fk',
+    }).onDelete('cascade'),
+    check(
+      'adaptive_nutrition_program_revision_projection_integrity_count_check',
+      sql`${table.projectionCount} >= 0`,
+    ),
+  ],
+);
+
 export const adaptiveNutritionGoals = sqliteTable(
   'adaptive_nutrition_goals',
   {
