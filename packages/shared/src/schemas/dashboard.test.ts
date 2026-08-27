@@ -93,6 +93,14 @@ describe('dashboardSnapshotSchema', () => {
           carbs: 250,
           fat: 70,
         },
+        proteinFloor: {
+          actualProteinGrams: 150,
+          proteinFloorGrams: 180,
+          remainingToFloorGrams: 30,
+          amountAboveFloorGrams: 0,
+          state: 'below_floor',
+          isFinal: true,
+        },
       },
       workout: {
         name: 'Upper Push A',
@@ -131,6 +139,14 @@ describe('dashboardSnapshotSchema', () => {
             carbs: 0,
             fat: 0,
           },
+          proteinFloor: {
+            actualProteinGrams: null,
+            proteinFloorGrams: null,
+            remainingToFloorGrams: null,
+            amountAboveFloorGrams: null,
+            state: 'unavailable',
+            isFinal: false,
+          },
         },
         workout: null,
         habits: {
@@ -140,6 +156,47 @@ describe('dashboardSnapshotSchema', () => {
         },
       }),
     ).toBeTruthy();
+  });
+
+  it('rejects protein macro totals that disagree with the structured floor fact', () => {
+    const snapshot = {
+      date: '2026-03-09',
+      weight: null,
+      macros: {
+        actual: { calories: 1_800, protein: 150, carbs: 180, fat: 60 },
+        target: { calories: 2_200, protein: 180, carbs: 250, fat: 70 },
+        proteinFloor: {
+          actualProteinGrams: 150,
+          proteinFloorGrams: 180,
+          remainingToFloorGrams: 30,
+          amountAboveFloorGrams: 0,
+          state: 'below_floor',
+          isFinal: true,
+        },
+      },
+      workout: null,
+      habits: { total: 0, completed: 0, percentage: 0 },
+    };
+
+    expect(dashboardSnapshotSchema.safeParse(snapshot).success).toBe(true);
+    expect(
+      dashboardSnapshotSchema.safeParse({
+        ...snapshot,
+        macros: {
+          ...snapshot.macros,
+          actual: { ...snapshot.macros.actual, protein: 151 },
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      dashboardSnapshotSchema.safeParse({
+        ...snapshot,
+        macros: {
+          ...snapshot.macros,
+          target: { ...snapshot.macros.target, protein: 181 },
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it('infers DashboardSnapshot from the schema', () => {
@@ -158,6 +215,14 @@ describe('dashboardSnapshotSchema', () => {
           protein: 180,
           carbs: 250,
           fat: 70,
+        },
+        proteinFloor: {
+          actualProteinGrams: 0,
+          proteinFloorGrams: 180,
+          remainingToFloorGrams: 180,
+          amountAboveFloorGrams: 0,
+          state: 'below_floor',
+          isFinal: false,
         },
       },
       workout: null,
@@ -187,6 +252,14 @@ describe('dashboardSnapshotSchema', () => {
           protein: 0,
           carbs: 0,
           fat: 0,
+        },
+        proteinFloor: {
+          actualProteinGrams: null,
+          proteinFloorGrams: null,
+          remainingToFloorGrams: null,
+          amountAboveFloorGrams: null,
+          state: 'unavailable',
+          isFinal: false,
         },
       },
       workout: {
@@ -222,6 +295,14 @@ describe('dashboardSnapshotSchema', () => {
             protein: 0,
             carbs: 0,
             fat: 0,
+          },
+          proteinFloor: {
+            actualProteinGrams: null,
+            proteinFloorGrams: null,
+            remainingToFloorGrams: null,
+            amountAboveFloorGrams: null,
+            state: 'unavailable',
+            isFinal: false,
           },
         },
         workout: {

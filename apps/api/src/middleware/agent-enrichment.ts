@@ -4,8 +4,10 @@ import type {
   HabitEntry,
   HabitTrackingType,
   ScheduledWorkoutDetail,
+  ProteinFloorProgress,
   WorkoutSession,
 } from '@pulse/shared';
+import { proteinFloorProgressSchema } from '@pulse/shared';
 import type { FastifyRequest, onSendHookHandler } from 'fastify';
 
 import { isAgentRequest } from './auth.js';
@@ -150,12 +152,14 @@ const isNutritionSummary = (
   meals: number;
   actual: MacroSummary;
   target: MacroSummary | null;
+  proteinFloor: ProteinFloorProgress;
 } =>
   isRecord(value) &&
   typeof value.date === 'string' &&
   typeof value.meals === 'number' &&
   isMacroSummary(value.actual) &&
-  (value.target === null || isMacroSummary(value.target));
+  (value.target === null || isMacroSummary(value.target)) &&
+  proteinFloorProgressSchema.safeParse(value.proteinFloor).success;
 
 const deriveMealMacros = (responseData: unknown): MacroSummary | undefined => {
   if (!isRecord(responseData)) {
@@ -239,28 +243,41 @@ const buildNutritionSummaryEnrichment = (
   const remainingMacros = responseData.target
     ? {
         calories: responseData.target.calories - responseData.actual.calories,
-        protein: responseData.target.protein - responseData.actual.protein,
+        protein: responseData.proteinFloor.remainingToFloorGrams,
         carbs: responseData.target.carbs - responseData.actual.carbs,
         fat: responseData.target.fat - responseData.actual.fat,
       }
     : undefined;
+  const proteinFloorHint =
+    responseData.proteinFloor.state === 'below_floor'
+      ? `${formatNumber(responseData.proteinFloor.remainingToFloorGrams ?? 0)}g to the protein minimum.`
+      : responseData.proteinFloor.state === 'floor_met'
+        ? `Protein minimum met at ${formatNumber(responseData.proteinFloor.actualProteinGrams ?? 0)}g logged.`
+        : 'Protein minimum is unavailable for this date.';
+  const proteinEvidenceHint =
+    responseData.proteinFloor.state !== 'unavailable' && !responseData.proteinFloor.isFinal
+      ? ' This is based on food logged so far.'
+      : '';
 
   return {
     hints: compactStrings([
       `${pluralize(responseData.meals, 'meal')} logged for ${responseData.date}, totaling ${formatNumber(responseData.actual.calories)} kcal and ${formatNumber(responseData.actual.protein)}g protein.`,
       remainingMacros
-        ? `Remaining target is ${formatNumber(remainingMacros.calories)} kcal, ${formatNumber(remainingMacros.protein)}g protein, ${formatNumber(remainingMacros.carbs)}g carbs, and ${formatNumber(remainingMacros.fat)}g fat.`
-        : 'No nutrition target is configured for this date.',
+        ? `${proteinFloorHint}${proteinEvidenceHint} Remaining plan amounts are ${formatNumber(remainingMacros.calories)} kcal, ${formatNumber(remainingMacros.carbs)}g carbs, and ${formatNumber(remainingMacros.fat)}g fat.`
+        : `${proteinFloorHint} No calorie or macro plan is configured for this date.`,
     ]),
     suggestedActions: compactStrings([
       'Log the next meal when nutrition changes.',
-      responseData.target ? 'Use remaining macros to guide your next meal choice.' : undefined,
+      responseData.target
+        ? 'Use the protein minimum and remaining plan macros to guide your next meal choice.'
+        : undefined,
     ]),
     relatedState: compactRecord({
       date: context.date,
       meals: responseData.meals,
       actual: responseData.actual,
       target: responseData.target,
+      proteinFloor: responseData.proteinFloor,
       remaining: remainingMacros,
     }),
   };

@@ -14,6 +14,7 @@ import { HelpIcon } from '@/components/ui/help-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Skeleton } from '@/components/ui/skeleton';
 import { CalendarPicker } from '@/features/dashboard/components/calendar-picker';
 import { DashboardEditMode } from '@/features/dashboard/components/dashboard-edit-mode';
 import { DashboardCardHeaderLink } from '@/features/dashboard/components/dashboard-drilldown-link';
@@ -24,6 +25,10 @@ import { RecentWorkouts } from '@/features/dashboard/components/recent-workouts'
 import { SnapshotCards } from '@/features/dashboard/components/snapshot-cards';
 import { useAdaptiveNutritionState } from '@/features/adaptive-nutrition';
 import { getDashboardGreeting } from '@/features/dashboard/lib/greeting';
+import {
+  dashboardTodayDateKey,
+  scheduleDashboardDateRollover,
+} from '@/features/dashboard/lib/program-date';
 import { TrendSparklines } from '@/features/dashboard/components/trend-sparkline';
 import { WeightTrendChart } from '@/features/dashboard/components/weight-trend-chart';
 import {
@@ -45,7 +50,7 @@ import {
   HABIT_ENTRIES_POLL_INTERVAL_MS,
   getForegroundPollingInterval,
 } from '@/lib/query-polling';
-import { addDays, getToday, isSameDay, toDateKey } from '@/lib/date';
+import { addDays, parseDateInput, toDateKey } from '@/lib/date';
 import { formatWeight as formatDisplayWeight } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
@@ -84,6 +89,29 @@ type DashboardWeightStatus = {
   type: 'error' | 'success';
 };
 
+function DashboardMacroRingsSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading macro progress" className="space-y-2.5" role="status">
+      <div className="flex justify-end">
+        <Skeleton className="h-11 w-36 rounded-lg" />
+      </div>
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            className="flex min-h-28 flex-col items-center justify-center gap-2 rounded-xl border border-border/70 bg-card/40 px-2 py-3"
+            data-testid="macro-ring-skeleton"
+            key={index}
+          >
+            <Skeleton className="size-12 rounded-full lg:size-16" />
+            <Skeleton className="h-3 w-14" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DashboardWidgetFrame({
   children,
   className,
@@ -106,7 +134,9 @@ export function DashboardPage() {
   const isMountedRef = useRef(true);
   const queryClient = useQueryClient();
   const { weightUnit } = useWeightUnit();
-  const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
+  const [selectedDateKeyState, setSelectedDateKeyState] = useState<string | null>(null);
+  const [isFollowingToday, setIsFollowingToday] = useState(true);
   const [weightInput, setWeightInput] = useState('');
   const [weightStatus, setWeightStatus] = useState<DashboardWeightStatus | null>(null);
   const [isWeightEditorOpen, setIsWeightEditorOpen] = useState(false);
@@ -117,22 +147,32 @@ export function DashboardPage() {
   const [widgetEditMessage, setWidgetEditMessage] = useState('');
   const logWeightMutation = useLogWeight();
   const saveDashboardConfigMutation = useSaveDashboardConfig();
-  const selectedDateKey = toDateKey(selectedDate);
-  const habitRangeStart = toDateKey(addDays(selectedDate, -29));
-  const selectedDateLabel = dashboardDateFormatter.format(selectedDate);
-  const isViewingToday = isSameDay(selectedDate, getToday());
+  const adaptiveStateQuery = useAdaptiveNutritionState();
+  const dashboardTimeZone =
+    adaptiveStateQuery.data?.timeZone ?? adaptiveStateQuery.data?.program?.timeZone ?? null;
+  const todayDateKey = dashboardTimeZone
+    ? dashboardTodayDateKey(currentTimeMs, dashboardTimeZone)
+    : null;
+  const selectedDateKey = (isFollowingToday ? todayDateKey : selectedDateKeyState) ?? '';
+  const selectedDate = parseDateInput(selectedDateKey || todayDateKey || '1970-01-01');
+  const habitRangeStart = selectedDateKey ? toDateKey(addDays(selectedDate, -29)) : '';
+  const selectedDateLabel = selectedDateKey
+    ? dashboardDateFormatter.format(selectedDate)
+    : 'Resolving your program date…';
+  const isViewingToday = selectedDateKey.length > 0 && selectedDateKey === todayDateKey;
   const greeting = getDashboardGreeting();
 
   const snapshotQuery = useDashboardSnapshot(selectedDateKey, {
+    enabled: selectedDateKey.length > 0,
     refetchIntervalMs: getForegroundPollingInterval(DASHBOARD_SNAPSHOT_POLL_INTERVAL_MS),
   });
-  const adaptiveStateQuery = useAdaptiveNutritionState();
   // TODO: apply widgetOrder to section layout once ordering UI is added.
   const dashboardConfigQuery = useDashboardConfig();
   const habitsQuery = useHabits({
     refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
   });
   const habitChainEntriesQuery = useHabitChains(habitRangeStart, selectedDateKey, {
+    enabled: selectedDateKey.length > 0,
     refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
   });
   const recentWorkoutsQuery = useRecentWorkouts();
@@ -163,6 +203,24 @@ export function DashboardPage() {
     [],
   );
 
+  useEffect(() => {
+    const refreshCurrentTime = () => setCurrentTimeMs(Date.now());
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshCurrentTime();
+    };
+    window.addEventListener('focus', refreshCurrentTime);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('focus', refreshCurrentTime);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!dashboardTimeZone || !todayDateKey) return;
+    return scheduleDashboardDateRollover(dashboardTimeZone, () => setCurrentTimeMs(Date.now()));
+  }, [dashboardTimeZone, todayDateKey]);
+
   function enterEditMode() {
     setVisibleWidgetsDraft(persistedVisibleWidgets);
     setHabitChainIdsDraft(persistedHabitChainIds);
@@ -174,7 +232,9 @@ export function DashboardPage() {
     setIsWeightEditorOpen(false);
     setWeightInput('');
     setWeightStatus(null);
-    setSelectedDate(nextDate);
+    const nextDateKey = toDateKey(nextDate);
+    setSelectedDateKeyState(nextDateKey);
+    setIsFollowingToday(nextDateKey === todayDateKey);
     setIsCalendarOpen(false);
   }
 
@@ -234,12 +294,37 @@ export function DashboardPage() {
   }
 
   useEffect(() => {
-    const previousDateKey = toDateKey(addDays(selectedDate, -1));
-    const nextDateKey = toDateKey(addDays(selectedDate, 1));
+    if (!selectedDateKey) return;
+    const selectedDateValue = parseDateInput(selectedDateKey);
+    const previousDateKey = toDateKey(addDays(selectedDateValue, -1));
+    const nextDateKey = toDateKey(addDays(selectedDateValue, 1));
 
     void prefetchDashboardSnapshot(queryClient, previousDateKey);
     void prefetchDashboardSnapshot(queryClient, nextDateKey);
-  }, [queryClient, selectedDate]);
+  }, [queryClient, selectedDateKey]);
+
+  if (!selectedDateKey || !todayDateKey) {
+    return (
+      <main
+        aria-busy="true"
+        className="mr-auto flex w-full max-w-screen-xl flex-col gap-6 py-5 sm:gap-7 sm:py-6"
+      >
+        <PageHeader title="Dashboard">
+          <p className="text-sm text-muted-foreground" role="status">
+            Resolving your program date…
+          </p>
+        </PageHeader>
+        <div
+          aria-label="Loading dashboard snapshots"
+          className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+        >
+          {Array.from({ length: 5 }).map((_, index) => (
+            <StatCardSkeleton className={index === 4 ? 'col-span-2' : undefined} key={index} />
+          ))}
+        </div>
+      </main>
+    );
+  }
 
   async function handleWeightSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -449,7 +534,11 @@ export function DashboardPage() {
     if (widgetId === 'macro-rings') {
       return (
         <DashboardWidgetFrame widgetLabel={DASHBOARD_WIDGET_IDS['macro-rings']}>
-          <MacroRings snapshot={snapshotQuery.data} />
+          {snapshotQuery.isLoading ? (
+            <DashboardMacroRingsSkeleton />
+          ) : (
+            <MacroRings snapshot={snapshotQuery.data} />
+          )}
         </DashboardWidgetFrame>
       );
     }
@@ -541,7 +630,10 @@ export function DashboardPage() {
               </HelpIcon>
               {!isViewingToday ? (
                 <Button
-                  onClick={() => handleSelectedDateChange(getToday())}
+                  disabled={!todayDateKey}
+                  onClick={() => {
+                    if (todayDateKey) handleSelectedDateChange(parseDateInput(todayDateKey));
+                  }}
                   size="sm"
                   type="button"
                   variant="outline"
@@ -691,7 +783,11 @@ export function DashboardPage() {
                 dataSlot="dashboard-macro-panel"
                 widgetLabel={DASHBOARD_WIDGET_IDS['macro-rings']}
               >
-                <MacroRings snapshot={snapshotQuery.data} />
+                {snapshotQuery.isLoading ? (
+                  <DashboardMacroRingsSkeleton />
+                ) : (
+                  <MacroRings snapshot={snapshotQuery.data} />
+                )}
               </DashboardWidgetFrame>
             ) : null}
           </div>

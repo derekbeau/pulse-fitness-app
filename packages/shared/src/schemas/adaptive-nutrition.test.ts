@@ -475,6 +475,7 @@ describe('adaptive TDEE schemas', () => {
     expect(
       adaptiveNutritionStateSchema.parse({
         state: 'setup_required',
+        timeZone: 'UTC',
         program: null,
         currentTarget: null,
         latestAcceptedCheckIn: null,

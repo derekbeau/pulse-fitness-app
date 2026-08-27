@@ -15,6 +15,36 @@ import { createQueryClientWrapper } from '@/test/query-client';
 
 import { DashboardPage } from './dashboard';
 
+const adaptiveStateMock = vi.hoisted(() => ({ timeZone: 'America/Detroit' }));
+
+vi.mock('@/features/adaptive-nutrition', () => ({
+  useAdaptiveNutritionState: () => ({
+    data: {
+      state: 'setup_required',
+      timeZone: adaptiveStateMock.timeZone,
+      program: null,
+      currentTarget: null,
+      latestAcceptedCheckIn: null,
+      pendingCheckIn: null,
+      checkInDue: false,
+      nextCheckInDate: null,
+      eligibility: null,
+      activeGoal: null,
+      goalProgress: null,
+      pendingGoalChange: null,
+      goalActionRequired: null,
+    },
+    isLoading: false,
+  }),
+}));
+
+vi.mock('@/features/dashboard/lib/program-date', async () => {
+  const actual = await vi.importActual<typeof import('@/features/dashboard/lib/program-date')>(
+    '@/features/dashboard/lib/program-date',
+  );
+  return { ...actual, scheduleDashboardDateRollover: () => () => undefined };
+});
+
 vi.mock('@/hooks/use-weight-unit', () => ({
   useWeightUnit: () => ({ weightUnit: 'lbs' }),
 }));
@@ -258,6 +288,14 @@ const snapshotForToday: DashboardSnapshot = {
       carbs: 260,
       fat: 75,
     },
+    proteinFloor: {
+      actualProteinGrams: 170,
+      proteinFloorGrams: 190,
+      remainingToFloorGrams: 20,
+      amountAboveFloorGrams: 0,
+      state: 'below_floor',
+      isFinal: false,
+    },
   },
   workout: {
     name: 'Upper Push A',
@@ -289,6 +327,14 @@ const snapshotForMarch4: DashboardSnapshot = {
       protein: 190,
       carbs: 260,
       fat: 75,
+    },
+    proteinFloor: {
+      actualProteinGrams: 150,
+      proteinFloorGrams: 190,
+      remainingToFloorGrams: 40,
+      amountAboveFloorGrams: 0,
+      state: 'below_floor',
+      isFinal: true,
     },
   },
   workout: null,
@@ -386,6 +432,7 @@ describe('DashboardPage', () => {
       visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
     };
     shouldFailDashboardConfigSave = false;
+    adaptiveStateMock.timeZone = 'America/Detroit';
 
     mockFetch = vi.fn((input: string | URL | Request, init?: RequestInit) => {
       const rawUrl =
@@ -609,7 +656,11 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Upper Push A (Completed)')).toBeInTheDocument();
     expect(screen.getByText('1900 / 2300')).toBeInTheDocument();
     const proteinCard = screen.getAllByText('Protein')[0]?.closest('[data-slot="stat-card"]');
-    expect(within(proteinCard as HTMLElement).getByText('170g / 190g')).toBeInTheDocument();
+    expect(
+      within(proteinCard as HTMLElement).getByText(
+        '170g logged · 20g to minimum · Based on food logged so far',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText('1/1')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-log-weight-card')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
@@ -640,6 +691,28 @@ describe('DashboardPage', () => {
     expect(snapshotPanel).toBeInTheDocument();
     expect(macroPanel).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-log-weight-card')).toBeInTheDocument();
+  });
+
+  it('uses the server-authoritative user timezone when adaptive setup is required', async () => {
+    vi.setSystemTime(new Date('2026-03-06T15:30:00.000Z'));
+    adaptiveStateMock.timeZone = 'Asia/Tokyo';
+    const { wrapper } = createQueryClientWrapper();
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/dashboard/snapshot?date=2026-03-07'),
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(screen.getByText('Saturday, March 7, 2026')).toBeInTheDocument();
   });
 
   it('opens contextual dashboard help from the page header', async () => {
@@ -760,6 +833,11 @@ describe('DashboardPage', () => {
     );
 
     expect(screen.getByLabelText('Loading dashboard snapshots')).toBeInTheDocument();
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+    expect(screen.getByLabelText('Loading macro progress')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getAllByTestId('macro-ring-skeleton')).toHaveLength(4);
+    expect(screen.queryByRole('link', { name: /Protein/ })).not.toBeInTheDocument();
     const skeletonCards = screen.getAllByTestId('stat-card-skeleton');
     expect(skeletonCards).toHaveLength(5);
     expect(skeletonCards[4]).toHaveClass('col-span-2');
@@ -776,6 +854,8 @@ describe('DashboardPage', () => {
     const snapshotPanel = container.querySelector('[data-slot="dashboard-snapshot-panel"]');
     expect(snapshotPanel).toBeInTheDocument();
     expect(within(snapshotPanel as HTMLElement).getByText('Latest Weight')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Loading macro progress')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Protein/ })).toBeInTheDocument();
   });
 
   it('updates snapshot when a new calendar day is selected via the date popover', async () => {
@@ -1225,6 +1305,14 @@ describe('DashboardPage', () => {
           protein: 190,
           carbs: 260,
           fat: 75,
+        },
+        proteinFloor: {
+          actualProteinGrams: 0,
+          proteinFloorGrams: 190,
+          remainingToFloorGrams: 190,
+          amountAboveFloorGrams: 0,
+          state: 'below_floor',
+          isFinal: false,
         },
       },
       workout: null,

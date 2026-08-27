@@ -351,6 +351,14 @@ describe('nutritionLoggingContext schemas', () => {
           meals: 0,
           actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
           target: null,
+          proteinFloor: {
+            actualProteinGrams: null,
+            proteinFloorGrams: null,
+            remainingToFloorGrams: null,
+            amountAboveFloorGrams: null,
+            state: 'unavailable',
+            isFinal: false,
+          },
         },
       },
       recentMealItems: [],
@@ -651,6 +659,14 @@ describe('nutritionSummarySchema', () => {
         carbs: 260,
         fat: 75,
       },
+      proteinFloor: {
+        actualProteinGrams: 180,
+        proteinFloorGrams: 190,
+        remainingToFloorGrams: 10,
+        amountAboveFloorGrams: 0,
+        state: 'below_floor',
+        isFinal: true,
+      },
     });
 
     const withoutTarget = nutritionSummarySchema.parse({
@@ -663,6 +679,14 @@ describe('nutritionSummarySchema', () => {
         fat: 0,
       },
       target: null,
+      proteinFloor: {
+        actualProteinGrams: null,
+        proteinFloorGrams: null,
+        remainingToFloorGrams: null,
+        amountAboveFloorGrams: null,
+        state: 'unavailable',
+        isFinal: false,
+      },
     });
 
     expect(withTarget.target?.calories).toBe(2300);
@@ -680,6 +704,14 @@ describe('nutritionSummarySchema', () => {
         fat: 15,
       },
       target: null,
+      proteinFloor: {
+        actualProteinGrams: 18,
+        proteinFloorGrams: null,
+        remainingToFloorGrams: null,
+        amountAboveFloorGrams: null,
+        state: 'unavailable',
+        isFinal: false,
+      },
     };
 
     expect(summary.actual.protein).toBe(18);

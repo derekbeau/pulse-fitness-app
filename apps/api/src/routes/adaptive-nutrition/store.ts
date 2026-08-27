@@ -71,6 +71,7 @@ import {
 import * as schema from '../../db/schema/index.js';
 import { insertAdaptiveProgramRevisionProjection } from '../../db/adaptive-program-revision-projection.js';
 import { getApplicationNow } from '../../lib/clock.js';
+import { resolveUserPreferenceTimeZone } from '../../lib/user-time-zone.js';
 import {
   adaptiveNutritionCheckIns,
   adaptiveNutritionGoalCompletions,
@@ -2055,9 +2056,18 @@ export const createAdaptiveNutritionStore = (options: {
 
   const getState = (userId: string): AdaptiveNutritionState => {
     const program = findProgram(userId);
+    const fallbackTimeZone = resolveUserPreferenceTimeZone(
+      db
+        .select({ preferences: users.preferences })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1)
+        .get()?.preferences,
+    );
     if (!program) {
       return {
         state: 'setup_required',
+        timeZone: fallbackTimeZone,
         program: null,
         currentTarget: null,
         latestAcceptedCheckIn: null,
@@ -2117,6 +2127,7 @@ export const createAdaptiveNutritionStore = (options: {
     const currentGoal = activeGoalContext ? getCurrentGoal(userId) : null;
     return {
       state,
+      timeZone: program.timeZone,
       program,
       currentTarget,
       latestAcceptedCheckIn,

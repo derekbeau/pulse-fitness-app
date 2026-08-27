@@ -2,6 +2,7 @@ import type { NutritionLog, NutritionLogStatus } from '@pulse/shared';
 import { and, eq } from 'drizzle-orm';
 
 import { adaptiveNutritionPrograms, nutritionLogs, users } from '../../db/schema/index.js';
+import { isSupportedTimeZone, resolveUserPreferenceTimeZone } from '../../lib/user-time-zone.js';
 
 export class FutureNutritionDateError extends Error {
   constructor() {
@@ -42,31 +43,6 @@ const getDateKeyInTimeZone = (date: Date, timeZone?: string) => {
   return year && month && day ? `${year}-${month}-${day}` : date.toISOString().slice(0, 10);
 };
 
-const isSupportedTimeZone = (timeZone: string) => {
-  try {
-    getDateKeyInTimeZone(new Date(0), timeZone);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const readPreferenceTimeZone = (preferences: unknown) => {
-  if (!preferences || typeof preferences !== 'object') {
-    return undefined;
-  }
-
-  const values = preferences as { timeZone?: unknown; timezone?: unknown };
-  const candidate =
-    typeof values.timeZone === 'string'
-      ? values.timeZone
-      : typeof values.timezone === 'string'
-        ? values.timezone
-        : undefined;
-
-  return candidate && isSupportedTimeZone(candidate) ? candidate : undefined;
-};
-
 export const getNutritionLocalDateForUser = async (userId: string, now = new Date()) => {
   const { db } = await import('../../db/index.js');
 
@@ -88,7 +64,7 @@ export const getNutritionLocalDateForUser = async (userId: string, now = new Dat
     .limit(1)
     .get();
 
-  return getDateKeyInTimeZone(now, readPreferenceTimeZone(user?.preferences));
+  return getDateKeyInTimeZone(now, resolveUserPreferenceTimeZone(user?.preferences));
 };
 
 export const updateNutritionLogStatus = async (

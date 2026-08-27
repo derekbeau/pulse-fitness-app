@@ -191,6 +191,7 @@ const checkInSummary = {
 
 const state: AdaptiveNutritionState = {
   state: 'pending_recommendation',
+  timeZone: 'America/Detroit',
   program: { ...programCalculation, id: 'program-1', createdAt: 1, updatedAt: 1 },
   currentTarget,
   latestAcceptedCheckIn: null,

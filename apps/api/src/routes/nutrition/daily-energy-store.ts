@@ -6,6 +6,7 @@ import {
   adaptiveProgramCalculationSchema,
   addCalendarDays,
   calculateDailyEnergyAdherence,
+  calculateProteinFloorProgress,
   dailyEnergyAdherenceSchema,
   type DailyEnergyAdherence,
 } from '@pulse/shared';
@@ -23,6 +24,7 @@ import {
 import { getDateKeyInTimeZone } from '../adaptive-nutrition/analytics-store.js';
 import { endOfLocalDateExclusive } from '../adaptive-nutrition/goal-trajectory-store.js';
 import { getApplicationNow } from '../../lib/clock.js';
+import { resolveUserPreferenceTimeZone } from '../../lib/user-time-zone.js';
 
 type NutritionDatabase = BetterSQLite3Database<typeof schema>;
 
@@ -127,21 +129,6 @@ const selectEndpointProgramRevisions = ({
   return { initial: parseProgramRevision(initialRow), latest: parseProgramRevision(latestRow) };
 };
 
-const validTimeZone = (value: unknown): value is string => {
-  if (typeof value !== 'string' || value.trim().length === 0) return false;
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: value }).format(new Date(0));
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const preferredTimeZone = (preferences: Record<string, unknown> | null): string => {
-  const candidate = preferences?.timeZone ?? preferences?.timezone;
-  return validTimeZone(candidate) ? candidate : 'UTC';
-};
-
 export const createDailyEnergyAdherenceStore = (dependencies: {
   db: NutritionDatabase;
   sqlite: Database.Database;
@@ -159,7 +146,7 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
       .where(eq(users.id, userId))
       .limit(1)
       .get();
-    const fallbackTimeZone = preferredTimeZone(user?.preferences ?? null);
+    const fallbackTimeZone = resolveUserPreferenceTimeZone(user?.preferences ?? null);
     const program = db
       .select({ id: adaptiveNutritionPrograms.id })
       .from(adaptiveNutritionPrograms)
@@ -208,6 +195,7 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
         logId: nutritionLogs.id,
         status: nutritionLogs.status,
         intakeKcal: sql<number>`coalesce(sum(${mealItems.calories}), 0)`,
+        actualProteinGrams: sql<number>`coalesce(sum(${mealItems.protein}), 0)`,
         mealCount: sql<number>`count(distinct ${meals.id})`,
         itemCount: sql<number>`count(${mealItems.id})`,
       })
@@ -226,6 +214,7 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
         effectiveDate: nutritionTargetEvents.effectiveDate,
         recordedAt: nutritionTargetEvents.recordedAt,
         calories: nutritionTargetEvents.calories,
+        protein: nutritionTargetEvents.protein,
         source: nutritionTargetEvents.source,
         adaptiveCheckInId: nutritionTargetEvents.adaptiveCheckInId,
       })
@@ -293,6 +282,12 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
       targetKcal: targetEvent?.calories ?? null,
       expenditureKcal,
     });
+    const proteinFloor = calculateProteinFloorProgress({
+      actualProteinGrams: nutrition ? Number(nutrition.actualProteinGrams) : null,
+      proteinFloorGrams: targetEvent ? Number(targetEvent.protein) : null,
+      isFinal: calculation.dataState !== 'future' && nutrition?.status === 'complete',
+      canEvaluate: calculation.dataState !== 'future',
+    });
 
     return dailyEnergyAdherenceSchema.parse({
       localDate,
@@ -305,6 +300,7 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
         logId: nutrition?.logId ?? null,
         status: nutrition?.status ?? null,
         intakeKcal: calculation.intakeKcal,
+        actualProteinGrams: proteinFloor.actualProteinGrams,
         mealCount: nutrition?.mealCount ?? 0,
         itemCount: nutrition?.itemCount ?? 0,
       },
@@ -315,6 +311,7 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
             effectiveDate: targetEvent.effectiveDate,
             recordedAt: targetEvent.recordedAt,
             caloriesKcal: calculation.targetKcal,
+            proteinFloorGrams: proteinFloor.proteinFloorGrams,
             source: targetEvent.source,
             adaptiveCheckInId: targetEvent.adaptiveCheckInId,
           }
@@ -337,6 +334,7 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
                 checkInId: null,
                 inputFingerprint: null,
               },
+      proteinFloor,
       intakeMinusTargetKcal: calculation.intakeMinusTargetKcal,
       intakeMinusExpenditureKcal: calculation.intakeMinusExpenditureKcal,
       innerToleranceKcal: calculation.innerToleranceKcal,

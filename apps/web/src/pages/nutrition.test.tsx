@@ -1,5 +1,10 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
-import type { DailyNutrition, DailyNutritionMeal, NutritionMacroTotals } from '@pulse/shared';
+import {
+  calculateProteinFloorProgress,
+  type DailyNutrition,
+  type DailyNutritionMeal,
+  type NutritionMacroTotals,
+} from '@pulse/shared';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -134,6 +139,7 @@ function createNutritionApiMock(
     if (url.pathname === '/api/v1/adaptive-nutrition' && method === 'GET') {
       return createJsonResponse({
         state: 'baseline',
+        timeZone,
         program: {
           activityLevel: null,
           activityMultiplier: null,
@@ -229,12 +235,19 @@ function createNutritionApiMock(
     if (method === 'GET' && pathParts.length === 5 && pathParts[4] === 'summary') {
       const actual = calculateActuals(dateState.daily);
       const meals = dateState.daily?.meals.length ?? 0;
+      const proteinFloor = calculateProteinFloorProgress({
+        actualProteinGrams: dateState.daily ? actual.protein : null,
+        proteinFloorGrams: dateState.target?.protein ?? null,
+        isFinal: date <= today && dateState.daily?.log.status === 'complete',
+        canEvaluate: date <= today,
+      });
 
       return createJsonResponse({
         date,
         meals,
         actual,
         target: dateState.target,
+        proteinFloor,
       });
     }
 
@@ -293,6 +306,12 @@ function createNutritionApiMock(
                   : dataState === 'missing'
                     ? 'MISSING_NUTRITION_NOT_GRADED'
                     : null;
+      const proteinFloor = calculateProteinFloorProgress({
+        actualProteinGrams: dateState.daily ? actual.protein : null,
+        proteinFloorGrams: hasTarget ? (dateState.target?.protein ?? null) : null,
+        isFinal: dataState !== 'future' && status === 'complete',
+        canEvaluate: dataState !== 'future',
+      });
 
       return createJsonResponse({
         localDate: date,
@@ -307,6 +326,7 @@ function createNutritionApiMock(
           logId: dateState.daily?.log.id ?? null,
           status,
           intakeKcal: status === null ? null : Math.round(actual.calories),
+          actualProteinGrams: proteinFloor.actualProteinGrams,
           mealCount: dateState.daily?.meals.length ?? 0,
           itemCount: dateState.daily?.meals.flatMap((entry) => entry.items).length ?? 0,
         },
@@ -317,10 +337,12 @@ function createNutritionApiMock(
               effectiveDate: '2026-03-01',
               recordedAt: 1_772_380_800_000,
               caloriesKcal: Math.round(targetCalories ?? 0),
+              proteinFloorGrams: dateState.target?.protein ?? 0,
               source: 'manual',
               adaptiveCheckInId: null,
             }
           : null,
+        proteinFloor,
         expenditure: null,
         intakeMinusTargetKcal: difference,
         intakeMinusExpenditureKcal: null,
@@ -901,6 +923,7 @@ describe('NutritionPage', () => {
     adaptiveResponse.resolve(
       createJsonResponse({
         state: 'baseline',
+        timeZone: 'America/Detroit',
         program: {
           activityLevel: null,
           activityMultiplier: null,
@@ -950,6 +973,37 @@ describe('NutritionPage', () => {
         expect.any(Object),
       ],
     ]);
+  });
+
+  it('advances the trends reference date while Nutrition stays open across program midnight', async () => {
+    vi.setSystemTime(new Date('2026-03-07T04:59:58.000Z'));
+    const { fetchMock: baseFetchMock } = createNutritionApiMock(
+      {
+        '2026-03-06': { daily: null, target: TARGETS },
+        '2026-03-07': { daily: null, target: TARGETS },
+      },
+      { today: '2026-03-06' },
+    );
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === 'string' ? input : input.toString(), 'http://localhost');
+      if (url.pathname === '/api/v1/dashboard/trends/macros') return createJsonResponse([]);
+      return baseFetchMock(input, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_100));
+    fireEvent.click(screen.getByRole('tab', { name: 'Trends' }));
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).includes('/api/v1/dashboard/trends/macros?from=2026-02-06&to=2026-03-07'),
+      ),
+    ).toBe(true);
   });
 
   it.each([

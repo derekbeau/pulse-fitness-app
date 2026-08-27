@@ -328,6 +328,7 @@ function createState(
 
   return {
     state,
+    timeZone: program.timeZone,
     program,
     currentTarget: target,
     latestAcceptedCheckIn: null,

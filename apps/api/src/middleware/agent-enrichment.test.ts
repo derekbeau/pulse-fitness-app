@@ -68,6 +68,65 @@ describe('buildAgentEnrichment', () => {
     });
   });
 
+  it('treats protein as a nonfinal minimum in nutrition summary enrichment', () => {
+    const enrichment = buildAgentEnrichment(
+      createRequest('agent-token'),
+      {
+        date: '2026-03-09',
+        meals: 2,
+        actual: { calories: 1_800, protein: 150, carbs: 180, fat: 60 },
+        target: { calories: 2_200, protein: 180, carbs: 250, fat: 70 },
+        proteinFloor: {
+          actualProteinGrams: 150,
+          proteinFloorGrams: 180,
+          remainingToFloorGrams: 30,
+          amountAboveFloorGrams: 0,
+          state: 'below_floor',
+          isFinal: false,
+        },
+      },
+      { endpoint: 'nutrition.summary', date: '2026-03-09' },
+    );
+
+    expect(enrichment?.hints).toContain(
+      '30g to the protein minimum. This is based on food logged so far. Remaining plan amounts are 400 kcal, 70g carbs, and 10g fat.',
+    );
+    expect(enrichment?.suggestedActions).toContain(
+      'Use the protein minimum and remaining plan macros to guide your next meal choice.',
+    );
+    expect(enrichment?.relatedState).toMatchObject({
+      remaining: { protein: 30 },
+      proteinFloor: { state: 'below_floor', remainingToFloorGrams: 30 },
+    });
+    expect(JSON.stringify(enrichment)).not.toMatch(/over target|negative protein|-30g/i);
+  });
+
+  it('calls out an unavailable protein minimum when no accepted target exists', () => {
+    const enrichment = buildAgentEnrichment(
+      createRequest('agent-token'),
+      {
+        date: '2026-03-09',
+        meals: 1,
+        actual: { calories: 600, protein: 45, carbs: 70, fat: 13 },
+        target: null,
+        proteinFloor: {
+          actualProteinGrams: 45,
+          proteinFloorGrams: null,
+          remainingToFloorGrams: null,
+          amountAboveFloorGrams: null,
+          state: 'unavailable',
+          isFinal: true,
+        },
+      },
+      { endpoint: 'nutrition.summary', date: '2026-03-09' },
+    );
+
+    expect(enrichment?.hints).toContain(
+      'Protein minimum is unavailable for this date. No calorie or macro plan is configured for this date.',
+    );
+    expect(enrichment?.relatedState).not.toHaveProperty('remaining');
+  });
+
   it('builds workout progress hints for session mutations', () => {
     const enrichment = buildAgentEnrichment(
       createRequest('agent-token'),

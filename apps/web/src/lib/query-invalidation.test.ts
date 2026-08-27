@@ -31,6 +31,7 @@ describe('crossFeatureInvalidationMap', () => {
     expect(crossFeatureInvalidationMap.mealMutation()).toEqual([
       adaptiveNutritionQueryKey,
       dataQualityQueryKey,
+      nutritionQueryKeys.all,
       dashboardSnapshotQueryKeys.all,
       macroTrendQueryKeys.all,
       habitQueryKeys.list(),

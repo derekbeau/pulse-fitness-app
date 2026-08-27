@@ -37,6 +37,14 @@ const snapshotFixture: DashboardSnapshot = {
       carbs: 260,
       fat: 75,
     },
+    proteinFloor: {
+      actualProteinGrams: 170,
+      proteinFloorGrams: 190,
+      remainingToFloorGrams: 20,
+      amountAboveFloorGrams: 0,
+      state: 'below_floor',
+      isFinal: false,
+    },
   },
   workout: {
     name: 'Upper Push A',

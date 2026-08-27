@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import type { DashboardSnapshot } from '@pulse/shared';
+import type { DashboardSnapshot, ProteinFloorProgress } from '@pulse/shared';
 import { useState } from 'react';
 
 import { Link } from 'react-router';
@@ -38,7 +38,7 @@ const OVER_TARGET_COLOR = '#DC2626';
 
 const MACRO_CONFIGS: MacroConfig[] = [
   { key: 'calories', label: 'Calories', color: '#F59E0B', unit: 'kcal' },
-  { key: 'protein', label: 'Protein', color: '#22C55E', unit: 'g' },
+  { key: 'protein', label: 'Protein', color: 'var(--protein-progress-stroke)', unit: 'g' },
   { key: 'carbs', label: 'Carbs', color: '#3B82F6', unit: 'g' },
   { key: 'fat', label: 'Fat', color: '#A855F7', unit: 'g' },
 ];
@@ -80,6 +80,51 @@ export const getMacroRingState = (
   };
 };
 
+const formatProteinDistance = (value: number) =>
+  value > 0 && Math.round(value) === 0 ? '<1g' : formatGrams(value);
+
+export const getProteinRingState = (
+  facts: ProteinFloorProgress,
+  mode: MacroMode,
+  baseColor: string,
+): MacroRingState & { summary: string; accessibleText: string } => {
+  if (
+    facts.state === 'unavailable' ||
+    facts.actualProteinGrams === null ||
+    facts.proteinFloorGrams === null
+  ) {
+    return {
+      accessibleText: 'Protein minimum unavailable',
+      color: baseColor,
+      progress: 0,
+      summary: 'Protein minimum unavailable',
+      valueLabel: '—',
+    };
+  }
+
+  const actual = facts.actualProteinGrams;
+  const floor = facts.proteinFloorGrams;
+  const remaining = facts.remainingToFloorGrams ?? 0;
+  const status =
+    facts.state === 'below_floor'
+      ? `${formatProteinDistance(remaining)} to minimum`
+      : 'Minimum met';
+  const evidence = facts.isFinal ? '' : ' · Based on food logged so far';
+
+  return {
+    accessibleText: `${formatGrams(actual)} protein logged; minimum ${formatGrams(floor)}; ${status}${facts.isFinal ? '' : '; based on food logged so far'}`,
+    color: baseColor,
+    progress: Math.min(100, (actual / floor) * 100),
+    summary: `${formatGrams(actual)} logged · Minimum ${formatGrams(floor)} · ${status}${evidence}`,
+    valueLabel:
+      mode === 'remaining'
+        ? facts.state === 'below_floor'
+          ? formatProteinDistance(remaining)
+          : 'Met'
+        : formatGrams(actual),
+  };
+};
+
 const getMacroStat = (snapshot: DashboardSnapshot | undefined, key: MacroKey): MacroStat => {
   if (!snapshot) {
     return { actual: 0, target: 0 };
@@ -116,7 +161,7 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
         >
           <Button
             aria-pressed={mode === 'eaten'}
-            className="h-7 px-2.5 py-0.5 text-xs"
+            className="min-h-11 min-w-11 px-3 py-2 text-xs"
             onClick={() => {
               setMode('eaten');
             }}
@@ -127,7 +172,7 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
           </Button>
           <Button
             aria-pressed={mode === 'remaining'}
-            className="h-7 px-2.5 py-0.5 text-xs"
+            className="min-h-11 min-w-11 px-3 py-2 text-xs"
             onClick={() => {
               setMode('remaining');
             }}
@@ -139,14 +184,31 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         {MACRO_CONFIGS.map((macro) => {
           const stat = getMacroStat(snapshot, macro.key);
-          const state = getMacroRingState(stat, mode, macro.color, macro.unit);
+          const proteinState =
+            macro.key === 'protein'
+              ? getProteinRingState(
+                  snapshot?.macros.proteinFloor ?? {
+                    actualProteinGrams: null,
+                    proteinFloorGrams: null,
+                    remainingToFloorGrams: null,
+                    amountAboveFloorGrams: null,
+                    state: 'unavailable',
+                    isFinal: false,
+                  },
+                  mode,
+                  macro.color,
+                )
+              : null;
+          const state = proteinState ?? getMacroRingState(stat, mode, macro.color, macro.unit);
+          const summary = proteinState?.summary ?? formatMacroSummary(stat, macro.unit);
+          const accessibleText = `${snapshot?.date ? `${snapshot.date}: ` : ''}${proteinState?.accessibleText ?? `${macro.label} ${summary}`}`;
 
           return (
             <Link
-              aria-label={`View nutrition details for ${macro.label}`}
+              aria-label={`View nutrition details for ${macro.label}: ${accessibleText}`}
               className="group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               key={macro.key}
               to="/nutrition"
@@ -157,7 +219,8 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
               >
                 <div className="w-12 lg:w-16">
                   <ProgressRing
-                    aria-label={`${macro.label} progress`}
+                    aria-label={accessibleText}
+                    aria-valuetext={accessibleText}
                     className="h-auto w-full"
                     color={state.color}
                     label={state.valueLabel}
@@ -170,8 +233,14 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground lg:text-[11px]">
                   {macro.label}
                 </p>
-                <p className="hidden truncate text-[11px] text-muted-foreground lg:block">
-                  {formatMacroSummary(stat, macro.unit)}
+                <p
+                  className={
+                    macro.key === 'protein'
+                      ? 'text-center text-[11px] leading-tight text-muted-foreground'
+                      : 'hidden truncate text-[11px] text-muted-foreground lg:block'
+                  }
+                >
+                  {summary}
                 </p>
               </div>
             </Link>

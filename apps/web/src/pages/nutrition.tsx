@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, UtensilsCrossed } from 'lucide-react';
 import { useSearchParams } from 'react-router';
-import { addCalendarDays, chartDateKeyInTimeZone } from '@pulse/shared';
+import { addCalendarDays, chartDateKeyInTimeZone, type ProteinFloorProgress } from '@pulse/shared';
 
 import { MealCardSkeleton } from '@/components/skeletons';
 import { PageHeader } from '@/components/layout/page-header';
@@ -49,6 +49,7 @@ import {
 } from '@/features/nutrition/lib/nutrition-utils';
 import { nextProgramLocalDateBoundaryMs } from '@/features/nutrition/lib/program-local-midnight';
 import { useAuthStore } from '@/store/auth-store';
+import { formatGrams } from '@/lib/format-utils';
 
 const NUTRITION_VIEWS = ['log', 'coach', 'foods', 'trends'] as const;
 
@@ -79,20 +80,40 @@ function handleViewTabKeyDown(
 
 export function NutritionPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [referenceTimeMs, setReferenceTimeMs] = useState(() => Date.now());
   const viewParam = searchParams.get('view');
   const activeView: NutritionView = isNutritionView(viewParam) ? viewParam : 'log';
   const adaptiveStateQuery = useAdaptiveNutritionState();
   const coachNeedsAttention = Boolean(
     adaptiveStateQuery.data?.checkInDue || adaptiveStateQuery.data?.pendingCheckIn,
   );
-  const nutritionTimeZone = adaptiveStateQuery.isLoading
-    ? null
-    : (adaptiveStateQuery.data?.program?.timeZone ??
-      Intl.DateTimeFormat().resolvedOptions().timeZone ??
-      'UTC');
+  const nutritionTimeZone =
+    adaptiveStateQuery.data?.timeZone ?? adaptiveStateQuery.data?.program?.timeZone ?? null;
   const trendsReferenceDate = nutritionTimeZone
-    ? nutritionTrendReferenceDate(Date.now(), nutritionTimeZone)
+    ? nutritionTrendReferenceDate(referenceTimeMs, nutritionTimeZone)
     : null;
+  const refreshReferenceTime = useCallback(() => setReferenceTimeMs(Date.now()), []);
+
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshReferenceTime();
+    };
+
+    window.addEventListener('focus', refreshReferenceTime);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('focus', refreshReferenceTime);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [refreshReferenceTime]);
+
+  useEffect(() => {
+    if (!nutritionTimeZone || !trendsReferenceDate) return;
+    const nowMs = Date.now();
+    const boundaryMs = nextProgramLocalDateBoundaryMs(nowMs, nutritionTimeZone);
+    const timer = window.setTimeout(refreshReferenceTime, Math.max(0, boundaryMs - nowMs));
+    return () => window.clearTimeout(timer);
+  }, [nutritionTimeZone, refreshReferenceTime, trendsReferenceDate]);
 
   useEffect(() => {
     if (isNutritionView(viewParam)) {
@@ -126,7 +147,11 @@ export function NutritionPage() {
             </p>
             <ul className="list-disc space-y-1 pl-5">
               <li>Ask the agent to log, correct, or delete meals when something is off.</li>
-              <li>Daily summary and macro rings show actual intake compared with your targets.</li>
+              <li>
+                Daily summary and macro rings compare calories, carbs, and fat with the accepted
+                plan. Protein is a daily minimum: reaching or exceeding it is shown as Minimum met,
+                never as an over-target warning.
+              </li>
               <li>
                 Daily energy compares complete past days with the accepted target and expenditure
                 effective on that date. Partial, unknown, missing, and current days are never
@@ -389,7 +414,13 @@ export function NutritionLogTab({ timeZone }: { timeZone: string }) {
 
   const dailyTotals = dailySummaryQuery.data?.actual;
   const dailyTargets = dailySummaryQuery.data?.target ?? null;
-  const isLoadingDay = dailyNutritionQuery.isLoading || dailySummaryQuery.isLoading;
+  const selectedDailyEnergy =
+    dailyEnergyQuery.data?.localDate === dateKey ? dailyEnergyQuery.data : undefined;
+  const isLoadingDay =
+    dailyNutritionQuery.isLoading ||
+    dailySummaryQuery.isLoading ||
+    dailyEnergyQuery.isPending ||
+    (dailyEnergyQuery.isFetching && !selectedDailyEnergy);
   const isSelectedDateToday = selectedDate === todayDateKey;
   const isViewingCurrentWeek = getWeekStart(selectedDate) === getWeekStart(todayDateKey);
   const nutritionError =
@@ -539,9 +570,15 @@ export function NutritionLogTab({ timeZone }: { timeZone: string }) {
           {isLoadingDay ? (
             <NutritionRingsSkeleton />
           ) : dailyTargets && dailyTotals ? (
-            <NutritionMacroRings actuals={dailyTotals} targets={dailyTargets} />
+            <NutritionMacroRings
+              actuals={dailyTotals}
+              dataState={selectedDailyEnergy?.dataState}
+              proteinFloor={selectedDailyEnergy?.proteinFloor}
+              selectedDate={dateKey}
+              targets={dailyTargets}
+            />
           ) : (
-            <NutritionTargetsPlaceholder />
+            <NutritionTargetsPlaceholder proteinFloor={selectedDailyEnergy?.proteinFloor} />
           )}
 
           {deleteErrorMessage ? (
@@ -633,13 +670,19 @@ export function NutritionLogTab({ timeZone }: { timeZone: string }) {
   );
 }
 
-function NutritionTargetsPlaceholder() {
+function NutritionTargetsPlaceholder({ proteinFloor }: { proteinFloor?: ProteinFloorProgress }) {
   return (
     <section className="rounded-2xl border border-dashed border-border/70 bg-card/70 px-5 py-6 text-center shadow-sm">
       <h2 className="text-lg font-semibold text-foreground">Macro progress</h2>
       <p className="mt-2 text-sm text-muted">
         No daily macro target is set yet. Add one in settings to enable progress rings.
       </p>
+      <p className="mt-1 text-sm font-medium text-foreground">Protein minimum unavailable</p>
+      {proteinFloor?.actualProteinGrams != null ? (
+        <p className="mt-1 text-sm text-muted">
+          {formatGrams(proteinFloor.actualProteinGrams)} logged
+        </p>
+      ) : null}
     </section>
   );
 }

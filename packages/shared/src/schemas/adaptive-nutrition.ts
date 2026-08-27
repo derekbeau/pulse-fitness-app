@@ -1021,6 +1021,7 @@ export const adaptiveNutritionReadStateSchema = z.enum([
 export const adaptiveNutritionStateSchema = z
   .object({
     state: adaptiveNutritionReadStateSchema,
+    timeZone: z.string().trim().min(1),
     program: adaptiveProgramSchema.nullable(),
     currentTarget: nutritionTargetSchema.nullable(),
     latestAcceptedCheckIn: adaptiveCheckInSummarySchema.nullable(),

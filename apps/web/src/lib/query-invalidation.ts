@@ -57,6 +57,7 @@ export const crossFeatureInvalidationMap = {
     [
       adaptiveNutritionQueryKey,
       dataQualityQueryKey,
+      nutritionQueryKeys.all,
       dashboardSnapshotQueryKeys.all,
       macroTrendQueryKeys.all,
       habitQueryKeys.list(),

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { dateSchema } from './common.js';
 import { nutritionLogStatusSchema } from './nutrition.js';
+import { proteinFloorProgressSchema } from './protein-floor.js';
 
 const fingerprintSchema = z.string().regex(/^[0-9a-f]{64}$/);
 const calorieSchema = z.number().int().nonnegative();
@@ -47,6 +48,7 @@ export const dailyEnergyNutritionSchema = z
     logId: z.string().min(1).nullable(),
     status: nutritionLogStatusSchema.nullable(),
     intakeKcal: calorieSchema.nullable(),
+    actualProteinGrams: z.number().nonnegative().finite().nullable(),
     mealCount: z.number().int().nonnegative(),
     itemCount: z.number().int().nonnegative(),
   })
@@ -66,6 +68,13 @@ export const dailyEnergyNutritionSchema = z
         path: ['intakeKcal'],
       });
     }
+    if ((nutrition.logId === null) !== (nutrition.actualProteinGrams === null)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Nutrition log and protein availability must agree',
+        path: ['actualProteinGrams'],
+      });
+    }
     if (nutrition.logId === null && (nutrition.mealCount !== 0 || nutrition.itemCount !== 0)) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -82,6 +91,7 @@ export const dailyEnergyTargetSchema = z
     effectiveDate: dateSchema,
     recordedAt: z.number().int().positive(),
     caloriesKcal: z.number().int().positive(),
+    proteinFloorGrams: z.number().nonnegative().finite(),
     source: z.enum(['manual', 'adaptive']),
     adaptiveCheckInId: z.string().min(1).nullable(),
   })
@@ -127,6 +137,7 @@ export const dailyEnergyAdherenceSchema = z
     nutrition: dailyEnergyNutritionSchema,
     target: dailyEnergyTargetSchema.nullable(),
     expenditure: dailyEnergyExpenditureSchema.nullable(),
+    proteinFloor: proteinFloorProgressSchema,
     intakeMinusTargetKcal: z.number().int().nullable(),
     intakeMinusExpenditureKcal: z.number().int().nullable(),
     innerToleranceKcal: z.number().int().positive().nullable(),
@@ -139,6 +150,8 @@ export const dailyEnergyAdherenceSchema = z
     const intake = value.nutrition.intakeKcal;
     const target = value.target?.caloriesKcal ?? null;
     const expenditure = value.expenditure?.caloriesKcal ?? null;
+    const actualProtein = value.nutrition.actualProteinGrams;
+    const proteinFloor = value.target?.proteinFloorGrams ?? null;
     const expectedTargetDifference = intake !== null && target !== null ? intake - target : null;
     const expectedExpenditureDifference =
       intake !== null && expenditure !== null ? intake - expenditure : null;
@@ -155,6 +168,16 @@ export const dailyEnergyAdherenceSchema = z
         code: z.ZodIssueCode.custom,
         message: 'Expenditure difference must equal intake minus accepted expenditure',
         path: ['intakeMinusExpenditureKcal'],
+      });
+    }
+    if (
+      value.proteinFloor.actualProteinGrams !== actualProtein ||
+      value.proteinFloor.proteinFloorGrams !== proteinFloor
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Protein floor facts must use the selected nutrition and accepted target evidence',
+        path: ['proteinFloor'],
       });
     }
     if (

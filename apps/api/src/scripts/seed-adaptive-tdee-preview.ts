@@ -65,6 +65,8 @@ export type AdaptivePreviewFixtureName =
   | 'daily-energy-gain'
   | 'daily-energy-manual'
   | 'daily-energy-revisions'
+  | 'protein-floor'
+  | 'protein-floor-unavailable'
   | 'review-clean-loss'
   | 'review-clean-gain'
   | 'review-clean-maintain'
@@ -261,6 +263,22 @@ const FIXTURES: Array<
     name: 'Daily Energy · Causal Revisions',
     expectedState: 'pending_recommendation',
     note: 'A later accepted recommendation and a materially different pending proposal prove date-effective accepted-only target and expenditure selection.',
+  },
+  {
+    fixture: 'protein-floor',
+    usernameSuffix: 'protein-floor',
+    idSuffix: '0050',
+    name: 'Nutrition · Protein Minimum',
+    expectedState: 'updating',
+    note: 'Dedicated exact, below, above, partial, current, and future protein-floor states keep browser acceptance parallel-safe.',
+  },
+  {
+    fixture: 'protein-floor-unavailable',
+    usernameSuffix: 'protein-none',
+    idSuffix: '0051',
+    name: 'Nutrition · Protein Minimum Unavailable',
+    expectedState: 'setup_required',
+    note: 'A logged day without an accepted target proves that a missing protein minimum remains explicitly unavailable.',
   },
   {
     fixture: 'review-clean-loss',
@@ -1396,6 +1414,41 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
       .where(eq(mealItems.id, `${dailyEnergy.userId}-item-${datePlus(anchorDate, offset)}`))
       .run();
   }
+  clock += 1000;
+
+  const proteinFloor = createHistoricalBaseline('protein-floor');
+  seedEligibleHistory(db, proteinFloor.userId, anchorDate, clock);
+  seedCompleteNutritionDay(db, proteinFloor.userId, anchorDate, clock + 1);
+  seedCompleteNutritionDay(db, proteinFloor.userId, datePlus(anchorDate, 1), clock + 2);
+  db.update(mealItems)
+    .set({ protein: 140 })
+    .where(eq(mealItems.id, `${proteinFloor.userId}-item-${datePlus(anchorDate, -2)}`))
+    .run();
+  db.update(nutritionLogs)
+    .set({ status: 'partial', statusUpdatedAt: clock + 3, updatedAt: clock + 3 })
+    .where(
+      and(
+        eq(nutritionLogs.userId, proteinFloor.userId),
+        eq(nutritionLogs.date, datePlus(anchorDate, -2)),
+      ),
+    )
+    .run();
+  db.update(mealItems)
+    .set({ protein: 200 })
+    .where(eq(mealItems.id, `${proteinFloor.userId}-item-${datePlus(anchorDate, -1)}`))
+    .run();
+  db.update(mealItems)
+    .set({ protein: 220 })
+    .where(eq(mealItems.id, `${proteinFloor.userId}-item-${datePlus(anchorDate, 1)}`))
+    .run();
+  clock += 1000;
+
+  const proteinFloorUnavailable = record('protein-floor-unavailable');
+  db.update(users)
+    .set({ preferences: { timeZone: 'America/Detroit' } })
+    .where(eq(users.id, proteinFloorUnavailable.userId))
+    .run();
+  seedCompleteNutritionDay(db, proteinFloorUnavailable.userId, anchorDate, clock);
   clock += 1000;
 
   const dailyEnergyLoss = createHistoricalBaseline(
