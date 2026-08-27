@@ -461,7 +461,7 @@ describe('adaptive program revision causal migration', () => {
       }
 
       expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
-        applied: 2,
+        applied: 3,
         projectionRevisions: 3,
       });
       expect(
@@ -690,7 +690,7 @@ describe('adaptive program revision causal migration', () => {
       ).toEqual({ createdAt: 1787702400000 });
 
       expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
-        applied: 2,
+        applied: 3,
         projectionRevisions: 1,
       });
       expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
@@ -762,7 +762,7 @@ describe('adaptive program revision causal migration', () => {
       });
 
       expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
-        applied: 2,
+        applied: 3,
         projectionRevisions: 1,
       });
       expectHealthyDatabase(sqlite);
@@ -778,7 +778,7 @@ describe('adaptive program revision causal migration', () => {
     sqlite.pragma('foreign_keys = ON');
     try {
       expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
-        applied: 58,
+        applied: 59,
         projectionRevisions: 0,
       });
       expect(

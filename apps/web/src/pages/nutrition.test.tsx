@@ -1,10 +1,11 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import type { DailyNutrition, DailyNutritionMeal, NutritionMacroTotals } from '@pulse/shared';
 import type { ReactNode } from 'react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NutritionLogTab, NutritionPage } from '@/pages/nutrition';
+import { useAuthStore } from '@/store/auth-store';
 import { createQueryClientWrapper } from '@/test/query-client';
 
 const flushNutritionTimers = async () => {
@@ -460,12 +461,32 @@ function LocationProbe() {
   return <output data-testid="location-search">{location.search}</output>;
 }
 
+function NavigationProbe() {
+  const navigate = useNavigate();
+  return (
+    <>
+      <button
+        onClick={() => navigate('/nutrition?view=log&date=2026-03-05&meal=meal-lunch')}
+        type="button"
+      >
+        Open test meal deep link
+      </button>
+      <button onClick={() => navigate(-1)} type="button">
+        History back
+      </button>
+      <button onClick={() => navigate(1)} type="button">
+        History forward
+      </button>
+    </>
+  );
+}
+
 function renderNutritionPage(
   initialEntry = '/nutrition',
-  options: { includeLocationProbe?: boolean } = {},
+  options: { includeLocationProbe?: boolean; includeNavigationProbe?: boolean } = {},
 ) {
   const { wrapper: QueryClientWrapper } = createQueryClientWrapper();
-  const { includeLocationProbe = false } = options;
+  const { includeLocationProbe = false, includeNavigationProbe = false } = options;
 
   return render(<NutritionPage />, {
     wrapper: ({ children }: { children: ReactNode }) => (
@@ -477,6 +498,7 @@ function renderNutritionPage(
                 <>
                   {children}
                   {includeLocationProbe ? <LocationProbe /> : null}
+                  {includeNavigationProbe ? <NavigationProbe /> : null}
                 </>
               }
               path="/nutrition"
@@ -641,6 +663,14 @@ describe('NutritionPage', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-06T12:00:00'));
+    useAuthStore.setState({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      hasHydrated: true,
+      isLoading: false,
+      error: null,
+    });
   });
 
   afterEach(() => {
@@ -1214,12 +1244,115 @@ describe('NutritionPage', () => {
       strip.compareDocumentPosition(mealsHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
+    const selectedDayButton = screen.getByRole('button', { name: 'Select 2026-03-05' });
+    fireEvent.click(selectedDayButton);
     await flushNutritionTimers();
     await Promise.resolve();
 
+    expect(screen.getByRole('button', { name: 'Select 2026-03-05' })).toBe(selectedDayButton);
     expect(screen.getByText(/Thursday, March 5/)).toBeInTheDocument();
     expect(getMealHeading('Breakfast')).toBeInTheDocument();
+  });
+
+  it('replays a direct meal deep link through back and forward navigation and focuses once ready', async () => {
+    const { fetchMock } = createNutritionApiMock({
+      '2026-03-06': { daily: null, target: TARGETS },
+      '2026-03-05': {
+        daily: {
+          log: {
+            id: 'log-2026-03-05',
+            userId: 'user-1',
+            date: '2026-03-05',
+            notes: null,
+            status: 'complete',
+            statusUpdatedAt: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          meals: previousDayMeals,
+        },
+        target: TARGETS,
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage('/nutrition?view=log', {
+      includeLocationProbe: true,
+      includeNavigationProbe: true,
+    });
+    await flushNutritionTimers();
+    fireEvent.click(screen.getByRole('button', { name: 'Open test meal deep link' }));
+    await flushNutritionTimers();
+    expect(document.getElementById('nutrition-meal-meal-lunch')).toHaveFocus();
+    expect(screen.getByTestId('location-search')).toHaveTextContent('meal=meal-lunch');
+    fireEvent.click(screen.getByRole('button', { name: 'History back' }));
+    await flushNutritionTimers();
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=log');
+    fireEvent.click(screen.getByRole('button', { name: 'History forward' }));
+    await flushNutritionTimers();
+    expect(document.getElementById('nutrition-meal-meal-lunch')).toHaveFocus();
+  });
+
+  it('focuses a matching meal when date and meal are present on the initial URL', async () => {
+    const { fetchMock } = createNutritionApiMock({
+      '2026-03-06': { daily: null, target: TARGETS },
+      '2026-03-05': {
+        daily: {
+          log: {
+            id: 'log-2026-03-05',
+            userId: 'user-1',
+            date: '2026-03-05',
+            notes: null,
+            status: 'complete',
+            statusUpdatedAt: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          meals: previousDayMeals,
+        },
+        target: TARGETS,
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage('/nutrition?view=log&date=2026-03-05&meal=meal-lunch', {
+      includeLocationProbe: true,
+    });
+    await flushNutritionTimers();
+
+    expect(document.getElementById('nutrition-meal-meal-lunch')).toHaveFocus();
+    expect(screen.getByTestId('location-search')).toHaveTextContent(
+      '?view=log&date=2026-03-05&meal=meal-lunch',
+    );
+  });
+
+  it('clears historical date and meal state when the authenticated session changes', async () => {
+    useAuthStore.setState({
+      user: { id: 'user-a', username: 'a', name: null },
+      token: 'token-a',
+      isAuthenticated: true,
+    });
+    const { fetchMock } = createNutritionApiMock({
+      '2026-03-06': { daily: null, target: TARGETS },
+      '2026-03-05': { daily: null, target: TARGETS },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderNutritionPage('/nutrition?view=log&date=2026-03-05&meal=meal-lunch', {
+      includeLocationProbe: true,
+    });
+    await flushNutritionTimers();
+    expect(screen.getByTestId('location-search')).toHaveTextContent('date=2026-03-05');
+
+    act(() => {
+      useAuthStore.setState({
+        user: { id: 'user-b', username: 'b', name: null },
+        token: 'token-b',
+        isAuthenticated: true,
+      });
+    });
+    await flushNutritionTimers();
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?view=log');
+    expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
   });
 
   it('shows a non-blocking fallback message when week summary fails', async () => {

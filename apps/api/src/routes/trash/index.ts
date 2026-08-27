@@ -148,7 +148,7 @@ const listTrash = async (userId: string): Promise<TrashListResponse> => {
   };
 };
 
-const restoreTrashItem = async ({
+export const restoreTrashItem = async ({
   id,
   type,
   userId,

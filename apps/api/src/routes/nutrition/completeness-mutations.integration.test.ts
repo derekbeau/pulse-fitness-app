@@ -8,6 +8,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { foods, mealItems, meals, nutritionLogs, users } from '../../db/schema/index.js';
+import { createFoodAnalyticsStore } from '../foods/analytics-store.js';
 
 type DatabaseModule = typeof import('../../db/index.js');
 
@@ -171,6 +172,87 @@ describe('complete nutrition day mutation downgrades', () => {
     expect(getStatus()).toEqual({ status: 'complete', statusUpdatedAt: 1 });
   });
 
+  it('reconciles food analytics through the canonical correction, trash, restore, and meal-delete operations', async () => {
+    const { deleteMealForDate, patchMealItemById } = await import('./store.js');
+    const { deleteFood } = await import('../foods/store.js');
+    const { restoreTrashItem } = await import('../trash/index.js');
+    dbModule.db
+      .insert(foods)
+      .values({
+        id: 'food-analytics-1',
+        userId: 'user-1',
+        name: 'Analytics Food',
+        calories: 210,
+        protein: 18,
+        carbs: 1,
+        fat: 15,
+        verified: true,
+        source: 'Label',
+        servingGrams: 100,
+      })
+      .run();
+    dbModule.db
+      .update(mealItems)
+      .set({ foodId: 'food-analytics-1' })
+      .where(eq(mealItems.id, 'item-1'))
+      .run();
+
+    const analytics = createFoodAnalyticsStore({
+      sqlite: dbModule.sqlite,
+      now: () => new Date('2026-03-10T16:00:00.000Z'),
+    });
+    const read = () =>
+      analytics.getAnalytics('user-1', {
+        range: '30d',
+        end: '2026-03-10',
+        timeZone: 'America/Detroit',
+        sort: 'most_used',
+        usage: 'any',
+        verification: 'any',
+        review: 'any',
+        grams: 'any',
+        page: 1,
+        limit: 25,
+      }).data;
+
+    expect(read().summary).toMatchObject({
+      linkedUsageOccurrences: 1,
+      linkedFoodCalories: 210,
+      inactiveLinkedMealItemCount: 0,
+    });
+
+    await patchMealItemById('user-1', 'meal-1', 'item-1', { calories: 211, protein: 19 });
+    expect(read().summary).toMatchObject({
+      linkedUsageOccurrences: 1,
+      linkedFoodCalories: 211,
+    });
+    expect(read().items[0]?.observed.totalProtein).toBe(19);
+
+    await expect(deleteFood('food-analytics-1', 'user-1')).resolves.toBe(true);
+    expect(read().summary).toMatchObject({
+      linkedUsageOccurrences: 0,
+      linkedFoodCalories: 0,
+      inactiveLinkedMealItemCount: 1,
+      inactiveLinkedMealItemCalories: 211,
+    });
+
+    await expect(
+      restoreTrashItem({ id: 'food-analytics-1', type: 'foods', userId: 'user-1' }),
+    ).resolves.toBe(true);
+    expect(read().summary).toMatchObject({
+      linkedUsageOccurrences: 1,
+      linkedFoodCalories: 211,
+      inactiveLinkedMealItemCount: 0,
+    });
+
+    await expect(deleteMealForDate('user-1', '2026-03-09', 'meal-1')).resolves.toBe(true);
+    expect(read().summary).toMatchObject({
+      linkedUsageOccurrences: 0,
+      linkedFoodCalories: 0,
+      totalMealItemCalories: 0,
+    });
+  });
+
   it('downgrades every affected complete day when food merge relinks meal items', async () => {
     const { mergeFoods } = await import('../foods/store.js');
     dbModule.db
@@ -201,6 +283,39 @@ describe('complete nutrition day mutation downgrades', () => {
       .set({ foodId: 'food-loser' })
       .where(eq(mealItems.id, 'item-1'))
       .run();
+    dbModule.db
+      .insert(users)
+      .values({ id: 'user-2', username: 'user-2', passwordHash: 'hash' })
+      .run();
+    dbModule.db
+      .insert(nutritionLogs)
+      .values({
+        id: 'log-2',
+        userId: 'user-2',
+        date: '2026-03-09',
+        status: 'complete',
+        statusUpdatedAt: 1,
+      })
+      .run();
+    dbModule.db
+      .insert(meals)
+      .values({ id: 'meal-2', nutritionLogId: 'log-2', name: 'Breakfast' })
+      .run();
+    dbModule.db
+      .insert(mealItems)
+      .values({
+        id: 'item-2',
+        mealId: 'meal-2',
+        foodId: 'food-loser',
+        name: 'Foreign corrupt link',
+        amount: 1,
+        unit: 'serving',
+        calories: 100,
+        protein: 10,
+        carbs: 10,
+        fat: 2,
+      })
+      .run();
 
     await mergeFoods('user-1', 'food-winner', 'food-loser');
 
@@ -212,5 +327,98 @@ describe('complete nutrition day mutation downgrades', () => {
         .where(eq(mealItems.id, 'item-1'))
         .get(),
     ).toEqual({ foodId: 'food-winner' });
+    expect(
+      dbModule.db
+        .select({ foodId: mealItems.foodId })
+        .from(mealItems)
+        .where(eq(mealItems.id, 'item-2'))
+        .get(),
+    ).toEqual({ foodId: 'food-loser' });
+    expect(getStatus('log-2')).toEqual({ status: 'complete', statusUpdatedAt: 1 });
+    const analytics = createFoodAnalyticsStore({
+      sqlite: dbModule.sqlite,
+      now: () => new Date('2026-03-10T16:00:00.000Z'),
+    }).getAnalytics('user-1', {
+      range: '30d',
+      end: '2026-03-09',
+      timeZone: 'America/Detroit',
+      sort: 'most_used',
+      usage: 'any',
+      verification: 'any',
+      review: 'any',
+      grams: 'any',
+      page: 1,
+      limit: 25,
+    });
+    expect(analytics.data.items.map((item) => item.foodId)).toEqual(['food-winner']);
+    expect(analytics.data.summary).toMatchObject({
+      savedFoodsTotal: 1,
+      savedFoodsUsed: 1,
+      linkedUsageOccurrences: 1,
+      linkedFoodCalories: 210,
+      unresolvedLinkedMealItemCount: 0,
+    });
+  });
+
+  it('merges more owned occurrences than the SQLite variable limit without leaking ownership', async () => {
+    const { mergeFoods } = await import('../foods/store.js');
+    dbModule.db
+      .insert(foods)
+      .values([
+        {
+          id: 'food-winner',
+          userId: 'user-1',
+          name: 'Winner',
+          calories: 100,
+          protein: 10,
+          carbs: 10,
+          fat: 2,
+        },
+        {
+          id: 'food-loser',
+          userId: 'user-1',
+          name: 'Loser',
+          calories: 100,
+          protein: 10,
+          carbs: 10,
+          fat: 2,
+        },
+      ])
+      .run();
+    dbModule.db
+      .update(mealItems)
+      .set({ foodId: 'food-loser' })
+      .where(eq(mealItems.id, 'item-1'))
+      .run();
+
+    dbModule.sqlite.exec(`
+      with digits(n) as (values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9)),
+      sequence(value) as (
+        select ((((a.n * 10 + b.n) * 10 + c.n) * 10 + d.n) * 10 + e.n) + 1
+        from digits a, digits b, digits c, digits d, digits e
+      )
+      insert into meal_items
+        (id, meal_id, food_id, name, amount, unit, calories, protein, carbs, fat, created_at)
+      select printf('bulk-loser-%05d', value), 'meal-1', 'food-loser', 'Loser',
+             1, 'serving', 100, 10, 10, 2, value
+      from sequence
+      where value <= 32766;
+    `);
+
+    await expect(mergeFoods('user-1', 'food-winner', 'food-loser')).resolves.toMatchObject({
+      id: 'food-winner',
+    });
+
+    expect(getStatus()?.status).toBe('partial');
+    expect(
+      dbModule.sqlite
+        .prepare('select count(*) as count from meal_items where food_id = ?')
+        .get('food-winner'),
+    ).toEqual({ count: 32767 });
+    expect(
+      dbModule.sqlite
+        .prepare('select count(*) as count from meal_items where food_id = ?')
+        .get('food-loser'),
+    ).toEqual({ count: 0 });
   });
 });

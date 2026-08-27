@@ -9,7 +9,6 @@ import type {
 } from '@pulse/shared';
 
 import { foods, mealItems, meals, nutritionLogs } from '../../db/schema/index.js';
-import { downgradeCompleteNutritionLogs } from '../../db/nutrition-completeness.js';
 
 export type FoodRecord = Food;
 
@@ -472,28 +471,45 @@ export const mergeFoods = async (
       throw new FoodMergeNotFoundError('loser');
     }
 
-    const affectedNutritionLogs = tx
-      .selectDistinct({ id: nutritionLogs.id })
-      .from(mealItems)
-      .innerJoin(meals, eq(meals.id, mealItems.mealId))
-      .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
-      .where(and(eq(mealItems.foodId, loserId), eq(nutritionLogs.userId, userId)))
-      .all();
-
-    // We scope winner/loser lookup by user first; UUID food IDs are globally unique, so this relink is user-safe.
-    const relinkResult = tx
-      .update(mealItems)
-      .set({ foodId: winnerId })
-      .where(eq(mealItems.foodId, loserId))
-      .run();
-    if (relinkResult.changes > 0) {
-      downgradeCompleteNutritionLogs(
-        tx,
-        affectedNutritionLogs.map((log) => log.id),
-      );
-    }
-
     const now = Date.now();
+
+    tx.update(nutritionLogs)
+      .set({
+        status: 'partial',
+        statusUpdatedAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(nutritionLogs.userId, userId),
+          eq(nutritionLogs.status, 'complete'),
+          sql`exists (
+            select 1
+            from ${meals}
+            inner join ${mealItems} on ${mealItems.mealId} = ${meals.id}
+            where ${meals.nutritionLogId} = ${nutritionLogs.id}
+              and ${mealItems.foodId} = ${loserId}
+          )`,
+        ),
+      )
+      .run();
+
+    tx.update(mealItems)
+      .set({ foodId: winnerId })
+      .where(
+        and(
+          eq(mealItems.foodId, loserId),
+          sql`exists (
+            select 1
+            from ${meals}
+            inner join ${nutritionLogs} on ${nutritionLogs.id} = ${meals.nutritionLogId}
+            where ${meals.id} = ${mealItems.mealId}
+              and ${nutritionLogs.userId} = ${userId}
+          )`,
+        ),
+      )
+      .run();
+
     const updatedWinnerUsageCount = winner.usageCount + loser.usageCount;
     const updatedWinnerLastUsedAt = mergeLastUsedAt(winner.lastUsedAt, loser.lastUsedAt);
 

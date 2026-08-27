@@ -28,6 +28,7 @@ import {
   adaptiveNutritionGoals,
   adaptiveNutritionProgramRevisions,
   adaptiveNutritionProgramRevisionDates,
+  adaptiveNutritionProgramRevisionProjectionIntegrity,
   adaptiveNutritionPrograms,
   agentTokens,
   bodyWeight,
@@ -775,6 +776,24 @@ describe('adaptive nutrition persistence schema', () => {
     expect(config.checks.map((entry) => entry.name).sort()).toEqual([
       'adaptive_nutrition_program_revision_dates_date_check',
       'adaptive_nutrition_program_revision_dates_sequence_check',
+    ]);
+  });
+
+  it('defines a constant-row causal projection integrity counter', () => {
+    expect(getTableName(adaptiveNutritionProgramRevisionProjectionIntegrity)).toBe(
+      'adaptive_nutrition_program_revision_projection_integrity',
+    );
+    const config = getTableConfig(adaptiveNutritionProgramRevisionProjectionIntegrity);
+    expect(config.foreignKeys).toHaveLength(3);
+    expect(config.foreignKeys.every((foreignKey) => foreignKey.onDelete === 'cascade')).toBe(true);
+    expect(config.foreignKeys.map((foreignKey) => foreignKey.getName())).toContain(
+      'adaptive_nutrition_program_revision_projection_integrity_program_user_fk',
+    );
+    expect(config.indexes.map((entry) => entry.config.name)).toEqual([
+      'adaptive_nutrition_program_revision_projection_integrity_user_id_idx',
+    ]);
+    expect(config.checks.map((entry) => entry.name)).toEqual([
+      'adaptive_nutrition_program_revision_projection_integrity_count_check',
     ]);
   });
 

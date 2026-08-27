@@ -20,6 +20,7 @@ import {
   bodyWeight,
   exerciseMuscleContributions,
   exercises,
+  foods,
   mealItems,
   meals,
   nutritionLogs,
@@ -91,7 +92,8 @@ export type AdaptivePreviewFixtureName =
   | 'progression-edit'
   | 'progression-stale'
   | 'progression-agent'
-  | 'muscle-analytics';
+  | 'muscle-analytics'
+  | 'food-analytics';
 
 export type AdaptivePreviewFixtureRecord = {
   fixture: AdaptivePreviewFixtureName;
@@ -484,6 +486,14 @@ const FIXTURES: Array<
     expectedState: 'setup_required',
     note: 'Dedicated completed and planned work exposes primary and secondary muscle contributions.',
   },
+  {
+    fixture: 'food-analytics',
+    usernameSuffix: 'food',
+    idSuffix: '0049',
+    name: 'Food Library · Analytics',
+    expectedState: 'setup_required',
+    note: 'Dedicated saved foods and immutable meal snapshots cover contribution, density, review, and occurrence evidence.',
+  },
 ];
 
 const datePlus = (date: string, days: number) => {
@@ -753,6 +763,373 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
     clock = currentClock + 1000;
     return fixture;
   };
+
+  const foodAnalyticsFixture = record('food-analytics');
+  const foodIds = {
+    yogurt: 'f1500000-0000-4000-8000-000000000001',
+    trailMix: 'f1500000-0000-4000-8000-000000000002',
+    water: 'f1500000-0000-4000-8000-000000000003',
+    proteinBar: 'f1500000-0000-4000-8000-000000000004',
+    oatmeal: 'f1500000-0000-4000-8000-000000000005',
+    soup: 'f1500000-0000-4000-8000-000000000006',
+    unused: 'f1500000-0000-4000-8000-000000000007',
+    archived: 'f1500000-0000-4000-8000-000000000008',
+  } as const;
+  db.insert(foods)
+    .values([
+      {
+        id: foodIds.yogurt,
+        userId: foodAnalyticsFixture.userId,
+        name: 'Greek Yogurt',
+        brand: 'North Star Dairy',
+        servingSize: '1 cup',
+        servingGrams: 170,
+        calories: 150,
+        protein: 15,
+        carbs: 10,
+        fat: 3,
+        sugar: 6,
+        verified: true,
+        source: 'Manufacturer label',
+        notes: 'Current label updated after the earliest logged occurrence.',
+        tags: ['breakfast', 'protein'],
+        createdAt: clock,
+        updatedAt: clock + 20_000,
+      },
+      {
+        id: foodIds.trailMix,
+        userId: foodAnalyticsFixture.userId,
+        name: 'Trail Mix',
+        brand: null,
+        servingSize: '1 bag',
+        servingGrams: null,
+        calories: 180,
+        protein: 2,
+        carbs: 12,
+        fat: 4,
+        verified: false,
+        source: null,
+        notes: null,
+        tags: ['snack'],
+        createdAt: clock + 1,
+        updatedAt: clock + 1,
+      },
+      {
+        id: foodIds.water,
+        userId: foodAnalyticsFixture.userId,
+        name: 'Sparkling Water',
+        brand: 'Clear Day',
+        servingSize: '1 can',
+        servingGrams: 355,
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        verified: true,
+        source: 'Manufacturer label',
+        notes: null,
+        tags: ['drink'],
+        createdAt: clock + 2,
+        updatedAt: clock + 2,
+      },
+      {
+        id: foodIds.proteinBar,
+        userId: foodAnalyticsFixture.userId,
+        name: 'Protein Bar',
+        brand: 'Forge',
+        servingSize: '1 bar',
+        servingGrams: 60,
+        calories: 220,
+        protein: 20,
+        carbs: 22,
+        fat: 7,
+        verified: true,
+        source: 'Package label',
+        notes: null,
+        tags: ['protein', 'snack'],
+        createdAt: clock + 3,
+        updatedAt: clock + 3,
+      },
+      {
+        id: foodIds.oatmeal,
+        userId: foodAnalyticsFixture.userId,
+        name: 'Oatmeal Bowl',
+        brand: null,
+        servingSize: '1 bowl',
+        servingGrams: 300,
+        calories: 300,
+        protein: 12,
+        carbs: 50,
+        fat: 6,
+        verified: true,
+        source: 'Home recipe',
+        notes: null,
+        tags: ['breakfast'],
+        createdAt: clock + 4,
+        updatedAt: clock + 4,
+      },
+      {
+        id: foodIds.soup,
+        userId: foodAnalyticsFixture.userId,
+        name: 'Lentil Soup',
+        brand: null,
+        servingSize: '1 bowl',
+        servingGrams: 360,
+        calories: 350,
+        protein: 22,
+        carbs: 50,
+        fat: 8,
+        verified: false,
+        source: 'Home recipe',
+        notes: null,
+        tags: ['dinner', 'protein'],
+        createdAt: clock + 5,
+        updatedAt: clock + 5,
+      },
+      {
+        id: foodIds.unused,
+        userId: foodAnalyticsFixture.userId,
+        name: 'Unused Pantry Food',
+        brand: null,
+        servingSize: null,
+        servingGrams: null,
+        calories: 100,
+        protein: 5,
+        carbs: 15,
+        fat: 2,
+        verified: false,
+        source: null,
+        notes: null,
+        tags: ['pantry'],
+        createdAt: clock + 6,
+        updatedAt: clock + 6,
+      },
+      {
+        id: foodIds.archived,
+        userId: foodAnalyticsFixture.userId,
+        name: 'Archived Snack',
+        brand: null,
+        servingSize: '1 pack',
+        servingGrams: 30,
+        calories: 75,
+        protein: 2,
+        carbs: 10,
+        fat: 3,
+        verified: false,
+        source: null,
+        notes: null,
+        tags: ['snack'],
+        deletedAt: `${datePlus(anchorDate, -1)}T12:00:00.000Z`,
+        createdAt: clock + 7,
+        updatedAt: clock + 7,
+      },
+    ])
+    .run();
+
+  const foodDays = [
+    {
+      date: datePlus(anchorDate, -1),
+      status: 'complete' as const,
+      items: [
+        {
+          foodId: foodIds.yogurt,
+          name: 'Greek Yogurt',
+          calories: 150,
+          protein: 15,
+          amount: 1,
+          unit: 'serving',
+          displayQuantity: 170,
+          displayUnit: 'grams',
+        },
+        {
+          foodId: foodIds.proteinBar,
+          name: 'Protein Bar',
+          calories: 220,
+          protein: 20,
+          amount: 1,
+          unit: 'bar',
+          displayQuantity: 1,
+          displayUnit: 'bar',
+        },
+        {
+          foodId: null,
+          name: 'Greek Yogurt',
+          calories: 80,
+          protein: 4,
+          amount: 0.5,
+          unit: 'cup',
+          displayQuantity: null,
+          displayUnit: null,
+        },
+        {
+          foodId: foodIds.archived,
+          name: 'Archived Snack',
+          calories: 75,
+          protein: 2,
+          amount: 1,
+          unit: 'pack',
+          displayQuantity: null,
+          displayUnit: null,
+        },
+      ],
+    },
+    {
+      date: datePlus(anchorDate, -2),
+      status: 'partial' as const,
+      items: [
+        {
+          foodId: foodIds.yogurt,
+          name: 'Greek Yogurt',
+          calories: 200,
+          protein: 20,
+          amount: 1,
+          unit: 'serving',
+          displayQuantity: 170,
+          displayUnit: 'g',
+        },
+        {
+          foodId: foodIds.trailMix,
+          name: 'Trail Mix',
+          calories: 180,
+          protein: 2,
+          amount: 1,
+          unit: 'bag',
+          displayQuantity: 1,
+          displayUnit: 'bag',
+        },
+      ],
+    },
+    {
+      date: datePlus(anchorDate, -3),
+      status: 'unknown' as const,
+      items: [
+        {
+          foodId: foodIds.yogurt,
+          name: 'Greek Yogurt',
+          calories: 120,
+          protein: 12,
+          amount: 1,
+          unit: 'cup',
+          displayQuantity: 1,
+          displayUnit: 'cup',
+        },
+        {
+          foodId: foodIds.oatmeal,
+          name: 'Oatmeal Bowl',
+          calories: 300,
+          protein: 12,
+          amount: 1,
+          unit: 'bowl',
+          displayQuantity: 1,
+          displayUnit: 'bowl',
+        },
+      ],
+    },
+    {
+      date: datePlus(anchorDate, -10),
+      status: 'complete' as const,
+      items: [
+        {
+          foodId: foodIds.soup,
+          name: 'Lentil Soup',
+          calories: 350,
+          protein: 22,
+          amount: 1,
+          unit: 'bowl',
+          displayQuantity: 360,
+          displayUnit: 'g',
+        },
+        {
+          foodId: foodIds.water,
+          name: 'Sparkling Water',
+          calories: 0,
+          protein: 0,
+          amount: 1,
+          unit: 'can',
+          displayQuantity: 1,
+          displayUnit: 'can',
+        },
+      ],
+    },
+    {
+      date: datePlus(anchorDate, -29),
+      status: 'complete' as const,
+      items: [
+        {
+          foodId: foodIds.yogurt,
+          name: 'Greek Yogurt',
+          calories: 100,
+          protein: 10,
+          amount: 100,
+          unit: 'g',
+          displayQuantity: 100,
+          displayUnit: 'g',
+        },
+      ],
+    },
+    {
+      date: datePlus(anchorDate, -30),
+      status: 'complete' as const,
+      items: [
+        {
+          foodId: foodIds.yogurt,
+          name: 'Greek Yogurt',
+          calories: 999,
+          protein: 99,
+          amount: 1,
+          unit: 'serving',
+          displayQuantity: null,
+          displayUnit: null,
+        },
+      ],
+    },
+  ];
+  let foodOccurrence = 1;
+  for (const day of foodDays) {
+    const logId = `f1510000-0000-4000-8000-${String(foodOccurrence).padStart(12, '0')}`;
+    const mealId = `f1520000-0000-4000-8000-${String(foodOccurrence).padStart(12, '0')}`;
+    db.insert(nutritionLogs)
+      .values({
+        id: logId,
+        userId: foodAnalyticsFixture.userId,
+        date: day.date,
+        status: day.status,
+        statusUpdatedAt: clock + foodOccurrence,
+        createdAt: clock + foodOccurrence,
+        updatedAt: clock + foodOccurrence,
+      })
+      .run();
+    db.insert(meals)
+      .values({
+        id: mealId,
+        nutritionLogId: logId,
+        name: day.status === 'complete' ? 'Lunch' : 'Snack',
+        time: '12:00',
+        createdAt: clock + foodOccurrence,
+        updatedAt: clock + foodOccurrence,
+      })
+      .run();
+    for (const item of day.items) {
+      db.insert(mealItems)
+        .values({
+          id: `f1530000-0000-4000-8000-${String(foodOccurrence).padStart(12, '0')}`,
+          mealId,
+          foodId: item.foodId,
+          name: item.name,
+          amount: item.amount,
+          unit: item.unit,
+          displayQuantity: item.displayQuantity,
+          displayUnit: item.displayUnit,
+          calories: item.calories,
+          protein: item.protein,
+          carbs: 0,
+          fat: 0,
+          createdAt: clock + foodOccurrence,
+        })
+        .run();
+      foodOccurrence += 1;
+    }
+  }
 
   const seedProgressionWorkout = (name: AdaptivePreviewFixtureName, scheduledOffset = 1) => {
     const fixture = record(name);

@@ -36,6 +36,7 @@ describe('crossFeatureInvalidationMap', () => {
       habitQueryKeys.list(),
       habitQueryKeys.entryList(),
       habitChainQueryKeys.all,
+      ['foods', 'analytics'],
     ]);
   });
 

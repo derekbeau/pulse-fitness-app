@@ -7,6 +7,7 @@ import { macroTrendQueryKeys } from '@/hooks/use-macro-trend';
 import { recentWorkoutQueryKeys } from '@/hooks/use-recent-workouts';
 import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
 import { nutritionQueryKeys } from '@/features/nutrition/api/keys';
+import { foodQueryKeys } from '@/features/foods/api/keys';
 
 export const adaptiveNutritionQueryKey = ['adaptive-nutrition'] as const;
 export const dataQualityQueryKey = ['data-quality'] as const;
@@ -61,6 +62,7 @@ export const crossFeatureInvalidationMap = {
       habitQueryKeys.list(),
       habitQueryKeys.entryList(),
       habitChainQueryKeys.all,
+      foodQueryKeys.analytics(),
     ] as const satisfies readonly QueryKey[],
   nutritionTargetMutation: () =>
     [

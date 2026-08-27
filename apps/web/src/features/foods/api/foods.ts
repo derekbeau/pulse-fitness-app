@@ -102,6 +102,9 @@ export function useUpdateFood() {
       await queryClient.invalidateQueries({
         queryKey: foodQueryKeys.foods(),
       });
+      await queryClient.invalidateQueries({
+        queryKey: foodQueryKeys.analytics(),
+      });
       toast.success('Food updated');
     },
   });
@@ -168,6 +171,9 @@ export function useDeleteFood() {
         }),
         queryClient.invalidateQueries({
           queryKey: foodQueryKeys.detail(foodId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: foodQueryKeys.analytics(),
         }),
       ]),
   });
