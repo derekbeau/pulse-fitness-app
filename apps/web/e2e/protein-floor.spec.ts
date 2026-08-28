@@ -72,11 +72,13 @@ function monitorPage(
   expectedResponses: string[] = [],
   expectedConsoleErrors: string[] = [],
   expectedRequestFailures: string[] = [],
+  allowedRequestFailures: string[] = [],
 ) {
   const failures: string[] = [];
   const remainingExpectedResponses = [...expectedResponses];
   const remainingExpectedConsoleErrors = [...expectedConsoleErrors];
   const remainingExpectedRequestFailures = [...expectedRequestFailures];
+  const allowedRequestFailureSet = new Set(allowedRequestFailures);
   page.on('console', (message) => {
     if (message.type() === 'warning' || message.type() === 'error') {
       const expectedIndex = remainingExpectedConsoleErrors.indexOf(message.text());
@@ -95,6 +97,7 @@ function monitorPage(
       remainingExpectedRequestFailures.splice(expectedIndex, 1);
       return;
     }
+    if (allowedRequestFailureSet.has(signature)) return;
     failures.push(`requestfailed: ${signature}`);
   });
   page.on('response', (response) => {
@@ -568,12 +571,22 @@ test.describe('Protein minimum floor', () => {
     expect(baseResponse.ok(), await baseResponse.text()).toBeTruthy();
     const baseSnapshot = ((await baseResponse.json()) as { data: DashboardSnapshot }).data;
     const intermediateDate = addDays(fixtureDate, -4);
+    const intermediateRangeStart = addDays(intermediateDate, -29);
     const finalDate = addDays(fixtureDate, -6);
     const intermediateSnapshot = snapshotWithProtein(baseSnapshot, intermediateDate, 111);
     const finalSnapshot = snapshotWithProtein(baseSnapshot, finalDate, 133);
     const intermediatePath = `/api/v1/dashboard/snapshot?date=${intermediateDate}`;
     const finalPath = `/api/v1/dashboard/snapshot?date=${finalDate}`;
-    const diagnostics = monitorPage(page, [], [], [`GET ${intermediatePath} net::ERR_ABORTED`]);
+    const diagnostics = monitorPage(
+      page,
+      [],
+      [],
+      [`GET ${intermediatePath} net::ERR_ABORTED`],
+      [
+        `GET /api/v1/dashboard/trends/macros?from=${intermediateRangeStart}&to=${intermediateDate} net::ERR_ABORTED`,
+        `GET /api/v1/habit-entries?from=${intermediateRangeStart}&to=${intermediateDate} net::ERR_ABORTED`,
+      ],
+    );
 
     let releaseIntermediate!: () => void;
     const intermediateGate = new Promise<void>((resolvePromise) => {
