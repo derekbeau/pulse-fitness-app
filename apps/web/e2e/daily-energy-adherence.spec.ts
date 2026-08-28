@@ -30,6 +30,7 @@ function monitorPage(
   page: Page,
   expectedResponses: Array<{ path: string; status: number }> = [],
   expectedRequestFailures: Array<{ errorText: string; method: string; path: string }> = [],
+  allowedRequestFailures: Array<{ errorText: string; method: string; path: string }> = [],
 ) {
   const failures: string[] = [];
   const failedResourceConsoleMessages: string[] = [];
@@ -68,6 +69,15 @@ function monitorPage(
       expectedRequestFailureCounts.set(key, (expectedRequestFailureCounts.get(key) ?? 0) + 1);
       return;
     }
+    if (
+      allowedRequestFailures.some(
+        (candidate) =>
+          candidate.errorText === errorText &&
+          candidate.method === failed.method() &&
+          candidate.path === path,
+      )
+    )
+      return;
     failures.push(`requestfailed: ${failed.method()} ${failed.url()} ${errorText}`);
   });
   page.on('response', (response) => {
@@ -560,6 +570,14 @@ test.describe.serial('Daily energy adherence', () => {
           errorText: 'net::ERR_ABORTED',
           method: 'GET',
           path: `/api/v1/nutrition/${slowDate}/energy-adherence`,
+        },
+      ],
+      [
+        { errorText: 'net::ERR_ABORTED', method: 'GET', path: `/api/v1/nutrition/${slowDate}` },
+        {
+          errorText: 'net::ERR_ABORTED',
+          method: 'GET',
+          path: `/api/v1/nutrition/${slowDate}/summary`,
         },
       ],
     );
