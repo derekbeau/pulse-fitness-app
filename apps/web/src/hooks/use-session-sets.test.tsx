@@ -104,7 +104,9 @@ describe('use-session-sets hooks', () => {
     queryClient.setQueryData(workoutSessionQueryKeys.detail('session-1'), sessionResponse);
     queryClient.setQueryData(workoutQueryKeys.session('session-1'), sessionResponse);
 
-    mockFetch.mockImplementationOnce(() => deferred.promise.then((data) => createJsonResponse(data, 201)));
+    mockFetch.mockImplementationOnce(() =>
+      deferred.promise.then((data) => createJsonResponse(data, 201)),
+    );
 
     const { result } = renderHook(() => useLogSet('session-1'), { wrapper });
 
@@ -120,8 +122,9 @@ describe('use-session-sets hooks', () => {
 
     await waitFor(() => {
       expect(
-        queryClient.getQueryData<typeof sessionResponse>(workoutSessionQueryKeys.detail('session-1'))
-          ?.sets,
+        queryClient.getQueryData<typeof sessionResponse>(
+          workoutSessionQueryKeys.detail('session-1'),
+        )?.sets,
       ).toEqual([
         expect.objectContaining({
           exerciseId: 'incline-dumbbell-press',
@@ -162,8 +165,9 @@ describe('use-session-sets hooks', () => {
 
     await waitFor(() => {
       expect(
-        queryClient.getQueryData<typeof sessionResponse>(workoutSessionQueryKeys.detail('session-1'))
-          ?.sets,
+        queryClient.getQueryData<typeof sessionResponse>(
+          workoutSessionQueryKeys.detail('session-1'),
+        )?.sets,
       ).toEqual([sessionSetResponse]);
     });
 
@@ -217,8 +221,9 @@ describe('use-session-sets hooks', () => {
 
     await waitFor(() => {
       expect(
-        queryClient.getQueryData<typeof sessionResponse>(workoutSessionQueryKeys.detail('session-1'))
-          ?.sets,
+        queryClient.getQueryData<typeof sessionResponse>(
+          workoutSessionQueryKeys.detail('session-1'),
+        )?.sets,
       ).toEqual([
         expect.objectContaining({
           completed: true,
@@ -239,8 +244,9 @@ describe('use-session-sets hooks', () => {
 
     await waitFor(() => {
       expect(
-        queryClient.getQueryData<typeof sessionResponse>(workoutSessionQueryKeys.detail('session-1'))
-          ?.sets,
+        queryClient.getQueryData<typeof sessionResponse>(
+          workoutSessionQueryKeys.detail('session-1'),
+        )?.sets,
       ).toEqual([
         expect.objectContaining({
           completed: true,
@@ -249,5 +255,42 @@ describe('use-session-sets hooks', () => {
         }),
       ]);
     });
+  });
+
+  it('optimistically replaces RPE with RIR and rolls back both fields on failure', async () => {
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const nativeRpeSet = { ...sessionSetResponse, rpe: 8 };
+    queryClient.setQueryData(workoutSessionQueryKeys.detail('session-1'), {
+      ...sessionResponse,
+      exercises: [{ ...sessionResponse.exercises[0], sets: [nativeRpeSet] }],
+      sets: [nativeRpeSet],
+    });
+    const deferred = createDeferredPromise<never>();
+    mockFetch.mockImplementationOnce(() => deferred.promise);
+    const { result } = renderHook(() => useUpdateSet('session-1'), { wrapper });
+
+    act(() => {
+      result.current.mutate({ setId: 'set-1', update: { rir: 2, rpe: null } });
+    });
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryData<typeof sessionResponse>(
+          workoutSessionQueryKeys.detail('session-1'),
+        )?.sets[0],
+      ).toMatchObject({ rir: 2, rpe: null });
+    });
+    await act(async () => {
+      deferred.reject(new Error('offline'));
+      await expect(deferred.promise).rejects.toThrow('offline');
+    });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(
+      queryClient.getQueryData<typeof sessionResponse>(workoutSessionQueryKeys.detail('session-1'))
+        ?.sets[0],
+    ).toMatchObject({ rpe: 8 });
+    expect(
+      queryClient.getQueryData<typeof sessionResponse>(workoutSessionQueryKeys.detail('session-1'))
+        ?.sets[0],
+    ).not.toHaveProperty('rir');
   });
 });

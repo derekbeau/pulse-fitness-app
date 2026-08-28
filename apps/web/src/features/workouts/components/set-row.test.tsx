@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SetRow } from './set-row';
@@ -130,6 +130,76 @@ describe('SetRow', () => {
 
     expect(screen.getByLabelText('Reps for set 2')).toBeInTheDocument();
     expect(screen.queryByLabelText('Weight for set 2')).not.toBeInTheDocument();
+  });
+
+  it('logs native RIR without completing the set and returns focus after selection', async () => {
+    const onUpdate = vi.fn();
+    render(
+      <SetRow
+        completed={false}
+        onUpdate={onUpdate}
+        reps={null}
+        rir={null}
+        setNumber={2}
+        showRirControl
+        weight={null}
+      />,
+    );
+
+    const trigger = screen.getByRole('button', {
+      name: 'RIR for set 2: No repetitions in reserve logged',
+    });
+    fireEvent.click(trigger);
+    expect(
+      screen.getByRole('dialog', { name: 'Repetitions in reserve · Set 2' }),
+    ).toHaveAccessibleDescription('0 = no reps left · 5+ = five or more reps left');
+    expect(screen.getByText('0 = no reps left · 5+ = five or more reps left')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: '5 or more repetitions in reserve' }));
+
+    expect(onUpdate).toHaveBeenCalledWith({ rir: 5, rpe: null });
+    expect(onUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ completed: true }));
+    act(() => vi.runAllTimers());
+    expect(trigger).toHaveFocus();
+  });
+
+  it('supports arrow-key RIR selection and explicit clear', () => {
+    const onUpdate = vi.fn();
+    render(
+      <SetRow
+        completed
+        onUpdate={onUpdate}
+        reps={8}
+        rir={2}
+        setNumber={1}
+        showRirControl
+        weight={135}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'RIR for set 1: 2 repetitions in reserve' }),
+    );
+    const selected = screen.getByRole('radio', { name: '2 repetitions in reserve' });
+    expect(selected).toHaveClass('bg-[var(--color-accent-mint)]');
+    expect(selected).toHaveClass('text-[var(--color-on-accent)]');
+    selected.focus();
+    fireEvent.keyDown(selected, { key: 'ArrowRight' });
+    expect(onUpdate).toHaveBeenCalledWith({ rir: 3, rpe: null });
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Clear repetitions in reserve' }));
+    expect(onUpdate).toHaveBeenCalledWith({ rir: null, rpe: null });
+  });
+
+  it('does not expose RIR controls for unsupported tracking modes', () => {
+    render(
+      <SetRow
+        completed={false}
+        onUpdate={vi.fn()}
+        reps={null}
+        setNumber={1}
+        trackingType="duration"
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /RIR for set/u })).not.toBeInTheDocument();
   });
 
   it('auto-completes seconds-only rows when seconds are entered', () => {

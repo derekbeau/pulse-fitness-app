@@ -61,6 +61,8 @@ const recommendation: WorkoutProgressionRecommendation = {
         distance: null,
         reps: 10,
         rpe: 8,
+        rir: null,
+        effortSource: 'native_rpe',
         seconds: null,
         setId: 'source-set-1',
         setNumber: 1,

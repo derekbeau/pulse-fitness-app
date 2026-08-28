@@ -4,7 +4,10 @@ import type {
   WorkoutProgressionEvidence,
   WorkoutProgressionPolicy,
 } from '../schemas/workout-progression.js';
-import { evaluateWorkoutProgression } from './workout-progression.js';
+import {
+  evaluateWorkoutProgression,
+  interpretWorkoutProgressionEffort,
+} from './workout-progression.js';
 
 const basePolicy: WorkoutProgressionPolicy = {
   allowReduction: false,
@@ -45,6 +48,8 @@ function evidence(overrides: Partial<WorkoutProgressionEvidence> = {}): WorkoutP
         distance: null,
         reps: 10,
         rpe: 8,
+        rir: null,
+        effortSource: 'native_rpe',
         seconds: null,
         setId: 'set-1',
         sourceScheduledSetId: 'source-scheduled-set-1',
@@ -59,6 +64,8 @@ function evidence(overrides: Partial<WorkoutProgressionEvidence> = {}): WorkoutP
         distance: null,
         reps: 10,
         rpe: 8,
+        rir: null,
+        effortSource: 'native_rpe',
         seconds: null,
         setId: 'set-2',
         sourceScheduledSetId: 'source-scheduled-set-2',
@@ -164,6 +171,60 @@ describe('evaluateWorkoutProgression', () => {
     expect(result.recommendedTargets.map((target) => target.weight)).toEqual([17.5, 17.5]);
   });
 
+  it.each([
+    { rir: 0, rpe: 10 },
+    { rir: 1, rpe: 9 },
+    { rir: 2, rpe: 8 },
+    { rir: 3, rpe: 7 },
+    { rir: 4, rpe: 6 },
+  ])('treats native RIR $rir as policy-equivalent to native RPE $rpe', ({ rir, rpe }) => {
+    const nativeRpe = evaluateWorkoutProgression(
+      evidence({
+        performance: evidence().performance.map((set) => ({
+          ...set,
+          effortSource: 'native_rpe',
+          rir: null,
+          rpe,
+        })),
+        policy: { ...basePolicy, family: 'rpe_regulated' },
+      }),
+    );
+    const nativeRir = evaluateWorkoutProgression(
+      evidence({
+        performance: evidence().performance.map((set) => ({
+          ...set,
+          effortSource: 'native_rir',
+          rir,
+          rpe: null,
+        })),
+        policy: { ...basePolicy, family: 'rpe_regulated' },
+      }),
+    );
+
+    expect(nativeRir).toEqual(nativeRpe);
+  });
+
+  it('keeps RIR 5+ as a bounded low-effort bucket rather than exact RPE 5', () => {
+    expect(
+      interpretWorkoutProgressionEffort({ effortSource: 'native_rir', rir: 5, rpe: null }),
+    ).toEqual({
+      kind: 'upper_bound',
+      maximumEffectiveRpe: 5,
+    });
+    const result = evaluateWorkoutProgression(
+      evidence({
+        performance: evidence().performance.map((set) => ({
+          ...set,
+          effortSource: 'native_rir',
+          rir: 5,
+          rpe: null,
+        })),
+        policy: { ...basePolicy, family: 'rpe_regulated' },
+      }),
+    );
+    expect(result).toMatchObject({ confidence: 'supported', decision: 'increase' });
+  });
+
   it('respects non-standard increments', () => {
     const result = evaluateWorkoutProgression(
       evidence({ policy: { ...basePolicy, loadIncrement: 1.25 } }),
@@ -192,6 +253,8 @@ describe('evaluateWorkoutProgression', () => {
             distance: 2,
             reps: null,
             rpe: 6,
+            rir: null,
+            effortSource: 'native_rpe',
             seconds: 1_200,
             setId: 'set-cardio',
             sourceScheduledSetId: 'source-cardio-set',

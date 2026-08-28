@@ -25,6 +25,7 @@ export type WorkoutExerciseSetListItem = {
   distance?: number | null;
   reps?: number | null;
   rpe?: number | null;
+  rir?: number | null;
   seconds?: number | null;
   setNumber: number;
   targetDistance?: number | null;

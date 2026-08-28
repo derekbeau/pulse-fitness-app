@@ -1222,7 +1222,11 @@ function ExerciseCardItem({
                   }}
                   reps={set.reps}
                   rpe={set.rpe}
+                  rir={set.rir}
                   setNumber={set.number}
+                  showRirControl={['weight_reps', 'bodyweight_reps', 'reps_only'].includes(
+                    exercise.trackingType,
+                  )}
                   trackingType={exercise.trackingType}
                   distance={set.distance}
                   targetDistance={set.targetDistance}
@@ -1474,10 +1478,17 @@ function formatHistoryPreviewEntries({
     const setSummary = formatCompactSets(
       history.sets.map((set) =>
         trackingType === 'distance'
-          ? { distance: set.distance ?? set.reps, weight: set.weight }
+          ? {
+              distance: set.distance ?? set.reps,
+              rpe: set.rpe,
+              rir: set.rir,
+              weight: set.weight,
+            }
           : {
               distance: set.distance,
               reps: set.reps,
+              rpe: set.rpe,
+              rir: set.rir,
               seconds: set.seconds,
               weight: set.weight,
             },

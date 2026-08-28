@@ -83,7 +83,9 @@ import {
   reorderWorkoutSessionExercises,
   saveCompletedSessionAsTemplate,
   SESSION_SET_DELETE_NOT_IN_PROGRESS,
+  SessionSetEffortConflictError,
   SessionSetNotFoundError,
+  SessionSetRirUnsupportedError,
   type SessionSetSnapshotFact,
   swapWorkoutSessionExercise,
   updateSessionSet,
@@ -306,6 +308,7 @@ const toCreateWorkoutSessionInput = (
               seconds: set.seconds ?? null,
               distance: set.distance ?? null,
               rpe: set.rpe ?? null,
+              rir: set.rir ?? null,
               zone: set.zone ?? null,
               targetWeight: set.targetWeight ?? null,
               targetWeightMin: set.targetWeightMin ?? null,
@@ -433,6 +436,7 @@ const buildScheduledSnapshotSessionSeed = ({
       seconds: null,
       distance: null,
       rpe: null,
+      rir: null,
       zone: null,
       targetWeight: set.targetWeight,
       targetWeightMin: set.targetWeightMin,
@@ -859,17 +863,25 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      const session = await createWorkoutSession({
-        id: randomUUID(),
-        userId: request.userId,
-        input,
-        programmingNotesByExerciseSection,
-        agentNotesByExerciseSection,
-        agentNotesMetaByExerciseSection,
-        scheduledWorkoutId,
-        linkScheduledWorkoutSession,
-        setSnapshotFactsByKey,
-      });
+      let session;
+      try {
+        session = await createWorkoutSession({
+          id: randomUUID(),
+          userId: request.userId,
+          input,
+          programmingNotesByExerciseSection,
+          agentNotesByExerciseSection,
+          agentNotesMetaByExerciseSection,
+          scheduledWorkoutId,
+          linkScheduledWorkoutSession,
+          setSnapshotFactsByKey,
+        });
+      } catch (error) {
+        if (error instanceof SessionSetRirUnsupportedError) {
+          return sendError(reply, 400, 'RIR_UNSUPPORTED_TRACKING_TYPE', error.message);
+        }
+        throw error;
+      }
 
       if (!hasScheduledStart && input.templateId !== null) {
         await linkTodayScheduledWorkoutToSession({
@@ -961,11 +973,19 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      const set = await createSessionSet({
-        id: randomUUID(),
-        sessionId: session.id,
-        input: request.body,
-      });
+      let set;
+      try {
+        set = await createSessionSet({
+          id: randomUUID(),
+          sessionId: session.id,
+          input: request.body,
+        });
+      } catch (error) {
+        if (error instanceof SessionSetRirUnsupportedError) {
+          return sendError(reply, 400, 'RIR_UNSUPPORTED_TRACKING_TYPE', error.message);
+        }
+        throw error;
+      }
 
       return reply.code(201).send({
         data: set,
@@ -1001,11 +1021,22 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         return reply;
       }
 
-      const set = await updateSessionSet({
-        sessionId: session.id,
-        setId: request.params.setId,
-        input: request.body,
-      });
+      let set;
+      try {
+        set = await updateSessionSet({
+          sessionId: session.id,
+          setId: request.params.setId,
+          input: request.body,
+        });
+      } catch (error) {
+        if (error instanceof SessionSetEffortConflictError) {
+          return sendError(reply, 400, 'AMBIGUOUS_SET_EFFORT', error.message);
+        }
+        if (error instanceof SessionSetRirUnsupportedError) {
+          return sendError(reply, 400, 'RIR_UNSUPPORTED_TRACKING_TYPE', error.message);
+        }
+        throw error;
+      }
       if (!set) {
         return sendError(
           reply,
@@ -1148,6 +1179,14 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           );
         }
 
+        if (error instanceof SessionSetEffortConflictError) {
+          return sendError(reply, 400, 'AMBIGUOUS_SET_EFFORT', error.message);
+        }
+
+        if (error instanceof SessionSetRirUnsupportedError) {
+          return sendError(reply, 400, 'RIR_UNSUPPORTED_TRACKING_TYPE', error.message);
+        }
+
         throw error;
       }
     },
@@ -1245,6 +1284,10 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             SESSION_SET_NOT_FOUND_RESPONSE.code,
             SESSION_SET_NOT_FOUND_RESPONSE.message,
           );
+        }
+
+        if (error instanceof SessionSetRirUnsupportedError) {
+          return sendError(reply, 400, 'RIR_UNSUPPORTED_TRACKING_TYPE', error.message);
         }
 
         throw error;
@@ -1589,6 +1632,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
               weight: set.weight ?? previous.weight,
               reps: set.reps ?? previous.reps,
               rpe: Object.hasOwn(set, 'rpe') ? (set.rpe ?? null) : (previous.rpe ?? null),
+              rir: Object.hasOwn(set, 'rir') ? (set.rir ?? null) : (previous.rir ?? null),
               zone: Object.hasOwn(set, 'zone') ? (set.zone ?? null) : (previous.zone ?? null),
               targetWeight: Object.hasOwn(set, 'targetWeight')
                 ? (set.targetWeight ?? null)
@@ -1629,6 +1673,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             seconds: set.seconds ?? null,
             distance: set.distance ?? null,
             rpe: set.rpe ?? null,
+            rir: set.rir ?? null,
             zone: set.zone ?? null,
             targetWeight: set.targetWeight ?? null,
             targetWeightMin: set.targetWeightMin ?? null,
@@ -1708,6 +1753,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             seconds: exercise.durationSeconds ?? null,
             distance: null,
             rpe: exercise.rpe ?? null,
+            rir: exercise.rir ?? null,
             zone: exercise.zone ?? null,
             targetSeconds: exercise.targetSeconds ?? null,
             completed: false,
@@ -1875,12 +1921,20 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       }
     }
 
-    const session = await updateWorkoutSession({
-      id: params.id,
-      userId: request.userId,
-      input,
-      replaceSetSnapshots: request.method === 'PUT' && body.sets !== undefined,
-    });
+    let session;
+    try {
+      session = await updateWorkoutSession({
+        id: params.id,
+        userId: request.userId,
+        input,
+        replaceSetSnapshots: request.method === 'PUT' && body.sets !== undefined,
+      });
+    } catch (error) {
+      if (error instanceof SessionSetRirUnsupportedError) {
+        return sendError(reply, 400, 'RIR_UNSUPPORTED_TRACKING_TYPE', error.message);
+      }
+      throw error;
+    }
     if (!session) {
       return sendError(
         reply,

@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
 import { dateSchema } from './common.js';
+import {
+  nullableRirSchema,
+  nullableRpeSchema,
+  validateMutuallyExclusiveWorkoutEffort,
+} from './workout-effort.js';
 
 const normalizeOptionalString = (value: unknown) => {
   if (typeof value !== 'string') {
@@ -160,13 +165,17 @@ export const exercisePerformanceHistoryQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(10),
 });
 
-export const exerciseLastPerformanceSetSchema = z.object({
-  setNumber: z.number().int().min(1),
-  weight: z.number().min(0).nullable(),
-  reps: z.number().int().min(0).nullable(),
-  seconds: z.number().int().min(0).nullable().optional(),
-  distance: z.number().min(0).nullable().optional(),
-});
+export const exerciseLastPerformanceSetSchema = z
+  .object({
+    setNumber: z.number().int().min(1),
+    weight: z.number().min(0).nullable(),
+    reps: z.number().int().min(0).nullable(),
+    seconds: z.number().int().min(0).nullable().optional(),
+    distance: z.number().min(0).nullable().optional(),
+    rpe: nullableRpeSchema.optional(),
+    rir: nullableRirSchema.optional(),
+  })
+  .superRefine(validateMutuallyExclusiveWorkoutEffort);
 
 export const exerciseLastPerformanceSchema = z.object({
   sessionId: z.string(),

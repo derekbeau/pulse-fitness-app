@@ -14,6 +14,27 @@ export type WorkoutProgressionEvaluation = {
   recommendedTargets: WorkoutProgressionTarget[];
 };
 
+type InterpretedEffort =
+  | { kind: 'exact'; effectiveRpe: number }
+  | { kind: 'upper_bound'; maximumEffectiveRpe: 5 }
+  | { kind: 'missing' };
+
+export function interpretWorkoutProgressionEffort(set: {
+  effortSource: 'native_rir' | 'native_rpe' | 'none';
+  rir: number | null;
+  rpe: number | null;
+}): InterpretedEffort {
+  if (set.effortSource === 'native_rpe' && set.rpe !== null) {
+    return { effectiveRpe: set.rpe, kind: 'exact' };
+  }
+  if (set.effortSource === 'native_rir' && set.rir !== null) {
+    return set.rir === 5
+      ? { kind: 'upper_bound', maximumEffectiveRpe: 5 }
+      : { effectiveRpe: 10 - set.rir, kind: 'exact' };
+  }
+  return { kind: 'missing' };
+}
+
 function roundToIncrement(value: number, increment: number): number {
   const rounded = Math.round(value / increment) * increment;
   return Number(rounded.toFixed(6));
@@ -210,8 +231,8 @@ export function evaluateWorkoutProgression(
     );
   }
 
-  const rpeValues = performance.map((set) => set.rpe).filter((value) => value !== null);
-  const missingEffort = rpeValues.length !== performance.length;
+  const interpretedEffort = performance.map(interpretWorkoutProgressionEffort);
+  const missingEffort = interpretedEffort.some((effort) => effort.kind === 'missing');
   const effortRequired = policy.family === 'rpe_regulated' || policy.family === 'rehab_capacity';
   if (effortRequired && missingEffort) {
     return hold(
@@ -244,7 +265,11 @@ export function evaluateWorkoutProgression(
   };
 
   const effortCeiling = policy.effortCeiling;
-  const highEffort = effortCeiling !== null && rpeValues.some((value) => value > effortCeiling);
+  const highEffort =
+    effortCeiling !== null &&
+    interpretedEffort.some(
+      (effort) => effort.kind === 'exact' && effort.effectiveRpe > effortCeiling,
+    );
   if (highEffort) {
     if (
       policy.family === 'rpe_regulated' ||
@@ -357,7 +382,12 @@ export function evaluateWorkoutProgression(
       );
     }
     const lowEffortThreshold = policy.lowEffortThreshold;
-    const allLowEffort = rpeValues.every((value) => value <= lowEffortThreshold);
+    const allLowEffort = interpretedEffort.every((effort) => {
+      if (effort.kind === 'missing') return false;
+      return effort.kind === 'exact'
+        ? effort.effectiveRpe <= lowEffortThreshold
+        : effort.maximumEffectiveRpe <= lowEffortThreshold;
+    });
     if (!allLowEffort) {
       return hold(
         evidence,

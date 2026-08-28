@@ -38,6 +38,10 @@ export function LastPerformanceChip({
     return <Badge variant="outline">Last performance: loading…</Badge>;
   }
 
+  if (historyQuery.isError) {
+    return <Badge variant="outline">Last performance: unavailable</Badge>;
+  }
+
   // `useLastPerformance` returns `historyEntries` in current API responses and `history` in legacy responses.
   const lastEntry = historyQuery.data?.historyEntries[0] ?? historyQuery.data?.history ?? null;
   if (!lastEntry) {
@@ -47,10 +51,17 @@ export function LastPerformanceChip({
   const setSummary = formatCompactSets(
     lastEntry.sets.map((set) =>
       trackingType === 'distance'
-        ? { distance: set.distance ?? set.reps, weight: set.weight }
+        ? {
+            distance: set.distance ?? set.reps,
+            rpe: set.rpe,
+            rir: set.rir,
+            weight: set.weight,
+          }
         : {
             distance: set.distance,
             reps: set.reps,
+            rpe: set.rpe,
+            rir: set.rir,
             seconds: set.seconds,
             weight: set.weight,
           },

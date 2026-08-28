@@ -67,14 +67,47 @@ function parseRecommendationSnapshot(snapshot: unknown): WorkoutProgressionRecom
   const current = workoutProgressionRecommendationSchema.safeParse(snapshot);
   if (current.success) return current.data;
 
-  const snapshotRecord = snapshot as Record<string, unknown>;
-  const snapshotEvidence = snapshotRecord.evidence as Record<string, unknown> | undefined;
-  if (snapshotEvidence && !Object.hasOwn(snapshotEvidence, 'priority')) {
-    const priorityUnknown = workoutProgressionRecommendationSchema.safeParse({
-      ...snapshotRecord,
-      evidence: { ...snapshotEvidence, priority: null },
-    });
-    if (priorityUnknown.success) return priorityUnknown.data;
+  if (snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot)) {
+    const snapshotRecord = snapshot as Record<string, unknown>;
+    const snapshotEvidence =
+      snapshotRecord.evidence &&
+      typeof snapshotRecord.evidence === 'object' &&
+      !Array.isArray(snapshotRecord.evidence)
+        ? (snapshotRecord.evidence as Record<string, unknown>)
+        : null;
+    if (snapshotEvidence) {
+      let changed = false;
+      const performance = Array.isArray(snapshotEvidence.performance)
+        ? snapshotEvidence.performance.map((value) => {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+            const set = value as Record<string, unknown>;
+            const needsRir = !Object.hasOwn(set, 'rir');
+            const needsEffortSource = !Object.hasOwn(set, 'effortSource');
+            if (!needsRir && !needsEffortSource) return set;
+            changed = true;
+            return {
+              ...set,
+              ...(needsRir ? { rir: null } : {}),
+              ...(needsEffortSource
+                ? { effortSource: typeof set.rpe === 'number' ? 'native_rpe' : 'none' }
+                : {}),
+            };
+          })
+        : snapshotEvidence.performance;
+      const needsPriority = !Object.hasOwn(snapshotEvidence, 'priority');
+      changed ||= needsPriority;
+      if (changed) {
+        const compatible = workoutProgressionRecommendationSchema.safeParse({
+          ...snapshotRecord,
+          evidence: {
+            ...snapshotEvidence,
+            performance,
+            ...(needsPriority ? { priority: null } : {}),
+          },
+        });
+        if (compatible.success) return compatible.data;
+      }
+    }
   }
 
   // 0053 snapshots predate exact set identity, prescription, policy provenance, and context.
@@ -106,6 +139,8 @@ function parseRecommendationSnapshot(snapshot: unknown): WorkoutProgressionRecom
       },
       reps: set.reps,
       rpe: set.rpe,
+      rir: null,
+      effortSource: set.rpe === null ? 'none' : 'native_rpe',
       seconds: set.seconds,
       setId: set.setId,
       sourceScheduledSetId: null,
@@ -281,6 +316,7 @@ function buildEvidenceForScheduledWorkout(
             prescribedZone: sessionSets.targetZone,
             reps: sessionSets.reps,
             rpe: sessionSets.rpe,
+            rir: sessionSets.rir,
             seconds: sessionSets.seconds,
             setId: sessionSets.id,
             sourceScheduledSetId: sessionSets.sourceScheduledSetId,
@@ -316,6 +352,9 @@ function buildEvidenceForScheduledWorkout(
             },
             reps: row.reps,
             rpe: row.rpe,
+            rir: row.rir,
+            effortSource:
+              row.rir !== null ? 'native_rir' : row.rpe !== null ? 'native_rpe' : 'none',
             seconds: row.seconds,
             setId: row.setId,
             sourceScheduledSetId: row.sourceScheduledSetId,

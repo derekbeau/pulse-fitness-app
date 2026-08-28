@@ -57,6 +57,14 @@ describe('createSetSchema', () => {
       createSetSchema.parse({
         exerciseId: 'global-rower',
         setNumber: 1,
+        rir: 6,
+      }),
+    ).toThrow();
+
+    expect(() =>
+      createSetSchema.parse({
+        exerciseId: 'global-rower',
+        setNumber: 1,
         rpe: 11,
       }),
     ).toThrow();
@@ -68,6 +76,15 @@ describe('createSetSchema', () => {
         zone: 6,
       }),
     ).toThrow();
+  });
+
+  it('accepts every RIR bucket and rejects ambiguous native effort', () => {
+    for (const rir of [0, 1, 2, 3, 4, 5]) {
+      expect(createSetSchema.parse({ exerciseId: 'bench', rir, setNumber: 1 }).rir).toBe(rir);
+    }
+    expect(() =>
+      createSetSchema.parse({ exerciseId: 'bench', rir: 2, rpe: 8, setNumber: 1 }),
+    ).toThrow('RPE and RIR cannot both be logged');
   });
 });
 
@@ -105,6 +122,15 @@ describe('updateSetSchema', () => {
         skipped: true,
       }),
     ).toThrow();
+  });
+
+  it('supports atomic effort replacement and explicit clears', () => {
+    expect(updateSetSchema.parse({ rir: 2, rpe: null })).toEqual({ rir: 2, rpe: null });
+    expect(updateSetSchema.parse({ rir: null, rpe: 8 })).toEqual({ rir: null, rpe: 8 });
+    expect(updateSetSchema.parse({ rir: null })).toEqual({ rir: null });
+    expect(() => updateSetSchema.parse({ rir: 2, rpe: 8 })).toThrow(
+      'RPE and RIR cannot both be logged',
+    );
   });
 });
 

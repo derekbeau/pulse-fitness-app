@@ -41,6 +41,7 @@ export function WorkoutExerciseSetList({
             onUpdate={() => undefined}
             reps={setItem.reps ?? null}
             rpe={setItem.rpe ?? null}
+            rir={setItem.rir ?? null}
             seconds={setItem.seconds ?? null}
             setNumber={setItem.setNumber}
             targetDistance={mode === 'readonly-completed' ? null : (setItem.targetDistance ?? null)}

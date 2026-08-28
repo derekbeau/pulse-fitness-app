@@ -1392,6 +1392,7 @@ export function ActiveWorkoutPage() {
       distance?: number | null;
       reps?: number | null;
       rpe?: number | null;
+      rir?: number | null;
       seconds?: number | null;
       weight?: number | null;
       zone?: number | null;
@@ -1443,6 +1444,7 @@ export function ActiveWorkoutPage() {
         seconds: isTimeBasedTrackingType(trackingType) ? updatedSet.seconds : null,
         distance: tracksDistance ? updatedSet.distance : null,
         ...(update.rpe !== undefined ? { rpe: updatedSet.rpe ?? null } : {}),
+        ...(update.rir !== undefined ? { rir: updatedSet.rir ?? null } : {}),
         weight: isWeightedTrackingType(trackingType) ? updatedSet.weight : null,
         ...(update.zone !== undefined ? { zone: updatedSet.zone ?? null } : {}),
       };
@@ -1453,12 +1455,21 @@ export function ActiveWorkoutPage() {
         },
         {
           onError: (error) => {
+            setSetDrafts((current) => ({
+              ...current,
+              [exerciseId]: (current[exerciseId] ?? []).map((set) =>
+                set.id === setId ? previousSet : set,
+              ),
+            }));
             if (isSessionNotActiveError(error)) {
               redirectToCompletedSessionNotice();
               return;
             }
 
             setSessionError('Unable to sync set update. Try again.');
+            if (update.rir !== undefined) {
+              toast.error('RIR was not saved. The previous value was restored.');
+            }
           },
           onSuccess: () => {
             if (didCompleteSet) {
@@ -1926,6 +1937,7 @@ function createSessionSetDrafts(
       number: sessionSet.setNumber,
       reps: nextReps,
       ...(sessionSet.rpe !== undefined && sessionSet.rpe !== null ? { rpe: sessionSet.rpe } : {}),
+      ...(sessionSet.rir !== undefined && sessionSet.rir !== null ? { rir: sessionSet.rir } : {}),
       seconds: nextSeconds,
       targetDistance: sessionSet.targetDistance ?? null,
       targetSeconds: sessionSet.targetSeconds ?? null,

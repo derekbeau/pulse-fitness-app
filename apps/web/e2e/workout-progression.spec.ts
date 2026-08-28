@@ -34,6 +34,8 @@ type PreviewPayload = {
         weight: number | null;
         reps: number | null;
         rpe: number | null;
+        rir: number | null;
+        effortSource: 'native_rir' | 'native_rpe' | 'none';
         prescribed: { weight: number | null; repsMin: number | null; repsMax: number | null };
       }>;
       priorTargets: Array<{
@@ -315,10 +317,17 @@ test.describe.serial('Workout progression and muscle analytics', () => {
     const initial = await preview('stale');
     const old = initial.data.recommendations[0];
     expect(old).toBeDefined();
+    expect(old?.evidence.performance).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ effortSource: 'native_rir', rir: 2, rpe: null }),
+      ]),
+    );
     const correction = await api.patch(
       `/api/v1/workout-sessions/${old?.evidence.sourceSessionId}/corrections`,
       {
-        data: { corrections: [{ setId: old?.evidence.performance[1]?.setId, reps: 7 }] },
+        data: {
+          corrections: [{ setId: old?.evidence.performance[1]?.setId, reps: 7, rir: 5, rpe: null }],
+        },
         headers: { authorization: `Bearer ${tokens.get('stale')}` },
       },
     );
@@ -346,7 +355,15 @@ test.describe.serial('Workout progression and muscle analytics', () => {
     const { progression } = await openPlanning(page, 'stale', 320);
     expect(progression.recommendations[0]).toMatchObject({ decision: 'hold', state: 'current' });
     expect(progression.recommendations[0]?.id).not.toBe(old?.id);
+    expect(progression.recommendations[0]?.evidence.performance).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ effortSource: 'native_rir', rir: 5, rpe: null }),
+      ]),
+    );
     await expect(page.getByText('Hold', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('cell', { name: '40 lbs · 7 reps · 5+ RIR', exact: true }),
+    ).toBeVisible();
     await expect(page.getByText(progression.recommendations[0]?.facts[0] ?? '')).toBeVisible();
     await expectNoOverflow(page, 320);
     await capture(page, 'progression-stale-320.png');

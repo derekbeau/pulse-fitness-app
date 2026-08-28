@@ -43,6 +43,19 @@ describe('LastPerformanceChip', () => {
     expect(screen.getByText('Last performance: no history')).toBeInTheDocument();
   });
 
+  it('does not misreport a failed history request as no history', () => {
+    useLastPerformanceMock.mockReturnValue(
+      asQueryResult({ data: undefined, isError: true, isPending: false }),
+    );
+
+    render(
+      <LastPerformanceChip exerciseId="exercise-1" trackingType="weight_reps" weightUnit="lbs" />,
+    );
+
+    expect(screen.getByText('Last performance: unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('Last performance: no history')).not.toBeInTheDocument();
+  });
+
   it('renders formatted history chip when data exists', () => {
     useLastPerformanceMock.mockReturnValue(
       asQueryResult({
@@ -51,14 +64,14 @@ describe('LastPerformanceChip', () => {
             date: '2026-04-15',
             notes: null,
             sessionId: 'session-1',
-            sets: [{ completed: true, reps: 8, setNumber: 1, weight: 135 }],
+            sets: [{ completed: true, reps: 8, rir: 2, setNumber: 1, weight: 135 }],
           },
           historyEntries: [
             {
               date: '2026-04-15',
               notes: null,
               sessionId: 'session-1',
-              sets: [{ completed: true, reps: 8, setNumber: 1, weight: 135 }],
+              sets: [{ completed: true, reps: 8, rir: 2, setNumber: 1, weight: 135 }],
             },
           ],
           related: [],
@@ -71,6 +84,6 @@ describe('LastPerformanceChip', () => {
       <LastPerformanceChip exerciseId="exercise-1" trackingType="weight_reps" weightUnit="lbs" />,
     );
 
-    expect(screen.getByText(/Last: Apr 15, 2026 · 135x8/i)).toBeInTheDocument();
+    expect(screen.getByText(/Last: Apr 15, 2026 · 135x8 \(2 RIR\)/i)).toBeInTheDocument();
   });
 });

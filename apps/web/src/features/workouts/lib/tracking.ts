@@ -6,6 +6,7 @@ type SetMetrics = {
   distance?: number | null;
   reps?: number | null;
   rpe?: number | null;
+  rir?: number | null;
   setNumber?: number | null;
   skipped?: boolean;
   seconds?: number | null;
@@ -272,26 +273,37 @@ function formatCompactHistorySet(
   const d =
     distance != null ? `${formatMetricNumber(distance)}${getDistanceUnit(weightUnit)}` : null;
 
+  let label: string;
+
   switch (trackingType) {
     case 'weight_reps':
-      return w != null && r != null ? `${w}x${r}` : (w ?? r ?? '-');
+      label = w != null && r != null ? `${w}x${r}` : (w ?? r ?? '-');
+      break;
     case 'weight_seconds':
-      return w != null && s != null ? `${w}x${s}` : (w ?? s ?? '-');
+      label = w != null && s != null ? `${w}x${s}` : (w ?? s ?? '-');
+      break;
     case 'bodyweight_reps':
     case 'reps_only':
-      return r ?? '-';
+      label = r ?? '-';
+      break;
     case 'reps_seconds':
-      return r != null && s != null ? `${r}x${s}` : (r ?? s ?? '-');
+      label = r != null && s != null ? `${r}x${s}` : (r ?? s ?? '-');
+      break;
     case 'seconds_only':
     case 'duration':
-      return s ?? '-';
+      label = s ?? '-';
+      break;
     case 'distance':
-      return d ?? '-';
+      label = d ?? '-';
+      break;
     case 'cardio':
-      return s != null && d != null ? `${s}/${d}` : (s ?? d ?? '-');
+      label = s != null && d != null ? `${s}/${d}` : (s ?? d ?? '-');
+      break;
     default:
-      return w != null && r != null ? `${w}x${r}` : (w ?? r ?? '-');
+      label = w != null && r != null ? `${w}x${r}` : (w ?? r ?? '-');
   }
+
+  return appendEffort(label, { rpe: set.rpe, rir: set.rir });
 }
 
 export function isSetCompleteForTrackingType(trackingType: ExerciseTrackingType, set: SetMetrics) {
@@ -504,6 +516,7 @@ function joinSegments(left: string | null, right: string | null, separator: stri
 
 function appendEffort(label: string, set: SetMetrics) {
   const effort = [
+    set.rir != null ? `${set.rir === 5 ? '5+' : formatMetricNumber(set.rir)} RIR` : null,
     set.rpe != null ? `RPE ${formatMetricNumber(set.rpe)}` : null,
     set.zone != null ? `Zone ${formatMetricNumber(set.zone)}` : null,
   ].filter((value): value is string => value !== null);

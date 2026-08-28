@@ -83,6 +83,29 @@ describe('SessionExerciseComparison', () => {
     expect(screen.getByText('PR')).toBeInTheDocument();
     expect(screen.queryByText('Reps +3')).not.toBeInTheDocument();
   });
+
+  it('shows native mixed RIR and RPE for each compared set', () => {
+    const previousSession = createSession({
+      id: 'previous-effort-session',
+      startedAt: Date.parse('2026-02-20T18:00:00Z'),
+      sets: [{ ...createSet('bench-press', 1, 8, 80), rpe: 8 }],
+    });
+    const currentSession = createSession({
+      id: 'current-effort-session',
+      sets: [{ ...createSet('bench-press', 1, 9, 80), rir: 2 }],
+    });
+
+    render(
+      <SessionExerciseComparison
+        currentSession={currentSession}
+        exerciseId="bench-press"
+        previousSession={previousSession}
+        trackingType="weight_reps"
+      />,
+    );
+
+    expect(screen.getByText('Current 2 RIR · Previous RPE 8')).toBeInTheDocument();
+  });
 });
 
 describe('SessionComparison', () => {

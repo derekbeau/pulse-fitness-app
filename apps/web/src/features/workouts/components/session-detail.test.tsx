@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { WorkoutSession, WorkoutSessionListItem } from '@pulse/shared';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -979,6 +979,153 @@ describe('SessionDetail', () => {
     expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
   });
 
+  it('replaces legacy RPE with native RIR in a completed-set correction', async () => {
+    const currentSession = createSession({
+      id: 'session-correction-rir',
+      templateId: 'template-upper-push',
+      sets: [
+        createSet({
+          id: 'set-correction-rir-1',
+          exerciseId: 'incline-dumbbell-press',
+          rpe: 8,
+          rir: null,
+          section: 'main',
+        }),
+      ],
+    });
+    const correctedSession = createSession({
+      ...currentSession,
+      sets: [
+        createSet({
+          id: 'set-correction-rir-1',
+          exerciseId: 'incline-dumbbell-press',
+          rpe: null,
+          rir: 5,
+          section: 'main',
+        }),
+      ],
+    });
+    let capturedCorrectionPayload: unknown = null;
+
+    mockSessionDetailRequests({
+      correctedSession,
+      onCorrectionRequest: (payload) => {
+        capturedCorrectionPayload = payload;
+      },
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [createSessionListItem({ id: currentSession.id })],
+    });
+
+    renderSessionDetail(currentSession.id);
+    await screen.findByText('Workout receipt');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+    const trigger = screen.getByRole('button', {
+      name: /RIR for set 1: no repetitions in reserve logged/i,
+    });
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('radio', { name: '5 or more repetitions in reserve' }));
+    await screen.findByRole('button', {
+      name: /RIR for set 1: 5 or more repetitions in reserve/i,
+    });
+    expect(trigger).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(capturedCorrectionPayload).toEqual({
+        corrections: [{ setId: 'set-correction-rir-1', rir: 5, rpe: null }],
+      }),
+    );
+    expect(await screen.findByText(/Set 1: 50 lbs × 10 reps \(5\+ RIR\)/)).toBeInTheDocument();
+  });
+
+  it('clears native effort explicitly from a completed-set correction', async () => {
+    const currentSession = createSession({
+      id: 'session-correction-rir-clear',
+      templateId: 'template-upper-push',
+      sets: [
+        createSet({
+          id: 'set-correction-rir-clear-1',
+          exerciseId: 'incline-dumbbell-press',
+          rpe: null,
+          rir: 2,
+          section: 'main',
+        }),
+      ],
+    });
+    const correctedSession = createSession({
+      ...currentSession,
+      sets: [
+        createSet({
+          id: 'set-correction-rir-clear-1',
+          exerciseId: 'incline-dumbbell-press',
+          rpe: null,
+          rir: null,
+          section: 'main',
+        }),
+      ],
+    });
+    let capturedCorrectionPayload: unknown = null;
+
+    mockSessionDetailRequests({
+      correctedSession,
+      onCorrectionRequest: (payload) => {
+        capturedCorrectionPayload = payload;
+      },
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [createSessionListItem({ id: currentSession.id })],
+    });
+
+    renderSessionDetail(currentSession.id);
+    await screen.findByText('Workout receipt');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /RIR for set 1: 2 repetitions in reserve/i }),
+    );
+    fireEvent.click(screen.getByRole('radio', { name: 'Clear repetitions in reserve' }));
+    await screen.findByRole('button', {
+      name: /RIR for set 1: no repetitions in reserve logged/i,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(capturedCorrectionPayload).toEqual({
+        corrections: [{ setId: 'set-correction-rir-clear-1', rir: null }],
+      }),
+    );
+    expect(await screen.findByText('Set 1: 50 lbs × 10 reps')).toBeInTheDocument();
+  });
+
+  it('keeps the correction draft open when a native RIR save fails', async () => {
+    const currentSession = createSession({
+      id: 'session-correction-rir-failure',
+      sets: [createSet({ id: 'set-correction-rir-failure', rpe: 8, rir: null })],
+    });
+
+    mockSessionDetailRequests({
+      correctionStatus: 503,
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [createSessionListItem({ id: currentSession.id })],
+    });
+
+    renderSessionDetail(currentSession.id);
+    await screen.findByText('Workout receipt');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /RIR for set 1: no repetitions in reserve logged/i }),
+    );
+    fireEvent.click(screen.getByRole('radio', { name: '2 repetitions in reserve' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).not.toBeDisabled());
+    expect(
+      screen.getByRole('button', { name: /RIR for set 1: 2 repetitions in reserve/i }),
+    ).toBeVisible();
+  });
+
   it('cancels inline correction editing without calling the correction endpoint', async () => {
     const currentSession = createSession({
       id: 'session-correction-cancel',
@@ -1075,6 +1222,7 @@ function renderSessionDetail(sessionId: string) {
 }
 
 function mockSessionDetailRequests({
+  correctionStatus = 200,
   correctedSession = null,
   onCorrectionRequest,
   sessionId,
@@ -1084,6 +1232,7 @@ function mockSessionDetailRequests({
   sessions,
   templateName = 'Upper Push',
 }: {
+  correctionStatus?: number;
   correctedSession?: WorkoutSession | null;
   onCorrectionRequest?: (payload: unknown) => void;
   sessionId: string;
@@ -1107,6 +1256,14 @@ function mockSessionDetailRequests({
       const body =
         typeof init?.body === 'string' && init.body.length > 0 ? JSON.parse(init.body) : null;
       onCorrectionRequest?.(body);
+      if (correctionStatus !== 200) {
+        return Promise.resolve(
+          jsonResponse(
+            { error: { code: 'TEMPORARY_FAILURE', message: 'Try again' } },
+            { status: correctionStatus },
+          ),
+        );
+      }
       activeSession = correctedSession ?? session;
 
       return Promise.resolve(jsonResponse({ data: activeSession }));

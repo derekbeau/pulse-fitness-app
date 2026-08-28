@@ -47,11 +47,13 @@ type DeltaIndicatorProps = {
 };
 
 type SetComparison = {
+  currentEffort: string | null;
   currentMetric: number;
   currentWeight: number | null;
   hasPr: boolean;
   metricDelta: number;
   metricLabel: string;
+  previousEffort: string | null;
   setNumber: number;
   weightDelta: number | null;
 };
@@ -198,6 +200,11 @@ export function SessionExerciseComparison({
               direction={getDirection(set.metricDelta)}
               label={`${set.metricLabel} ${formatSignedInteger(set.metricDelta)}`}
             />
+            {set.currentEffort || set.previousEffort ? (
+              <span className="text-xs text-muted">
+                {`Current ${set.currentEffort ?? 'not logged'} · Previous ${set.previousEffort ?? 'not logged'}`}
+              </span>
+            ) : null}
             {set.hasPr ? (
               <Badge className="border-transparent bg-[var(--color-accent-cream)] text-on-accent">
                 PR
@@ -262,11 +269,13 @@ function getExerciseComparison(
       const previousMetric = previousSet ? getPrimarySetMetric(previousSet, trackingType) : 0;
 
       return {
+        currentEffort: formatNativeEffort(set),
         currentMetric,
         currentWeight: set.weight ?? null,
         hasPr: isPersonalRecord(set, previousSets, trackingType),
         metricDelta: currentMetric - previousMetric,
         metricLabel,
+        previousEffort: previousSet ? formatNativeEffort(previousSet) : null,
         setNumber: set.setNumber,
         weightDelta:
           set.weight != null && previousSet?.weight != null
@@ -279,6 +288,12 @@ function getExerciseComparison(
       getExerciseVolumeFromSets(currentSets, trackingType) -
       getExerciseVolumeFromSets(previousSets, trackingType),
   } satisfies ExerciseComparison;
+}
+
+function formatNativeEffort(set: SessionSet) {
+  if (set.rir != null) return set.rir === 5 ? '5+ RIR' : `${set.rir} RIR`;
+  if (set.rpe != null) return `RPE ${set.rpe}`;
+  return null;
 }
 
 function isPersonalRecord(

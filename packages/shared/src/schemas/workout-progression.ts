@@ -2,6 +2,12 @@ import { z } from 'zod';
 
 import { dateSchema } from './common.js';
 import { exerciseTrackingTypeSchema } from './exercises.js';
+import {
+  nullableRirSchema,
+  nullableRpeSchema,
+  validateMutuallyExclusiveWorkoutEffort,
+  workoutEffortSourceSchema,
+} from './workout-effort.js';
 
 const idSchema = z.string().trim().min(1).max(255);
 const fingerprintSchema = z.string().regex(/^[a-f0-9]{64}$/);
@@ -135,7 +141,9 @@ export const workoutProgressionPerformanceSetSchema = z
     reps: z.number().int().nonnegative().nullable(),
     seconds: z.number().int().nonnegative().nullable(),
     distance: nullableMetricSchema,
-    rpe: z.number().min(1).max(10).finite().nullable(),
+    rpe: nullableRpeSchema,
+    rir: nullableRirSchema,
+    effortSource: workoutEffortSourceSchema,
     zone: z.number().int().min(1).max(5).nullable(),
     prescribed: workoutProgressionTargetSchema,
   })
@@ -151,7 +159,24 @@ export const workoutProgressionPerformanceSetSchema = z
       message: 'Completed and prescribed set identity must match',
       path: ['prescribed'],
     },
-  );
+  )
+  .superRefine((value, context) => {
+    validateMutuallyExclusiveWorkoutEffort(value, context);
+    const hasNativeRpe = value.rpe !== null && value.rir === null;
+    const hasNativeRir = value.rir !== null && value.rpe === null;
+    const hasNoEffort = value.rpe === null && value.rir === null;
+    if (
+      (value.effortSource === 'native_rpe' && !hasNativeRpe) ||
+      (value.effortSource === 'native_rir' && !hasNativeRir) ||
+      (value.effortSource === 'none' && !hasNoEffort)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Effort provenance must match the native RPE or RIR observation',
+        path: ['effortSource'],
+      });
+    }
+  });
 
 export const workoutProgressionPolicySourceSchema = z
   .object({
