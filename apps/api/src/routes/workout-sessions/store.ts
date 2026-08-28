@@ -1868,6 +1868,28 @@ export const swapWorkoutSessionExercise = async ({
       return false;
     }
 
+    const targetExercise = tx
+      .select({ trackingType: exercises.trackingType })
+      .from(exercises)
+      .where(eq(exercises.id, newExerciseId))
+      .limit(1)
+      .get();
+    const existingRir = tx
+      .select({ rir: sessionSets.rir })
+      .from(sessionSets)
+      .where(
+        and(
+          eq(sessionSets.sessionId, sessionId),
+          eq(sessionSets.exerciseId, exerciseId),
+          isNotNull(sessionSets.rir),
+        ),
+      )
+      .limit(1)
+      .get();
+    if (existingRir) {
+      assertRirSupported(existingRir.rir, targetExercise?.trackingType ?? null);
+    }
+
     const updateResult = tx
       .update(sessionSets)
       .set({

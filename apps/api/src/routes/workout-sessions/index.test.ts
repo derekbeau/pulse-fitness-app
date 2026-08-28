@@ -1434,6 +1434,62 @@ describe('workout session routes', () => {
     ]);
   });
 
+  it('rejects JWT and AgentToken swaps that would retain RIR on unsupported tracking', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const agentToken = seedAgentToken('user-1', 'swap-rir-agent-token');
+
+    for (const [suffix, headers] of [
+      ['jwt', createAuthorizationHeader(authToken)],
+      ['agent', createAgentTokenHeader(agentToken)],
+    ] as const) {
+      const sessionId = `session-swap-rir-${suffix}`;
+      const setId = `set-swap-rir-${suffix}`;
+      seedWorkoutSession({
+        id: sessionId,
+        userId: 'user-1',
+        name: 'RIR swap guard',
+        date: '2026-03-12',
+        status: 'in-progress',
+        startedAt: 1_700_000_000_000,
+      });
+      seedSessionSet({
+        id: setId,
+        sessionId,
+        exerciseId: 'global-bench-press',
+        setNumber: 1,
+        weight: 185,
+        reps: 8,
+        rir: 2,
+        section: 'main',
+      });
+
+      const response = await context.app.inject({
+        method: 'PATCH',
+        url: `/api/v1/workout-sessions/${sessionId}/exercises/global-bench-press/swap`,
+        headers,
+        payload: { newExerciseId: 'user-1-plank' },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'RIR_UNSUPPORTED_TRACKING_TYPE',
+          message: 'RIR is supported only for weight-and-reps, bodyweight-reps, and reps-only sets',
+        },
+      });
+      expect(
+        context.db
+          .select({ exerciseId: sessionSets.exerciseId, rir: sessionSets.rir })
+          .from(sessionSets)
+          .where(eq(sessionSets.id, setId))
+          .get(),
+      ).toEqual({ exerciseId: 'global-bench-press', rir: 2 });
+    }
+  });
+
   it('rejects swaps for completed sessions', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },

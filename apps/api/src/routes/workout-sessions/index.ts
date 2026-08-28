@@ -2283,12 +2283,20 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      const swapped = await swapWorkoutSessionExercise({
-        sessionId: request.params.id,
-        userId: request.userId,
-        exerciseId: request.params.exerciseId,
-        newExerciseId: request.body.newExerciseId,
-      });
+      let swapped;
+      try {
+        swapped = await swapWorkoutSessionExercise({
+          sessionId: request.params.id,
+          userId: request.userId,
+          exerciseId: request.params.exerciseId,
+          newExerciseId: request.body.newExerciseId,
+        });
+      } catch (error) {
+        if (error instanceof SessionSetRirUnsupportedError) {
+          return sendError(reply, 400, 'RIR_UNSUPPORTED_TRACKING_TYPE', error.message);
+        }
+        throw error;
+      }
       if (!swapped) {
         return sendError(
           reply,
