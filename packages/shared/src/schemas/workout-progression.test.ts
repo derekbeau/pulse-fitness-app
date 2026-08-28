@@ -116,12 +116,12 @@ describe('workout progression schemas', () => {
     ).toThrow();
   });
 
-  it('keeps muscle analytics sources typed and requires a live calendar zone', () => {
+  it('keeps muscle analytics sources typed while allowing server-owned live dates', () => {
     expect(workoutMuscleAnalyticsQuerySchema.parse({ timeZone: 'UTC' })).toEqual({
       range: '30d',
       timeZone: 'UTC',
     });
-    expect(() => workoutMuscleAnalyticsQuerySchema.parse({})).toThrow();
+    expect(workoutMuscleAnalyticsQuerySchema.parse({})).toEqual({ range: '30d' });
     expect(() => workoutMuscleAnalyticsQuerySchema.parse({ timeZone: 'Detroit' })).toThrow();
 
     const analytics = {
