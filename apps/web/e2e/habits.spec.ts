@@ -15,6 +15,7 @@ async function seedTestUser() {
     const response = await apiContext.post('/api/v1/auth/register', {
       data: {
         password: testPassword,
+        timeZone: 'America/Detroit',
         username: testUsername,
       },
     });

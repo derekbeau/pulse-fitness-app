@@ -49,6 +49,7 @@ describe('WeeklyHabitDatePicker', () => {
         onDateSelect={vi.fn()}
         onWeekChange={vi.fn()}
         selectedDate={new Date('2026-03-06T00:00:00')}
+        today={new Date('2026-03-06T00:00:00')}
         visibleWeekStart={new Date('2026-03-02T00:00:00')}
       />,
     );
@@ -71,6 +72,7 @@ describe('WeeklyHabitDatePicker', () => {
         onDateSelect={vi.fn()}
         onWeekChange={vi.fn()}
         selectedDate={new Date('2026-03-06T00:00:00')}
+        today={new Date('2026-03-06T00:00:00')}
         visibleWeekStart={new Date('2026-03-02T00:00:00')}
       />,
     );
@@ -83,15 +85,15 @@ describe('WeeklyHabitDatePicker', () => {
     expect(within(partialDone).getByText('2/4')).toBeInTheDocument();
     expect(within(allDone).getByText('4/4')).toBeInTheDocument();
 
-    expect(
-      noneDone.querySelector('[data-slot="habit-calendar-completion-dot"]'),
-    ).toHaveClass('bg-slate-400');
-    expect(
-      partialDone.querySelector('[data-slot="habit-calendar-completion-dot"]'),
-    ).toHaveClass('bg-amber-500');
-    expect(
-      allDone.querySelector('[data-slot="habit-calendar-completion-dot"]'),
-    ).toHaveClass('bg-emerald-500');
+    expect(noneDone.querySelector('[data-slot="habit-calendar-completion-dot"]')).toHaveClass(
+      'bg-slate-400',
+    );
+    expect(partialDone.querySelector('[data-slot="habit-calendar-completion-dot"]')).toHaveClass(
+      'bg-amber-500',
+    );
+    expect(allDone.querySelector('[data-slot="habit-calendar-completion-dot"]')).toHaveClass(
+      'bg-emerald-500',
+    );
   });
 
   it('navigates to previous and next weeks', () => {
@@ -103,6 +105,7 @@ describe('WeeklyHabitDatePicker', () => {
         onDateSelect={vi.fn()}
         onWeekChange={onWeekChange}
         selectedDate={new Date('2026-03-06T00:00:00')}
+        today={new Date('2026-03-06T00:00:00')}
         visibleWeekStart={new Date('2026-03-02T00:00:00')}
       />,
     );
@@ -116,6 +119,7 @@ describe('WeeklyHabitDatePicker', () => {
         onDateSelect={vi.fn()}
         onWeekChange={onWeekChange}
         selectedDate={new Date('2026-03-06T00:00:00')}
+        today={new Date('2026-03-06T00:00:00')}
         visibleWeekStart={new Date('2026-02-23T00:00:00')}
       />,
     );
@@ -130,6 +134,7 @@ describe('WeeklyHabitDatePicker', () => {
         onDateSelect={vi.fn()}
         onWeekChange={onWeekChange}
         selectedDate={new Date('2026-03-06T00:00:00')}
+        today={new Date('2026-03-06T00:00:00')}
         visibleWeekStart={new Date('2026-03-02T00:00:00')}
       />,
     );
@@ -145,6 +150,7 @@ describe('WeeklyHabitDatePicker', () => {
         onDateSelect={onDateSelect}
         onWeekChange={vi.fn()}
         selectedDate={new Date('2026-03-06T00:00:00')}
+        today={new Date('2026-03-06T00:00:00')}
         visibleWeekStart={new Date('2026-03-02T00:00:00')}
       />,
     );

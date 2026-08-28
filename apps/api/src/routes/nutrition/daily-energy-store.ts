@@ -24,7 +24,7 @@ import {
 import { getDateKeyInTimeZone } from '../adaptive-nutrition/analytics-store.js';
 import { endOfLocalDateExclusive } from '../adaptive-nutrition/goal-trajectory-store.js';
 import { getApplicationNow } from '../../lib/clock.js';
-import { resolveUserPreferenceTimeZone } from '../../lib/user-time-zone.js';
+import { resolveUserTimeZone, UserTimeZoneRequiredError } from '../../lib/user-time-zone.js';
 
 type NutritionDatabase = BetterSQLite3Database<typeof schema>;
 
@@ -146,9 +146,8 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
       .where(eq(users.id, userId))
       .limit(1)
       .get();
-    const fallbackTimeZone = resolveUserPreferenceTimeZone(user?.preferences ?? null);
     const program = db
-      .select({ id: adaptiveNutritionPrograms.id })
+      .select({ id: adaptiveNutritionPrograms.id, timeZone: adaptiveNutritionPrograms.timeZone })
       .from(adaptiveNutritionPrograms)
       .where(eq(adaptiveNutritionPrograms.userId, userId))
       .limit(1)
@@ -163,9 +162,14 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
         })
       : null;
     const latestProgramRevision = endpointProgramRevisions?.latest;
+    const resolvedTimeZone = resolveUserTimeZone({
+      preferences: user?.preferences ?? null,
+      programTimeZone: latestProgramRevision?.snapshot.timeZone ?? program?.timeZone,
+    });
+    if (!resolvedTimeZone) throw new UserTimeZoneRequiredError();
     const latestToday = latestProgramRevision
       ? getDateKeyInTimeZone(currentInstant, latestProgramRevision.snapshot.timeZone)
-      : getDateKeyInTimeZone(currentInstant, fallbackTimeZone);
+      : getDateKeyInTimeZone(currentInstant, resolvedTimeZone.timeZone);
     const selectedProgramRevisions = latestProgramRevision
       ? localDate >= latestToday
         ? {
@@ -181,7 +185,7 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
           })
       : undefined;
     const effectiveProgramRevision = selectedProgramRevisions?.effective;
-    const timeZone = effectiveProgramRevision?.snapshot.timeZone ?? fallbackTimeZone;
+    const timeZone = effectiveProgramRevision?.snapshot.timeZone ?? resolvedTimeZone.timeZone;
     const todayLocalDate = getDateKeyInTimeZone(currentInstant, timeZone);
     const completedDayCutoff = addCalendarDays(todayLocalDate, -1);
     const latestAvailableFactDate = localDate > todayLocalDate ? todayLocalDate : localDate;

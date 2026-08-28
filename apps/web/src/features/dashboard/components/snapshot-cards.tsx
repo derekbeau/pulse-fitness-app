@@ -17,7 +17,7 @@ import { formatCalories, formatGrams, formatWeight } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 type SnapshotCardsProps = {
-  snapshot?: DashboardSnapshot;
+  snapshot: DashboardSnapshot;
 };
 
 const notConfiguredCardClassName =
@@ -75,12 +75,8 @@ export const calculateProteinFloorPercent = (
   return Math.min(99, Math.floor((actual / floor) * 100));
 };
 
-const formatWeightValue = (snapshot: DashboardSnapshot | undefined) => {
-  if (!snapshot) {
-    return '--';
-  }
-
-  if (!snapshot?.weight) {
+const formatWeightValue = (snapshot: DashboardSnapshot) => {
+  if (!snapshot.weight) {
     return 'Log weight';
   }
 
@@ -161,11 +157,11 @@ const getWorkoutStatusBadge = (status: DashboardWorkoutSnapshot['status']) => {
 };
 
 export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
-  const hasWeight = !!snapshot?.weight;
+  const hasWeight = !!snapshot.weight;
   const weightLabel =
-    snapshot?.weight && snapshot.weight.trendValue === null ? 'Latest Weight' : 'Trend Weight';
-  const hasCaloriesTarget = (snapshot?.macros.target.calories ?? 0) > 0;
-  const hasHabits = (snapshot?.habits.total ?? 0) > 0;
+    snapshot.weight && snapshot.weight.trendValue === null ? 'Latest Weight' : 'Trend Weight';
+  const hasCaloriesTarget = snapshot.macros.target.calories > 0;
+  const hasHabits = snapshot.habits.total > 0;
   const habitCompletionPercent = snapshot
     ? calculateHabitCompletionPercent(snapshot.habits.completed, snapshot.habits.total)
     : 0;
@@ -173,7 +169,7 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
     snapshot && hasCaloriesTarget
       ? Math.round((snapshot.macros.actual.calories / snapshot.macros.target.calories) * 100)
       : 0;
-  const proteinPercent = snapshot ? calculateProteinFloorPercent(snapshot.macros.proteinFloor) : 0;
+  const proteinPercent = calculateProteinFloorPercent(snapshot.macros.proteinFloor);
 
   const weightValue = formatWeightValue(snapshot);
   const caloriesValueText = snapshot

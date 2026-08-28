@@ -36,12 +36,13 @@ import { Label } from '@/components/ui/label';
 import { useDeleteHabit, useReorderHabits, useUpdateHabit } from '@/features/habits/api/habits';
 import { INDEFINITE_PAUSE_DATE } from '@/features/habits/lib/habit-constants';
 import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboard-config';
-import { addDays, getToday, toDateKey } from '@/lib/date';
+import { addDays, toDateKey } from '@/lib/date';
 
 type HabitCardMenuProps = {
   habit: Habit;
   habits: Habit[];
   onEdit: (habit: Habit) => void;
+  todayDate: Date;
 };
 
 function moveHabit(list: Habit[], fromIndex: number, toIndex: number) {
@@ -53,8 +54,8 @@ function moveHabit(list: Habit[], fromIndex: number, toIndex: number) {
   return nextList;
 }
 
-export function HabitCardMenu({ habit, habits, onEdit }: HabitCardMenuProps) {
-  const today = getToday();
+export function HabitCardMenu({ habit, habits, onEdit, todayDate }: HabitCardMenuProps) {
+  const today = todayDate;
   const todayKey = toDateKey(today);
   const defaultPauseUntil = toDateKey(addDays(today, 7));
   const { confirm, dialog } = useConfirmation();

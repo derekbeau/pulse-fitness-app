@@ -60,6 +60,7 @@ const mockedUseReorderHabits = vi.mocked(useReorderHabits);
 const mockedUseUpdateHabit = vi.mocked(useUpdateHabit);
 const mockedUseDashboardConfig = vi.mocked(useDashboardConfig);
 const mockedUseSaveDashboardConfig = vi.mocked(useSaveDashboardConfig);
+const todayDate = new Date('2026-03-06T00:00:00');
 
 function createMutationMock() {
   return {
@@ -182,7 +183,9 @@ describe('HabitCardMenu', () => {
   it('calls onEdit when edit is selected', async () => {
     const sleepHabit = getHabitById('sleep');
     const onEdit = vi.fn();
-    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={onEdit} />);
+    render(
+      <HabitCardMenu habit={sleepHabit} habits={habits} onEdit={onEdit} todayDate={todayDate} />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 
@@ -196,7 +199,9 @@ describe('HabitCardMenu', () => {
       saveDashboardConfigMutation as unknown as ReturnType<typeof useSaveDashboardConfig>,
     );
 
-    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+    render(
+      <HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} todayDate={todayDate} />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Show on dashboard' }));
 
@@ -214,7 +219,9 @@ describe('HabitCardMenu', () => {
       saveDashboardConfigMutation as unknown as ReturnType<typeof useSaveDashboardConfig>,
     );
 
-    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+    render(
+      <HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} todayDate={todayDate} />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Show daily status on dashboard' }));
 
@@ -239,7 +246,9 @@ describe('HabitCardMenu', () => {
       saveDashboardConfigMutation as unknown as ReturnType<typeof useSaveDashboardConfig>,
     );
 
-    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+    render(
+      <HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} todayDate={todayDate} />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove daily status from dashboard' }));
 
@@ -260,7 +269,9 @@ describe('HabitCardMenu', () => {
       isLoading: false,
     } as unknown as ReturnType<typeof useDashboardConfig>);
 
-    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+    render(
+      <HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} todayDate={todayDate} />,
+    );
 
     expect(
       screen.getByRole('button', { name: 'Remove daily status from dashboard' }),
@@ -274,7 +285,9 @@ describe('HabitCardMenu', () => {
       reorderMutation as unknown as ReturnType<typeof useReorderHabits>,
     );
 
-    render(<HabitCardMenu habit={hydrateHabit} habits={habits} onEdit={vi.fn()} />);
+    render(
+      <HabitCardMenu habit={hydrateHabit} habits={habits} onEdit={vi.fn()} todayDate={todayDate} />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Move down' }));
 
@@ -294,7 +307,9 @@ describe('HabitCardMenu', () => {
       updateMutation as unknown as ReturnType<typeof useUpdateHabit>,
     );
 
-    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+    render(
+      <HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} todayDate={todayDate} />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Deactivate' }));
 
@@ -315,7 +330,9 @@ describe('HabitCardMenu', () => {
       updateMutation as unknown as ReturnType<typeof useUpdateHabit>,
     );
 
-    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+    render(
+      <HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} todayDate={todayDate} />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Pause scheduling' }));
     expect(screen.getByRole('heading', { name: 'Pause scheduling' })).toBeInTheDocument();
@@ -350,7 +367,9 @@ describe('HabitCardMenu', () => {
 
   it('disables save pause when a past date is typed manually', async () => {
     const sleepHabit = getHabitById('sleep');
-    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+    render(
+      <HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} todayDate={todayDate} />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Pause scheduling' }));
 
@@ -383,7 +402,9 @@ describe('HabitCardMenu', () => {
       updateMutation as unknown as ReturnType<typeof useUpdateHabit>,
     );
 
-    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+    render(
+      <HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} todayDate={todayDate} />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Pause scheduling' }));
 
@@ -402,7 +423,9 @@ describe('HabitCardMenu', () => {
       updateMutation as unknown as ReturnType<typeof useUpdateHabit>,
     );
 
-    render(<HabitCardMenu habit={pausedHabit} habits={habits} onEdit={vi.fn()} />);
+    render(
+      <HabitCardMenu habit={pausedHabit} habits={habits} onEdit={vi.fn()} todayDate={todayDate} />,
+    );
 
     expect(screen.queryByRole('button', { name: 'Pause scheduling' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Resume scheduling' }));
@@ -424,7 +447,9 @@ describe('HabitCardMenu', () => {
       deleteMutation as unknown as ReturnType<typeof useDeleteHabit>,
     );
 
-    render(<HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} />);
+    render(
+      <HabitCardMenu habit={sleepHabit} habits={habits} onEdit={vi.fn()} todayDate={todayDate} />,
+    );
 
     const menuDeleteButton = screen.getAllByRole('button', { name: 'Delete' })[0];
     if (!menuDeleteButton) {

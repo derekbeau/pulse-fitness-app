@@ -48,4 +48,17 @@ describe('NutritionDayStatusControl', () => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({ date: '2026-08-13', status: 'complete' }),
     );
   });
+
+  it('fails closed when date authority becomes stale after confirmation opens', () => {
+    const { rerender } = render(
+      <NutritionDayStatusControl date="2026-08-13" isToday status="partial" />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Complete/ }));
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+    rerender(<NutritionDayStatusControl date="2026-08-13" disabled isToday status="partial" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Mark complete' }));
+
+    expect(mocks.mutateAsync).not.toHaveBeenCalled();
+  });
 });

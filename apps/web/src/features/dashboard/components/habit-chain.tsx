@@ -12,14 +12,16 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { dashboardDrilldownCardClassName } from '@/features/dashboard/components/dashboard-drilldown-link';
 import { HabitChainDot, type HabitDotEntry } from '@/features/habits/components/habit-chain-dot';
 import { HabitDayModal } from '@/features/habits/components/habit-day-modal';
-import { addDays, formatDateKey, getToday, toDateKey } from '@/lib/date';
+import { addDays, toDateKey } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 type HabitChainProps = {
+  dateAuthorityLocked?: boolean;
   habitIds?: string[];
   habits?: HabitRecord[];
   entries?: HabitEntryRecord[];
   endDate?: string;
+  todayDate: string;
 };
 
 type HabitChainHabit = {
@@ -76,6 +78,7 @@ const buildHabitChainHabits = (
   habits: HabitRecord[],
   entries: HabitEntryRecord[],
   endDate: string,
+  todayKey: string,
 ): HabitChainHabit[] => {
   const entriesByHabit = new Map<string, HabitEntryRecord[]>();
   const entriesByHabitByDate = new Map<string, Map<string, HabitEntryRecord>>();
@@ -92,7 +95,6 @@ const buildHabitChainHabits = (
   });
 
   const rangeEndDate = new Date(`${endDate}T00:00:00`);
-  const todayKey = formatDateKey(getToday());
   const dates = Array.from({ length: DAYS_TO_DISPLAY }, (_, index) =>
     toDateKey(addDays(rangeEndDate, index - (DAYS_TO_DISPLAY - 1))),
   );
@@ -104,6 +106,19 @@ const buildHabitChainHabits = (
     const chainEntries: HabitDotEntry[] = dates.map((date) => {
       const isFutureDate = date > todayKey;
       const existingEntry = entriesByDate.get(date) ?? null;
+
+      // Explicit historical entries are canonical even when a fixture/import records an
+      // occurrence before the mutable habit row's creation timestamp.
+      if (existingEntry?.completed === true && !isFutureDate) {
+        return {
+          date,
+          entry: existingEntry,
+          isFutureDate: false,
+          isScheduled: true,
+          status: 'completed' as const,
+          completionPercent: getCompletionPercent(habit, existingEntry),
+        };
+      }
 
       if (date < createdAtDateKey || isFutureDate) {
         return {
@@ -126,17 +141,6 @@ const buildHabitChainHabits = (
           isScheduled,
           status: 'not_scheduled' as const,
           completionPercent: 0,
-        };
-      }
-
-      if (existingEntry?.completed === true) {
-        return {
-          date,
-          entry: existingEntry,
-          isFutureDate: false,
-          isScheduled,
-          status: 'completed' as const,
-          completionPercent: getCompletionPercent(habit, existingEntry),
         };
       }
 
@@ -173,13 +177,20 @@ const buildHabitChainHabits = (
   });
 };
 
-export function HabitChain({ habitIds, habits = [], entries = [], endDate }: HabitChainProps) {
+export function HabitChain({
+  dateAuthorityLocked = false,
+  habitIds,
+  habits = [],
+  entries = [],
+  endDate,
+  todayDate,
+}: HabitChainProps) {
   const [selectedDay, setSelectedDay] = useState<{
     entry: HabitDotEntry;
     habit: HabitRecord;
   } | null>(null);
-  const selectedDateKey = endDate ?? formatDateKey(getToday());
-  const resolvedHabits = buildHabitChainHabits(habits, entries, selectedDateKey);
+  const selectedDateKey = endDate ?? todayDate;
+  const resolvedHabits = buildHabitChainHabits(habits, entries, selectedDateKey, todayDate);
   const visibleHabits = getVisibleHabits(resolvedHabits, habitIds);
 
   if (visibleHabits.length === 0) {
@@ -242,6 +253,7 @@ export function HabitChain({ habitIds, habits = [], entries = [], endDate }: Hab
           habit={selectedDay.habit}
           isOpen
           isScheduled={selectedDay.entry.isScheduled}
+          dateAuthorityLocked={dateAuthorityLocked}
           key={`${selectedDay.habit.id}-${selectedDay.entry.date}-${selectedDay.entry.entry?.id ?? 'new'}`}
           onOpenChange={(open) => {
             if (!open) {
@@ -249,6 +261,7 @@ export function HabitChain({ habitIds, habits = [], entries = [], endDate }: Hab
             }
           }}
           status={selectedDay.entry.status}
+          todayDate={todayDate}
         />
       ) : null}
     </>

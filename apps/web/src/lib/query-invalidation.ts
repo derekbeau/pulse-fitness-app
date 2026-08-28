@@ -12,6 +12,22 @@ import { foodQueryKeys } from '@/features/foods/api/keys';
 export const adaptiveNutritionQueryKey = ['adaptive-nutrition'] as const;
 export const dataQualityQueryKey = ['data-quality'] as const;
 export const nutritionTargetQueryKey = ['nutrition-targets'] as const;
+export const weightQueryKey = ['weight'] as const;
+export const scheduledWorkoutQueryKey = ['workouts', 'scheduled-workouts'] as const;
+
+const currentDayAuthorityQueryKeys = () =>
+  [
+    nutritionTargetQueryKey,
+    nutritionQueryKeys.all,
+    dashboardSnapshotQueryKeys.all,
+    dashboardWeightTrendQueryKeys.all,
+    macroTrendQueryKeys.all,
+    habitQueryKeys.list(),
+    habitQueryKeys.entryList(),
+    habitChainQueryKeys.all,
+    weightQueryKey,
+    scheduledWorkoutQueryKey,
+  ] as const satisfies readonly QueryKey[];
 
 /**
  * Query key convention:
@@ -32,7 +48,11 @@ export const crossFeatureInvalidationMap = {
   activeWorkoutSessionMutation: () =>
     [dashboardSnapshotQueryKeys.all, dataQualityQueryKey] as const satisfies readonly QueryKey[],
   adaptiveProgramMutation: () =>
-    [adaptiveNutritionQueryKey, dataQualityQueryKey] as const satisfies readonly QueryKey[],
+    [
+      adaptiveNutritionQueryKey,
+      dataQualityQueryKey,
+      ...currentDayAuthorityQueryKeys(),
+    ] as const satisfies readonly QueryKey[],
   adaptiveGoalMutation: () =>
     [adaptiveNutritionQueryKey, dataQualityQueryKey] as const satisfies readonly QueryKey[],
   adaptivePreviewMutation: () =>

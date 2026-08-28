@@ -78,6 +78,7 @@ describe('auth routes', () => {
           username: ' Derek ',
           password: 'super-secret-password',
           name: ' Derek ',
+          timeZone: 'America/Detroit',
         },
       });
 
@@ -124,6 +125,7 @@ describe('auth routes', () => {
         payload: {
           username: 'derek',
           password: 'super-secret-password',
+          timeZone: 'America/Detroit',
         },
       });
 

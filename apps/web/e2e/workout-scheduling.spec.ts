@@ -1,12 +1,18 @@
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
+import { adaptivePreviewFixtureContract } from './adaptive-preview-fixture-contract';
 import { apiBaseURL } from './test-env';
+
+test.use({ timezoneId: 'Pacific/Kiritimati' });
 
 const authTokenStorageKey = 'pulse-auth-token';
 const seedSuffix = Date.now();
+const serverNow = process.env.PULSE_TEST_NOW ?? adaptivePreviewFixtureContract.serverNow;
+const expectUtcNextDay = process.env.PULSE_EXPECT_UTC_NEXT_DAY === '1';
 
 const testUser = {
   username: `wsched-e2e-${seedSuffix}`,
   password: 'super-secret-password',
+  timeZone: 'America/Detroit',
 };
 
 const seededTemplate = {
@@ -14,7 +20,10 @@ const seededTemplate = {
 };
 
 let authToken = '';
+let agentToken = '';
+let agentTokenId = '';
 let seededTemplateId = '';
+let resolvedLocalDate = '';
 
 async function authenticatePage(page: Page) {
   await page.addInitScript(
@@ -25,24 +34,20 @@ async function authenticatePage(page: Page) {
   );
 }
 
-function toDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
+function addDays(dateKey: string, days: number) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const next = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1));
+  next.setUTCDate(next.getUTCDate() + days);
+  const nextYear = next.getUTCFullYear();
+  const nextMonth = `${next.getUTCMonth() + 1}`.padStart(2, '0');
+  const nextDay = `${next.getUTCDate()}`.padStart(2, '0');
+  return `${nextYear}-${nextMonth}-${nextDay}`;
 }
 
-function addDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
-function getDateRange() {
-  const today = new Date();
+function getDateRange(dateKey = resolvedLocalDate) {
   return {
-    from: toDateKey(addDays(today, -7)),
-    to: toDateKey(addDays(today, 14)),
+    from: addDays(dateKey, -7),
+    to: addDays(dateKey, 14),
   };
 }
 
@@ -134,6 +139,10 @@ function getScheduledCard(page: Page) {
 }
 
 test.describe.serial('workout scheduling flow', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(new Date(serverNow));
+  });
+
   test.beforeAll(async () => {
     const apiContext = await request.newContext({ baseURL: apiBaseURL });
 
@@ -168,6 +177,20 @@ test.describe.serial('workout scheduling flow', () => {
 
       const authorizedContext = await createAuthorizedApiContext();
       try {
+        const authorityResponse = await authorizedContext.get('/api/v1/adaptive-nutrition');
+        expect(authorityResponse.ok(), await authorityResponse.text()).toBeTruthy();
+        const authority = (await authorityResponse.json()) as {
+          data: { localDate: string; timeZone: string; timeZoneSource: string };
+        };
+        expect(authority.data).toMatchObject({
+          timeZone: 'America/Detroit',
+          timeZoneSource: 'user_profile',
+        });
+        resolvedLocalDate = authority.data.localDate;
+        expect(new Date(serverNow).toISOString().slice(0, 10)).toBe(
+          expectUtcNextDay ? addDays(resolvedLocalDate, 1) : resolvedLocalDate,
+        );
+
         const exerciseResponse = await authorizedContext.post('/api/v1/exercises', {
           data: {
             category: 'compound',
@@ -211,11 +234,32 @@ test.describe.serial('workout scheduling flow', () => {
           };
         };
         seededTemplateId = templatePayload.data.id;
+
+        const agentTokenResponse = await authorizedContext.post('/api/v1/agent-tokens', {
+          data: { name: `Workout scheduling ${seedSuffix}` },
+        });
+        expect(agentTokenResponse.status(), await agentTokenResponse.text()).toBe(201);
+        const agentTokenPayload = (await agentTokenResponse.json()) as {
+          data: { id: string; token: string };
+        };
+        agentToken = agentTokenPayload.data.token;
+        agentTokenId = agentTokenPayload.data.id;
       } finally {
         await authorizedContext.dispose();
       }
     } finally {
       await apiContext.dispose();
+    }
+  });
+
+  test.afterAll(async () => {
+    if (!authToken || !agentTokenId) return;
+    const authorizedContext = await createAuthorizedApiContext();
+    try {
+      const response = await authorizedContext.delete(`/api/v1/agent-tokens/${agentTokenId}`);
+      expect(response.ok(), await response.text()).toBeTruthy();
+    } finally {
+      await authorizedContext.dispose();
     }
   });
 
@@ -239,7 +283,7 @@ test.describe.serial('workout scheduling flow', () => {
   test('reschedules a scheduled workout', async ({ page }) => {
     test.setTimeout(90_000);
 
-    const secondDate = toDateKey(addDays(new Date(), 4));
+    const secondDate = addDays(resolvedLocalDate, 4);
     const range = getDateRange();
 
     await authenticatePage(page);
@@ -310,7 +354,7 @@ test.describe.serial('workout scheduling flow', () => {
   }) => {
     test.setTimeout(90_000);
 
-    const today = toDateKey(new Date());
+    const today = resolvedLocalDate;
     const range = getDateRange();
 
     await authenticatePage(page);
@@ -352,6 +396,26 @@ test.describe.serial('workout scheduling flow', () => {
           status: 'scheduled',
         }),
       );
+
+      const contextResponse = await apiContext.get('/api/v1/context', {
+        headers: { Authorization: `AgentToken ${agentToken}` },
+      });
+      expect(contextResponse.ok(), await contextResponse.text()).toBeTruthy();
+      const context = (await contextResponse.json()) as {
+        data: { scheduledWorkouts: Array<{ date: string; templateName: string }> };
+      };
+      expect(context.data.scheduledWorkouts).toContainEqual({
+        date: today,
+        templateName: seededTemplate.name,
+      });
+
+      await page.goto('/nutrition?view=log', { waitUntil: 'networkidle' });
+      await expect(page.getByText(/Sunday, August 23/).first()).toBeVisible();
+
+      await page.goto('/habits', { waitUntil: 'networkidle' });
+      await expect(
+        page.locator(`[data-slot="habit-calendar-day"][data-date="${today}"]`),
+      ).toHaveAttribute('aria-pressed', 'true');
 
       await page.goto('/');
       const dashboardWorkoutLink = page.getByRole('link', {

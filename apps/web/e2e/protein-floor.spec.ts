@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import type { DailyEnergyAdherence } from '@pulse/shared';
+import type { DailyEnergyAdherence, DashboardSnapshot } from '@pulse/shared';
 import {
   expect,
   request,
@@ -32,14 +32,51 @@ function addDays(date: string, amount: number) {
   return value.toISOString().slice(0, 10);
 }
 
+function snapshotWithProtein(
+  snapshot: DashboardSnapshot,
+  date: string,
+  actualProteinGrams: number,
+): DashboardSnapshot {
+  const proteinFloorGrams = snapshot.macros.proteinFloor.proteinFloorGrams ?? 160;
+  const remainingToFloorGrams = Math.max(proteinFloorGrams - actualProteinGrams, 0);
+  const amountAboveFloorGrams = Math.max(actualProteinGrams - proteinFloorGrams, 0);
+
+  return {
+    ...snapshot,
+    date,
+    weight: null,
+    workout: null,
+    macros: {
+      ...snapshot.macros,
+      actual: { ...snapshot.macros.actual, protein: actualProteinGrams },
+      target: { ...snapshot.macros.target, protein: proteinFloorGrams },
+      proteinFloor: {
+        actualProteinGrams,
+        proteinFloorGrams,
+        remainingToFloorGrams,
+        amountAboveFloorGrams,
+        state: remainingToFloorGrams > 0 ? 'below_floor' : 'floor_met',
+        isFinal: true,
+      },
+    },
+  };
+}
+
+async function selectDashboardDate(page: Page, date: string) {
+  await page.getByRole('button', { name: 'Change date' }).click();
+  await page.locator(`[data-slot="calendar-day"][data-date="${date}"]`).click();
+}
+
 function monitorPage(
   page: Page,
   expectedResponses: string[] = [],
   expectedConsoleErrors: string[] = [],
+  expectedRequestFailures: string[] = [],
 ) {
   const failures: string[] = [];
   const remainingExpectedResponses = [...expectedResponses];
   const remainingExpectedConsoleErrors = [...expectedConsoleErrors];
+  const remainingExpectedRequestFailures = [...expectedRequestFailures];
   page.on('console', (message) => {
     if (message.type() === 'warning' || message.type() === 'error') {
       const expectedIndex = remainingExpectedConsoleErrors.indexOf(message.text());
@@ -51,11 +88,15 @@ function monitorPage(
     }
   });
   page.on('pageerror', (error) => failures.push(`pageerror: ${error.message}`));
-  page.on('requestfailed', (failed) =>
-    failures.push(
-      `requestfailed: ${failed.method()} ${failed.url()} ${failed.failure()?.errorText ?? ''}`,
-    ),
-  );
+  page.on('requestfailed', (failed) => {
+    const signature = `${failed.method()} ${new URL(failed.url()).pathname}${new URL(failed.url()).search} ${failed.failure()?.errorText ?? ''}`;
+    const expectedIndex = remainingExpectedRequestFailures.indexOf(signature);
+    if (expectedIndex >= 0) {
+      remainingExpectedRequestFailures.splice(expectedIndex, 1);
+      return;
+    }
+    failures.push(`requestfailed: ${signature}`);
+  });
   page.on('response', (response) => {
     if (response.status() < 400) return;
     const signature = `${response.request().method()} ${new URL(response.url()).pathname} ${response.status()}`;
@@ -69,6 +110,7 @@ function monitorPage(
   return () => {
     expect(remainingExpectedResponses, 'expected browser responses').toEqual([]);
     expect(remainingExpectedConsoleErrors, 'expected browser console errors').toEqual([]);
+    expect(remainingExpectedRequestFailures, 'expected browser request failures').toEqual([]);
     expect(failures, 'browser diagnostics').toEqual([]);
   };
 }
@@ -345,6 +387,317 @@ test.describe('Protein minimum floor', () => {
     ).toHaveCount(0);
     await expect(proteinCard(page)).toContainText('160g');
     await expect(proteinCard(page)).toContainText('Minimum met');
+    await page.waitForLoadState('networkidle');
+    diagnostics();
+  });
+
+  test('fails closed when Nutrition date authority is unavailable and recovers exactly', async ({
+    page,
+  }) => {
+    const authorityPath = '/api/v1/adaptive-nutrition';
+    const diagnostics = monitorPage(
+      page,
+      [`GET ${authorityPath} 503`, `GET ${authorityPath} 503`],
+      [
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      ],
+    );
+    let failuresRemaining = 2;
+    let dateBoundRequests = 0;
+    await page.route(`**${authorityPath}`, async (route) => {
+      if (failuresRemaining > 0) {
+        failuresRemaining -= 1;
+        await route.fulfill({
+          body: JSON.stringify({
+            error: { code: 'DATE_AUTHORITY_FAILURE', message: 'Expected preview failure' },
+          }),
+          contentType: 'application/json',
+          status: 503,
+        });
+        return;
+      }
+      await route.continue();
+    });
+    page.on('request', (request) => {
+      if (
+        /\/api\/v1\/nutrition\/\d{4}-\d{2}-\d{2}\/energy-adherence$/.test(
+          new URL(request.url()).pathname,
+        )
+      ) {
+        dateBoundRequests += 1;
+      }
+    });
+
+    await page.setViewportSize({ width: 320, height: 1000 });
+    await setAuthenticatedSession(page, token);
+    await page.goto('/nutrition?view=log', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('alert')).toContainText('Nutrition date could not be loaded');
+    await expect(page.getByText('Protein minimum unavailable')).toHaveCount(0);
+    expect(dateBoundRequests).toBe(0);
+
+    const retry = page.getByRole('button', { name: 'Retry nutrition date' });
+    const retryBox = await retry.boundingBox();
+    expect(retryBox?.height).toBeGreaterThanOrEqual(44);
+    const recoveredAuthority = page.waitForResponse(
+      (response) => response.url().endsWith(authorityPath) && response.status() === 200,
+    );
+    const recoveredEnergy = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/nutrition/${fixtureDate}/energy-adherence`) &&
+        response.status() === 200,
+    );
+    await retry.focus();
+    await page.keyboard.press('Enter');
+    await recoveredAuthority;
+    await recoveredEnergy;
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(proteinCard(page)).toContainText('Minimum met');
+    await expectNoOverflow(page, 320);
+    await page.waitForLoadState('networkidle');
+    diagnostics();
+  });
+
+  test('does not fabricate Dashboard facts when its exact snapshot fails', async ({ page }) => {
+    const snapshotPath = `/api/v1/dashboard/snapshot?date=${fixtureDate}`;
+    const diagnostics = monitorPage(
+      page,
+      [`GET /api/v1/dashboard/snapshot 503`, `GET /api/v1/dashboard/snapshot 503`],
+      [
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      ],
+    );
+    let failuresRemaining = 2;
+    await page.route(`**${snapshotPath}`, async (route) => {
+      if (failuresRemaining > 0) {
+        failuresRemaining -= 1;
+        await route.fulfill({
+          body: JSON.stringify({
+            error: { code: 'SNAPSHOT_FAILURE', message: 'Expected preview failure' },
+          }),
+          contentType: 'application/json',
+          status: 503,
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.setViewportSize({ width: 768, height: 1000 });
+    await setAuthenticatedSession(page, token);
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('alert')).toContainText('Dashboard snapshot could not be loaded');
+    await expect(page.getByText('Protein minimum unavailable')).toHaveCount(0);
+    await expect(page.getByText('Rest Day')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Log weight/i })).toHaveCount(0);
+
+    const recovered = page.waitForResponse(
+      (response) => response.url().endsWith(snapshotPath) && response.status() === 200,
+    );
+    await page.getByRole('button', { name: 'Retry dashboard snapshot' }).click();
+    await recovered;
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByText(/160g logged/).first()).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
+    diagnostics();
+  });
+
+  test('retains an exact Dashboard snapshot after background refresh failure and recovers', async ({
+    page,
+  }) => {
+    const snapshotPath = `/api/v1/dashboard/snapshot?date=${fixtureDate}`;
+    const diagnostics = monitorPage(
+      page,
+      [`GET /api/v1/dashboard/snapshot 503`, `GET /api/v1/dashboard/snapshot 503`],
+      [
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      ],
+    );
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await setAuthenticatedSession(page, token);
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await expect(page.getByText(/160g logged/).first()).toBeVisible();
+
+    let failuresRemaining = 2;
+    await page.route(`**${snapshotPath}`, async (route) => {
+      if (failuresRemaining > 0) {
+        failuresRemaining -= 1;
+        await route.fulfill({
+          body: JSON.stringify({
+            error: { code: 'SNAPSHOT_REFRESH_FAILURE', message: 'Expected refresh failure' },
+          }),
+          contentType: 'application/json',
+          status: 503,
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.clock.fastForward(25_000);
+    await expect(page.getByRole('alert')).toContainText('Dashboard snapshot refresh failed');
+    await expect(page.getByRole('alert')).toContainText('Showing the last verified data');
+    await expect(page.getByText(/160g logged/).first()).toBeVisible();
+    const weightCard = page.getByTestId('dashboard-log-weight-card');
+    await expect(weightCard.getByRole('button', { name: 'Log weight' })).toBeDisabled();
+
+    const recovered = page.waitForResponse(
+      (response) => response.url().endsWith(snapshotPath) && response.status() === 200,
+    );
+    await page.getByRole('button', { name: 'Retry dashboard snapshot' }).click();
+    await recovered;
+    await expect(page.getByText('Dashboard snapshot refresh failed')).toHaveCount(0);
+    await expect(weightCard.getByRole('button', { name: 'Log weight' })).toBeEnabled();
+    await page.waitForLoadState('networkidle');
+    diagnostics();
+  });
+
+  test('keeps rapid Dashboard date changes isolated and rejects a mismatched response', async ({
+    page,
+  }) => {
+    const baseResponse = await api.get(`/api/v1/dashboard/snapshot?date=${fixtureDate}`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(baseResponse.ok(), await baseResponse.text()).toBeTruthy();
+    const baseSnapshot = ((await baseResponse.json()) as { data: DashboardSnapshot }).data;
+    const intermediateDate = addDays(fixtureDate, -4);
+    const finalDate = addDays(fixtureDate, -6);
+    const intermediateSnapshot = snapshotWithProtein(baseSnapshot, intermediateDate, 111);
+    const finalSnapshot = snapshotWithProtein(baseSnapshot, finalDate, 133);
+    const intermediatePath = `/api/v1/dashboard/snapshot?date=${intermediateDate}`;
+    const finalPath = `/api/v1/dashboard/snapshot?date=${finalDate}`;
+    const diagnostics = monitorPage(page, [], [], [`GET ${intermediatePath} net::ERR_ABORTED`]);
+
+    let releaseIntermediate!: () => void;
+    const intermediateGate = new Promise<void>((resolvePromise) => {
+      releaseIntermediate = resolvePromise;
+    });
+    let markIntermediateStarted!: () => void;
+    const intermediateStarted = new Promise<void>((resolvePromise) => {
+      markIntermediateStarted = resolvePromise;
+    });
+    await page.route(`**${intermediatePath}`, async (route) => {
+      markIntermediateStarted();
+      await intermediateGate;
+      try {
+        await route.fulfill({
+          body: JSON.stringify({ data: intermediateSnapshot }),
+          contentType: 'application/json',
+          status: 200,
+        });
+      } catch {
+        // A superseded query may cancel before the deliberately late response is released.
+      }
+    });
+
+    let finalAttempts = 0;
+    let releaseFinal!: () => void;
+    const finalGate = new Promise<void>((resolvePromise) => {
+      releaseFinal = resolvePromise;
+    });
+    let markFinalRetryStarted!: () => void;
+    const finalRetryStarted = new Promise<void>((resolvePromise) => {
+      markFinalRetryStarted = resolvePromise;
+    });
+    await page.route(`**${finalPath}`, async (route) => {
+      finalAttempts += 1;
+      if (finalAttempts === 1) {
+        await route.fulfill({
+          body: JSON.stringify({ data: { ...finalSnapshot, date: intermediateDate } }),
+          contentType: 'application/json',
+          status: 200,
+        });
+        return;
+      }
+      markFinalRetryStarted();
+      await finalGate;
+      await route.fulfill({
+        body: JSON.stringify({ data: finalSnapshot }),
+        contentType: 'application/json',
+        status: 200,
+      });
+    });
+
+    await page.setViewportSize({ width: 768, height: 1000 });
+    await setAuthenticatedSession(page, token);
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await expect(page.getByText(/160g logged/).first()).toBeVisible();
+
+    await selectDashboardDate(page, intermediateDate);
+    await intermediateStarted;
+    await expect(page.getByLabel('Loading dashboard snapshots')).toBeVisible();
+    await selectDashboardDate(page, finalDate);
+    await page.clock.fastForward(2_000);
+    await finalRetryStarted;
+    await expect(page.getByLabel('Loading dashboard snapshots')).toBeVisible();
+    await expect(page.getByText(/111g logged/)).toHaveCount(0);
+    await expect(page.getByText(/160g logged/)).toHaveCount(0);
+
+    releaseIntermediate();
+    await expect(page.getByText(/111g logged/)).toHaveCount(0);
+    releaseFinal();
+    await expect(page.getByText(/133g logged/).first()).toBeVisible();
+    await expect(page.getByText(/27g to minimum/).first()).toBeVisible();
+    await expect(page.getByText(/111g logged/)).toHaveCount(0);
+    expect(finalAttempts).toBe(2);
+    await page.waitForLoadState('networkidle');
+    diagnostics();
+  });
+
+  test('retains verified Dashboard facts and locks writes after date refresh failure', async ({
+    page,
+  }) => {
+    const authorityPath = '/api/v1/adaptive-nutrition';
+    const diagnostics = monitorPage(
+      page,
+      [`GET ${authorityPath} 503`, `GET ${authorityPath} 503`],
+      [
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+        'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      ],
+    );
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await setAuthenticatedSession(page, token);
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await expect(page.getByText(/160g logged/).first()).toBeVisible();
+
+    let failuresRemaining = 2;
+    await page.route(`**${authorityPath}`, async (route) => {
+      if (failuresRemaining > 0) {
+        failuresRemaining -= 1;
+        await route.fulfill({
+          body: JSON.stringify({
+            error: { code: 'DATE_REFRESH_FAILURE', message: 'Expected preview failure' },
+          }),
+          contentType: 'application/json',
+          status: 503,
+        });
+        return;
+      }
+      await route.continue();
+    });
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(page.getByRole('alert')).toContainText('Date refresh failed');
+    await expect(page.getByRole('alert')).toContainText(`${fixtureDate}`);
+    await expect(page.getByRole('alert')).toContainText('America/Detroit');
+    await expect(page.getByText(/160g logged/).first()).toBeVisible();
+    const weightCard = page.getByTestId('dashboard-log-weight-card');
+    await expect(weightCard.getByRole('button', { name: 'Log weight' })).toBeDisabled();
+
+    const recovered = page.waitForResponse(
+      (response) => response.url().endsWith(authorityPath) && response.status() === 200,
+    );
+    await page.getByRole('button', { name: 'Retry date refresh' }).click();
+    await recovered;
+    await expect(page.getByText('Date refresh failed')).toHaveCount(0);
+    await expect(weightCard.getByRole('button', { name: 'Log weight' })).toBeEnabled();
     await page.waitForLoadState('networkidle');
     diagnostics();
   });

@@ -2,11 +2,7 @@ import type { Habit, HabitEntry } from '@pulse/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  useHabitEntries,
-  useHabits,
-  useToggleHabit,
-} from '@/features/habits/api/habits';
+import { useHabitEntries, useHabits, useToggleHabit } from '@/features/habits/api/habits';
 
 import { HabitDailyStatusCard } from './habit-daily-status-card';
 
@@ -155,7 +151,7 @@ describe('HabitDailyStatusCard', () => {
   it('renders numeric habit values and progress against target', () => {
     mockHabitHooks({});
 
-    render(<HabitDailyStatusCard habitId="habit-water" />);
+    render(<HabitDailyStatusCard date="2026-03-06" habitId="habit-water" isCurrentDate />);
 
     expect(screen.getByText('Water')).toBeInTheDocument();
     expect(screen.getByText('52 oz')).toBeInTheDocument();
@@ -187,7 +183,7 @@ describe('HabitDailyStatusCard', () => {
       ],
     });
 
-    render(<HabitDailyStatusCard habitId="habit-water" />);
+    render(<HabitDailyStatusCard date="2026-03-06" habitId="habit-water" isCurrentDate />);
 
     expect(screen.getByText('52 oz')).toBeInTheDocument();
     expect(screen.getByText('Target: Not set')).toBeInTheDocument();
@@ -217,7 +213,7 @@ describe('HabitDailyStatusCard', () => {
       ],
     });
 
-    render(<HabitDailyStatusCard habitId="habit-meditate" />);
+    render(<HabitDailyStatusCard date="2026-03-06" habitId="habit-meditate" isCurrentDate />);
 
     expect(screen.getByText('Meditate')).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: 'Meditate completion' })).toBeChecked();
@@ -227,7 +223,7 @@ describe('HabitDailyStatusCard', () => {
   it('saves numeric inline edits on blur', () => {
     const { mutate } = mockHabitHooks({});
 
-    render(<HabitDailyStatusCard habitId="habit-water" />);
+    render(<HabitDailyStatusCard date="2026-03-06" habitId="habit-water" isCurrentDate />);
 
     fireEvent.click(screen.getByTestId('habit-daily-value-button-habit-water'));
 
@@ -249,7 +245,7 @@ describe('HabitDailyStatusCard', () => {
   it('cancels numeric inline edits when pressing Escape', () => {
     const { mutate } = mockHabitHooks({});
 
-    render(<HabitDailyStatusCard habitId="habit-water" />);
+    render(<HabitDailyStatusCard date="2026-03-06" habitId="habit-water" isCurrentDate />);
 
     fireEvent.click(screen.getByTestId('habit-daily-value-button-habit-water'));
 
@@ -260,6 +256,29 @@ describe('HabitDailyStatusCard', () => {
 
     expect(screen.getByTestId('habit-daily-value-button-habit-water')).toBeInTheDocument();
     expect(screen.getByText('52 oz')).toBeInTheDocument();
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('closes an inline edit without saving when date authority becomes locked', () => {
+    const { mutate } = mockHabitHooks({});
+    const { rerender } = render(
+      <HabitDailyStatusCard date="2026-03-06" habitId="habit-water" isCurrentDate />,
+    );
+    fireEvent.click(screen.getByTestId('habit-daily-value-button-habit-water'));
+    const valueInput = screen.getByTestId('habit-daily-value-input-habit-water');
+    fireEvent.change(valueInput, { target: { value: '67' } });
+
+    rerender(
+      <HabitDailyStatusCard
+        date="2026-03-06"
+        dateAuthorityLocked
+        habitId="habit-water"
+        isCurrentDate
+      />,
+    );
+
+    expect(screen.queryByTestId('habit-daily-value-input-habit-water')).not.toBeInTheDocument();
+    expect(screen.getByTestId('habit-daily-value-button-habit-water')).toBeDisabled();
     expect(mutate).not.toHaveBeenCalled();
   });
 
@@ -278,7 +297,7 @@ describe('HabitDailyStatusCard', () => {
       ],
     });
 
-    render(<HabitDailyStatusCard habitId="habit-meditate" />);
+    render(<HabitDailyStatusCard date="2026-03-06" habitId="habit-meditate" isCurrentDate />);
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Meditate completion' }));
 
@@ -297,8 +316,8 @@ describe('HabitDailyStatusCard', () => {
 
     render(
       <>
-        <HabitDailyStatusCard habitId="habit-water" />
-        <HabitDailyStatusCard habitId="habit-sleep" />
+        <HabitDailyStatusCard date="2026-03-06" habitId="habit-water" isCurrentDate />
+        <HabitDailyStatusCard date="2026-03-06" habitId="habit-sleep" isCurrentDate />
       </>,
     );
 

@@ -104,19 +104,6 @@ describe('MacroRings', () => {
     expect(screen.getByText('65g')).toBeInTheDocument();
   });
 
-  it('does not fabricate a protein total when snapshot data is unavailable', () => {
-    render(
-      <MemoryRouter>
-        <MacroRings />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByText('0')).toBeInTheDocument();
-    expect(screen.getAllByText('0g')).toHaveLength(2);
-    expect(screen.getByText('Protein minimum unavailable')).toBeInTheDocument();
-    expect(screen.getAllByText('No target')).toHaveLength(3);
-  });
-
   it('toggles to remaining mode and shows inverse progress labels', () => {
     render(
       <MemoryRouter>

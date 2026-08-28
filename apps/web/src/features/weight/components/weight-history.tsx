@@ -6,10 +6,15 @@ import {
   type CreateWeightInput,
 } from '@pulse/shared';
 import { PencilLine, Plus, Scale, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { EmptyState } from '@/components/ui/empty-state';
+import {
+  DateAuthorityError,
+  DateAuthorityStaleNotice,
+  TimeZoneRequired,
+} from '@/components/date-authority-state';
 import { Button } from '@/components/ui/button';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { Input } from '@/components/ui/input';
@@ -21,7 +26,8 @@ import {
   useWeightEntries,
 } from '@/features/weight/api/weight';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
-import { formatDateKey, parseDateInput } from '@/lib/date';
+import { useDateAuthority } from '@/hooks/use-date-authority';
+import { parseDateInput } from '@/lib/date';
 
 import { TrendWeightWorkspace } from './trend-weight-workspace';
 
@@ -40,11 +46,8 @@ function formatEntryDate(dateKey: string) {
   return entryDateFormatter.format(parseDateInput(`${dateKey}T00:00:00`));
 }
 
-function getDefaultDate() {
-  return formatDateKey(new Date());
-}
-
 export function WeightHistory() {
+  const dateAuthority = useDateAuthority();
   const { confirm, dialog } = useConfirmation();
   const entriesQuery = useWeightEntries();
   const logWeightMutation = useLogWeight();
@@ -67,11 +70,16 @@ export function WeightHistory() {
     reset,
   } = useForm<CreateWeightInput>({
     defaultValues: {
-      date: getDefaultDate(),
+      date: dateAuthority.localDate ?? '',
       notes: undefined,
     },
     resolver: zodResolver(createWeightInputSchema),
   });
+
+  useEffect(() => {
+    if (!dateAuthority.localDate || isAddFormOpen) return;
+    reset({ date: dateAuthority.localDate, notes: undefined });
+  }, [dateAuthority.localDate, isAddFormOpen, reset]);
 
   const allWeightEntries = useMemo(
     () => [...(entriesQuery.data ?? [])].sort(compareWeightEntries),
@@ -83,12 +91,13 @@ export function WeightHistory() {
   );
 
   async function onSubmitNewEntry(values: CreateWeightInput) {
+    if (dateAuthority.isLocked) return;
     setAddErrorMessage('');
 
     try {
       await logWeightMutation.mutateAsync({ ...values, unit: weightUnit });
       reset({
-        date: getDefaultDate(),
+        date: dateAuthority.localDate ?? '',
         notes: undefined,
       });
       setIsAddFormOpen(false);
@@ -164,6 +173,29 @@ export function WeightHistory() {
     <section className="space-y-6">
       <TrendWeightWorkspace />
 
+      {!dateAuthority.localDate ? (
+        dateAuthority.isLoading ? (
+          <p aria-live="polite" className="text-sm text-muted-foreground" role="status">
+            Resolving your local weight date…
+          </p>
+        ) : dateAuthority.isInitialError ? (
+          <DateAuthorityError
+            isRetrying={dateAuthority.isRetrying}
+            onRetry={() => void dateAuthority.retry()}
+            surface="Weight"
+          />
+        ) : (
+          <TimeZoneRequired surface="Weight" />
+        )
+      ) : dateAuthority.isStale && dateAuthority.timeZone ? (
+        <DateAuthorityStaleNotice
+          date={dateAuthority.localDate}
+          isRetrying={dateAuthority.isRetrying}
+          onRetry={() => void dateAuthority.retry()}
+          timeZone={dateAuthority.timeZone}
+        />
+      ) : null}
+
       <section className="rounded-3xl border border-border/70 bg-card/95 p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
@@ -174,6 +206,7 @@ export function WeightHistory() {
           </div>
           <Button
             className="min-h-11 self-start"
+            disabled={dateAuthority.isLocked}
             onClick={() => {
               setIsAddFormOpen((current) => !current);
               setAddErrorMessage('');
@@ -200,7 +233,7 @@ export function WeightHistory() {
                 id="weight-entry-date"
                 type="date"
                 aria-invalid={addEntryErrors.date ? true : undefined}
-                disabled={logWeightMutation.isPending}
+                disabled={dateAuthority.isLocked || logWeightMutation.isPending}
                 {...register('date')}
               />
               {addEntryErrors.date?.message ? (
@@ -219,7 +252,7 @@ export function WeightHistory() {
                 min="0.1"
                 inputMode="decimal"
                 aria-invalid={addEntryErrors.weight ? true : undefined}
-                disabled={logWeightMutation.isPending}
+                disabled={dateAuthority.isLocked || logWeightMutation.isPending}
                 placeholder={addWeightPlaceholder}
                 {...register('weight', { valueAsNumber: true })}
               />
@@ -234,7 +267,7 @@ export function WeightHistory() {
               </label>
               <Textarea
                 id="weight-entry-notes"
-                disabled={logWeightMutation.isPending}
+                disabled={dateAuthority.isLocked || logWeightMutation.isPending}
                 placeholder="Optional context like fasted, after cardio, or travel day."
                 rows={3}
                 {...register('notes')}
@@ -246,14 +279,18 @@ export function WeightHistory() {
             ) : null}
 
             <div className="flex flex-wrap gap-2 sm:col-span-2">
-              <Button className="min-h-11" disabled={logWeightMutation.isPending} type="submit">
+              <Button
+                className="min-h-11"
+                disabled={dateAuthority.isLocked || logWeightMutation.isPending}
+                type="submit"
+              >
                 Save entry
               </Button>
               <Button
                 className="min-h-11"
                 onClick={() => {
                   reset({
-                    date: getDefaultDate(),
+                    date: dateAuthority.localDate ?? '',
                     notes: undefined,
                   });
                   setAddErrorMessage('');

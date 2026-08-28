@@ -73,8 +73,18 @@ describe('dashboard trend-weight window', () => {
     dbModule.db
       .insert(users)
       .values([
-        { id: 'user-1', username: 'dashboard-trend-1', passwordHash: 'hash' },
-        { id: 'user-2', username: 'dashboard-trend-2', passwordHash: 'hash' },
+        {
+          id: 'user-1',
+          username: 'dashboard-trend-1',
+          passwordHash: 'hash',
+          preferences: { timeZone: 'America/Detroit' },
+        },
+        {
+          id: 'user-2',
+          username: 'dashboard-trend-2',
+          passwordHash: 'hash',
+          preferences: { timeZone: 'America/Detroit' },
+        },
       ])
       .run();
   });

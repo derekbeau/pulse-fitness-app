@@ -2,6 +2,7 @@ import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
+import { getUserLocalDate } from '../../lib/user-time-zone.js';
 
 import {
   getDashboardConfig,
@@ -20,6 +21,11 @@ vi.mock('./dashboard-store.js', () => ({
   getDashboardConsistencyTrend: vi.fn(),
   upsertDashboardConfig: vi.fn(),
 }));
+
+vi.mock('../../lib/user-time-zone.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/user-time-zone.js')>();
+  return { ...actual, getUserLocalDate: vi.fn() };
+});
 
 const createAuthorizationHeader = (token: string) => ({
   authorization: `Bearer ${token}`,
@@ -45,6 +51,7 @@ const expectRequestValidationError = (
 
 describe('dashboard routes', () => {
   beforeEach(() => {
+    vi.mocked(getUserLocalDate).mockReset().mockResolvedValue('2026-03-09');
     vi.mocked(getDashboardConfig).mockReset();
     vi.mocked(getDashboardSnapshot).mockReset();
     vi.mocked(getDashboardWeightTrend).mockReset();
@@ -167,6 +174,16 @@ describe('dashboard routes', () => {
         },
       });
       expect(vi.mocked(getDashboardSnapshot)).toHaveBeenCalledWith('user-1', '2026-03-09');
+
+      vi.mocked(getUserLocalDate).mockResolvedValueOnce('2026-08-23');
+      const localDateResponse = await app.inject({
+        method: 'GET',
+        url: '/api/v1/dashboard/snapshot',
+        headers: createAuthorizationHeader(authToken),
+      });
+      expect(localDateResponse.statusCode).toBe(200);
+      expect(getUserLocalDate).toHaveBeenCalledWith('user-1');
+      expect(getDashboardSnapshot).toHaveBeenLastCalledWith('user-1', '2026-08-23');
     } finally {
       await app.close();
     }
@@ -352,6 +369,7 @@ describe('dashboard routes', () => {
   it('defaults the snapshot date to today when date is omitted', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-10T17:04:11.000Z'));
+    vi.mocked(getUserLocalDate).mockResolvedValueOnce('2026-03-10');
     vi.mocked(getDashboardSnapshot).mockResolvedValue({
       date: '2026-03-10',
       weight: null,
@@ -450,6 +468,7 @@ describe('dashboard routes', () => {
   it('defaults trend ranges when omitted', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-10T17:04:11.000Z'));
+    vi.mocked(getUserLocalDate).mockResolvedValue('2026-03-10');
     vi.mocked(getDashboardMacrosTrend).mockResolvedValue([
       {
         date: '2026-02-08',

@@ -122,6 +122,18 @@ describe('useDashboardSnapshot', () => {
     });
   });
 
+  it('rejects a schema-valid snapshot for a different requested date', async () => {
+    mockFetch.mockResolvedValue(createJsonResponse({ ...snapshotFixture, date: '2026-03-05' }));
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    const { result } = renderHook(() => useDashboardSnapshot('2026-03-06'), { wrapper });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toEqual(
+      new Error('Dashboard snapshot date mismatch: expected 2026-03-06, received 2026-03-05'),
+    );
+  });
+
   it('configures foreground polling when a refetch interval is provided', async () => {
     mockFetch.mockResolvedValue(createJsonResponse(snapshotFixture));
 

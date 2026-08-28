@@ -7,6 +7,7 @@ const seedSuffix = Date.now();
 const testUser = {
   username: `ws-e2e-${seedSuffix}`,
   password: 'super-secret-password',
+  timeZone: 'America/Detroit',
 };
 
 const seededTemplate = {

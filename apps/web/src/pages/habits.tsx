@@ -2,21 +2,20 @@ import { useMemo, useState } from 'react';
 import type { Habit, HabitEntry } from '@pulse/shared';
 
 import { PageHeader } from '@/components/layout/page-header';
+import {
+  DateAuthorityError,
+  DateAuthorityStaleNotice,
+  TimeZoneRequired,
+} from '@/components/date-authority-state';
 import { HelpIcon } from '@/components/ui/help-icon';
 import { useHabitEntries, useHabits } from '@/features/habits/api/habits';
 import { DailyHabits, HabitHistory } from '@/features/habits';
+import { useDateAuthority } from '@/hooks/use-date-authority';
 import {
   WeeklyHabitDatePicker,
   type DayCompletion,
 } from '@/features/habits/components/weekly-habit-date-picker';
-import {
-  addDays,
-  formatDateKey,
-  getToday,
-  getWeekStart,
-  normalizeDate,
-  toDateKey,
-} from '@/lib/date';
+import { addDays, formatDateKey, getWeekStart, normalizeDate, toDateKey } from '@/lib/date';
 import { HABIT_ENTRIES_POLL_INTERVAL_MS, getForegroundPollingInterval } from '@/lib/query-polling';
 
 function getHabitEntryCompleted(habit: Habit, entry: HabitEntry | undefined) {
@@ -59,15 +58,24 @@ function buildWeekCompletionByDate(habits: Habit[], entries: HabitEntry[], weekS
 }
 
 export function HabitsPage() {
-  const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());
-  const [visibleWeekStart, setVisibleWeekStart] = useState<Date>(() => getWeekStart(getToday()));
+  const dateAuthority = useDateAuthority();
+  const today = dateAuthority.localDate
+    ? normalizeDate(new Date(`${dateAuthority.localDate}T12:00:00`))
+    : null;
+  const [selectedDateState, setSelectedDate] = useState<Date | null>(null);
+  const [visibleWeekStartState, setVisibleWeekStart] = useState<Date | null>(null);
+  const resolvedToday = today ?? new Date('1970-01-01T12:00:00');
+  const selectedDate = selectedDateState ?? resolvedToday;
+  const visibleWeekStart = visibleWeekStartState ?? getWeekStart(resolvedToday);
   const normalizedSelectedDate = useMemo(() => normalizeDate(selectedDate), [selectedDate]);
   const weekEnd = useMemo(() => addDays(visibleWeekStart, 6), [visibleWeekStart]);
 
   const habitsQuery = useHabits({
+    enabled: today !== null,
     refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
   });
   const weekEntriesQuery = useHabitEntries(toDateKey(visibleWeekStart), toDateKey(weekEnd), {
+    enabled: today !== null,
     refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
   });
 
@@ -85,6 +93,27 @@ export function HabitsPage() {
     const nextSelectedDate = normalizeDate(date);
     setSelectedDate(nextSelectedDate);
     setVisibleWeekStart(getWeekStart(nextSelectedDate));
+  }
+
+  if (!today) {
+    return (
+      <section className="space-y-3">
+        <PageHeader title="Habits" />
+        {dateAuthority.isLoading ? (
+          <p aria-live="polite" className="text-sm text-muted-foreground" role="status">
+            Resolving your local habits date…
+          </p>
+        ) : dateAuthority.isInitialError ? (
+          <DateAuthorityError
+            isRetrying={dateAuthority.isRetrying}
+            onRetry={() => void dateAuthority.retry()}
+            surface="Habits"
+          />
+        ) : (
+          <TimeZoneRequired surface="Habits" />
+        )}
+      </section>
+    );
   }
 
   return (
@@ -113,15 +142,29 @@ export function HabitsPage() {
         description="Keep today's routine visible, log progress quickly, and review how each habit has trended over the last 90 days."
         title="Habits"
       />
+      {dateAuthority.isStale && dateAuthority.localDate && dateAuthority.timeZone ? (
+        <DateAuthorityStaleNotice
+          date={dateAuthority.localDate}
+          isRetrying={dateAuthority.isRetrying}
+          onRetry={() => void dateAuthority.retry()}
+          timeZone={dateAuthority.timeZone}
+        />
+      ) : null}
       <WeeklyHabitDatePicker
         completionByDate={weekCompletionByDate}
         onDateSelect={handleDateSelect}
         onWeekChange={setVisibleWeekStart}
         selectedDate={normalizedSelectedDate}
+        today={today}
         visibleWeekStart={visibleWeekStart}
       />
-      <DailyHabits selectedDate={normalizedSelectedDate} />
-      <HabitHistory />
+      <DailyHabits
+        dateAuthorityLocked={dateAuthority.isLocked}
+        key={dateAuthority.isLocked ? 'date-locked' : 'date-verified'}
+        selectedDate={normalizedSelectedDate}
+        todayDate={today}
+      />
+      <HabitHistory todayDate={today} />
     </section>
   );
 }

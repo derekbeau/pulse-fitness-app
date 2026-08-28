@@ -9,7 +9,7 @@ import { ProgressRing } from '@/components/ui/progress-ring';
 import { formatCalories, formatGrams } from '@/lib/format-utils';
 
 type MacroRingsProps = {
-  snapshot?: DashboardSnapshot;
+  snapshot: DashboardSnapshot;
 };
 
 type MacroMode = 'eaten' | 'remaining';
@@ -125,11 +125,7 @@ export const getProteinRingState = (
   };
 };
 
-const getMacroStat = (snapshot: DashboardSnapshot | undefined, key: MacroKey): MacroStat => {
-  if (!snapshot) {
-    return { actual: 0, target: 0 };
-  }
-
+const getMacroStat = (snapshot: DashboardSnapshot, key: MacroKey): MacroStat => {
   return {
     actual: snapshot.macros.actual[key],
     target: snapshot.macros.target[key],
@@ -189,22 +185,11 @@ export function MacroRings({ snapshot }: MacroRingsProps) {
           const stat = getMacroStat(snapshot, macro.key);
           const proteinState =
             macro.key === 'protein'
-              ? getProteinRingState(
-                  snapshot?.macros.proteinFloor ?? {
-                    actualProteinGrams: null,
-                    proteinFloorGrams: null,
-                    remainingToFloorGrams: null,
-                    amountAboveFloorGrams: null,
-                    state: 'unavailable',
-                    isFinal: false,
-                  },
-                  mode,
-                  macro.color,
-                )
+              ? getProteinRingState(snapshot.macros.proteinFloor, mode, macro.color)
               : null;
           const state = proteinState ?? getMacroRingState(stat, mode, macro.color, macro.unit);
           const summary = proteinState?.summary ?? formatMacroSummary(stat, macro.unit);
-          const accessibleText = `${snapshot?.date ? `${snapshot.date}: ` : ''}${proteinState?.accessibleText ?? `${macro.label} ${summary}`}`;
+          const accessibleText = `${snapshot.date}: ${proteinState?.accessibleText ?? `${macro.label} ${summary}`}`;
 
           return (
             <Link

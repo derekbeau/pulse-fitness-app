@@ -11,6 +11,12 @@ import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 import { WorkoutsPage } from './workouts';
 
+const authorityMocks = vi.hoisted(() => ({ useState: vi.fn() }));
+
+vi.mock('@/features/adaptive-nutrition', () => ({
+  useAdaptiveNutritionState: authorityMocks.useState,
+}));
+
 const WORKOUTS_ONBOARDING_DISMISSED_KEY = 'pulse.workouts.onboarding.dismissed';
 
 const templatesResponse = [
@@ -175,6 +181,14 @@ const scheduledWorkoutsResponse = [
 
 describe('WorkoutsPage', () => {
   beforeEach(() => {
+    authorityMocks.useState.mockReturnValue({
+      data: { localDate: '2026-03-12', timeZone: 'America/Detroit' },
+      isError: false,
+      isFetching: false,
+      isPending: false,
+      isRefetchError: false,
+      refetch: vi.fn(),
+    });
     window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
     window.localStorage.removeItem(WORKOUTS_ONBOARDING_DISMISSED_KEY);
 
@@ -272,6 +286,7 @@ describe('WorkoutsPage', () => {
   afterEach(() => {
     window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
     window.localStorage.removeItem(WORKOUTS_ONBOARDING_DISMISSED_KEY);
+    authorityMocks.useState.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -779,6 +794,63 @@ describe('WorkoutsPage', () => {
       expect(requestUrls).toContain('/api/v1/workout-templates/upper-push');
       expect(requestUrls).toContain('/api/v1/workout-templates/lower-quad-dominant');
     });
+  });
+
+  it('shows an honest authority error and withholds current-day workout facts', () => {
+    const refetch = vi.fn();
+    authorityMocks.useState.mockReturnValue({
+      data: undefined,
+      isError: true,
+      isFetching: false,
+      isPending: false,
+      isRefetchError: false,
+      refetch,
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/workouts']}>
+        <Routes>
+          <Route element={<WorkoutsPage />} path="/workouts" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Workouts date could not be loaded' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Time zone required')).not.toBeInTheDocument();
+    expect(screen.queryByText('No workouts yet. Plan one to get started.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry workouts date' }));
+    expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it('retains the verified workout date while stale and locks current-day starts', async () => {
+    authorityMocks.useState.mockReturnValue({
+      data: { localDate: '2026-03-12', timeZone: 'America/Detroit' },
+      isError: true,
+      isFetching: false,
+      isPending: false,
+      isRefetchError: true,
+      refetch: vi.fn(),
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/workouts?view=list']}>
+        <Routes>
+          <Route element={<WorkoutsPage />} path="/workouts" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Date refresh failed')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Scheduled' })).toBeInTheDocument();
+    screen.getAllByRole('button', { name: 'Start' }).forEach((button) => {
+      expect(button).toBeDisabled();
+    });
+
+    const requestUrls = vi.mocked(globalThis.fetch).mock.calls.map(([request]) => String(request));
+    expect(requestUrls.some((url) => url.includes('1970-01-01'))).toBe(false);
+    expect(requestUrls.some((url) => url.includes('/api/v1/scheduled-workouts?'))).toBe(true);
   });
 });
 

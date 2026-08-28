@@ -328,7 +328,9 @@ function createState(
 
   return {
     state,
+    localDate: '2026-08-20',
     timeZone: program.timeZone,
+    timeZoneSource: 'adaptive_program',
     program,
     currentTarget: target,
     latestAcceptedCheckIn: null,
@@ -1149,6 +1151,20 @@ describe('AdaptiveCoach', () => {
     await waitFor(() =>
       expect(mocks.preview).toHaveBeenCalledWith({ kind: 'manual', includeToday: false }),
     );
+  });
+
+  it('closes open goal actions and prevents mutations when date authority locks', () => {
+    const { rerender } = render(<AdaptiveCoach />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit goal' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    rerender(<AdaptiveCoach dateAuthorityLocked key="date-locked" />);
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit goal' })).toBeDisabled();
+    expect(mocks.editGoal).not.toHaveBeenCalled();
+    expect(mocks.startGoal).not.toHaveBeenCalled();
+    expect(mocks.completeGoal).not.toHaveBeenCalled();
   });
 
   it('recovers a stale baseline by explicitly rebaselining the existing program', async () => {

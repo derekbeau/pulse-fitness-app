@@ -9,6 +9,12 @@ import { HabitsPage } from '@/pages/habits';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
 import { jsonResponse } from '@/test/test-utils';
 
+const authorityMocks = vi.hoisted(() => ({ useState: vi.fn() }));
+
+vi.mock('@/features/adaptive-nutrition', () => ({
+  useAdaptiveNutritionState: authorityMocks.useState,
+}));
+
 function createHabit(id: string, name: string): Habit {
   return {
     id,
@@ -33,12 +39,21 @@ function createHabit(id: string, name: string): Habit {
 describe('HabitsPage', () => {
   beforeEach(() => {
     window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
+    authorityMocks.useState.mockReturnValue({
+      data: { localDate: toDateKey(new Date()), timeZone: 'America/Detroit' },
+      isError: false,
+      isFetching: false,
+      isPending: false,
+      isRefetchError: false,
+      refetch: vi.fn(),
+    });
   });
 
   afterEach(() => {
     window.localStorage.clear();
     vi.restoreAllMocks();
     vi.useRealTimers();
+    authorityMocks.useState.mockReset();
   });
 
   it('shows inline add controls when there are no habits', async () => {
@@ -104,6 +119,14 @@ describe('HabitsPage', () => {
   it('lets users pick a past day and loads that day entries', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date('2026-03-11T12:00:00'));
+    authorityMocks.useState.mockReturnValue({
+      data: { localDate: '2026-03-11', timeZone: 'America/Detroit' },
+      isError: false,
+      isFetching: false,
+      isPending: false,
+      isRefetchError: false,
+      refetch: vi.fn(),
+    });
     const today = new Date();
     const yesterday = addDays(today, -1);
     const selectedDayKey = toDateKey(yesterday);
@@ -240,5 +263,68 @@ describe('HabitsPage', () => {
     expect(
       screen.getByText('Your AI agent can also log or update habit entries for you.'),
     ).toBeInTheDocument();
+  });
+
+  it('shows an honest date error instead of missing-timezone setup after transport failure', () => {
+    const refetch = vi.fn();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    authorityMocks.useState.mockReturnValue({
+      data: undefined,
+      isError: true,
+      isFetching: false,
+      isPending: false,
+      isRefetchError: false,
+      refetch,
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/habits']}>
+        <Routes>
+          <Route element={<HabitsPage />} path="/habits" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Habits date could not be loaded' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Time zone required')).not.toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry habits date' }));
+    expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it('retains the verified date, discloses staleness, and locks habit entry writes', async () => {
+    authorityMocks.useState.mockReturnValue({
+      data: { localDate: '2026-03-11', timeZone: 'America/Detroit' },
+      isError: true,
+      isFetching: false,
+      isPending: false,
+      isRefetchError: true,
+      refetch: vi.fn(),
+    });
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const rawUrl =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const url = new URL(rawUrl, 'https://pulse.test');
+      if (url.pathname === '/api/v1/habits') {
+        return Promise.resolve(jsonResponse({ data: [createHabit('habit-1', 'Hydrate')] }));
+      }
+      if (url.pathname === '/api/v1/habit-entries') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/habits']}>
+        <Routes>
+          <Route element={<HabitsPage />} path="/habits" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Date refresh failed')).toBeInTheDocument();
+    expect(await screen.findByRole('checkbox', { name: 'Hydrate' })).toBeDisabled();
   });
 });

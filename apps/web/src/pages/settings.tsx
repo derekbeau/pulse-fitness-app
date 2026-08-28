@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { AgentTokensCard } from '@/features/settings/components/agent-tokens-card';
+import { useAdaptiveNutritionState } from '@/features/adaptive-nutrition';
 import { TrashManager } from '@/features/settings/components/trash-manager';
 import { useHabits } from '@/features/habits/api/habits';
 import { useNutritionTargets, useUpdateTargets } from '@/features/nutrition/api/targets';
@@ -22,7 +23,6 @@ import { useDashboardConfig, useSaveDashboardConfig } from '@/hooks/use-dashboar
 import { useUpdateUser, useUser } from '@/hooks/use-user';
 import type { Theme } from '@/hooks/useTheme';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { formatDateKey } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 type ThemePreview = {
@@ -278,17 +278,21 @@ function ThemeOptionCard({
 }
 
 export function SettingsPage() {
+  const adaptiveStateQuery = useAdaptiveNutritionState();
   const { setTheme, theme } = useThemeContext();
   const { data: user } = useUser();
   const updateUserMutation = useUpdateUser();
   const [displayNameDraft, setDisplayNameDraft] = useState<string | null>(null);
   const [weightUnitDraft, setWeightUnitDraft] = useState<WeightUnit | null>(null);
+  const [timeZoneDraft, setTimeZoneDraft] = useState<string | null>(null);
   const [profileMessage, setProfileMessage] = useState('');
   const displayName = displayNameDraft ?? user?.name ?? '';
   const weightUnit = weightUnitDraft ?? user?.weightUnit ?? 'lbs';
+  const timeZone = timeZoneDraft ?? user?.timeZone ?? '';
   const isProfileDirty =
     (displayNameDraft !== null && displayName.trim() !== (user?.name ?? '')) ||
-    (weightUnitDraft !== null && weightUnit !== (user?.weightUnit ?? 'lbs'));
+    (weightUnitDraft !== null && weightUnit !== (user?.weightUnit ?? 'lbs')) ||
+    (timeZoneDraft !== null && timeZone !== (user?.timeZone ?? ''));
   const [storedSettings] = useState<SettingsFormState>(() => loadSettings());
   const [dashboardConfigDraft, setDashboardConfigDraft] = useState<
     SettingsFormState['dashboardConfig'] | null
@@ -368,10 +372,15 @@ export function SettingsPage() {
       payload.weightUnit = weightUnitDraft;
     }
 
+    if (timeZoneDraft !== null) {
+      payload.timeZone = timeZone;
+    }
+
     try {
       await updateUserMutation.mutateAsync(payload);
       setDisplayNameDraft(null);
       setWeightUnitDraft(null);
+      setTimeZoneDraft(null);
       setProfileMessage('Profile updated.');
     } catch {
       setProfileMessage('Could not save profile. Please try again.');
@@ -445,9 +454,16 @@ export function SettingsPage() {
   }
 
   async function handleSave() {
+    const effectiveDate = adaptiveStateQuery.data?.localDate;
+    if (!effectiveDate || adaptiveStateQuery.isRefetchError) {
+      setSaveMessage(
+        'Nutrition targets were not saved because Pulse could not verify your current local date.',
+      );
+      return;
+    }
     const nextTargets: CreateNutritionTargetInput = {
       ...settings.nutritionTargets,
-      effectiveDate: formatDateKey(new Date()),
+      effectiveDate,
     };
 
     const [nutritionResult, dashboardConfigResult] = await Promise.allSettled([
@@ -563,6 +579,26 @@ export function SettingsPage() {
                 <span className="text-sm text-foreground">kg</span>
               </Label>
             </RadioGroup>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground" htmlFor="profile-time-zone">
+              Time zone
+            </Label>
+            <Input
+              id="profile-time-zone"
+              aria-describedby="profile-time-zone-help"
+              onChange={(event) => {
+                setTimeZoneDraft(event.target.value);
+                setProfileMessage('');
+              }}
+              placeholder="America/Detroit"
+              value={timeZone}
+            />
+            <p className="text-sm text-muted-foreground" id="profile-time-zone-help">
+              Used for current-day features until an Adaptive Nutrition program supplies its own
+              time zone.
+            </p>
           </div>
 
           <div className="flex flex-col gap-2.5 border-t border-border/80 pt-3 sm:flex-row sm:items-center sm:justify-between">
@@ -805,7 +841,12 @@ export function SettingsPage() {
               {saveMessage || 'Save changes to sync these preferences to your account.'}
             </p>
             <Button
-              disabled={updateTargetsMutation.isPending || saveDashboardConfigMutation.isPending}
+              disabled={
+                !adaptiveStateQuery.data?.localDate ||
+                adaptiveStateQuery.isRefetchError ||
+                updateTargetsMutation.isPending ||
+                saveDashboardConfigMutation.isPending
+              }
               onClick={handleSave}
               type="button"
             >

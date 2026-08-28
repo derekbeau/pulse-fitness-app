@@ -2,10 +2,15 @@ import { useQueryClient } from '@tanstack/react-query';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, UtensilsCrossed } from 'lucide-react';
 import { useSearchParams } from 'react-router';
-import { addCalendarDays, chartDateKeyInTimeZone, type ProteinFloorProgress } from '@pulse/shared';
+import { addCalendarDays, type ProteinFloorProgress } from '@pulse/shared';
 
 import { MealCardSkeleton } from '@/components/skeletons';
 import { PageHeader } from '@/components/layout/page-header';
+import {
+  DateAuthorityError,
+  DateAuthorityStaleNotice,
+  TimeZoneRequired,
+} from '@/components/date-authority-state';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -19,7 +24,6 @@ import {
   NutritionDayStatusControl,
   useAdaptiveNutritionState,
 } from '@/features/adaptive-nutrition';
-import { nutritionTrendReferenceDate } from '@/features/nutrition/components/nutrition-trend-reference';
 import { NutritionTrends } from '@/features/nutrition/components/nutrition-trends';
 import {
   DailyEnergyAdherenceCard,
@@ -80,40 +84,44 @@ function handleViewTabKeyDown(
 
 export function NutritionPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [referenceTimeMs, setReferenceTimeMs] = useState(() => Date.now());
   const viewParam = searchParams.get('view');
   const activeView: NutritionView = isNutritionView(viewParam) ? viewParam : 'log';
   const adaptiveStateQuery = useAdaptiveNutritionState();
+  const refetchDateAuthority = adaptiveStateQuery.refetch;
   const coachNeedsAttention = Boolean(
     adaptiveStateQuery.data?.checkInDue || adaptiveStateQuery.data?.pendingCheckIn,
   );
   const nutritionTimeZone =
     adaptiveStateQuery.data?.timeZone ?? adaptiveStateQuery.data?.program?.timeZone ?? null;
-  const trendsReferenceDate = nutritionTimeZone
-    ? nutritionTrendReferenceDate(referenceTimeMs, nutritionTimeZone)
-    : null;
-  const refreshReferenceTime = useCallback(() => setReferenceTimeMs(Date.now()), []);
+  const trendsReferenceDate = adaptiveStateQuery.data?.localDate ?? null;
+  const isDateAuthorityStale = adaptiveStateQuery.isRefetchError && Boolean(nutritionTimeZone);
 
   useEffect(() => {
+    const refreshDateAuthority = () => {
+      void refetchDateAuthority();
+    };
     const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') refreshReferenceTime();
+      if (document.visibilityState === 'visible') refreshDateAuthority();
     };
 
-    window.addEventListener('focus', refreshReferenceTime);
+    window.addEventListener('focus', refreshDateAuthority);
     document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
-      window.removeEventListener('focus', refreshReferenceTime);
+      window.removeEventListener('focus', refreshDateAuthority);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
-  }, [refreshReferenceTime]);
+  }, [refetchDateAuthority]);
 
   useEffect(() => {
     if (!nutritionTimeZone || !trendsReferenceDate) return;
     const nowMs = Date.now();
     const boundaryMs = nextProgramLocalDateBoundaryMs(nowMs, nutritionTimeZone);
-    const timer = window.setTimeout(refreshReferenceTime, Math.max(0, boundaryMs - nowMs));
+    const timer = window.setTimeout(
+      () => void refetchDateAuthority(),
+      Math.max(0, boundaryMs - nowMs),
+    );
     return () => window.clearTimeout(timer);
-  }, [nutritionTimeZone, refreshReferenceTime, trendsReferenceDate]);
+  }, [nutritionTimeZone, refetchDateAuthority, trendsReferenceDate]);
 
   useEffect(() => {
     if (isNutritionView(viewParam)) {
@@ -269,14 +277,50 @@ export function NutritionPage() {
         id="nutrition-view-panel"
         role="tabpanel"
       >
-        {activeView === 'log' ? (
+        {isDateAuthorityStale && nutritionTimeZone && trendsReferenceDate ? (
+          <DateAuthorityStaleNotice
+            date={trendsReferenceDate}
+            isRetrying={adaptiveStateQuery.isFetching}
+            onRetry={() => void refetchDateAuthority()}
+            timeZone={nutritionTimeZone}
+          />
+        ) : null}
+        {!adaptiveStateQuery.data && adaptiveStateQuery.isPending ? (
+          activeView === 'log' ? (
+            <NutritionLogTabSkeleton />
+          ) : (
+            <section
+              aria-label="Loading nutrition date"
+              className="space-y-4 rounded-3xl border border-border/70 bg-card p-4 sm:p-5"
+              role="status"
+            >
+              <Skeleton className="h-6 w-40 bg-muted/70" />
+              <Skeleton className="h-64 w-full rounded-2xl bg-muted/70" />
+            </section>
+          )
+        ) : !adaptiveStateQuery.data && adaptiveStateQuery.isError ? (
+          <DateAuthorityError
+            isRetrying={adaptiveStateQuery.isFetching}
+            onRetry={() => void refetchDateAuthority()}
+            surface="Nutrition"
+          />
+        ) : !nutritionTimeZone || !trendsReferenceDate ? (
+          <TimeZoneRequired surface="Nutrition" />
+        ) : activeView === 'log' ? (
           nutritionTimeZone ? (
-            <NutritionLogTab timeZone={nutritionTimeZone} />
+            <NutritionLogTab
+              dateAuthorityLocked={isDateAuthorityStale}
+              key={nutritionTimeZone}
+              todayDate={trendsReferenceDate}
+            />
           ) : (
             <NutritionLogTabSkeleton />
           )
         ) : activeView === 'coach' ? (
-          <AdaptiveCoach />
+          <AdaptiveCoach
+            dateAuthorityLocked={isDateAuthorityStale}
+            key={isDateAuthorityStale ? 'date-locked' : 'date-verified'}
+          />
         ) : activeView === 'foods' ? (
           <FoodLibraryWorkspace referenceDate={trendsReferenceDate} timeZone={nutritionTimeZone} />
         ) : trendsReferenceDate ? (
@@ -296,17 +340,21 @@ export function NutritionPage() {
   );
 }
 
-export function NutritionLogTab({ timeZone }: { timeZone: string }) {
+export function NutritionLogTab({
+  dateAuthorityLocked = false,
+  todayDate,
+}: {
+  dateAuthorityLocked?: boolean;
+  todayDate: string;
+}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const sessionToken = useAuthStore((state) => state.token);
   const previousSessionToken = useRef(sessionToken);
-  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
-  const todayDateKey = chartDateKeyInTimeZone(currentTimeMs, timeZone);
+  const todayDateKey = todayDate;
   const requestedDate = searchParams.get('date');
-  const [liveDate, setLiveDate] = useState(() => todayDateKey);
   const selectedDate =
-    requestedDate && /^\d{4}-\d{2}-\d{2}$/u.test(requestedDate) ? requestedDate : liveDate;
+    requestedDate && /^\d{4}-\d{2}-\d{2}$/u.test(requestedDate) ? requestedDate : todayDateKey;
   const [mealSortDirection, setMealSortDirection] = useState<MealSortDirection>('desc');
   const { confirm, dialog } = useConfirmation();
   const dateKey = selectedDate;
@@ -325,13 +373,6 @@ export function NutritionLogTab({ timeZone }: { timeZone: string }) {
     [selectedDate, setSearchParams, todayDateKey],
   );
 
-  const refreshCurrentTime = useCallback(() => {
-    const nextTimeMs = Date.now();
-    const nextToday = chartDateKeyInTimeZone(nextTimeMs, timeZone);
-    setLiveDate(nextToday);
-    setCurrentTimeMs(nextTimeMs);
-  }, [setCurrentTimeMs, setLiveDate, timeZone]);
-
   useEffect(() => {
     if (previousSessionToken.current === sessionToken) return;
     previousSessionToken.current = sessionToken;
@@ -346,31 +387,6 @@ export function NutritionLogTab({ timeZone }: { timeZone: string }) {
       { replace: true },
     );
   }, [queryClient, sessionToken, setSearchParams]);
-
-  useEffect(() => {
-    const refreshVisibleTime = () => {
-      if (document.visibilityState === 'visible') refreshCurrentTime();
-    };
-
-    window.addEventListener('focus', refreshCurrentTime);
-    document.addEventListener('visibilitychange', refreshVisibleTime);
-    return () => {
-      window.removeEventListener('focus', refreshCurrentTime);
-      document.removeEventListener('visibilitychange', refreshVisibleTime);
-    };
-  }, [refreshCurrentTime]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(refreshCurrentTime, 0);
-    return () => window.clearTimeout(timer);
-  }, [refreshCurrentTime]);
-
-  useEffect(() => {
-    const nowMs = Date.now();
-    const boundaryMs = nextProgramLocalDateBoundaryMs(nowMs, timeZone);
-    const timer = window.setTimeout(refreshCurrentTime, boundaryMs - nowMs);
-    return () => window.clearTimeout(timer);
-  }, [refreshCurrentTime, timeZone, todayDateKey]);
 
   const dailyNutritionQuery = useDailyNutrition(dateKey, {
     refetchIntervalMs: getForegroundPollingInterval(NUTRITION_POLL_INTERVAL_MS),
@@ -510,6 +526,7 @@ export function NutritionLogTab({ timeZone }: { timeZone: string }) {
           size="sm"
           type="button"
           variant="link"
+          disabled={dateAuthorityLocked}
           onClick={() => selectDate(todayDateKey)}
         >
           Today
@@ -538,6 +555,7 @@ export function NutritionLogTab({ timeZone }: { timeZone: string }) {
 
       <NutritionDayStatusControl
         date={dateKey}
+        disabled={dateAuthorityLocked}
         isToday={isSelectedDateToday}
         status={dailyNutritionQuery.data?.log.status ?? null}
       />

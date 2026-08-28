@@ -32,7 +32,7 @@ function uiDate(date: string) {
 async function registerUser(prefix: string) {
   const username = `${prefix}-${randomUUID().slice(0, 8)}`;
   const response = await api.post('/api/v1/auth/register', {
-    data: { password, username },
+    data: { password, timeZone: 'America/Detroit', username },
   });
   expect(response.ok(), await response.text()).toBeTruthy();
   const payload = (await response.json()) as { data: { token: string } };

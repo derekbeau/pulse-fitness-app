@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import {
   calculateProteinFloorProgress,
+  chartDateKeyInTimeZone,
   type DailyNutrition,
   type DailyNutritionMeal,
   type NutritionMacroTotals,
@@ -139,7 +140,9 @@ function createNutritionApiMock(
     if (url.pathname === '/api/v1/adaptive-nutrition' && method === 'GET') {
       return createJsonResponse({
         state: 'baseline',
+        localDate: chartDateKeyInTimeZone(Date.now(), timeZone),
         timeZone,
+        timeZoneSource: 'adaptive_program',
         program: {
           activityLevel: null,
           activityMultiplier: null,
@@ -532,9 +535,9 @@ function renderNutritionPage(
   });
 }
 
-function renderNutritionLogTab(timeZone: string) {
+function renderNutritionLogTab(todayDate: string) {
   const { wrapper: QueryClientWrapper } = createQueryClientWrapper();
-  return render(<NutritionLogTab timeZone={timeZone} />, {
+  return render(<NutritionLogTab todayDate={todayDate} />, {
     wrapper: ({ children }: { children: ReactNode }) => (
       <MemoryRouter>
         <QueryClientWrapper>{children}</QueryClientWrapper>
@@ -913,7 +916,7 @@ describe('NutritionPage', () => {
     await vi.advanceTimersByTimeAsync(1000);
     await Promise.resolve();
 
-    expect(screen.getByRole('status', { name: 'Loading nutrition trends' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Loading nutrition date' })).toBeInTheDocument();
     expect(
       fetchMock.mock.calls.some(([input]) =>
         String(input).includes('/api/v1/dashboard/trends/macros'),
@@ -923,7 +926,9 @@ describe('NutritionPage', () => {
     adaptiveResponse.resolve(
       createJsonResponse({
         state: 'baseline',
+        localDate: '2026-03-07',
         timeZone: 'America/Detroit',
+        timeZoneSource: 'adaptive_program',
         program: {
           activityLevel: null,
           activityMultiplier: null,
@@ -1146,7 +1151,7 @@ describe('NutritionPage', () => {
     expect(screen.getByRole('button', { name: /^Today$/ })).not.toHaveClass('invisible');
   });
 
-  it('reschedules the boundary and moves a prior-today view when the program zone changes', async () => {
+  it('moves a prior-today view when the server date authority changes', async () => {
     vi.setSystemTime(new Date('2026-03-06T09:59:58.000Z'));
     const { fetchMock } = createNutritionApiMock(
       {
@@ -1157,15 +1162,11 @@ describe('NutritionPage', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    const view = renderNutritionLogTab('America/Detroit');
+    const view = renderNutritionLogTab('2026-03-06');
     await vi.advanceTimersByTimeAsync(1_000);
     expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
 
-    view.rerender(<NutritionLogTab timeZone="Pacific/Kiritimati" />);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
-
-    await act(async () => vi.advanceTimersByTimeAsync(2_100));
+    view.rerender(<NutritionLogTab todayDate="2026-03-07" />);
     expect(screen.getByText(/Saturday, March 7/)).toBeInTheDocument();
   });
 
@@ -1382,7 +1383,7 @@ describe('NutritionPage', () => {
 
   it('clears historical date and meal state when the authenticated session changes', async () => {
     useAuthStore.setState({
-      user: { id: 'user-a', username: 'a', name: null },
+      user: { id: 'user-a', username: 'a', name: null, timeZone: 'America/Detroit' },
       token: 'token-a',
       isAuthenticated: true,
     });
@@ -1399,7 +1400,7 @@ describe('NutritionPage', () => {
 
     act(() => {
       useAuthStore.setState({
-        user: { id: 'user-b', username: 'b', name: null },
+        user: { id: 'user-b', username: 'b', name: null, timeZone: 'America/Detroit' },
         token: 'token-b',
         isAuthenticated: true,
       });

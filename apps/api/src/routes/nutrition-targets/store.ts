@@ -5,6 +5,7 @@ import { and, desc, eq, lte, max } from 'drizzle-orm';
 import { type CreateNutritionTargetInput, type NutritionTarget } from '@pulse/shared';
 
 import { nutritionTargetEvents, nutritionTargets } from '../../db/schema/index.js';
+import { getUserLocalDate } from '../../lib/user-time-zone.js';
 
 const nutritionTargetSelection = {
   id: nutritionTargets.id,
@@ -19,9 +20,6 @@ const nutritionTargetSelection = {
   createdAt: nutritionTargets.createdAt,
   updatedAt: nutritionTargets.updatedAt,
 };
-
-// Keep "current target" resolution aligned to UTC date-only semantics.
-const getTodayDate = () => new Date().toISOString().slice(0, 10);
 
 const calculateMacroCalories = (target: Pick<NutritionTarget, 'protein' | 'carbs' | 'fat'>) =>
   target.protein * 4 + target.carbs * 4 + target.fat * 9;
@@ -108,16 +106,14 @@ export const getCurrentNutritionTarget = async (
   userId: string,
 ): Promise<NutritionTarget | null> => {
   const { db } = await import('../../db/index.js');
+  const localDate = await getUserLocalDate(userId);
 
   return (
     db
       .select(nutritionTargetSelection)
       .from(nutritionTargets)
       .where(
-        and(
-          eq(nutritionTargets.userId, userId),
-          lte(nutritionTargets.effectiveDate, getTodayDate()),
-        ),
+        and(eq(nutritionTargets.userId, userId), lte(nutritionTargets.effectiveDate, localDate)),
       )
       .orderBy(desc(nutritionTargets.effectiveDate))
       .limit(1)

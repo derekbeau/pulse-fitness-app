@@ -18,6 +18,7 @@ import {
   updateHabit,
 } from './store.js';
 import { ensureStarterHabitsForUser } from '../auth/store.js';
+import { getNutritionLocalDateForUser } from '../nutrition/status-store.js';
 
 vi.mock('./store.js', () => ({
   createHabit: vi.fn(),
@@ -47,6 +48,9 @@ vi.mock('../habit-entries/store.js', () => ({
 vi.mock('../../lib/habit-resolvers.js', () => ({
   resolveHabitCompletion: vi.fn(),
 }));
+vi.mock('../nutrition/status-store.js', () => ({
+  getNutritionLocalDateForUser: vi.fn(),
+}));
 
 const createAuthorizationHeader = (token: string, scheme: 'Bearer' | 'AgentToken' = 'Bearer') => ({
   authorization: `${scheme} ${token}`,
@@ -71,6 +75,7 @@ const expectRequestValidationError = (
 
 describe('habit routes', () => {
   beforeEach(() => {
+    vi.mocked(getNutritionLocalDateForUser).mockResolvedValue('2026-03-09');
     vi.mocked(createHabit).mockReset();
     vi.mocked(findHabitById).mockReset();
     vi.mocked(getNextHabitSortOrder).mockReset();
@@ -115,7 +120,10 @@ describe('habit routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/habits',
@@ -281,9 +289,7 @@ describe('habit routes', () => {
 
       expect(jwtResponse.statusCode).toBe(200);
       expect(jwtResponse.json()).toEqual({
-        data: [
-          ...expectedData,
-        ],
+        data: [...expectedData],
       });
       expect(agentResponse.statusCode).toBe(200);
       expect(agentResponse.json()).toMatchObject({
@@ -350,7 +356,10 @@ describe('habit routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/habits',
@@ -409,7 +418,10 @@ describe('habit routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/habits',
@@ -482,7 +494,10 @@ describe('habit routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/habits',
@@ -518,7 +533,10 @@ describe('habit routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'deleted-user', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'deleted-user', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/habits',
@@ -555,7 +573,10 @@ describe('habit routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/habits',
@@ -615,7 +636,10 @@ describe('habit routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'PUT',
         url: '/api/v1/habits/habit-1',
@@ -707,7 +731,10 @@ describe('habit routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'PUT',
         url: '/api/v1/habits/habit-2',
@@ -764,7 +791,10 @@ describe('habit routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'PUT',
         url: '/api/v1/habits/habit-1',
@@ -794,7 +824,10 @@ describe('habit routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'DELETE',
         url: '/api/v1/habits/habit-1',
@@ -820,7 +853,10 @@ describe('habit routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/v1/habits/reorder',
@@ -905,7 +941,10 @@ describe('habit routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const [createResponse, reorderResponse] = await Promise.all([
         app.inject({
           method: 'POST',

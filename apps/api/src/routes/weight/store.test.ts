@@ -112,6 +112,10 @@ vi.mock('../../db/index.js', () => ({
   db: testState.db,
 }));
 
+vi.mock('../../lib/user-time-zone.js', () => ({
+  getUserLocalDate: vi.fn().mockResolvedValue('2026-03-07'),
+}));
+
 describe('weight store', () => {
   beforeEach(() => {
     testState.reset();

@@ -15,26 +15,44 @@ import { createQueryClientWrapper } from '@/test/query-client';
 
 import { DashboardPage } from './dashboard';
 
-const adaptiveStateMock = vi.hoisted(() => ({ timeZone: 'America/Detroit' }));
+const adaptiveStateMock = vi.hoisted(() => ({
+  dataAvailable: true,
+  isError: false,
+  isFetching: false,
+  isLoading: false,
+  isRefetchError: false,
+  localDate: '2026-03-06',
+  refetch: vi.fn(),
+  timeZone: 'America/Detroit',
+}));
 
 vi.mock('@/features/adaptive-nutrition', () => ({
   useAdaptiveNutritionState: () => ({
-    data: {
-      state: 'setup_required',
-      timeZone: adaptiveStateMock.timeZone,
-      program: null,
-      currentTarget: null,
-      latestAcceptedCheckIn: null,
-      pendingCheckIn: null,
-      checkInDue: false,
-      nextCheckInDate: null,
-      eligibility: null,
-      activeGoal: null,
-      goalProgress: null,
-      pendingGoalChange: null,
-      goalActionRequired: null,
-    },
-    isLoading: false,
+    data: adaptiveStateMock.dataAvailable
+      ? {
+          state: 'setup_required',
+          localDate: adaptiveStateMock.localDate,
+          timeZone: adaptiveStateMock.timeZone,
+          timeZoneSource: 'user_profile',
+          program: null,
+          currentTarget: null,
+          latestAcceptedCheckIn: null,
+          pendingCheckIn: null,
+          checkInDue: false,
+          nextCheckInDate: null,
+          eligibility: null,
+          activeGoal: null,
+          goalProgress: null,
+          pendingGoalChange: null,
+          goalActionRequired: null,
+        }
+      : undefined,
+    isError: adaptiveStateMock.isError,
+    isFetching: adaptiveStateMock.isFetching,
+    isLoading: adaptiveStateMock.isLoading,
+    isPending: adaptiveStateMock.isLoading,
+    isRefetchError: adaptiveStateMock.isRefetchError,
+    refetch: adaptiveStateMock.refetch,
   }),
 }));
 
@@ -417,6 +435,7 @@ describe('DashboardPage', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
   let dashboardConfig: DashboardConfig;
   let snapshotsByDate: Record<string, DashboardSnapshot>;
+  let snapshotFailuresRemaining: number;
   let shouldFailDashboardConfigSave: boolean;
 
   beforeEach(() => {
@@ -432,7 +451,15 @@ describe('DashboardPage', () => {
       visibleWidgets: DEFAULT_VISIBLE_WIDGETS,
     };
     shouldFailDashboardConfigSave = false;
+    snapshotFailuresRemaining = 0;
     adaptiveStateMock.timeZone = 'America/Detroit';
+    adaptiveStateMock.localDate = '2026-03-06';
+    adaptiveStateMock.dataAvailable = true;
+    adaptiveStateMock.isError = false;
+    adaptiveStateMock.isFetching = false;
+    adaptiveStateMock.isLoading = false;
+    adaptiveStateMock.isRefetchError = false;
+    adaptiveStateMock.refetch.mockReset();
 
     mockFetch = vi.fn((input: string | URL | Request, init?: RequestInit) => {
       const rawUrl =
@@ -441,6 +468,15 @@ describe('DashboardPage', () => {
 
       if (url.pathname === '/api/v1/dashboard/snapshot' && init?.method === 'GET') {
         const requestedDate = url.searchParams.get('date') ?? snapshotForToday.date;
+        if (requestedDate === snapshotForToday.date && snapshotFailuresRemaining > 0) {
+          snapshotFailuresRemaining -= 1;
+          return Promise.resolve(
+            new Response(JSON.stringify({ error: { code: 'TEST_FAILURE', message: 'Retry' } }), {
+              headers: { 'Content-Type': 'application/json' },
+              status: 503,
+            }),
+          );
+        }
         const snapshot = snapshotsByDate[requestedDate] ?? snapshotForToday;
 
         return Promise.resolve(
@@ -696,6 +732,7 @@ describe('DashboardPage', () => {
   it('uses the server-authoritative user timezone when adaptive setup is required', async () => {
     vi.setSystemTime(new Date('2026-03-06T15:30:00.000Z'));
     adaptiveStateMock.timeZone = 'Asia/Tokyo';
+    adaptiveStateMock.localDate = '2026-03-07';
     const { wrapper } = createQueryClientWrapper();
 
     render(
@@ -705,7 +742,7 @@ describe('DashboardPage', () => {
       { wrapper },
     );
 
-    await vi.runAllTimersAsync();
+    await vi.advanceTimersByTimeAsync(1_500);
     await Promise.resolve();
 
     expect(mockFetch).toHaveBeenCalledWith(
@@ -1429,6 +1466,67 @@ describe('DashboardPage', () => {
       screen.getByText('Start by setting up your habits and logging your first workout.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Recent Workouts' })).not.toBeInTheDocument();
+  });
+
+  it('shows an explicit retryable error when date authority has no verified data', () => {
+    adaptiveStateMock.dataAvailable = false;
+    adaptiveStateMock.isError = true;
+    const { wrapper } = createQueryClientWrapper();
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Dashboard date could not be loaded');
+    expect(screen.queryByText('Resolving your program date…')).not.toBeInTheDocument();
+    expect(screen.queryByText('Protein minimum unavailable')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry dashboard date' }));
+    expect(adaptiveStateMock.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fabricate snapshot facts after an initial failure and recovers on retry', async () => {
+    snapshotFailuresRemaining = 2;
+    const { wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    await vi.advanceTimersByTimeAsync(1_500);
+    expect(screen.getByRole('alert')).toHaveTextContent('Dashboard snapshot could not be loaded');
+    expect(screen.queryByText('Protein minimum unavailable')).not.toBeInTheDocument();
+    expect(screen.queryByText('Rest Day')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Log weight/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry dashboard snapshot' }));
+    await vi.advanceTimersByTimeAsync(10);
+    expect(screen.queryByText('Dashboard snapshot could not be loaded')).not.toBeInTheDocument();
+    expect(screen.getAllByText(/170g logged/).length).toBeGreaterThan(0);
+  });
+
+  it('retains exact snapshot facts with a stale warning when background refresh fails', async () => {
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+      { wrapper },
+    );
+    await vi.runAllTimersAsync();
+    expect(screen.getAllByText(/170g logged/).length).toBeGreaterThan(0);
+
+    snapshotFailuresRemaining = 2;
+    void queryClient.invalidateQueries({ queryKey: ['dashboard', 'snapshot'] });
+    await vi.advanceTimersByTimeAsync(1_500);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Dashboard snapshot refresh failed');
+    expect(screen.getAllByText(/170g logged/).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeDisabled();
   });
 });
 

@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useState } from 'react';
 import type { Habit, HabitEntry } from '@pulse/shared';
 
 import { Button } from '@/components/ui/button';
@@ -13,18 +13,19 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useUpdateHabitEntry } from '@/features/habits/api/habits';
-import { getToday, toDateKey } from '@/lib/date';
 import { formatServing } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 type HabitDayModalProps = {
   date: string;
+  dateAuthorityLocked?: boolean;
   entry: HabitEntry | null;
   habit: Habit;
   isOpen: boolean;
   isScheduled: boolean;
   onOpenChange: (open: boolean) => void;
   status: 'completed' | 'missed' | 'not_scheduled';
+  todayDate: string;
 };
 
 type DurationDraft = {
@@ -119,9 +120,9 @@ function getStatusCopy({
   habit,
   isScheduled,
   status,
-}: Pick<HabitDayModalProps, 'date' | 'entry' | 'habit' | 'isScheduled' | 'status'>) {
-  const todayKey = toDateKey(getToday());
-  const isFutureDate = date > todayKey;
+  todayDate,
+}: Pick<HabitDayModalProps, 'date' | 'entry' | 'habit' | 'isScheduled' | 'status' | 'todayDate'>) {
+  const isFutureDate = date > todayDate;
 
   if (isFutureDate) {
     return {
@@ -132,7 +133,8 @@ function getStatusCopy({
 
   if (!isScheduled && !entry) {
     return {
-      description: 'This habit was not scheduled for this day. You can still log a retroactive entry below.',
+      description:
+        'This habit was not scheduled for this day. You can still log a retroactive entry below.',
       title: 'Not scheduled',
     };
   }
@@ -170,24 +172,23 @@ function getStatusCopy({
 
 export function HabitDayModal({
   date,
+  dateAuthorityLocked = false,
   entry,
   habit,
   isOpen,
   isScheduled,
   onOpenChange,
   status,
+  todayDate,
 }: HabitDayModalProps) {
   const numberInputId = useId();
   const hoursInputId = useId();
   const minutesInputId = useId();
-  const todayKey = useMemo(() => toDateKey(getToday()), []);
-  const isFutureDate = date > todayKey;
-  const isReadOnly = isFutureDate;
+  const isFutureDate = date > todayDate;
+  const isReadOnly = isFutureDate || dateAuthorityLocked;
   const isReferential = habit.referenceSource !== null && habit.referenceSource !== undefined;
   const [booleanValue, setBooleanValue] = useState(entry?.completed ?? false);
-  const [numericValue, setNumericValue] = useState(
-    entry?.value != null ? `${entry.value}` : '',
-  );
+  const [numericValue, setNumericValue] = useState(entry?.value != null ? `${entry.value}` : '');
   const [durationValue, setDurationValue] = useState<DurationDraft>(() =>
     getDurationDraft(entry?.value, habit.unit),
   );
@@ -195,19 +196,16 @@ export function HabitDayModal({
     errorMessage: 'Failed to save habit entry. Please try again.',
     successMessage: 'Habit entry saved',
   });
-  const statusCopy = getStatusCopy({ date, entry, habit, isScheduled, status });
+  const statusCopy = getStatusCopy({ date, entry, habit, isScheduled, status, todayDate });
 
   async function handleSave() {
+    if (dateAuthorityLocked || isFutureDate) return;
     let completed = booleanValue;
     let value: number | undefined;
 
     if (habit.trackingType === 'numeric') {
       const parsedValue = Number(numericValue);
-      if (
-        numericValue.trim().length === 0 ||
-        !Number.isFinite(parsedValue) ||
-        parsedValue < 0
-      ) {
+      if (numericValue.trim().length === 0 || !Number.isFinite(parsedValue) || parsedValue < 0) {
         return;
       }
 
@@ -252,7 +250,7 @@ export function HabitDayModal({
     (savedDurationValue === null || Number.isNaN(savedDurationValue));
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={isOpen}>
+    <Dialog onOpenChange={onOpenChange} open={isOpen && !dateAuthorityLocked}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{habit.name}</DialogTitle>
@@ -281,7 +279,8 @@ export function HabitDayModal({
 
           {isReferential ? (
             <p className="text-xs text-muted-foreground">
-              Saving here creates or updates a manual override for this habit on {formatDateLabel(date)}.
+              Saving here creates or updates a manual override for this habit on{' '}
+              {formatDateLabel(date)}.
             </p>
           ) : null}
 
@@ -325,7 +324,11 @@ export function HabitDayModal({
                     inputMode="decimal"
                     min="0"
                     onChange={(event) => setNumericValue(event.target.value)}
-                    placeholder={habit.target != null ? `Target: ${formatServing(habit.target)}` : 'Enter value'}
+                    placeholder={
+                      habit.target != null
+                        ? `Target: ${formatServing(habit.target)}`
+                        : 'Enter value'
+                    }
                     step="0.1"
                     type="number"
                     value={numericValue}

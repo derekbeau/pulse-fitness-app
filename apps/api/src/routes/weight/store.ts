@@ -12,7 +12,8 @@ import {
 } from '@pulse/shared';
 
 import { bodyWeight, users } from '../../db/schema/index.js';
-import { addUtcDays, getTodayDate } from '../../lib/date.js';
+import { addUtcDays } from '../../lib/date.js';
+import { getUserLocalDate } from '../../lib/user-time-zone.js';
 
 export type CanonicalBodyWeightEntry = {
   id: string;
@@ -36,11 +37,18 @@ const canonicalBodyWeightEntrySelection = {
 
 type WeightListFilters = Omit<WeightQueryParams, 'page' | 'limit'>;
 
-const toBodyWeightConditions = (userId: string, query: WeightListFilters) => {
+const toBodyWeightConditions = (
+  userId: string,
+  query: WeightListFilters,
+  resolvedLocalDate?: string,
+) => {
   const conditions = [eq(bodyWeight.userId, userId)];
 
   if (query.days !== undefined) {
-    const rangeEnd = query.to ?? getTodayDate();
+    const rangeEnd = query.to ?? resolvedLocalDate;
+    if (!rangeEnd) {
+      throw new Error('A resolved local date is required for a relative weight range');
+    }
     const rangeStart = addUtcDays(rangeEnd, -(query.days - 1));
     conditions.push(gte(bodyWeight.date, rangeStart));
   }
@@ -173,7 +181,9 @@ export const listBodyWeightEntries = async (
   query: WeightListFilters,
 ): Promise<CanonicalBodyWeightEntry[]> => {
   const { db } = await import('../../db/index.js');
-  const conditions = toBodyWeightConditions(userId, query);
+  const resolvedLocalDate =
+    query.days !== undefined && !query.to ? await getUserLocalDate(userId) : undefined;
+  const conditions = toBodyWeightConditions(userId, query, resolvedLocalDate);
 
   return db
     .select(canonicalBodyWeightEntrySelection)
@@ -189,7 +199,9 @@ export const listBodyWeightEntriesPaginated = async (
   pagination: { limit: number; offset: number },
 ): Promise<{ entries: CanonicalBodyWeightEntry[]; total: number }> => {
   const { db } = await import('../../db/index.js');
-  const conditions = toBodyWeightConditions(userId, query);
+  const resolvedLocalDate =
+    query.days !== undefined && !query.to ? await getUserLocalDate(userId) : undefined;
+  const conditions = toBodyWeightConditions(userId, query, resolvedLocalDate);
   const whereClause = and(...conditions);
 
   const entries = db

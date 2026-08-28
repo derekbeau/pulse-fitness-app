@@ -9,7 +9,53 @@ import { jsonResponse } from '@/test/test-utils';
 
 import { WorkoutCalendar } from './workout-calendar';
 
+const dateAuthorityMocks = vi.hoisted(() => {
+  let mutationDate: string | null = null;
+  return {
+    setMutationDate: (value: string | null) => {
+      mutationDate = value;
+    },
+    state: {
+      dateAuthorityLocked: false,
+      getTodayKeyForMutation: () => mutationDate,
+      todayKey: null as string | null,
+    },
+  };
+});
+
+vi.mock('@/features/workouts/hooks/use-today-key', () => ({
+  useTodayKey: () => dateAuthorityMocks.state,
+}));
+
+vi.mock('./schedule-workout-dialog', () => ({
+  ScheduleWorkoutDialog: ({
+    onRemove,
+    onSubmitDate,
+    open,
+  }: {
+    onRemove?: () => Promise<unknown>;
+    onSubmitDate: (dateKey: string) => Promise<unknown>;
+    open: boolean;
+  }) =>
+    open ? (
+      <div>
+        <button onClick={() => void onSubmitDate('2099-12-31')} type="button">
+          Submit reschedule
+        </button>
+        {onRemove ? (
+          <button onClick={() => void onRemove()} type="button">
+            Remove from schedule
+          </button>
+        ) : null}
+      </div>
+    ) : null,
+}));
+
 beforeEach(() => {
+  const todayKey = toDateKey(new Date());
+  dateAuthorityMocks.state.dateAuthorityLocked = false;
+  dateAuthorityMocks.state.todayKey = todayKey;
+  dateAuthorityMocks.setMutationDate(todayKey);
   window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
 });
 
@@ -19,6 +65,153 @@ afterEach(() => {
 });
 
 describe('WorkoutCalendar', () => {
+  it('disables rescheduling while date authority is stale', async () => {
+    const todayKey = toDateKey(new Date());
+    dateAuthorityMocks.state.dateAuthorityLocked = true;
+    dateAuthorityMocks.setMutationDate(null);
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-sessions') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+      if (url.pathname === '/api/v1/scheduled-workouts') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'schedule-locked',
+                date: todayKey,
+                templateId: 'template-1',
+                templateName: 'Upper Push',
+                templateTrackingTypes: [],
+                sessionId: null,
+                createdAt: 1,
+              },
+            ],
+          }),
+        );
+      }
+      if (url.pathname === '/api/v1/workout-templates/template-1') {
+        return Promise.resolve(jsonResponse({ data: createTemplatePayload() }));
+      }
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutCalendar />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Reschedule' })).toBeDisabled();
+  });
+
+  it('does not reschedule after date authority locks while the dialog is open', async () => {
+    const todayKey = toDateKey(new Date());
+    const rescheduleSpy = vi.fn();
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/workout-sessions' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+      if (url.pathname === '/api/v1/scheduled-workouts' && method === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'schedule-locked',
+                date: todayKey,
+                templateId: 'template-1',
+                templateName: 'Upper Push',
+                templateTrackingTypes: [],
+                sessionId: null,
+                createdAt: 1,
+              },
+            ],
+          }),
+        );
+      }
+      if (url.pathname === '/api/v1/workout-templates/template-1' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: createTemplatePayload() }));
+      }
+      if (url.pathname === '/api/v1/scheduled-workouts/schedule-locked' && method === 'PATCH') {
+        rescheduleSpy();
+        return Promise.resolve(jsonResponse({ data: {} }));
+      }
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutCalendar />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reschedule' }));
+    const submit = await screen.findByRole('button', { name: 'Submit reschedule' });
+    dateAuthorityMocks.setMutationDate(null);
+    fireEvent.click(submit);
+
+    expect(rescheduleSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not remove a schedule after date authority locks while confirmation is open', async () => {
+    const todayKey = toDateKey(new Date());
+    const unscheduleSpy = vi.fn();
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/workout-sessions' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+      if (url.pathname === '/api/v1/scheduled-workouts' && method === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'schedule-locked',
+                date: todayKey,
+                templateId: 'template-1',
+                templateName: 'Upper Push',
+                templateTrackingTypes: [],
+                sessionId: null,
+                createdAt: 1,
+              },
+            ],
+          }),
+        );
+      }
+      if (url.pathname === '/api/v1/workout-templates/template-1' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: createTemplatePayload() }));
+      }
+      if (url.pathname === '/api/v1/scheduled-workouts/schedule-locked' && method === 'DELETE') {
+        unscheduleSpy();
+        return Promise.resolve(jsonResponse({ data: { success: true } }));
+      }
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutCalendar />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reschedule' }));
+    const remove = await screen.findByRole('button', { name: 'Remove from schedule' });
+    dateAuthorityMocks.setMutationDate(null);
+    fireEvent.click(remove);
+
+    expect(unscheduleSpy).not.toHaveBeenCalled();
+  });
+
   it('renders per-workout indicators and a count badge for days with 3+ workouts', async () => {
     const sessionDate = new Date();
     const sessionDateKey = toDateKey(sessionDate);
@@ -354,6 +547,18 @@ function formatMonth(date: Date) {
     month: 'long',
     year: 'numeric',
   }).format(date);
+}
+
+function createTemplatePayload() {
+  return {
+    id: 'template-1',
+    name: 'Upper Push',
+    description: null,
+    sections: [],
+    tags: [],
+    createdAt: 1,
+    updatedAt: 1,
+  };
 }
 
 function getCalendarDayTile(date: Date) {

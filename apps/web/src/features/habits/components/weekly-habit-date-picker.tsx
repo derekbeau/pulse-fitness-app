@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { addDays, formatDateKey, getToday, isSameDay } from '@/lib/date';
+import { addDays, formatDateKey, isSameDay } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 type DayCompletion = {
@@ -12,6 +12,7 @@ type DayCompletion = {
 
 type WeeklyHabitDatePickerProps = {
   selectedDate: Date;
+  today: Date;
   visibleWeekStart: Date;
   completionByDate: Record<string, DayCompletion>;
   onDateSelect: (date: Date) => void;
@@ -57,9 +58,8 @@ export function WeeklyHabitDatePicker({
   completionByDate,
   onDateSelect,
   onWeekChange,
+  today,
 }: WeeklyHabitDatePickerProps) {
-  const today = getToday();
-
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, index) => addDays(visibleWeekStart, index));
   }, [visibleWeekStart]);
@@ -130,7 +130,9 @@ export function WeeklyHabitDatePicker({
               }}
               type="button"
             >
-              <span className="text-[11px] font-medium text-current sm:text-xs">{DAY_NAMES[index]}</span>
+              <span className="text-[11px] font-medium text-current sm:text-xs">
+                {DAY_NAMES[index]}
+              </span>
               <span className="text-base font-semibold leading-tight text-current sm:text-lg">
                 {day.getDate()}
               </span>

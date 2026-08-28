@@ -25,7 +25,11 @@ const fetchDashboardSnapshot = async (
     },
   );
 
-  return dashboardSnapshotSchema.parse(snapshot);
+  const parsed = dashboardSnapshotSchema.parse(snapshot);
+  if (parsed.date !== date) {
+    throw new Error(`Dashboard snapshot date mismatch: expected ${date}, received ${parsed.date}`);
+  }
+  return parsed;
 };
 
 export const useDashboardSnapshot = (date: string, options: DashboardSnapshotQueryOptions = {}) =>

@@ -40,7 +40,11 @@ async function postMeal(date: string, name: string, token = authToken, calories 
 
 async function registerUser(prefix: string) {
   const response = await apiContext.post('/api/v1/auth/register', {
-    data: { password: testPassword, username: `${prefix}-${Date.now()}` },
+    data: {
+      password: testPassword,
+      timeZone: 'America/Detroit',
+      username: `${prefix}-${Date.now()}`,
+    },
   });
   expect(response.ok()).toBeTruthy();
   const payload = (await response.json()) as { data: { token: string } };
@@ -102,7 +106,7 @@ test.describe.serial('Adaptive TDEE Coach', () => {
   test.beforeAll(async () => {
     apiContext = await request.newContext({ baseURL: apiBaseURL });
     const response = await apiContext.post('/api/v1/auth/register', {
-      data: { password: testPassword, username: testUsername },
+      data: { password: testPassword, timeZone: 'America/Detroit', username: testUsername },
     });
     expect(response.ok()).toBeTruthy();
     const payload = (await response.json()) as { data: { token: string } };

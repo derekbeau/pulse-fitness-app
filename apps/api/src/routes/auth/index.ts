@@ -101,6 +101,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         const createdUser = await createUser({
           ...user,
           passwordHash,
+          timeZone: body.timeZone,
         });
 
         return reply.code(201).send(buildAuthResponse(app, createdUser));

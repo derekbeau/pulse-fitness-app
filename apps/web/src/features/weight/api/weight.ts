@@ -56,8 +56,8 @@ export const weightQueryKeys = {
   trend: ({ from, to }: Pick<WeightListFilters, 'from' | 'to'> = {}) =>
     ['weight', 'list', normalizeWeightListFilters({ from, to })] as const,
   analyticsRoot: () => ['weight', 'analytics'] as const,
-  analytics: (range: TrendWeightRange, end: string | undefined, timeZone: string) =>
-    ['weight', 'analytics', { range, end: end ?? null, timeZone }] as const,
+  analytics: (range: TrendWeightRange, end: string | undefined) =>
+    ['weight', 'analytics', { range, end: end ?? null }] as const,
   page: ({
     days,
     from,
@@ -116,12 +116,8 @@ const fetchWeightEntries = async (filters: WeightListFilters) => {
   return parseWeightEntryCollection(response);
 };
 
-const fetchTrendWeightAnalytics = async (
-  range: TrendWeightRange,
-  end: string | undefined,
-  timeZone: string,
-) => {
-  const search = new URLSearchParams({ range, timeZone });
+const fetchTrendWeightAnalytics = async (range: TrendWeightRange, end: string | undefined) => {
+  const search = new URLSearchParams({ range });
   if (end) search.set('end', end);
   const response = await apiRequest<unknown>(`/api/v1/weight/trend?${search.toString()}`);
   return trendWeightAnalyticsSchema.parse(response);
@@ -221,7 +217,14 @@ const applyWeightEntryToListCache = (
       return entries;
     }
 
-    const resolvedTo = filters.to ?? formatDateKey(new Date());
+    if (filters.days !== null && filters.to === null) {
+      // The server resolves open-ended current-day ranges from the user's authoritative time zone.
+      // Avoid guessing with the browser calendar in the optimistic layer; the invalidation that
+      // follows the mutation will refill this cache from canonical server facts.
+      return entries;
+    }
+
+    const resolvedTo = filters.to;
     const resolvedFrom =
       filters.from ??
       (filters.days !== null
@@ -406,11 +409,10 @@ export const useTrendWeightAnalytics = (
   end?: string,
   options: { enabled?: boolean; refetchIntervalMs?: number } = {},
 ) => {
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   return useQuery({
     enabled: options.enabled,
-    queryKey: weightQueryKeys.analytics(range, end, timeZone),
-    queryFn: () => fetchTrendWeightAnalytics(range, end, timeZone),
+    queryKey: weightQueryKeys.analytics(range, end),
+    queryFn: () => fetchTrendWeightAnalytics(range, end),
     refetchInterval: options.refetchIntervalMs,
   });
 };

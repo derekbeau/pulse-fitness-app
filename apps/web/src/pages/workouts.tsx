@@ -6,6 +6,11 @@ import { useSearchParams } from 'react-router';
 
 import { WorkoutCardSkeleton } from '@/components/skeletons';
 import { PageHeader } from '@/components/layout/page-header';
+import {
+  DateAuthorityError,
+  DateAuthorityStaleNotice,
+  TimeZoneRequired,
+} from '@/components/date-authority-state';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HelpIcon } from '@/components/ui/help-icon';
@@ -26,6 +31,7 @@ import {
   useCompletedSessions,
   useWorkoutTemplates,
 } from '@/features/workouts/api/workouts';
+import { useDateAuthority } from '@/hooks/use-date-authority';
 
 const WORKOUT_VIEWS = ['calendar', 'list', 'templates', 'exercises', 'muscles'] as const;
 const WORKOUTS_ONBOARDING_DISMISSED_KEY = 'pulse.workouts.onboarding.dismissed';
@@ -44,6 +50,7 @@ function isWorkoutView(value: string | null): value is WorkoutView {
 }
 
 export function WorkoutsPage() {
+  const dateAuthority = useDateAuthority();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
@@ -157,6 +164,29 @@ export function WorkoutsPage() {
         title="Workouts"
       />
 
+      {!dateAuthority.localDate ? (
+        dateAuthority.isLoading ? (
+          <p aria-live="polite" className="text-sm text-muted-foreground" role="status">
+            Resolving your local workout date…
+          </p>
+        ) : dateAuthority.isInitialError ? (
+          <DateAuthorityError
+            isRetrying={dateAuthority.isRetrying}
+            onRetry={() => void dateAuthority.retry()}
+            surface="Workouts"
+          />
+        ) : (
+          <TimeZoneRequired surface="Workouts" />
+        )
+      ) : dateAuthority.isStale && dateAuthority.timeZone ? (
+        <DateAuthorityStaleNotice
+          date={dateAuthority.localDate}
+          isRetrying={dateAuthority.isRetrying}
+          onRetry={() => void dateAuthority.retry()}
+          timeZone={dateAuthority.timeZone}
+        />
+      ) : null}
+
       {shouldShowOnboardingCard ? (
         <div className="rounded-2xl border border-border bg-card p-4">
           <div className="flex items-start justify-between gap-3">
@@ -253,7 +283,8 @@ export function WorkoutsPage() {
         </Button>
       </div>
 
-      {activeView === 'calendar' ? (
+      {!dateAuthority.localDate &&
+      (activeView === 'calendar' || activeView === 'list') ? null : activeView === 'calendar' ? (
         <WorkoutCalendar
           buildDayHref={(date) => `/workouts?view=templates&date=${date}`}
           buildSessionHref={buildSessionHref}

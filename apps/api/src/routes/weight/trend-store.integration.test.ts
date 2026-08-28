@@ -523,32 +523,32 @@ describe('Trend Weight analytics store', () => {
     );
   });
 
-  it('uses the caller IANA zone for live users across Detroit midnight and DST', async () => {
+  it('uses the server-resolved IANA zone across Detroit midnight and DST', async () => {
     const { createTrendWeightStore } = await import('./trend-store.js');
     const beforeMidnight = createTrendWeightStore({
       db: dbModule.db,
       now: () => new Date('2026-08-20T03:59:59.000Z'),
-    }).getAnalytics('user-1', { range: '1m', timeZone: 'America/Detroit' });
+    }).getAnalytics('user-1', { range: '1m' });
     const afterMidnight = createTrendWeightStore({
       db: dbModule.db,
       now: () => new Date('2026-08-20T04:00:01.000Z'),
-    }).getAnalytics('user-1', { range: '1m', timeZone: 'America/Detroit' });
+    }).getAnalytics('user-1', { range: '1m' });
     const springBefore = createTrendWeightStore({
       db: dbModule.db,
       now: () => new Date('2026-03-08T06:59:59.000Z'),
-    }).getAnalytics('user-1', { range: '1m', timeZone: 'America/Detroit' });
+    }).getAnalytics('user-1', { range: '1m' });
     const springAfter = createTrendWeightStore({
       db: dbModule.db,
       now: () => new Date('2026-03-08T07:00:01.000Z'),
-    }).getAnalytics('user-1', { range: '1m', timeZone: 'America/Detroit' });
+    }).getAnalytics('user-1', { range: '1m' });
     const fallBefore = createTrendWeightStore({
       db: dbModule.db,
       now: () => new Date('2026-11-01T05:59:59.000Z'),
-    }).getAnalytics('user-1', { range: '1m', timeZone: 'America/Detroit' });
+    }).getAnalytics('user-1', { range: '1m' });
     const fallAfter = createTrendWeightStore({
       db: dbModule.db,
       now: () => new Date('2026-11-01T06:00:01.000Z'),
-    }).getAnalytics('user-1', { range: '1m', timeZone: 'America/Detroit' });
+    }).getAnalytics('user-1', { range: '1m' });
 
     expect(beforeMidnight.range).toMatchObject({ startDate: '2026-07-21', endDate: '2026-08-19' });
     expect(afterMidnight.range).toMatchObject({ startDate: '2026-07-22', endDate: '2026-08-20' });
@@ -560,33 +560,21 @@ describe('Trend Weight analytics store', () => {
     expect(fallAfter.range).toEqual(fallBefore.range);
 
     seedGoalHistory();
-    const losAngelesCaller = createTrendWeightStore({
+    expect(() =>
+      createTrendWeightStore({
+        db: dbModule.db,
+        now: () => new Date('2026-08-20T04:30:00.000Z'),
+      }).getAnalytics('user-1', { range: '1m', timeZone: 'America/Los_Angeles' }),
+    ).toThrow('conflicts with the server-resolved authority');
+
+    const detroitDashboard = createTrendWeightStore({
       db: dbModule.db,
       now: () => new Date('2026-08-20T04:30:00.000Z'),
-    }).getAnalytics('user-1', { range: '1m', timeZone: 'America/Los_Angeles' });
-    expect(losAngelesCaller.timeZone).toBe('America/Los_Angeles');
-    expect(losAngelesCaller.range.endDate).toBe('2026-08-19');
-
-    const losAngelesDashboard = createTrendWeightStore({
-      db: dbModule.db,
-      now: () => new Date('2026-08-20T04:30:00.000Z'),
-    }).getAnalytics('user-1', {
-      range: '1m',
-      end: '2026-08-19',
-      timeZone: 'America/Los_Angeles',
-    });
-    expect(losAngelesDashboard.timeZone).toBe('America/Los_Angeles');
-    expect(losAngelesDashboard.isHistorical).toBe(false);
-
-    const tokyoDashboard = createTrendWeightStore({
-      db: dbModule.db,
-      now: () => new Date('2026-08-20T02:00:00.000Z'),
     }).getAnalytics('user-1', {
       range: '1m',
       end: '2026-08-20',
-      timeZone: 'Asia/Tokyo',
     });
-    expect(tokyoDashboard.timeZone).toBe('Asia/Tokyo');
-    expect(tokyoDashboard.isHistorical).toBe(false);
+    expect(detroitDashboard.timeZone).toBe('America/Detroit');
+    expect(detroitDashboard.isHistorical).toBe(false);
   });
 });

@@ -226,16 +226,8 @@ describe('SnapshotCards', () => {
     expect(within(weightCard as HTMLElement).queryByText('181.4 lbs')).not.toBeInTheDocument();
   });
 
-  it('renders placeholders for loading and null weight/workout states', () => {
-    const { rerender } = render(
-      <MemoryRouter>
-        <SnapshotCards />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getAllByText('--')).not.toHaveLength(0);
-
-    rerender(
+  it('renders explicit null weight and workout states from a verified snapshot', () => {
+    render(
       <MemoryRouter>
         <SnapshotCards
           snapshot={{

@@ -42,12 +42,14 @@ const baseHabit: Habit = {
 
 function renderHabitDayModal({
   date = '2026-03-09',
+  dateAuthorityLocked = false,
   entry = null,
   habit = baseHabit,
   isScheduled = true,
   status = 'not_scheduled',
 }: {
   date?: string;
+  dateAuthorityLocked?: boolean;
   entry?: HabitEntry | null;
   habit?: Habit;
   isScheduled?: boolean;
@@ -56,12 +58,14 @@ function renderHabitDayModal({
   return render(
     <HabitDayModal
       date={date}
+      dateAuthorityLocked={dateAuthorityLocked}
       entry={entry}
       habit={habit}
       isOpen
       isScheduled={isScheduled}
       onOpenChange={vi.fn()}
       status={status}
+      todayDate="2026-03-09"
     />,
   );
 }
@@ -97,6 +101,44 @@ describe('HabitDayModal', () => {
       date: '2026-03-09',
       completed: false,
     });
+  });
+
+  it('closes and cannot save when date authority becomes locked', () => {
+    const mutation = createMutationMock();
+    mockedUseUpdateHabitEntry.mockReturnValue(
+      mutation as unknown as ReturnType<typeof useUpdateHabitEntry>,
+    );
+    const onOpenChange = vi.fn();
+    const { rerender } = render(
+      <HabitDayModal
+        date="2026-03-09"
+        entry={null}
+        habit={baseHabit}
+        isOpen
+        isScheduled
+        onOpenChange={onOpenChange}
+        status="not_scheduled"
+        todayDate="2026-03-09"
+      />,
+    );
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    rerender(
+      <HabitDayModal
+        date="2026-03-09"
+        dateAuthorityLocked
+        entry={null}
+        habit={baseHabit}
+        isOpen
+        isScheduled
+        onOpenChange={onOpenChange}
+        status="not_scheduled"
+        todayDate="2026-03-09"
+      />,
+    );
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(mutation.mutateAsync).not.toHaveBeenCalled();
   });
 
   it('renders numeric input controls and creates a missing numeric entry', async () => {
@@ -211,7 +253,9 @@ describe('HabitDayModal', () => {
     });
 
     expect(
-      screen.getByText('This habit was not scheduled for this day. You can still log a retroactive entry below.'),
+      screen.getByText(
+        'This habit was not scheduled for this day. You can still log a retroactive entry below.',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
   });

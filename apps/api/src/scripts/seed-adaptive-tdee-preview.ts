@@ -751,6 +751,7 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
         username: record.username,
         name: record.name,
         passwordHash,
+        preferences: { timeZone: 'America/Detroit' },
         weightUnit: 'lbs' as const,
         createdAt: clock,
         updatedAt: clock,

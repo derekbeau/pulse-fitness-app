@@ -8,12 +8,14 @@ describe('registerInputSchema', () => {
       username: ' Derek ',
       password: 'super-secret',
       name: ' Derek ',
+      timeZone: 'America/Detroit',
     });
 
     expect(payload).toEqual({
       username: 'derek',
       password: 'super-secret',
       name: 'Derek',
+      timeZone: 'America/Detroit',
     });
   });
 
@@ -57,6 +59,7 @@ describe('registerInputSchema', () => {
       username: 'pulse-user',
       password: 'very-secure-password',
       name: 'Pulse',
+      timeZone: 'America/Detroit',
     };
 
     expect(payload.name).toBe('Pulse');

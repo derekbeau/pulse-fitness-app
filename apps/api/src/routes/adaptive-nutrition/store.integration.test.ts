@@ -483,7 +483,11 @@ describe('adaptive nutrition lifecycle store', () => {
     expect(storeA.getState('user-3').state).toBe('setup_required');
     expect(storeA.getState('user-3').timeZone).toBe('Asia/Tokyo');
     expect(storeA.getState('user-4').state).toBe('setup_required');
-    expect(storeA.getState('user-4').timeZone).toBe('UTC');
+    expect(storeA.getState('user-4')).toMatchObject({
+      localDate: null,
+      timeZone: null,
+      timeZoneSource: null,
+    });
   });
 
   it('rejects inconsistent goal direction and user floors below the derived system floor', () => {

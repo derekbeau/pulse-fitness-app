@@ -66,6 +66,7 @@ describe('RegisterForm', () => {
     expect(screen.getByLabelText('Username')).toBeInTheDocument();
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
     expect(screen.getByLabelText('Name (optional)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Time zone')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create account' })).toBeInTheDocument();
   });
 
@@ -95,6 +96,9 @@ describe('RegisterForm', () => {
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'derek' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'supersecret' } });
     fireEvent.change(screen.getByLabelText('Name (optional)'), { target: { value: 'Derek' } });
+    fireEvent.change(screen.getByLabelText('Time zone'), {
+      target: { value: 'America/Detroit' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
     await waitFor(() => {
@@ -102,6 +106,7 @@ describe('RegisterForm', () => {
         username: 'derek',
         password: 'supersecret',
         name: 'Derek',
+        timeZone: 'America/Detroit',
       });
     });
     expect(onSuccess).toHaveBeenCalledTimes(1);
@@ -149,6 +154,9 @@ describe('RegisterForm', () => {
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'derek' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'supersecret' } });
     fireEvent.change(screen.getByLabelText('Name (optional)'), { target: { value: 'Derek' } });
+    fireEvent.change(screen.getByLabelText('Time zone'), {
+      target: { value: 'America/Detroit' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
     await waitFor(() => {
@@ -156,6 +164,7 @@ describe('RegisterForm', () => {
         username: 'derek',
         password: 'supersecret',
         name: 'Derek',
+        timeZone: 'America/Detroit',
       });
     });
     expect(onSuccess).not.toHaveBeenCalled();

@@ -65,11 +65,11 @@ describe('createWeightInputSchema', () => {
 
 describe('Trend Weight schemas', () => {
   it('defaults the analytics range and rejects unknown query fields', () => {
+    expect(trendWeightQuerySchema.parse({})).toEqual({ range: '1m' });
     expect(trendWeightQuerySchema.parse({ timeZone: 'America/Detroit' })).toEqual({
       range: '1m',
       timeZone: 'America/Detroit',
     });
-    expect(() => trendWeightQuerySchema.parse({})).toThrow();
     expect(() => trendWeightQuerySchema.parse({ timeZone: 'not/a-zone' })).toThrow();
     expect(() =>
       trendWeightQuerySchema.parse({ range: '1m', timeZone: 'UTC', days: 30 }),

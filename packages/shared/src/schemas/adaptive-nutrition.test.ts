@@ -475,7 +475,9 @@ describe('adaptive TDEE schemas', () => {
     expect(
       adaptiveNutritionStateSchema.parse({
         state: 'setup_required',
+        localDate: '2026-08-23',
         timeZone: 'UTC',
+        timeZoneSource: 'user_profile',
         program: null,
         currentTarget: null,
         latestAcceptedCheckIn: null,
@@ -489,6 +491,25 @@ describe('adaptive TDEE schemas', () => {
         goalActionRequired: null,
       }),
     ).toMatchObject({ state: 'setup_required' });
+    expect(
+      adaptiveNutritionStateSchema.safeParse({
+        state: 'setup_required',
+        localDate: '2026-08-23',
+        timeZone: 'America/Detroit',
+        timeZoneSource: 'adaptive_program',
+        program: null,
+        currentTarget: null,
+        latestAcceptedCheckIn: null,
+        pendingCheckIn: null,
+        checkInDue: false,
+        nextCheckInDate: null,
+        eligibility: null,
+        activeGoal: null,
+        goalProgress: null,
+        pendingGoalChange: null,
+        goalActionRequired: null,
+      }).success,
+    ).toBe(false);
   });
 
   it('validates strict goal, revision, history, detail, and current-read boundaries', () => {

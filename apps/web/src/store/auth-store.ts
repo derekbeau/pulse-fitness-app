@@ -21,6 +21,7 @@ export type AuthUser = {
   id: string;
   username: string;
   name: string | null;
+  timeZone: string | null;
 };
 
 type AuthResponse = {

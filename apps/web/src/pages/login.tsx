@@ -1,17 +1,10 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 
 import { LoginForm } from '@/features/auth';
-import { prefetchDashboardSnapshot } from '@/hooks/use-dashboard-snapshot';
-import { getToday, toDateKey } from '@/lib/date';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-
   function handleLoginSuccess() {
-    const todayDateKey = toDateKey(getToday());
-    void prefetchDashboardSnapshot(queryClient, todayDateKey);
     navigate('/');
   }
 

@@ -53,7 +53,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useStartSession } from '@/hooks/use-workout-session';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { ApiError } from '@/lib/api-client';
-import { toDateKey } from '@/lib/date-utils';
 import { useDebouncedCallback } from '@/lib/use-debounced-callback';
 import { cn } from '@/lib/utils';
 
@@ -68,6 +67,7 @@ import {
   useUnscheduleWorkout,
   useWorkoutSessions,
 } from '../api/workouts';
+import { useTodayKey } from '../hooks/use-today-key';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 import { ScheduledWorkoutHeader } from './scheduled-workout-header';
 import { SwapExerciseDialog } from './swap-exercise-dialog';
@@ -181,6 +181,7 @@ type TemplateExerciseLookup = {
 
 export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetailProps) {
   const navigate = useNavigate();
+  const { dateAuthorityLocked, getTodayKeyForMutation, todayKey } = useTodayKey();
   const { weightUnit } = useWeightUnit();
   const { data: scheduledWorkout, isLoading, isError } = useScheduledWorkoutDetail(id);
   const startSessionMutation = useStartSession();
@@ -193,6 +194,7 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
   const { confirm, dialog: confirmDialog } = useConfirmation();
   const activeSessionsQuery = useWorkoutSessions({ status: ['in-progress', 'paused'] });
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
+  const [rescheduleAuthorityDate, setRescheduleAuthorityDate] = useState<string | null>(null);
   const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false);
   const [mutationErrorMessage, setMutationErrorMessage] = useState<string | null>(null);
   const [historyTarget, setHistoryTarget] = useState<{
@@ -249,8 +251,9 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
     updateScheduledWorkoutExercisesMutation.isPending ||
     updateScheduledWorkoutExerciseSetsMutation.isPending;
 
-  async function doStart(options?: { force?: boolean }) {
-    if (!scheduledWorkout) {
+  async function doStart(expectedTodayKey: string, options?: { force?: boolean }) {
+    const mutationTodayKey = getTodayKeyForMutation();
+    if (!scheduledWorkout || mutationTodayKey === null || mutationTodayKey !== expectedTodayKey) {
       return;
     }
 
@@ -258,7 +261,7 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
 
     try {
       const session = await startSessionMutation.mutateAsync({
-        date: toDateKey(new Date(startedAt)),
+        date: mutationTodayKey,
         ...(options?.force ? { force: true } : {}),
         ...(template?.name ? { name: template.name } : {}),
         scheduledWorkoutId: scheduledWorkout.id,
@@ -287,11 +290,10 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
   }
 
   function handleStart() {
-    if (!scheduledWorkout) {
+    if (!scheduledWorkout || dateAuthorityLocked || todayKey === null) {
       return;
     }
 
-    const todayKey = toDateKey(new Date());
     const activeSessions = activeSessionsQuery.data ?? [];
 
     if (scheduledWorkout.date !== todayKey) {
@@ -300,7 +302,7 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
         description: `This workout is scheduled for ${dateFormatter.format(new Date(`${scheduledWorkout.date}T12:00:00`))}. Starting now will begin it today instead.`,
         confirmLabel: 'Start now',
         onConfirm: () => {
-          void doStart();
+          void doStart(todayKey);
         },
       });
       return;
@@ -313,17 +315,23 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
         confirmLabel: 'Start anyway',
         cancelLabel: 'Go back',
         onConfirm: () => {
-          void doStart();
+          void doStart(todayKey);
         },
       });
       return;
     }
 
-    void doStart();
+    void doStart(todayKey);
   }
 
   async function handleReschedule(requestedDate: string) {
-    if (!scheduledWorkout) {
+    const mutationTodayKey = getTodayKeyForMutation();
+    if (
+      !scheduledWorkout ||
+      dateAuthorityLocked ||
+      rescheduleAuthorityDate === null ||
+      mutationTodayKey !== rescheduleAuthorityDate
+    ) {
       return;
     }
 
@@ -331,6 +339,21 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
       date: requestedDate,
       id: scheduledWorkout.id,
     });
+  }
+
+  function handleRescheduleOpenChange(open: boolean) {
+    setIsRescheduleDialogOpen(open);
+    if (!open) {
+      setRescheduleAuthorityDate(null);
+    }
+  }
+
+  function openRescheduleDialog() {
+    if (dateAuthorityLocked || todayKey === null) {
+      return;
+    }
+    setRescheduleAuthorityDate(todayKey);
+    setIsRescheduleDialogOpen(true);
   }
 
   async function handleCancel() {
@@ -414,7 +437,11 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
   }
 
   async function handleStartAnyway() {
-    await doStart({ force: true });
+    if (dateAuthorityLocked || todayKey === null) {
+      return;
+    }
+
+    await doStart(todayKey, { force: true });
   }
 
   function confirmCancel() {
@@ -460,10 +487,12 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
       />
 
       <ScheduledWorkoutHeader
+        isRescheduleDisabled={dateAuthorityLocked || todayKey === null}
+        isStartDisabled={dateAuthorityLocked || todayKey === null}
         isMutating={isMutating}
         isTemplateAvailable={canStartFromSnapshot}
         onCancel={confirmCancel}
-        onReschedule={() => setIsRescheduleDialogOpen(true)}
+        onReschedule={openRescheduleDialog}
         onStart={handleStart}
         scheduledDateLabel={dateFormatter.format(new Date(`${scheduledWorkout.date}T12:00:00`))}
         templateId={scheduledWorkout.templateDeleted ? null : scheduledWorkout.templateId}
@@ -522,9 +551,9 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
         disallowDateMessage="Pick a different date to reschedule."
         initialDate={scheduledWorkout.date}
         isPending={rescheduleWorkoutMutation.isPending}
-        onOpenChange={setIsRescheduleDialogOpen}
+        onOpenChange={handleRescheduleOpenChange}
         onSubmitDate={handleReschedule}
-        open={isRescheduleDialogOpen}
+        open={isRescheduleDialogOpen && !dateAuthorityLocked}
         submitLabel="Save"
         title="Reschedule workout"
       />

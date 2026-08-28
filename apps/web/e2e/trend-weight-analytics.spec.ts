@@ -92,7 +92,7 @@ function monitorPage(page: Page) {
 async function createTrendUser(api: APIRequestContext, endDate: string, count: number) {
   const username = `trend-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
   const register = await api.post('/api/v1/auth/register', {
-    data: { password, username },
+    data: { password, timeZone: 'America/Detroit', username },
   });
   expect(register.ok(), await register.text()).toBeTruthy();
   const token = ((await register.json()) as { data: { token: string } }).data.token;
@@ -736,7 +736,6 @@ for (const scenario of dateZoneCases) {
             response.request().method() === 'GET' &&
             url.pathname === '/api/v1/weight/trend' &&
             url.searchParams.get('range') === '1m' &&
-            url.searchParams.get('timeZone') === scenario.timeZone &&
             !url.searchParams.has('end')
           );
         });

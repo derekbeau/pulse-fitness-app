@@ -11,6 +11,25 @@ import { jsonResponse } from '@/test/test-utils';
 
 import { WorkoutTemplateDetail } from './template-detail';
 
+const dateAuthorityMocks = vi.hoisted(() => {
+  let mutationDate: string | null = '2026-03-07';
+
+  return {
+    setMutationDate: (value: string | null) => {
+      mutationDate = value;
+    },
+    state: {
+      dateAuthorityLocked: false,
+      getTodayKeyForMutation: () => mutationDate,
+      todayKey: '2026-03-07' as string | null,
+    },
+  };
+});
+
+vi.mock('../hooks/use-today-key', () => ({
+  useTodayKey: () => dateAuthorityMocks.state,
+}));
+
 vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -131,6 +150,12 @@ type MutableTemplateExercise = Omit<
 };
 
 beforeEach(() => {
+  dateAuthorityMocks.setMutationDate('2026-03-07');
+  dateAuthorityMocks.state = {
+    dateAuthorityLocked: false,
+    getTodayKeyForMutation: dateAuthorityMocks.state.getTodayKeyForMutation,
+    todayKey: '2026-03-07',
+  };
   window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
 });
 
@@ -868,6 +893,112 @@ describe('WorkoutTemplateDetail', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
 
     expect(createSessionSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not start after date authority locks while duplicate confirmation is open', async () => {
+    const createSessionSpy = vi.fn();
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/workout-templates/upper-push')) {
+        return Promise.resolve(jsonResponse(templatePayload));
+      }
+
+      if (url.includes('/api/v1/scheduled-workouts?') && (init?.method ?? 'GET') === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'scheduled-1',
+                date: '2026-03-07',
+                templateId: 'upper-push',
+                templateName: 'Upper Push',
+                sessionId: null,
+                createdAt: 1,
+              },
+            ],
+          }),
+        );
+      }
+
+      if (url.includes('/api/v1/workout-sessions?') && (init?.method ?? 'GET') === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.endsWith('/api/v1/workout-sessions') && init?.method === 'POST') {
+        createSessionSpy();
+        return Promise.resolve(jsonResponse(createdSessionPayload, { status: 201 }));
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Start Workout' }));
+    const dialog = await screen.findByRole('alertdialog');
+    dateAuthorityMocks.setMutationDate(null);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create another anyway' }));
+
+    await waitFor(() => expect(createSessionSpy).not.toHaveBeenCalled());
+  });
+
+  it('does not schedule after date authority locks while duplicate confirmation is open', async () => {
+    const scheduleWorkoutSpy = vi.fn();
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = String(input);
+
+      if (url.endsWith('/api/v1/workout-templates/upper-push')) {
+        return Promise.resolve(jsonResponse(templatePayload));
+      }
+
+      if (url.includes('/api/v1/scheduled-workouts?') && (init?.method ?? 'GET') === 'GET') {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 'scheduled-1',
+                date: '2026-03-07',
+                templateId: 'upper-push',
+                templateName: 'Upper Push',
+                sessionId: null,
+                createdAt: 1,
+              },
+            ],
+          }),
+        );
+      }
+
+      if (url.includes('/api/v1/workout-sessions?') && (init?.method ?? 'GET') === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+
+      if (url.endsWith('/api/v1/scheduled-workouts') && init?.method === 'POST') {
+        scheduleWorkoutSpy();
+        return Promise.resolve(jsonResponse({ data: {} }, { status: 201 }));
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <WorkoutTemplateDetail templateId="upper-push" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Schedule' }));
+    const scheduleDialog = await screen.findByRole('dialog');
+    fireEvent.click(within(scheduleDialog).getByRole('button', { name: 'Schedule' }));
+    const dialog = await screen.findByRole('alertdialog');
+    dateAuthorityMocks.setMutationDate(null);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create another anyway' }));
+
+    await waitFor(() => expect(scheduleWorkoutSpy).not.toHaveBeenCalled());
   });
 
   it('renames an exercise from the template exercise menu', async () => {

@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils';
 
 type ScheduledWorkoutHeaderProps = {
   isMutating: boolean;
+  isRescheduleDisabled?: boolean;
+  isStartDisabled?: boolean;
   isTemplateAvailable: boolean;
   onCancel: () => void;
   onReschedule: () => void;
@@ -19,6 +21,8 @@ type ScheduledWorkoutHeaderProps = {
 
 export function ScheduledWorkoutHeader({
   isMutating,
+  isRescheduleDisabled = false,
+  isStartDisabled = false,
   isTemplateAvailable,
   onCancel,
   onReschedule,
@@ -53,7 +57,7 @@ export function ScheduledWorkoutHeader({
 
         <div className="flex flex-wrap gap-2">
           <Button
-            disabled={isMutating || !isTemplateAvailable}
+            disabled={isMutating || isStartDisabled || !isTemplateAvailable}
             onClick={onStart}
             size="sm"
             type="button"
@@ -61,7 +65,7 @@ export function ScheduledWorkoutHeader({
             Start workout
           </Button>
           <Button
-            disabled={isMutating || !isTemplateAvailable}
+            disabled={isMutating || isRescheduleDisabled || !isTemplateAvailable}
             onClick={onReschedule}
             size="sm"
             type="button"
