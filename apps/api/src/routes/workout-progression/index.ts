@@ -22,7 +22,10 @@ import {
   badRequestResponseSchema,
   idParamsSchema,
 } from '../../openapi.js';
-import { getWorkoutMuscleAnalytics } from './muscle-store.js';
+import {
+  getWorkoutMuscleAnalytics,
+  WorkoutMuscleAnalyticsTimeZoneConflictError,
+} from './muscle-store.js';
 import {
   applyWorkoutProgressionAction,
   configureWorkoutProgression,
@@ -225,7 +228,15 @@ export const workoutProgressionRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const analytics = await getWorkoutMuscleAnalytics(request.userId, request.query);
+      let analytics;
+      try {
+        analytics = await getWorkoutMuscleAnalytics(request.userId, request.query);
+      } catch (error) {
+        if (error instanceof WorkoutMuscleAnalyticsTimeZoneConflictError) {
+          return sendError(reply, 400, 'TIME_ZONE_CONFLICT', error.message);
+        }
+        throw error;
+      }
       return reply.send(buildDataResponse(request, analytics));
     },
   );

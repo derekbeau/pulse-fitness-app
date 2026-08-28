@@ -117,7 +117,7 @@ export const foodAnalyticsRangeResultSchema = z
     endDate: dateSchema,
     calendarDays: z.number().int().positive().nullable(),
     timeZone: ianaTimeZoneSchema,
-    timeZoneSource: z.enum(['adaptive_program', 'request', 'utc_default']),
+    timeZoneSource: z.enum(['adaptive_program', 'user_profile', 'request', 'utc_default']),
     isHistorical: z.boolean(),
   })
   .strict()

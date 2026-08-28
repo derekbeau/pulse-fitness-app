@@ -22,7 +22,7 @@ function prepareDatabase() {
 
   sqlite
     .prepare(
-      "INSERT INTO users (id, username, password_hash, weight_unit) VALUES ('user-1', 'user-1', 'hash', 'lbs')",
+      "INSERT INTO users (id, username, password_hash, weight_unit, preferences) VALUES ('user-1', 'user-1', 'hash', 'lbs', '{\"timeZone\":\"America/Detroit\"}')",
     )
     .run();
   sqlite
@@ -178,7 +178,7 @@ describe('workout muscle analytics store', () => {
       endDate: '2026-08-23',
       qualifyingSetPolicyVersion: 1,
       startDate: '2026-08-17',
-      timeZone: 'UTC',
+      timeZone: 'America/Detroit',
       weightUnit: 'lbs',
     });
     expect(analytics.rows).toEqual([
@@ -251,6 +251,14 @@ describe('workout muscle analytics store', () => {
       instant,
     );
     expect(analytics.endDate).toBe('2026-08-23');
+    const withoutCallerZone = await getWorkoutMuscleAnalytics('user-1', { range: '7d' }, instant);
+    expect(withoutCallerZone).toMatchObject({
+      endDate: '2026-08-23',
+      timeZone: 'America/Detroit',
+    });
+    await expect(
+      getWorkoutMuscleAnalytics('user-1', { range: '7d', timeZone: 'Asia/Tokyo' }, instant),
+    ).rejects.toThrow('authoritative user time zone');
     await expect(
       getWorkoutMuscleAnalytics('user-2', { end: '2026-08-23', range: '7d' }),
     ).rejects.toThrow('not found');
@@ -357,6 +365,11 @@ describe('workout muscle analytics store', () => {
       range: '7d',
       timeZone: 'America/Detroit',
     });
+    const profileDb = new Database(databaseUrl);
+    profileDb
+      .prepare(`UPDATE users SET preferences = '{"timeZone":"UTC"}' WHERE id = 'user-1'`)
+      .run();
+    profileDb.close();
     const utc = await getWorkoutMuscleAnalytics('user-1', {
       end: '2026-08-23',
       range: '7d',

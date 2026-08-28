@@ -558,7 +558,7 @@ test('renders the no-library state from the strict analytics contract', async ({
         endDate: fixtureDate,
         calendarDays: 30,
         timeZone: 'America/Detroit',
-        timeZoneSource: 'request',
+        timeZoneSource: 'user_profile',
         isHistorical: false,
       },
       summary: {

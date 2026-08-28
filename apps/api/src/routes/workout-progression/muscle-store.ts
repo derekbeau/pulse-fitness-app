@@ -9,10 +9,18 @@ import { eq } from 'drizzle-orm';
 
 import { db, sqlite } from '../../db/index.js';
 import { users } from '../../db/schema/index.js';
+import { resolveUserTimeZoneForUser, UserTimeZoneRequiredError } from '../../lib/user-time-zone.js';
 
 const RANGE_DAYS = { '7d': 7, '30d': 30, '90d': 90 } as const;
 const SOURCE_LIMIT = 5_000;
 const ROW_SOURCE_ID_LIMIT = 500;
+
+export class WorkoutMuscleAnalyticsTimeZoneConflictError extends Error {
+  constructor() {
+    super('Requested time zone does not match the authoritative user time zone');
+    this.name = 'WorkoutMuscleAnalyticsTimeZoneConflictError';
+  }
+}
 
 function changeState(current: number, previous: number) {
   if (previous === 0) return 'no_comparison' as const;
@@ -26,7 +34,19 @@ export async function getWorkoutMuscleAnalytics(
   query: WorkoutMuscleAnalyticsQuery,
   now = Date.now(),
 ): Promise<WorkoutMuscleAnalytics> {
-  const timeZone = query.timeZone ?? 'UTC';
+  const user = db
+    .select({ weightUnit: users.weightUnit })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+  if (!user) throw new RangeError('Workout muscle analytics user not found');
+
+  const resolvedTimeZone = await resolveUserTimeZoneForUser(userId);
+  if (!resolvedTimeZone) throw new UserTimeZoneRequiredError();
+  if (query.timeZone && query.timeZone !== resolvedTimeZone.timeZone) {
+    throw new WorkoutMuscleAnalyticsTimeZoneConflictError();
+  }
+  const timeZone = resolvedTimeZone.timeZone;
   sqlite.function(
     'pulse_progression_date_key',
     { deterministic: true },
@@ -38,13 +58,6 @@ export async function getWorkoutMuscleAnalytics(
   const startDate = addChartCalendarDays(endDate, -(days - 1));
   const previousEndDate = addChartCalendarDays(startDate, -1);
   const previousStartDate = addChartCalendarDays(previousEndDate, -(days - 1));
-
-  const user = db
-    .select({ weightUnit: users.weightUnit })
-    .from(users)
-    .where(eq(users.id, userId))
-    .get();
-  if (!user) throw new RangeError('Workout muscle analytics user not found');
 
   type JoinedSource = {
     contributionId: string;
