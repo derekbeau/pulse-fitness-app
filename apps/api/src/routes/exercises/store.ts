@@ -911,6 +911,8 @@ export const findExerciseLastPerformance = async ({
       reps: sessionSets.reps,
       seconds: sessionSets.seconds,
       distance: sessionSets.distance,
+      rpe: sessionSets.rpe,
+      rir: sessionSets.rir,
       createdAt: sessionSets.createdAt,
     })
     .from(sessionSets)
@@ -933,6 +935,8 @@ export const findExerciseLastPerformance = async ({
       reps: set.reps,
       ...(set.seconds !== null ? { seconds: set.seconds } : {}),
       ...(set.distance !== null ? { distance: set.distance } : {}),
+      ...(set.rpe !== null ? { rpe: set.rpe } : {}),
+      ...(set.rir !== null ? { rir: set.rir } : {}),
     });
     setsBySessionId.set(set.sessionId, currentSets);
   }
@@ -1013,6 +1017,8 @@ export const findExercisePerformanceHistory = async ({
       reps: sessionSets.reps,
       seconds: sessionSets.seconds,
       distance: sessionSets.distance,
+      rpe: sessionSets.rpe,
+      rir: sessionSets.rir,
       notes: sessionSets.notes,
       createdAt: sessionSets.createdAt,
     })
@@ -1035,6 +1041,8 @@ export const findExercisePerformanceHistory = async ({
       seconds?: number | null;
       setNumber: number;
       weight: number | null;
+      rpe?: number | null;
+      rir?: number | null;
     }>
   >();
   const notesBySessionId = new Map<string, string | null>();
@@ -1050,6 +1058,8 @@ export const findExercisePerformanceHistory = async ({
       reps: set.reps,
       ...(set.seconds !== null ? { seconds: set.seconds } : {}),
       ...(set.distance !== null ? { distance: set.distance } : {}),
+      ...(set.rpe !== null ? { rpe: set.rpe } : {}),
+      ...(set.rir !== null ? { rir: set.rir } : {}),
     });
     setsBySessionId.set(set.sessionId, currentSets);
 
@@ -1158,6 +1168,8 @@ const findExercisesLastPerformanceById = async ({
       reps: sessionSets.reps,
       seconds: sessionSets.seconds,
       distance: sessionSets.distance,
+      rpe: sessionSets.rpe,
+      rir: sessionSets.rir,
       createdAt: sessionSets.createdAt,
     })
     .from(sessionSets)
@@ -1185,6 +1197,8 @@ const findExercisesLastPerformanceById = async ({
         seconds?: number | null;
         setNumber: number;
         weight: number | null;
+        rpe?: number | null;
+        rir?: number | null;
       }>;
     }
   >();
@@ -1211,6 +1225,8 @@ const findExercisesLastPerformanceById = async ({
             reps: set.reps,
             ...(set.seconds !== null ? { seconds: set.seconds } : {}),
             ...(set.distance !== null ? { distance: set.distance } : {}),
+            ...(set.rpe !== null ? { rpe: set.rpe } : {}),
+            ...(set.rir !== null ? { rir: set.rir } : {}),
           },
         ],
       });
@@ -1223,6 +1239,8 @@ const findExercisesLastPerformanceById = async ({
       reps: set.reps,
       ...(set.seconds !== null ? { seconds: set.seconds } : {}),
       ...(set.distance !== null ? { distance: set.distance } : {}),
+      ...(set.rpe !== null ? { rpe: set.rpe } : {}),
+      ...(set.rir !== null ? { rir: set.rir } : {}),
     });
   }
 

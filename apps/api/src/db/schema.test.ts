@@ -1323,6 +1323,7 @@ describe('sessionSets schema', () => {
       'seconds',
       'distance',
       'rpe',
+      'rir',
       'zone',
       'targetWeight',
       'targetWeightMin',
@@ -1378,6 +1379,8 @@ describe('sessionSets schema', () => {
     expect(config.checks.map((constraint) => constraint.name).sort()).toEqual([
       'session_sets_completion_state_check',
       'session_sets_distance_check',
+      'session_sets_effort_scale_check',
+      'session_sets_rir_check',
       'session_sets_rpe_check',
       'session_sets_seconds_check',
       'session_sets_section_check',

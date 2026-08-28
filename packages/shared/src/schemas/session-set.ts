@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
 import { MAX_DURATION_SECONDS, workoutTemplateSectionTypeSchema } from './workout-templates.js';
+import {
+  nullableRirSchema,
+  nullableRpeSchema,
+  validateMutuallyExclusiveWorkoutEffort,
+} from './workout-effort.js';
 
 const normalizeOptionalString = (value: unknown) => {
   if (typeof value !== 'string') {
@@ -30,17 +35,22 @@ const nullableLongStringSchema = z.preprocess(
   z.string().trim().min(1).max(4000).nullable(),
 );
 
-export const createSetSchema = z.object({
+const createSetObjectSchema = z.object({
   exerciseId: requiredStringSchema,
   setNumber: z.number().int().min(1),
   weight: z.number().min(0).nullable().optional().default(null),
   reps: z.number().int().min(0).nullable().optional().default(null),
   seconds: z.number().int().min(0).max(MAX_DURATION_SECONDS).nullable().optional().default(null),
   distance: z.number().min(0).nullable().optional().default(null),
-  rpe: z.number().int().min(1).max(10).nullable().optional(),
+  rpe: nullableRpeSchema.optional(),
+  rir: nullableRirSchema.optional(),
   zone: z.number().int().min(1).max(5).nullable().optional(),
   section: workoutTemplateSectionTypeSchema.nullable().optional().default(null),
 });
+
+export const createSetSchema = createSetObjectSchema.superRefine(
+  validateMutuallyExclusiveWorkoutEffort,
+);
 
 export const updateSetSchema = z
   .object({
@@ -48,7 +58,8 @@ export const updateSetSchema = z
     reps: z.number().int().min(0).nullable().optional(),
     seconds: z.number().int().min(0).max(MAX_DURATION_SECONDS).nullable().optional(),
     distance: z.number().min(0).nullable().optional(),
-    rpe: z.number().int().min(1).max(10).nullable().optional(),
+    rpe: nullableRpeSchema.optional(),
+    rir: nullableRirSchema.optional(),
     zone: z.number().int().min(1).max(5).nullable().optional(),
     completed: z.boolean().optional(),
     skipped: z.boolean().optional(),
@@ -60,10 +71,17 @@ export const updateSetSchema = z
   .refine((value) => !(value.completed === true && value.skipped === true), {
     message: 'A set cannot be both completed and skipped',
     path: ['skipped'],
-  });
+  })
+  .superRefine(validateMutuallyExclusiveWorkoutEffort);
 
 export const batchUpsertSetsSchema = z.object({
-  sets: z.array(createSetSchema.extend({ id: z.string().optional() })).max(500),
+  sets: z
+    .array(
+      createSetObjectSchema
+        .extend({ id: z.string().optional() })
+        .superRefine(validateMutuallyExclusiveWorkoutEffort),
+    )
+    .max(500),
 });
 
 export type CreateSetInput = z.infer<typeof createSetSchema>;

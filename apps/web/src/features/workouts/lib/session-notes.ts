@@ -73,6 +73,7 @@ export function buildSessionSetInputs(
         seconds: isTimeBasedTrackingType(trackingType) ? draftSet.seconds : null,
         distance: tracksDistance ? draftSet.distance : null,
         ...(draftSet.rpe !== undefined && draftSet.rpe !== null ? { rpe: draftSet.rpe } : {}),
+        ...(draftSet.rir !== undefined && draftSet.rir !== null ? { rir: draftSet.rir } : {}),
         section: templateExercise?.section ?? null,
         setNumber: draftSet.number,
         skipped: false,

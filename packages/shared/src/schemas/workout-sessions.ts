@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { dateSchema } from './common.js';
 import { exerciseTrackingTypeSchema } from './exercises.js';
 import { MAX_DURATION_SECONDS, workoutTemplateSectionTypeSchema } from './workout-templates.js';
+import {
+  nullableRirSchema,
+  nullableRpeSchema,
+  validateMutuallyExclusiveWorkoutEffort,
+} from './workout-effort.js';
 
 const normalizeOptionalString = (value: unknown) => {
   if (typeof value !== 'string') {
@@ -45,7 +50,6 @@ const nullableTemplateIdSchema = z.preprocess(
   requiredStringSchema.nullable(),
 );
 const nullableIntegerSchema = z.number().int().min(0).nullable();
-const nullableRpeSchema = z.number().int().min(1).max(10).nullable();
 const nullableZoneSchema = z.number().int().min(1).max(5).nullable();
 const exerciseNotesInputSchema = z.record(requiredStringSchema, nullableLongStringSchema);
 
@@ -299,6 +303,7 @@ export const sessionSetSchema = z
     seconds: z.number().int().min(0).max(MAX_DURATION_SECONDS).nullable().optional(),
     distance: z.number().min(0).nullable().optional(),
     rpe: nullableRpeSchema.optional(),
+    rir: nullableRirSchema.optional(),
     zone: nullableZoneSchema.optional(),
     targetWeight: z.number().min(0).nullable().optional(),
     targetWeightMin: z.number().min(0).nullable().optional(),
@@ -318,7 +323,8 @@ export const sessionSetSchema = z
   .refine(hasValidTargetWeightRange, {
     message: 'targetWeightMin must be less than or equal to targetWeightMax',
     path: ['targetWeightMax'],
-  });
+  })
+  .superRefine(validateMutuallyExclusiveWorkoutEffort);
 
 export const workoutSessionExerciseSchema = z.object({
   exerciseId: requiredStringSchema.nullable(),
@@ -401,6 +407,7 @@ export const sessionSetInputSchema = z
     seconds: z.number().int().min(0).max(MAX_DURATION_SECONDS).nullable().optional().default(null),
     distance: z.number().min(0).nullable().optional().default(null),
     rpe: nullableRpeSchema.optional(),
+    rir: nullableRirSchema.optional(),
     zone: nullableZoneSchema.optional(),
     targetWeight: z.number().min(0).nullable().optional(),
     targetWeightMin: z.number().min(0).nullable().optional(),
@@ -422,6 +429,7 @@ export const sessionSetInputSchema = z
     message: 'targetWeightMin must be less than or equal to targetWeightMax',
     path: ['targetWeightMax'],
   })
+  .superRefine(validateMutuallyExclusiveWorkoutEffort)
   .transform((value, context) => {
     // Fastify validates/transforms request bodies before preHandler hooks run.
     // agentRequestTransform handles exerciseName resolution later via the
@@ -455,9 +463,11 @@ const workoutSessionExerciseMutationInputSchema = z
     targetSeconds: z.number().int().min(0).max(MAX_DURATION_SECONDS).optional(),
     weight: z.number().min(0).nullable().optional(),
     rpe: nullableRpeSchema.optional(),
+    rir: nullableRirSchema.optional(),
     zone: nullableZoneSchema.optional(),
     section: workoutTemplateSectionTypeSchema.optional().default('main'),
   })
+  .superRefine(validateMutuallyExclusiveWorkoutEffort)
   .transform((value, context) => {
     const resolvedExerciseId = value.exerciseId ?? value.exerciseName ?? value.name;
     if (!resolvedExerciseId) {
@@ -577,7 +587,8 @@ export const setCorrectionSchema = z
     setId: requiredStringSchema,
     weight: z.number().min(0).optional(),
     reps: z.number().int().min(0).optional(),
-    rpe: z.number().int().min(1).max(10).optional(),
+    rpe: nullableRpeSchema.optional(),
+    rir: nullableRirSchema.optional(),
     zone: z.number().int().min(1).max(5).optional(),
   })
   .refine(
@@ -585,11 +596,13 @@ export const setCorrectionSchema = z
       value.weight !== undefined ||
       value.reps !== undefined ||
       value.rpe !== undefined ||
+      value.rir !== undefined ||
       value.zone !== undefined,
     {
       message: 'At least one correction field must be provided',
     },
-  );
+  )
+  .superRefine(validateMutuallyExclusiveWorkoutEffort);
 
 export const sessionCorrectionRequestSchema = z.object({
   corrections: z.array(setCorrectionSchema).min(1).max(500),

@@ -172,6 +172,7 @@ export const sessionSets = sqliteTable(
     seconds: integer('seconds'),
     distance: real('distance'),
     rpe: integer('rpe'),
+    rir: integer('rir'),
     zone: integer('zone'),
     targetWeight: real('target_weight'),
     targetWeightMin: real('target_weight_min'),
@@ -216,6 +217,11 @@ export const sessionSets = sqliteTable(
       sql`not (${table.completed} and ${table.skipped})`,
     ),
     check('session_sets_rpe_check', sql`${table.rpe} is null or ${table.rpe} between 1 and 10`),
+    check(
+      'session_sets_rir_check',
+      sql`${table.rir} is null or (typeof(${table.rir}) = 'integer' and ${table.rir} between 0 and 5)`,
+    ),
+    check('session_sets_effort_scale_check', sql`${table.rpe} is null or ${table.rir} is null`),
     check('session_sets_zone_check', sql`${table.zone} is null or ${table.zone} between 1 and 5`),
     check(
       'session_sets_target_zone_check',

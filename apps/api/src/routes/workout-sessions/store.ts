@@ -13,6 +13,7 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm';
+import { supportsRirTrackingType } from '@pulse/shared';
 import type {
   BatchUpsertSetsInput,
   CreateSetInput,
@@ -94,6 +95,7 @@ type SessionSetRecord = {
   seconds: number | null;
   distance: number | null;
   rpe: number | null;
+  rir: number | null;
   zone: number | null;
   targetWeight: number | null;
   targetWeightMin: number | null;
@@ -193,6 +195,7 @@ const sessionSetSelection = {
   seconds: sessionSets.seconds,
   distance: sessionSets.distance,
   rpe: sessionSets.rpe,
+  rir: sessionSets.rir,
   zone: sessionSets.zone,
   targetWeight: sessionSets.targetWeight,
   targetWeightMin: sessionSets.targetWeightMin,
@@ -242,6 +245,7 @@ const buildSessionSet = (set: SessionSetRecord): SessionSet => ({
   ...(set.seconds !== null ? { seconds: set.seconds } : {}),
   ...(set.distance !== null ? { distance: set.distance } : {}),
   ...(set.rpe !== null ? { rpe: set.rpe } : {}),
+  ...(set.rir !== null ? { rir: set.rir } : {}),
   ...(set.zone !== null ? { zone: set.zone } : {}),
   ...(set.targetWeight !== null ? { targetWeight: set.targetWeight } : {}),
   ...(set.targetWeightMin !== null ? { targetWeightMin: set.targetWeightMin } : {}),
@@ -468,6 +472,7 @@ const buildSessionSetRows = (
       seconds: set.seconds,
       distance: set.distance,
       rpe: set.rpe ?? null,
+      rir: set.rir ?? null,
       zone: set.zone ?? null,
       targetWeight: fact ? fact.targetWeight : (set.targetWeight ?? null),
       targetWeightMin: fact ? fact.targetWeightMin : (set.targetWeightMin ?? null),
@@ -530,6 +535,32 @@ export class SessionSetNotFoundError extends Error {
     this.setId = setId;
   }
 }
+
+export class SessionSetEffortConflictError extends Error {
+  constructor() {
+    super('RPE and RIR cannot both be logged for the same set');
+    this.name = 'SessionSetEffortConflictError';
+  }
+}
+
+export class SessionSetRirUnsupportedError extends Error {
+  readonly trackingType: ExerciseTrackingType | null;
+
+  constructor(trackingType: ExerciseTrackingType | null) {
+    super('RIR is supported only for weight-and-reps, bodyweight-reps, and reps-only sets');
+    this.name = 'SessionSetRirUnsupportedError';
+    this.trackingType = trackingType;
+  }
+}
+
+const assertRirSupported = (
+  rir: number | null | undefined,
+  trackingType: ExerciseTrackingType | null | undefined,
+) => {
+  if (rir !== null && rir !== undefined && !supportsRirTrackingType(trackingType)) {
+    throw new SessionSetRirUnsupportedError(trackingType ?? null);
+  }
+};
 
 export class WorkoutSessionNotFoundError extends Error {
   readonly sessionId: string;
@@ -625,6 +656,8 @@ export const createSessionSet = async ({
     .from(exercises)
     .where(eq(exercises.id, input.exerciseId))
     .get();
+  const resolvedTrackingType = exerciseSnapshot?.trackingType ?? 'reps_only';
+  assertRirSupported(input.rir, resolvedTrackingType);
 
   const result = db
     .insert(sessionSets)
@@ -634,7 +667,7 @@ export const createSessionSet = async ({
       exerciseId: input.exerciseId,
       exerciseIdSnapshot: input.exerciseId,
       exerciseNameSnapshot: exerciseSnapshot?.name ?? 'Unknown exercise',
-      trackingTypeSnapshot: exerciseSnapshot?.trackingType ?? 'reps_only',
+      trackingTypeSnapshot: resolvedTrackingType,
       orderIndex: nextOrderIndex,
       setNumber: resolvedSetNumber,
       weight: input.weight,
@@ -642,6 +675,7 @@ export const createSessionSet = async ({
       seconds: input.seconds,
       distance: input.distance,
       rpe: input.rpe ?? null,
+      rir: input.rir ?? null,
       zone: input.zone ?? null,
       supersetGroup: sameExerciseSupersetGroup,
       section: normalizedSection,
@@ -676,12 +710,41 @@ export const updateSessionSet = async ({
   input: UpdateSetInput;
 }): Promise<SessionSet | undefined> => {
   const { db } = await import('../../db/index.js');
+  const existingSet = db
+    .select({
+      exerciseId: sessionSets.exerciseId,
+      rir: sessionSets.rir,
+      rpe: sessionSets.rpe,
+      trackingTypeSnapshot: sessionSets.trackingTypeSnapshot,
+    })
+    .from(sessionSets)
+    .where(and(eq(sessionSets.id, setId), eq(sessionSets.sessionId, sessionId)))
+    .limit(1)
+    .get();
+  if (!existingSet) return undefined;
+  const nextRpe = input.rpe === undefined ? existingSet.rpe : input.rpe;
+  const nextRir = input.rir === undefined ? existingSet.rir : input.rir;
+  if (nextRpe !== null && nextRir !== null) {
+    throw new SessionSetEffortConflictError();
+  }
+  const exerciseTrackingType =
+    existingSet.trackingTypeSnapshot ??
+    (existingSet.exerciseId
+      ? db
+          .select({ trackingType: exercises.trackingType })
+          .from(exercises)
+          .where(eq(exercises.id, existingSet.exerciseId))
+          .limit(1)
+          .get()?.trackingType
+      : null);
+  assertRirSupported(nextRir, exerciseTrackingType);
   const persistedInput = {
     weight: input.weight,
     reps: input.reps,
     seconds: input.seconds,
     distance: input.distance,
     rpe: input.rpe,
+    rir: input.rir,
     zone: input.zone,
     completed: input.completed,
     skipped: input.skipped,
@@ -888,22 +951,45 @@ export const applySessionCorrections = async ({
     }
 
     const uniqueSetIds = [...new Set(corrections.map((correction) => correction.setId))];
-    const persistedSetIds =
+    const persistedSets =
       uniqueSetIds.length === 0
         ? []
         : tx
-            .select({ id: sessionSets.id })
+            .select({
+              exerciseId: sessionSets.exerciseId,
+              id: sessionSets.id,
+              rir: sessionSets.rir,
+              rpe: sessionSets.rpe,
+              trackingTypeSnapshot: sessionSets.trackingTypeSnapshot,
+            })
             .from(sessionSets)
             .where(and(eq(sessionSets.sessionId, sessionId), inArray(sessionSets.id, uniqueSetIds)))
-            .all()
-            .map((set) => set.id);
-    const persistedSetIdSet = new Set(persistedSetIds);
+            .all();
+    const persistedSetById = new Map(persistedSets.map((set) => [set.id, set]));
 
     for (const setId of uniqueSetIds) {
-      if (!persistedSetIdSet.has(setId)) {
+      if (!persistedSetById.has(setId)) {
         throw new InvalidSessionCorrectionSetError(setId);
       }
     }
+
+    const persistedExerciseIds = [
+      ...new Set(
+        persistedSets
+          .map((set) => set.exerciseId)
+          .filter((exerciseId): exerciseId is string => exerciseId !== null),
+      ),
+    ];
+    const trackingTypeByExerciseId = new Map(
+      (persistedExerciseIds.length === 0
+        ? []
+        : tx
+            .select({ id: exercises.id, trackingType: exercises.trackingType })
+            .from(exercises)
+            .where(inArray(exercises.id, persistedExerciseIds))
+            .all()
+      ).map((exercise) => [exercise.id, exercise.trackingType]),
+    );
 
     const persistedCorrectionsBySetId = new Map<
       string,
@@ -911,7 +997,8 @@ export const applySessionCorrections = async ({
         setId: string;
         weight?: number;
         reps?: number;
-        rpe?: number;
+        rpe?: number | null;
+        rir?: number | null;
         zone?: number;
       }
     >();
@@ -933,11 +1020,32 @@ export const applySessionCorrections = async ({
         persistedCorrection.rpe = correction.rpe;
       }
 
+      if (correction.rir !== undefined) {
+        persistedCorrection.rir = correction.rir;
+      }
+
       if (correction.zone !== undefined) {
         persistedCorrection.zone = correction.zone;
       }
 
       persistedCorrectionsBySetId.set(correction.setId, persistedCorrection);
+    }
+
+    for (const correction of persistedCorrectionsBySetId.values()) {
+      const persistedSet = persistedSetById.get(correction.setId);
+      if (!persistedSet) continue;
+      const nextRpe = correction.rpe === undefined ? persistedSet.rpe : correction.rpe;
+      const nextRir = correction.rir === undefined ? persistedSet.rir : correction.rir;
+      if (nextRpe !== null && nextRir !== null) {
+        throw new SessionSetEffortConflictError();
+      }
+      assertRirSupported(
+        nextRir,
+        persistedSet.trackingTypeSnapshot ??
+          (persistedSet.exerciseId
+            ? (trackingTypeByExerciseId.get(persistedSet.exerciseId) ?? null)
+            : null),
+      );
     }
 
     const correctionsByPersistedFields = new Map<
@@ -946,7 +1054,8 @@ export const applySessionCorrections = async ({
         setId: string;
         weight?: number;
         reps?: number;
-        rpe?: number;
+        rpe?: number | null;
+        rir?: number | null;
         zone?: number;
       }>
     >();
@@ -956,9 +1065,10 @@ export const applySessionCorrections = async ({
         correction.weight !== undefined ? 'weight' : null,
         correction.reps !== undefined ? 'reps' : null,
         correction.rpe !== undefined ? 'rpe' : null,
+        correction.rir !== undefined ? 'rir' : null,
         correction.zone !== undefined ? 'zone' : null,
       ]
-        .filter((field): field is 'weight' | 'reps' | 'rpe' | 'zone' => field !== null)
+        .filter((field): field is 'weight' | 'reps' | 'rpe' | 'rir' | 'zone' => field !== null)
         .join(',');
 
       if (!persistedFieldKey) {
@@ -971,7 +1081,9 @@ export const applySessionCorrections = async ({
     }
 
     for (const [persistedFieldKey, groupedCorrections] of correctionsByPersistedFields.entries()) {
-      const updatePayload: Partial<Record<'weight' | 'reps' | 'rpe' | 'zone', SQL<number>>> = {};
+      const updatePayload: Partial<
+        Record<'weight' | 'reps' | 'rpe' | 'rir' | 'zone', SQL<number | null>>
+      > = {};
       const groupedSetIds = groupedCorrections.map((correction) => correction.setId);
 
       if (persistedFieldKey.includes('weight')) {
@@ -1026,7 +1138,8 @@ export const applySessionCorrections = async ({
             setId: string;
             weight?: number;
             reps?: number;
-            rpe: number;
+            rpe: number | null;
+            rir?: number | null;
             zone?: number;
           } => correction.rpe !== undefined,
         );
@@ -1037,7 +1150,30 @@ export const applySessionCorrections = async ({
           ),
           sql.raw(' '),
         );
-        updatePayload.rpe = sql<number>`case ${rpeCases} else ${sessionSets.rpe} end`;
+        updatePayload.rpe = sql<number | null>`case ${rpeCases} else ${sessionSets.rpe} end`;
+      }
+
+      if (persistedFieldKey.includes('rir')) {
+        const rirCorrections = groupedCorrections.filter(
+          (
+            correction,
+          ): correction is {
+            setId: string;
+            weight?: number;
+            reps?: number;
+            rpe?: number | null;
+            rir: number | null;
+            zone?: number;
+          } => correction.rir !== undefined,
+        );
+        const rirCases = sql.join(
+          rirCorrections.map(
+            (correction) =>
+              sql`when ${sessionSets.id} = ${correction.setId} then ${correction.rir}`,
+          ),
+          sql.raw(' '),
+        );
+        updatePayload.rir = sql<number | null>`case ${rirCases} else ${sessionSets.rir} end`;
       }
 
       if (persistedFieldKey.includes('zone')) {
@@ -1048,7 +1184,8 @@ export const applySessionCorrections = async ({
             setId: string;
             weight?: number;
             reps?: number;
-            rpe?: number;
+            rpe?: number | null;
+            rir?: number | null;
             zone: number;
           } => correction.zone !== undefined,
         );
@@ -1135,6 +1272,7 @@ export const batchUpsertSessionSets = async ({
     for (const set of input.sets) {
       const normalizedSection = set.section ?? 'main';
       const metadata = metadataByExerciseId.get(set.exerciseId);
+      assertRirSupported(set.rir, metadata?.trackingType ?? null);
       const orderIndexKey = `${normalizedSection}:${set.exerciseId}`;
       const hasExistingOrderIndex = orderIndexByExerciseAndSection.has(orderIndexKey);
       const nextOrderIndex =
@@ -1163,6 +1301,7 @@ export const batchUpsertSessionSets = async ({
             seconds: set.seconds,
             distance: set.distance,
             rpe: set.rpe ?? null,
+            rir: set.rir ?? null,
             zone: set.zone ?? null,
             section: normalizedSection,
           })
@@ -1196,6 +1335,7 @@ export const batchUpsertSessionSets = async ({
           seconds: set.seconds,
           distance: set.distance,
           rpe: set.rpe ?? null,
+          rir: set.rir ?? null,
           zone: set.zone ?? null,
           supersetGroup: inheritedSupersetGroup,
           section: normalizedSection,
@@ -1243,6 +1383,9 @@ export const createWorkoutSession = async ({
     .where(inArray(exercises.id, [...new Set(input.sets.map((set) => set.exerciseId))]))
     .all();
   const metadataById = new Map(exerciseMetadata.map((row) => [row.id, row]));
+  for (const set of input.sets) {
+    assertRirSupported(set.rir, metadataById.get(set.exerciseId)?.trackingType ?? null);
+  }
   const completeFacts = Object.fromEntries(
     input.sets.map((set) => {
       const key = `${set.section ?? 'main'}::${set.exerciseId}::${set.setNumber}`;
@@ -1516,6 +1659,15 @@ export const updateWorkoutSession = async ({
   const metadataById = new Map(metadataRows.map((row) => [row.id, row]));
   for (const set of input.sets) {
     const key = `${set.section ?? 'main'}::${set.exerciseId}::${set.setNumber}`;
+    assertRirSupported(
+      set.rir,
+      factsByKey[key]?.trackingTypeSnapshot ??
+        metadataById.get(set.exerciseId)?.trackingType ??
+        null,
+    );
+  }
+  for (const set of input.sets) {
+    const key = `${set.section ?? 'main'}::${set.exerciseId}::${set.setNumber}`;
     if (factsByKey[key]) continue;
     const metadata = metadataById.get(set.exerciseId);
     factsByKey[key] = {
@@ -1714,6 +1866,28 @@ export const swapWorkoutSessionExercise = async ({
 
     if (!session) {
       return false;
+    }
+
+    const targetExercise = tx
+      .select({ trackingType: exercises.trackingType })
+      .from(exercises)
+      .where(eq(exercises.id, newExerciseId))
+      .limit(1)
+      .get();
+    const existingRir = tx
+      .select({ rir: sessionSets.rir })
+      .from(sessionSets)
+      .where(
+        and(
+          eq(sessionSets.sessionId, sessionId),
+          eq(sessionSets.exerciseId, exerciseId),
+          isNotNull(sessionSets.rir),
+        ),
+      )
+      .limit(1)
+      .get();
+    if (existingRir) {
+      assertRirSupported(existingRir.rir, targetExercise?.trackingType ?? null);
     }
 
     const updateResult = tx

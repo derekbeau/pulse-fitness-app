@@ -234,10 +234,17 @@ export function ExerciseDetailModal({
                 const setSummary = formatCompactSets(
                   session.sets.map((set) =>
                     trackingType === 'distance'
-                      ? { distance: set.distance ?? set.reps, weight: set.weight }
+                      ? {
+                          distance: set.distance ?? set.reps,
+                          rpe: set.rpe,
+                          rir: set.rir,
+                          weight: set.weight,
+                        }
                       : {
                           distance: set.distance,
                           reps: set.reps,
+                          rpe: set.rpe,
+                          rir: set.rir,
                           seconds: set.seconds,
                           weight: set.weight,
                         },

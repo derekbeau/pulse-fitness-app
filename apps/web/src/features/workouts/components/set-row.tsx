@@ -6,12 +6,14 @@ import { useDebouncedCallback } from '@/lib/use-debounced-callback';
 import { cn } from '@/lib/utils';
 
 import { getDistanceUnit, isSetCompleteForTrackingType } from '../lib/tracking';
+import { RirPicker } from './rir-picker';
 
 type SetRowUpdate = {
   completed?: boolean;
   distance?: number | null;
   reps?: number | null;
   rpe?: number | null;
+  rir?: number | null;
   seconds?: number | null;
   weight?: number | null;
   zone?: number | null;
@@ -24,8 +26,10 @@ type SetRowProps = {
   onUpdate: (update: SetRowUpdate) => void;
   reps: number | null;
   rpe?: number | null;
+  rir?: number | null;
   seconds?: number | null;
   setNumber: number;
+  showRirControl?: boolean;
   targetDistance?: number | null;
   targetSeconds?: number | null;
   targetWeight?: number | null;
@@ -62,8 +66,10 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
     onUpdate,
     reps,
     rpe = null,
+    rir = null,
     seconds = null,
     setNumber,
+    showRirControl = false,
     targetDistance = null,
     targetSeconds = null,
     targetWeight = null,
@@ -106,7 +112,7 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
   return (
     <div
       className={cn(
-        'flex items-center gap-2 rounded-xl border px-2.5 py-2 transition-colors',
+        'flex flex-wrap items-center gap-2 rounded-xl border px-2.5 py-2 transition-colors',
         localCompleted ? 'border-emerald-500/25 bg-emerald-500/10' : 'border-border bg-background',
       )}
       data-slot="set-row"
@@ -151,6 +157,14 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
           />
         ))}
       </div>
+
+      {showRirControl ? (
+        <RirPicker
+          onChange={(nextRir) => onUpdate({ rir: nextRir, rpe: null })}
+          setNumber={setNumber}
+          value={rir}
+        />
+      ) : null}
     </div>
   );
 });

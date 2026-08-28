@@ -31,6 +31,7 @@ export * from './schemas/session-set.js';
 export * from './schemas/trash.js';
 export * from './schemas/weight.js';
 export * from './schemas/workout-sessions.js';
+export * from './schemas/workout-effort.js';
 export * from './schemas/users.js';
 export * from './schemas/workout-templates.js';
 export * from './schemas/workout-progression.js';

@@ -241,6 +241,7 @@ const seedSessionSet = (values: {
   weight?: number | null;
   reps?: number | null;
   rpe?: number | null;
+  rir?: number | null;
   zone?: number | null;
   targetWeight?: number | null;
   targetWeightMin?: number | null;
@@ -264,6 +265,7 @@ const seedSessionSet = (values: {
       weight: values.weight ?? null,
       reps: values.reps ?? null,
       rpe: values.rpe ?? null,
+      rir: values.rir ?? null,
       zone: values.zone ?? null,
       targetWeight: values.targetWeight ?? null,
       targetWeightMin: values.targetWeightMin ?? null,
@@ -1432,6 +1434,62 @@ describe('workout session routes', () => {
     ]);
   });
 
+  it('rejects JWT and AgentToken swaps that would retain RIR on unsupported tracking', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const agentToken = seedAgentToken('user-1', 'swap-rir-agent-token');
+
+    for (const [suffix, headers] of [
+      ['jwt', createAuthorizationHeader(authToken)],
+      ['agent', createAgentTokenHeader(agentToken)],
+    ] as const) {
+      const sessionId = `session-swap-rir-${suffix}`;
+      const setId = `set-swap-rir-${suffix}`;
+      seedWorkoutSession({
+        id: sessionId,
+        userId: 'user-1',
+        name: 'RIR swap guard',
+        date: '2026-03-12',
+        status: 'in-progress',
+        startedAt: 1_700_000_000_000,
+      });
+      seedSessionSet({
+        id: setId,
+        sessionId,
+        exerciseId: 'global-bench-press',
+        setNumber: 1,
+        weight: 185,
+        reps: 8,
+        rir: 2,
+        section: 'main',
+      });
+
+      const response = await context.app.inject({
+        method: 'PATCH',
+        url: `/api/v1/workout-sessions/${sessionId}/exercises/global-bench-press/swap`,
+        headers,
+        payload: { newExerciseId: 'user-1-plank' },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'RIR_UNSUPPORTED_TRACKING_TYPE',
+          message: 'RIR is supported only for weight-and-reps, bodyweight-reps, and reps-only sets',
+        },
+      });
+      expect(
+        context.db
+          .select({ exerciseId: sessionSets.exerciseId, rir: sessionSets.rir })
+          .from(sessionSets)
+          .where(eq(sessionSets.id, setId))
+          .get(),
+      ).toEqual({ exerciseId: 'global-bench-press', rir: 2 });
+    }
+  });
+
   it('rejects swaps for completed sessions', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
@@ -1813,6 +1871,356 @@ describe('workout session routes', () => {
 
     expect(groupedResponse.statusCode).toBe(200);
     expect(groupedResponse.json()).toEqual(batchResponse.json());
+  });
+
+  it('logs, replaces, clears, and rejects conflicting native effort atomically for JWT and AgentToken callers', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const agentToken = seedAgentToken('user-1', 'native-rir-agent-token');
+    seedWorkoutSession({
+      id: 'session-native-effort',
+      userId: 'user-1',
+      name: 'Native effort',
+      date: '2026-08-28',
+      status: 'in-progress',
+      startedAt: 1_000,
+    });
+    seedSessionSet({
+      completed: true,
+      exerciseId: 'global-bench-press',
+      id: 'native-effort-set',
+      reps: 10,
+      rpe: 8,
+      section: 'main',
+      sessionId: 'session-native-effort',
+      setNumber: 1,
+      weight: 155,
+    });
+
+    const jwtRir = await context.app.inject({
+      headers: createAuthorizationHeader(authToken),
+      method: 'PATCH',
+      payload: { rir: 0, rpe: null },
+      url: '/api/v1/workout-sessions/session-native-effort/sets/native-effort-set',
+    });
+    expect(jwtRir.statusCode).toBe(200);
+    expect(jwtRir.json()).toEqual({
+      data: expect.objectContaining({
+        completed: true,
+        id: 'native-effort-set',
+        rir: 0,
+      }),
+    });
+    expect((jwtRir.json() as { data: Record<string, unknown> }).data).not.toHaveProperty('rpe');
+
+    const agentRir = await context.app.inject({
+      headers: createAgentTokenHeader(agentToken),
+      method: 'PATCH',
+      payload: { rir: 5, rpe: null },
+      url: '/api/v1/workout-sessions/session-native-effort/sets/native-effort-set',
+    });
+    expect(agentRir.statusCode).toBe(200);
+    expect(agentRir.json()).toEqual({
+      data: expect.objectContaining({ completed: true, rir: 5 }),
+    });
+
+    for (const headers of [
+      createAuthorizationHeader(authToken),
+      createAgentTokenHeader(agentToken),
+    ]) {
+      for (const invalidPayload of [
+        { rir: -1 },
+        { rir: 6 },
+        { rir: 1.5 },
+        { rpe: 8 },
+        { rir: 2, rpe: 8 },
+      ]) {
+        const invalid = await context.app.inject({
+          headers,
+          method: 'PATCH',
+          payload: invalidPayload,
+          url: '/api/v1/workout-sessions/session-native-effort/sets/native-effort-set',
+        });
+        expect(invalid.statusCode).toBe(400);
+        expect(
+          context.db
+            .select({
+              completed: sessionSets.completed,
+              rir: sessionSets.rir,
+              rpe: sessionSets.rpe,
+            })
+            .from(sessionSets)
+            .where(eq(sessionSets.id, 'native-effort-set'))
+            .get(),
+        ).toEqual({ completed: true, rir: 5, rpe: null });
+      }
+    }
+
+    const replaceWithRpe = await context.app.inject({
+      headers: createAuthorizationHeader(authToken),
+      method: 'PATCH',
+      payload: { rir: null, rpe: 7 },
+      url: '/api/v1/workout-sessions/session-native-effort/sets/native-effort-set',
+    });
+    expect(replaceWithRpe.statusCode).toBe(200);
+    expect(replaceWithRpe.json()).toEqual({
+      data: expect.objectContaining({ completed: true, rpe: 7 }),
+    });
+    expect((replaceWithRpe.json() as { data: Record<string, unknown> }).data).not.toHaveProperty(
+      'rir',
+    );
+
+    const clear = await context.app.inject({
+      headers: createAgentTokenHeader(agentToken),
+      method: 'PATCH',
+      payload: { rpe: null },
+      url: '/api/v1/workout-sessions/session-native-effort/sets/native-effort-set',
+    });
+    expect(clear.statusCode).toBe(200);
+    expect((clear.json() as { data: Record<string, unknown> }).data).not.toHaveProperty('rpe');
+    expect((clear.json() as { data: Record<string, unknown> }).data).not.toHaveProperty('rir');
+
+    for (const [index, headers] of [
+      createAuthorizationHeader(authToken),
+      createAgentTokenHeader(agentToken),
+    ].entries()) {
+      const created = await context.app.inject({
+        headers,
+        method: 'POST',
+        payload: {
+          exerciseId: 'global-bench-press',
+          reps: 7,
+          rir: index,
+          setNumber: 4 + index,
+          weight: 135,
+        },
+        url: '/api/v1/workout-sessions/session-native-effort/sets',
+      });
+      expect(created.statusCode).toBe(201);
+      expect(created.json()).toEqual({
+        data: expect.objectContaining({ completed: false, rir: index, setNumber: 4 + index }),
+      });
+    }
+
+    seedSessionSet({
+      completed: false,
+      exerciseId: 'global-bench-press',
+      id: 'native-effort-incomplete-set',
+      reps: 8,
+      section: 'main',
+      sessionId: 'session-native-effort',
+      setNumber: 2,
+      weight: 135,
+    });
+    const effortOnlyUpdate = await context.app.inject({
+      headers: createAuthorizationHeader(authToken),
+      method: 'PATCH',
+      payload: { rir: 3, rpe: null },
+      url: '/api/v1/workout-sessions/session-native-effort/sets/native-effort-incomplete-set',
+    });
+    expect(effortOnlyUpdate.statusCode).toBe(200);
+    expect(effortOnlyUpdate.json()).toEqual({
+      data: expect.objectContaining({ completed: false, rir: 3 }),
+    });
+
+    const nextSet = await context.app.inject({
+      headers: createAuthorizationHeader(authToken),
+      method: 'POST',
+      payload: {
+        exerciseId: 'global-bench-press',
+        reps: 6,
+        setNumber: 3,
+        weight: 135,
+      },
+      url: '/api/v1/workout-sessions/session-native-effort/sets',
+    });
+    expect(nextSet.statusCode).toBe(201);
+    expect(nextSet.json()).toEqual({
+      data: expect.objectContaining({ completed: false, reps: 6, setNumber: 6, weight: 135 }),
+    });
+    expect((nextSet.json() as { data: Record<string, unknown> }).data).not.toHaveProperty('rpe');
+    expect((nextSet.json() as { data: Record<string, unknown> }).data).not.toHaveProperty('rir');
+  });
+
+  it('rejects RIR for unsupported tracking types across set write paths', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedWorkoutSession({
+      id: 'session-unsupported-rir',
+      userId: 'user-1',
+      name: 'Unsupported RIR',
+      date: '2026-08-28',
+      status: 'in-progress',
+      startedAt: 1_000,
+    });
+    seedSessionSet({
+      exerciseId: 'user-1-plank',
+      id: 'unsupported-rir-set',
+      reps: 30,
+      section: 'main',
+      sessionId: 'session-unsupported-rir',
+      setNumber: 1,
+    });
+
+    const directUpdate = await context.app.inject({
+      headers: createAuthorizationHeader(authToken),
+      method: 'PATCH',
+      payload: { rir: 2 },
+      url: '/api/v1/workout-sessions/session-unsupported-rir/sets/unsupported-rir-set',
+    });
+    expect(directUpdate.statusCode).toBe(400);
+    expect(directUpdate.json()).toEqual({
+      error: expect.objectContaining({ code: 'RIR_UNSUPPORTED_TRACKING_TYPE' }),
+    });
+
+    const create = await context.app.inject({
+      headers: createAuthorizationHeader(authToken),
+      method: 'POST',
+      payload: {
+        exerciseId: 'user-1-plank',
+        reps: 30,
+        rir: 2,
+        setNumber: 2,
+      },
+      url: '/api/v1/workout-sessions/session-unsupported-rir/sets',
+    });
+    expect(create.statusCode).toBe(400);
+    expect(create.json()).toEqual({
+      error: expect.objectContaining({ code: 'RIR_UNSUPPORTED_TRACKING_TYPE' }),
+    });
+
+    const batch = await context.app.inject({
+      headers: createAuthorizationHeader(authToken),
+      method: 'PUT',
+      payload: {
+        sets: [
+          {
+            exerciseId: 'user-1-plank',
+            reps: 30,
+            rir: 2,
+            section: 'main',
+            setNumber: 2,
+          },
+        ],
+      },
+      url: '/api/v1/workout-sessions/session-unsupported-rir/sets',
+    });
+    expect(batch.statusCode).toBe(400);
+    expect(batch.json()).toEqual({
+      error: expect.objectContaining({ code: 'RIR_UNSUPPORTED_TRACKING_TYPE' }),
+    });
+
+    expect(
+      context.db
+        .select({ id: sessionSets.id, rir: sessionSets.rir })
+        .from(sessionSets)
+        .where(eq(sessionSets.sessionId, 'session-unsupported-rir'))
+        .all(),
+    ).toEqual([{ id: 'unsupported-rir-set', rir: null }]);
+  });
+
+  it('validates correction effort against persisted state and tracking type before writing', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedWorkoutSession({
+      completedAt: 2_000,
+      id: 'session-correction-effort-guards',
+      userId: 'user-1',
+      name: 'Correction effort guards',
+      date: '2026-08-28',
+      status: 'completed',
+      startedAt: 1_000,
+    });
+    seedSessionSet({
+      completed: true,
+      exerciseId: 'global-bench-press',
+      id: 'correction-native-rpe-set',
+      reps: 8,
+      rpe: 8,
+      section: 'main',
+      sessionId: 'session-correction-effort-guards',
+      setNumber: 1,
+      weight: 185,
+    });
+    seedSessionSet({
+      completed: true,
+      exerciseId: 'user-1-plank',
+      id: 'correction-unsupported-set',
+      reps: 30,
+      section: 'main',
+      sessionId: 'session-correction-effort-guards',
+      setNumber: 1,
+    });
+
+    const conflict = await context.app.inject({
+      headers: createAuthorizationHeader(authToken),
+      method: 'PATCH',
+      payload: { corrections: [{ setId: 'correction-native-rpe-set', rir: 2 }] },
+      url: '/api/v1/workout-sessions/session-correction-effort-guards/corrections',
+    });
+    expect(conflict.statusCode).toBe(400);
+    expect(conflict.json()).toEqual({
+      error: expect.objectContaining({ code: 'AMBIGUOUS_SET_EFFORT' }),
+    });
+
+    const unsupported = await context.app.inject({
+      headers: createAuthorizationHeader(authToken),
+      method: 'PATCH',
+      payload: {
+        corrections: [{ setId: 'correction-unsupported-set', rir: 2, rpe: null }],
+      },
+      url: '/api/v1/workout-sessions/session-correction-effort-guards/corrections',
+    });
+    expect(unsupported.statusCode).toBe(400);
+    expect(unsupported.json()).toEqual({
+      error: expect.objectContaining({ code: 'RIR_UNSUPPORTED_TRACKING_TYPE' }),
+    });
+
+    expect(
+      context.db
+        .select({ id: sessionSets.id, rir: sessionSets.rir, rpe: sessionSets.rpe })
+        .from(sessionSets)
+        .where(eq(sessionSets.sessionId, 'session-correction-effort-guards'))
+        .all(),
+    ).toEqual(
+      expect.arrayContaining([
+        { id: 'correction-native-rpe-set', rir: null, rpe: 8 },
+        { id: 'correction-unsupported-set', rir: null, rpe: null },
+      ]),
+    );
+  });
+
+  it('publishes native RIR fields and AgentToken security in the workout-set OpenAPI contract', async () => {
+    const response = await context.app.inject({ method: 'GET', url: '/api/docs/json' });
+    expect(response.statusCode).toBe(200);
+    const document = response.json() as {
+      paths: Record<
+        string,
+        Record<
+          string,
+          {
+            requestBody?: unknown;
+            responses?: unknown;
+            security?: unknown;
+          }
+        >
+      >;
+    };
+    const directUpdate = document.paths['/api/v1/workout-sessions/{sessionId}/sets/{setId}']?.patch;
+    const corrections = document.paths['/api/v1/workout-sessions/{sessionId}/corrections']?.patch;
+
+    expect(directUpdate?.security).toEqual([{ bearerAuth: [] }, { agentToken: [] }]);
+    expect(corrections?.security).toEqual([{ bearerAuth: [] }, { agentToken: [] }]);
+    expect(JSON.stringify(directUpdate?.requestBody)).toContain('rir');
+    expect(JSON.stringify(directUpdate?.responses)).toContain('rir');
+    expect(JSON.stringify(corrections?.requestBody)).toContain('rir');
+    expect(JSON.stringify(corrections?.responses)).toContain('rir');
   });
 
   it('deletes a set from an in-progress session and renumbers sibling sets', async () => {
@@ -2538,6 +2946,7 @@ describe('workout session routes', () => {
           {
             setId: 'set-1',
             weight: 190,
+            rir: 2,
           },
           {
             setId: 'set-1',
@@ -2564,6 +2973,7 @@ describe('workout session routes', () => {
             id: 'set-1',
             weight: 190,
             reps: 6,
+            rir: 2,
           }),
           expect.objectContaining({
             id: 'set-2',
@@ -2589,6 +2999,7 @@ describe('workout session routes', () => {
         id: sessionSets.id,
         weight: sessionSets.weight,
         reps: sessionSets.reps,
+        rir: sessionSets.rir,
       })
       .from(sessionSets)
       .where(eq(sessionSets.sessionId, 'session-completed'))
@@ -2603,11 +3014,13 @@ describe('workout session routes', () => {
         id: 'set-1',
         weight: 190,
         reps: 6,
+        rir: 2,
       },
       {
         id: 'set-2',
         weight: 185,
         reps: 9,
+        rir: null,
       },
     ]);
   });
@@ -2739,7 +3152,8 @@ describe('workout session routes', () => {
           corrections: [
             {
               setId: 'set-1',
-              rpe: 8,
+              rir: 2,
+              rpe: null,
             },
           ],
         },
@@ -2779,9 +3193,9 @@ describe('workout session routes', () => {
 
     expect(effortCorrectionResponse.statusCode).toBe(200);
     expect(
-      (effortCorrectionResponse.json() as { data: { sets: Array<{ id: string; rpe?: number }> } })
+      (effortCorrectionResponse.json() as { data: { sets: Array<{ id: string; rir?: number }> } })
         .data.sets,
-    ).toEqual([expect.objectContaining({ id: 'set-1', rpe: 8 })]);
+    ).toEqual([expect.objectContaining({ id: 'set-1', rir: 2 })]);
   });
 
   it('snapshots template exercise notes into per-exercise programming notes when starting a session', async () => {

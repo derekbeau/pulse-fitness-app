@@ -1150,7 +1150,11 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
     }
   }
 
-  const seedProgressionWorkout = (name: AdaptivePreviewFixtureName, scheduledOffset = 1) => {
+  const seedProgressionWorkout = (
+    name: AdaptivePreviewFixtureName,
+    scheduledOffset = 1,
+    effortScale: 'rpe' | 'rir' = 'rpe',
+  ) => {
     const fixture = record(name);
     const exerciseId = `${fixture.userId}-incline-press`;
     const scheduledWorkoutId = `${fixture.userId}-scheduled`;
@@ -1197,7 +1201,8 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
           setNumber,
           weight: 40,
           reps: 10,
-          rpe: 8,
+          rpe: effortScale === 'rpe' ? 8 : null,
+          rir: effortScale === 'rir' ? 2 : null,
           targetWeight: 40,
           targetRepsMin: 8,
           targetRepsMax: 10,
@@ -1986,14 +1991,10 @@ export function seedAdaptiveTdeePreviewFixtures(options: {
   );
   clock += 1000;
 
-  for (const name of [
-    'progression-accept',
-    'progression-edit',
-    'progression-stale',
-    'progression-agent',
-  ] as const) {
+  for (const name of ['progression-accept', 'progression-edit', 'progression-agent'] as const) {
     seedProgressionWorkout(name);
   }
+  seedProgressionWorkout('progression-stale', 1, 'rir');
 
   const muscle = seedProgressionWorkout('muscle-analytics', 0);
   db.insert(exerciseMuscleContributions)

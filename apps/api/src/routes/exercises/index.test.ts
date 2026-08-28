@@ -152,6 +152,8 @@ const seedSessionSet = (values: {
   reps?: number | null;
   seconds?: number | null;
   distance?: number | null;
+  rpe?: number | null;
+  rir?: number | null;
   notes?: string | null;
   completed?: boolean;
 }) =>
@@ -166,6 +168,8 @@ const seedSessionSet = (values: {
       reps: values.reps ?? null,
       seconds: values.seconds ?? null,
       distance: values.distance ?? null,
+      rpe: values.rpe ?? null,
+      rir: values.rir ?? null,
       completed: values.completed ?? false,
       skipped: false,
       section: 'main',
@@ -465,6 +469,7 @@ describe('exercise routes', () => {
       setNumber: 2,
       weight: 100,
       reps: 8,
+      rpe: 8,
     });
     seedSessionSet({
       id: 'set-newest-1',
@@ -473,6 +478,7 @@ describe('exercise routes', () => {
       setNumber: 1,
       weight: 110,
       reps: 6,
+      rir: 2,
     });
     seedSessionSet({
       id: 'set-in-progress',
@@ -513,6 +519,7 @@ describe('exercise routes', () => {
               setNumber: 1,
               weight: 110,
               reps: 6,
+              rir: 2,
             },
           ],
         },
@@ -529,6 +536,7 @@ describe('exercise routes', () => {
               setNumber: 2,
               weight: 100,
               reps: 8,
+              rpe: 8,
             },
           ],
         },
@@ -750,6 +758,7 @@ describe('exercise routes', () => {
       setNumber: 1,
       weight: 105,
       reps: 8,
+      rir: 5,
       notes: 'Felt stronger than last week.',
     });
     seedSessionSet({
@@ -773,13 +782,23 @@ describe('exercise routes', () => {
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
       { expiresIn: '7d' },
     );
+    const agentToken = seedAgentToken('user-1', 'native-rir-history-agent');
 
-    const response = await context.app.inject({
-      method: 'GET',
-      url: '/api/v1/exercises/global-bench/history?limit=2',
-      headers: createAuthorizationHeader(authToken),
-    });
+    const [response, agentResponse] = await Promise.all([
+      context.app.inject({
+        method: 'GET',
+        url: '/api/v1/exercises/global-bench/history?limit=2',
+        headers: createAuthorizationHeader(authToken),
+      }),
+      context.app.inject({
+        method: 'GET',
+        url: '/api/v1/exercises/global-bench/history?limit=2',
+        headers: createAgentTokenHeader(agentToken),
+      }),
+    ]);
 
+    expect(agentResponse.statusCode).toBe(200);
+    expect(agentResponse.json()).toEqual(response.json());
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
       data: [
@@ -792,6 +811,7 @@ describe('exercise routes', () => {
               setNumber: 1,
               weight: 105,
               reps: 8,
+              rir: 5,
             },
             {
               setNumber: 2,

@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { formatSetSummary, getDistanceUnit, getSetDistance } from '../lib/tracking';
 import { MarkdownNote } from './markdown-note';
 import { SessionExerciseComparison } from './session-comparison';
+import { RirPicker } from './rir-picker';
 import {
   WorkoutExerciseCard,
   type WorkoutExerciseCardCompletedExercise,
@@ -19,6 +20,7 @@ import {
 export type SessionSetDraft = {
   reps: string;
   rpe: string;
+  rir: string;
   weight: string;
   zone: string;
 };
@@ -232,6 +234,22 @@ function SessionSetEditor({
         </p>
       )}
 
+      {['weight_reps', 'bodyweight_reps', 'reps_only'].includes(trackingType) ? (
+        <div className="mt-2.5 space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+            Repetitions in reserve
+          </p>
+          <RirPicker
+            onChange={(nextRir) => {
+              onChange('rir', nextRir === null ? '' : `${nextRir}`);
+              onChange('rpe', '');
+            }}
+            setNumber={set.setNumber}
+            value={draft.rir.trim() === '' ? null : Number(draft.rir)}
+          />
+        </div>
+      ) : null}
+
       {readOnlySummary ? <p className="mt-2.5 text-xs text-muted">{readOnlySummary}</p> : null}
     </div>
   );
@@ -334,6 +352,7 @@ export function createSessionSetDraft(set: SessionSet): SessionSetDraft {
   return {
     reps: set.reps != null ? `${set.reps}` : '',
     rpe: set.rpe != null ? `${set.rpe}` : '',
+    rir: set.rir != null ? `${set.rir}` : '',
     weight: set.weight != null ? `${set.weight}` : '',
     zone: set.zone != null ? `${set.zone}` : '',
   };

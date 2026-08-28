@@ -287,6 +287,21 @@ describe('setCorrectionSchema', () => {
       }),
     ).toThrow('At least one correction field must be provided');
   });
+
+  it('accepts native RIR changes and presence-aware effort clears', () => {
+    expect(setCorrectionSchema.parse({ setId: 'set-1', rir: 5, rpe: null })).toEqual({
+      setId: 'set-1',
+      rir: 5,
+      rpe: null,
+    });
+    expect(setCorrectionSchema.parse({ setId: 'set-1', rir: null })).toEqual({
+      setId: 'set-1',
+      rir: null,
+    });
+    expect(() => setCorrectionSchema.parse({ setId: 'set-1', rir: 1, rpe: 9 })).toThrow(
+      'RPE and RIR cannot both be logged',
+    );
+  });
 });
 
 describe('sessionCorrectionRequestSchema', () => {

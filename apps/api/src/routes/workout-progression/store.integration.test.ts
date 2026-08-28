@@ -316,6 +316,50 @@ describe('workout progression store', () => {
     expect(replacement).toMatchObject({ decision: 'hold', state: 'current' });
   });
 
+  it('fingerprints raw native RIR provenance and stales prior native RPE evidence', async () => {
+    const databaseUrl = prepareDatabase();
+    const store = await loadStore();
+    const nativeRpe = (
+      await store.previewWorkoutProgression({
+        effectiveDate: '2026-08-24',
+        generatedAt: 500,
+        scheduledWorkoutId: 'scheduled-1',
+        userId: 'user-1',
+      })
+    )?.[0];
+    expect(nativeRpe?.evidence.performance).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ effortSource: 'native_rpe', rir: null, rpe: 8 }),
+      ]),
+    );
+
+    const correctionDb = new Database(databaseUrl);
+    correctionDb
+      .prepare("UPDATE session_sets SET rpe = NULL, rir = 2 WHERE session_id = 'session-1'")
+      .run();
+    correctionDb.close();
+
+    const nativeRir = (
+      await store.previewWorkoutProgression({
+        effectiveDate: '2026-08-24',
+        generatedAt: 600,
+        scheduledWorkoutId: 'scheduled-1',
+        userId: 'user-1',
+      })
+    )?.[0];
+    expect(nativeRir?.sourceFingerprint).not.toBe(nativeRpe?.sourceFingerprint);
+    expect(nativeRir?.evidence.performance).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ effortSource: 'native_rir', rir: 2, rpe: null }),
+      ]),
+    );
+    expect(
+      await store.getWorkoutProgressionRecommendation('user-1', nativeRpe?.id ?? ''),
+    ).toMatchObject({
+      state: 'stale',
+    });
+  });
+
   it('applies accepted targets once and returns the same action for an idempotent replay', async () => {
     const databaseUrl = prepareDatabase();
     const store = await loadStore();
@@ -992,6 +1036,66 @@ describe('workout progression store', () => {
       },
       state: 'stale',
     });
+  });
+
+  it('enriches pre-0059 effort facts without downgrading 0054 snapshot provenance', async () => {
+    const databaseUrl = prepareDatabase();
+    const store = await loadStore();
+    const current = (
+      await store.previewWorkoutProgression({
+        generatedAt: 500,
+        scheduledWorkoutId: 'scheduled-1',
+        userId: 'user-1',
+      })
+    )?.[0];
+    expect(current).toBeDefined();
+    if (!current) return;
+
+    const legacyPerformance = current.evidence.performance.map((set) => {
+      const pre0059Set = { ...set } as Record<string, unknown>;
+      delete pre0059Set.effortSource;
+      delete pre0059Set.rir;
+      return pre0059Set;
+    });
+    const fingerprint = 'd'.repeat(64);
+    const snapshot = {
+      ...current,
+      evidence: { ...current.evidence, performance: legacyPerformance },
+      id: 'pre-0059-recommendation',
+      sourceFingerprint: fingerprint,
+    };
+    const legacyDb = new Database(databaseUrl);
+    legacyDb
+      .prepare(
+        `INSERT INTO workout_progression_recommendations (
+          id, user_id, scheduled_workout_id, scheduled_workout_exercise_id, exercise_id,
+          source_session_id, policy_family, policy_version, source_fingerprint, effective_date,
+          snapshot, generated_at
+        ) VALUES ('pre-0059-recommendation', 'user-1', 'scheduled-1',
+          'scheduled-exercise-1', 'exercise-1', 'session-1', 'double_progression', 1, ?,
+          '2026-08-24', ?, 402)`,
+      )
+      .run(fingerprint, JSON.stringify(snapshot));
+    legacyDb.close();
+
+    const restored = await store.getWorkoutProgressionRecommendation(
+      'user-1',
+      'pre-0059-recommendation',
+    );
+    expect(restored).not.toBeNull();
+    expect(restored?.evidence.performance).toEqual(
+      current.evidence.performance.map((set) => ({
+        ...set,
+        effortSource: set.rpe === null ? 'none' : 'native_rpe',
+        rir: null,
+      })),
+    );
+    expect(restored?.evidence.context).toEqual(current.evidence.context);
+    expect(restored?.evidence.policy).toEqual(current.evidence.policy);
+    expect(restored?.evidence.policySource).toEqual(current.evidence.policySource);
+    expect(restored?.evidence.priority).toEqual(current.evidence.priority);
+    expect(restored?.evidence.priorTargets).toEqual(current.evidence.priorTargets);
+    expect(restored?.recommendedTargets).toEqual(current.recommendedTargets);
   });
 
   it('keeps pre-0054 immutable recommendation snapshots readable after upgrade', async () => {

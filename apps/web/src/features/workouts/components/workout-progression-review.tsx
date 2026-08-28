@@ -61,6 +61,7 @@ function completedText(
   if (performance.seconds !== null) parts.push(`${performance.seconds} sec`);
   if (performance.distance !== null) parts.push(`${performance.distance} distance`);
   if (performance.zone !== null) parts.push(`Zone ${performance.zone}`);
+  if (performance.rir !== null) parts.push(`${performance.rir === 5 ? '5+' : performance.rir} RIR`);
   if (performance.rpe !== null) parts.push(`RPE ${performance.rpe}`);
   if (performance.skipped) parts.push('Skipped');
   else if (!performance.completed) parts.push('Not completed');

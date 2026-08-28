@@ -67,6 +67,8 @@ export type ActiveWorkoutHistoricalLoggedSet = {
   completed: boolean;
   distance?: number | null;
   reps: number | null;
+  rpe?: number | null;
+  rir?: number | null;
   seconds?: number | null;
   setNumber: number;
   timestamp: string;
@@ -96,6 +98,7 @@ export type ActiveWorkoutSet = {
   number: number;
   reps: number | null;
   rpe?: number | null;
+  rir?: number | null;
   seconds: number | null;
   targetDistance?: number | null;
   targetSeconds?: number | null;
@@ -112,6 +115,8 @@ export type ActiveWorkoutLastPerformanceSet = {
   completed: boolean;
   distance?: number | null;
   reps: number | null;
+  rir?: number | null;
+  rpe?: number | null;
   seconds?: number | null;
   setNumber: number;
   weight: number | null;
@@ -127,6 +132,8 @@ export type ActiveWorkoutLastPerformance = {
 export type ActiveWorkoutPerformanceHistorySet = {
   distance?: number | null;
   reps: number | null;
+  rir?: number | null;
+  rpe?: number | null;
   seconds?: number | null;
   setNumber: number;
   weight: number | null;

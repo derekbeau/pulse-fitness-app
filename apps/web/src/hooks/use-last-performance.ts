@@ -34,6 +34,8 @@ function mapLastPerformance(
       completed: true,
       ...(set.distance != null ? { distance: set.distance } : {}),
       reps: set.reps,
+      ...(set.rpe != null ? { rpe: set.rpe } : {}),
+      ...(set.rir != null ? { rir: set.rir } : {}),
       ...(set.seconds != null ? { seconds: set.seconds } : {}),
       setNumber: set.setNumber,
       weight: set.weight,
