@@ -138,9 +138,9 @@ const setup = (onQuery?: (name: string, statement?: ObservedQuery['statement']) 
   sqlite.pragma('foreign_keys = ON');
   migrate(drizzle(sqlite), { migrationsFolder });
   sqlite.exec(`
-    insert into users (id, username, password_hash, created_at, updated_at)
-    values ('user-1', 'food-analytics-one', 'hash', 1000, 1000),
-           ('user-2', 'food-analytics-two', 'hash', 1000, 1000);
+    insert into users (id, username, password_hash, preferences, created_at, updated_at)
+    values ('user-1', 'food-analytics-one', 'hash', '{"timeZone":"America/Detroit"}', 1000, 1000),
+           ('user-2', 'food-analytics-two', 'hash', '{"timeZone":"America/Detroit"}', 1000, 1000);
   `);
   insertFood(sqlite, {
     id: ids.yogurt,
@@ -342,9 +342,15 @@ describe('food analytics store', () => {
       endDate: '2026-08-25',
       calendarDays: 30,
       timeZone: 'America/Detroit',
-      timeZoneSource: 'request',
+      timeZoneSource: 'user_profile',
       isHistorical: false,
     });
+    expect(
+      store.getAnalytics('user-1', { ...baseQuery, timeZone: undefined }).data.range,
+    ).toMatchObject({ timeZone: 'America/Detroit', timeZoneSource: 'user_profile' });
+    expect(() => store.getAnalytics('user-1', { ...baseQuery, timeZone: 'Asia/Tokyo' })).toThrow(
+      FoodAnalyticsTimeZoneConflictError,
+    );
     expect(response.data.summary).toMatchObject({
       savedFoodsTotal: 2,
       savedFoodsUsed: 2,
@@ -640,11 +646,11 @@ describe('food analytics store', () => {
     const historical = store.getAnalytics('user-1', {
       ...baseQuery,
       end: '2026-08-20',
-      timeZone: 'Asia/Tokyo',
+      timeZone: 'America/Detroit',
     });
     expect(historical.data.range).toMatchObject({
-      timeZone: 'Asia/Tokyo',
-      timeZoneSource: 'request',
+      timeZone: 'America/Detroit',
+      timeZoneSource: 'user_profile',
     });
     expect(() => store.getAnalytics('user-1', { ...baseQuery, timeZone: 'Asia/Tokyo' })).toThrow(
       FoodAnalyticsTimeZoneConflictError,
@@ -1036,9 +1042,9 @@ describe('food analytics store', () => {
       initialStore.getAnalytics('user-1', {
         ...baseQuery,
         end: '2026-08-19',
-        timeZone: 'Pacific/Kiritimati',
+        timeZone: 'America/Detroit',
       }).data.range,
-    ).toMatchObject({ timeZone: 'Pacific/Kiritimati', timeZoneSource: 'request' });
+    ).toMatchObject({ timeZone: 'America/Detroit', timeZoneSource: 'user_profile' });
 
     const programQueries = observed.filter(
       (query): query is Required<ObservedQuery> =>

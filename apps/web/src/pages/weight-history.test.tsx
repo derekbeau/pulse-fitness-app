@@ -129,6 +129,17 @@ vi.mock('@/hooks/use-weight-unit', () => ({
   useWeightUnit: () => ({ weightUnit: weightUnitState.value }),
 }));
 
+vi.mock('@/features/adaptive-nutrition', () => ({
+  useAdaptiveNutritionState: () => ({
+    data: { localDate: '2026-03-08', timeZone: 'America/Detroit' },
+    isError: false,
+    isFetching: false,
+    isPending: false,
+    isRefetchError: false,
+    refetch: vi.fn(),
+  }),
+}));
+
 vi.mock('@/features/weight/api/weight', async () => {
   const actual = await vi.importActual<typeof import('@/features/weight/api/weight')>(
     '@/features/weight/api/weight',

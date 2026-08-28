@@ -22,6 +22,10 @@ import {
 
 import { getDateKeyInTimeZone } from '../../db/adaptive-program-revision-projection.js';
 import { getApplicationNow } from '../../lib/clock.js';
+import {
+  resolveUserPreferenceTimeZone,
+  UserTimeZoneRequiredError,
+} from '../../lib/user-time-zone.js';
 
 const SNAPSHOT_NOTICE =
   'Editing this saved food changes future defaults only. Historical meal snapshots stay unchanged.' as const;
@@ -482,15 +486,29 @@ export const createFoodAnalyticsStore = (dependencies: {
     const programTimeZone = selectedRevision
       ? adaptiveProgramCalculationSchema.parse(JSON.parse(selectedRevision.snapshot)).timeZone
       : undefined;
-    if (programTimeZone && query.timeZone && programTimeZone !== query.timeZone) {
+    const rawUserPreferences = (
+      sqlite.prepare('select preferences from users where id = ? limit 1').get(userId) as
+        | { preferences: string | null }
+        | undefined
+    )?.preferences;
+    let userPreferences: unknown = null;
+    if (rawUserPreferences) {
+      try {
+        userPreferences = JSON.parse(rawUserPreferences);
+      } catch {
+        userPreferences = null;
+      }
+    }
+    const userTimeZone = resolveUserPreferenceTimeZone(userPreferences);
+    const authoritativeTimeZone = programTimeZone ?? userTimeZone;
+    if (!authoritativeTimeZone) throw new UserTimeZoneRequiredError();
+    if (query.timeZone && authoritativeTimeZone !== query.timeZone) {
       throw new FoodAnalyticsTimeZoneConflictError();
     }
-    const timeZone = programTimeZone ?? query.timeZone ?? 'UTC';
+    const timeZone = authoritativeTimeZone;
     const timeZoneSource = programTimeZone
       ? ('adaptive_program' as const)
-      : query.timeZone
-        ? ('request' as const)
-        : ('utc_default' as const);
+      : ('user_profile' as const);
     const todayDate = getDateKeyInTimeZone(now(), timeZone);
     const endDate = query.end ?? todayDate;
     if (endDate > todayDate)

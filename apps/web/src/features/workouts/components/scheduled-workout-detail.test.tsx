@@ -71,9 +71,31 @@ vi.mock('./swap-exercise-dialog', () => ({
   },
 }));
 
+const dateAuthorityMocks = vi.hoisted(() => {
+  let mutationDate: string | null = null;
+  return {
+    setMutationDate: (value: string | null) => {
+      mutationDate = value;
+    },
+    state: {
+      dateAuthorityLocked: false,
+      getTodayKeyForMutation: () => mutationDate,
+      todayKey: null as string | null,
+    },
+  };
+});
+
+vi.mock('../hooks/use-today-key', () => ({
+  useTodayKey: () => dateAuthorityMocks.state,
+}));
+
 import { ScheduledWorkoutDetail } from './scheduled-workout-detail';
 
 beforeEach(() => {
+  const todayKey = toDateKey(new Date());
+  dateAuthorityMocks.state.dateAuthorityLocked = false;
+  dateAuthorityMocks.state.todayKey = todayKey;
+  dateAuthorityMocks.setMutationDate(todayKey);
   window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
 });
 
@@ -83,6 +105,68 @@ afterEach(() => {
 });
 
 describe('ScheduledWorkoutDetail', () => {
+  it('disables rescheduling while date authority is stale', async () => {
+    const detail = createScheduledWorkoutDetailPayload({ date: toDateKey(new Date()) });
+    dateAuthorityMocks.state.dateAuthorityLocked = true;
+    dateAuthorityMocks.setMutationDate(null);
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/scheduled-workouts/scheduled-1' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: detail }));
+      }
+      if (url.pathname === '/api/v1/workout-sessions' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <ScheduledWorkoutDetail id="scheduled-1" />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Reschedule' })).toBeDisabled();
+  });
+
+  it('does not reschedule after date authority locks while the dialog is open', async () => {
+    const detail = createScheduledWorkoutDetailPayload({ date: toDateKey(new Date()) });
+    const rescheduleSpy = vi.fn();
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/scheduled-workouts/scheduled-1' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: detail }));
+      }
+      if (url.pathname === '/api/v1/workout-sessions' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+      if (url.pathname === '/api/v1/scheduled-workouts/scheduled-1' && method === 'PATCH') {
+        rescheduleSpy();
+        return Promise.resolve(jsonResponse({ data: detail }));
+      }
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <ScheduledWorkoutDetail id="scheduled-1" />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reschedule' }));
+    const submit = await screen.findByRole('button', { name: 'Submit reschedule' });
+    dateAuthorityMocks.setMutationDate(null);
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(rescheduleSpy).not.toHaveBeenCalled());
+  });
+
   it('renders snapshot exercise cards with programming and agent notes', async () => {
     const detail = createScheduledWorkoutDetailPayload({
       date: toDateKey(new Date()),

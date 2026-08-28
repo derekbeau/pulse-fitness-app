@@ -121,6 +121,7 @@ describe('auth starter habits integration', () => {
         username: 'derek',
         password: 'super-secret-password',
         name: 'Derek',
+        timeZone: 'America/Detroit',
       },
     });
 

@@ -50,7 +50,9 @@ type HabitWithTodayEntry = Habit & {
 };
 
 type DailyHabitsProps = {
+  dateAuthorityLocked?: boolean;
   selectedDate?: Date;
+  todayDate?: Date;
 };
 
 export type DailyHabit = HabitConfig & {
@@ -366,11 +368,15 @@ function DailyHabitsErrorState({ titleDate, message, onRetry }: DailyHabitsError
   );
 }
 
-export function DailyHabits({ selectedDate }: DailyHabitsProps) {
-  const activeDate = normalizeDate(selectedDate ?? getToday());
+export function DailyHabits({
+  dateAuthorityLocked = false,
+  selectedDate,
+  todayDate = getToday(),
+}: DailyHabitsProps) {
+  const activeDate = normalizeDate(selectedDate ?? todayDate);
   const activeDateKey = toDateKey(activeDate);
-  const todayKey = toDateKey(getToday());
-  const isSelectedDateToday = isSameDay(activeDate, getToday());
+  const todayKey = toDateKey(todayDate);
+  const isSelectedDateToday = isSameDay(activeDate, todayDate);
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
@@ -425,6 +431,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
   };
 
   const commitTrackedValue = (habit: DailyHabit) => {
+    if (dateAuthorityLocked) return;
     const draftValue = draftValues[habit.id];
     if (draftValue === undefined) {
       return;
@@ -646,6 +653,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                           setEditingHabitId(selectedHabit.id);
                           setIsFormDialogOpen(true);
                         }}
+                        todayDate={todayDate}
                       />
                     </div>
                   </div>
@@ -672,8 +680,9 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                             'size-5 border-border bg-white dark:bg-background',
                             isAutoManaged && 'opacity-45',
                           )}
-                          disabled={isSavingToggle}
+                          disabled={dateAuthorityLocked || isSavingToggle}
                           onCheckedChange={(checked) => {
+                            if (dateAuthorityLocked) return;
                             const isManualOverride = habit.isReferential && !habit.isOverride;
 
                             if (isManualOverride) {
@@ -707,7 +716,7 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                               'h-9 w-24 shrink-0 border-border bg-white/75 text-center text-base font-semibold text-foreground placeholder:text-muted focus-visible:border-ring focus-visible:ring-ring/20 dark:bg-background',
                               isAutoManaged && 'opacity-55',
                             )}
-                            disabled={isSavingValue || isSavingToggle}
+                            disabled={dateAuthorityLocked || isSavingValue || isSavingToggle}
                             inputMode="decimal"
                             min="0"
                             placeholder="0"
@@ -768,9 +777,9 @@ export function DailyHabits({ selectedDate }: DailyHabitsProps) {
                       <div className="mt-1.5">
                         <Button
                           className="h-auto px-0 text-xs"
-                          disabled={isSavingValue || isSavingToggle}
+                          disabled={dateAuthorityLocked || isSavingValue || isSavingToggle}
                           onClick={() => {
-                            if (!habit.entryId) {
+                            if (dateAuthorityLocked || !habit.entryId) {
                               return;
                             }
 

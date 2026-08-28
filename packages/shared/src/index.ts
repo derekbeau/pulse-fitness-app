@@ -24,6 +24,7 @@ export * from './schemas/food-analytics.js';
 export * from './schemas/goal-trajectory.js';
 export * from './schemas/nutrition.js';
 export * from './schemas/nutrition-targets.js';
+export * from './schemas/protein-floor.js';
 export * from './schemas/resources.js';
 export * from './schemas/scheduled-workouts.js';
 export * from './schemas/session-set.js';
@@ -43,6 +44,7 @@ export * from './utils/daily-energy-adherence.js';
 export * from './utils/food-analytics.js';
 export * from './utils/ewma.js';
 export * from './utils/habit-scheduling.js';
+export * from './utils/protein-floor.js';
 export * from './utils/weight-unit.js';
 export * from './utils/workout-progression.js';
 

@@ -31,7 +31,7 @@ import {
   useRenameTemplate,
   useScheduleWorkout,
 } from '@/features/workouts/api/workouts';
-import { toDateKey } from '@/lib/date-utils';
+import { useTodayKey } from '@/features/workouts/hooks/use-today-key';
 import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { ScheduleWorkoutDialog } from '@/features/workouts/components/schedule-workout-dialog';
@@ -77,6 +77,7 @@ export function TemplateBrowser({
   totalTemplates,
   templates = [],
 }: TemplateBrowserProps) {
+  const { dateAuthorityLocked, getTodayKeyForMutation, todayKey } = useTodayKey();
   const [searchParams, setSearchParams] = useSearchParams();
   const { confirm, dialog } = useConfirmation();
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,7 +99,7 @@ export function TemplateBrowser({
   const scheduleInitialDate =
     requestedDate != null && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
       ? requestedDate
-      : toDateKey(new Date());
+      : (todayKey ?? '');
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
   const availableTags = useMemo(() => {
@@ -143,7 +144,10 @@ export function TemplateBrowser({
       }),
     [activeSelectedTags, normalizedQuery, templates],
   );
-  const sortedTemplates = useMemo(() => sortTemplates(filteredTemplates, sort), [filteredTemplates, sort]);
+  const sortedTemplates = useMemo(
+    () => sortTemplates(filteredTemplates, sort),
+    [filteredTemplates, sort],
+  );
   const hasLocalFilters = normalizedQuery.length > 0 || activeSelectedTags.length > 0;
   const templateCountLabel = hasLocalFilters
     ? hasKnownTotalTemplates
@@ -391,6 +395,7 @@ export function TemplateBrowser({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
+                      disabled={dateAuthorityLocked || todayKey === null}
                       onSelect={() =>
                         setScheduleTarget({
                           id: template.id,
@@ -543,12 +548,17 @@ export function TemplateBrowser({
           }
         }}
         onSubmitDate={async (dateKey: string) => {
-          if (!scheduleTarget) {
+          if (dateAuthorityLocked || !scheduleTarget || todayKey === null) {
             return;
           }
 
+          const expectedTodayKey = todayKey;
           const shouldProceed = await confirmDuplicateDayWorkouts(dateKey);
           if (!shouldProceed) {
+            return;
+          }
+
+          if (getTodayKeyForMutation() !== expectedTodayKey) {
             return;
           }
 
@@ -559,7 +569,7 @@ export function TemplateBrowser({
 
           setScheduleTarget(null);
         }}
-        open={scheduleTarget !== null}
+        open={scheduleTarget !== null && !dateAuthorityLocked}
         submitLabel="Schedule"
         title="Schedule workout"
       />
@@ -604,14 +614,10 @@ function sortTemplates(templates: TemplateSummary[], sort: WorkoutTemplateSort) 
     case 'oldest':
       return copy.sort((left, right) => left.createdAt - right.createdAt || byName(left, right));
     case 'recently-updated':
-      return copy.sort(
-        (left, right) => right.updatedAt - left.updatedAt || byName(left, right),
-      );
+      return copy.sort((left, right) => right.updatedAt - left.updatedAt || byName(left, right));
     case 'newest':
     default:
-      return copy.sort(
-        (left, right) => right.createdAt - left.createdAt || byName(left, right),
-      );
+      return copy.sort((left, right) => right.createdAt - left.createdAt || byName(left, right));
   }
 }
 

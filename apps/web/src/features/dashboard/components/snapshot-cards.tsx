@@ -1,5 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
-import type { DashboardSnapshot, DashboardWorkoutSnapshot } from '@pulse/shared';
+import type {
+  DashboardSnapshot,
+  DashboardWorkoutSnapshot,
+  ProteinFloorProgress,
+} from '@pulse/shared';
 import { Link } from 'react-router';
 
 import { StatCard } from '@/components/ui/stat-card';
@@ -13,7 +17,7 @@ import { formatCalories, formatGrams, formatWeight } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 type SnapshotCardsProps = {
-  snapshot?: DashboardSnapshot;
+  snapshot: DashboardSnapshot;
 };
 
 const notConfiguredCardClassName =
@@ -34,6 +38,22 @@ const formatMacroProgressValue = (actual: number, target: number, mode: 'calorie
   return `${formatCalories(actual)} / ${formatCalories(target)}`;
 };
 
+const formatProteinDistance = (value: number) =>
+  value > 0 && Math.round(value) === 0 ? '<1g' : formatGrams(value);
+
+export const formatProteinFloorSnapshot = (facts: ProteinFloorProgress) => {
+  if (facts.state === 'unavailable' || facts.actualProteinGrams === null) {
+    return 'Protein minimum unavailable';
+  }
+
+  const actual = `${formatGrams(facts.actualProteinGrams)} logged`;
+  const progress =
+    facts.state === 'below_floor'
+      ? `${actual} · ${formatProteinDistance(facts.remainingToFloorGrams ?? 0)} to minimum`
+      : `${actual} · Minimum met`;
+  return facts.isFinal ? progress : `${progress} · Based on food logged so far`;
+};
+
 export const calculateHabitCompletionPercent = (
   habitsCompleted: number,
   habitsTotal: number,
@@ -45,12 +65,18 @@ export const calculateHabitCompletionPercent = (
   return Math.round((habitsCompleted / habitsTotal) * 100);
 };
 
-const formatWeightValue = (snapshot: DashboardSnapshot | undefined) => {
-  if (!snapshot) {
-    return '--';
-  }
+export const calculateProteinFloorPercent = (
+  proteinFloor: DashboardSnapshot['macros']['proteinFloor'],
+): number => {
+  if (proteinFloor.state === 'unavailable') return 0;
+  if (proteinFloor.state === 'floor_met') return 100;
+  const actual = proteinFloor.actualProteinGrams ?? 0;
+  const floor = proteinFloor.proteinFloorGrams ?? 1;
+  return Math.min(99, Math.floor((actual / floor) * 100));
+};
 
-  if (!snapshot?.weight) {
+const formatWeightValue = (snapshot: DashboardSnapshot) => {
+  if (!snapshot.weight) {
     return 'Log weight';
   }
 
@@ -131,12 +157,11 @@ const getWorkoutStatusBadge = (status: DashboardWorkoutSnapshot['status']) => {
 };
 
 export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
-  const hasWeight = !!snapshot?.weight;
+  const hasWeight = !!snapshot.weight;
   const weightLabel =
-    snapshot?.weight && snapshot.weight.trendValue === null ? 'Latest Weight' : 'Trend Weight';
-  const hasCaloriesTarget = (snapshot?.macros.target.calories ?? 0) > 0;
-  const hasProteinTarget = (snapshot?.macros.target.protein ?? 0) > 0;
-  const hasHabits = (snapshot?.habits.total ?? 0) > 0;
+    snapshot.weight && snapshot.weight.trendValue === null ? 'Latest Weight' : 'Trend Weight';
+  const hasCaloriesTarget = snapshot.macros.target.calories > 0;
+  const hasHabits = snapshot.habits.total > 0;
   const habitCompletionPercent = snapshot
     ? calculateHabitCompletionPercent(snapshot.habits.completed, snapshot.habits.total)
     : 0;
@@ -144,10 +169,7 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
     snapshot && hasCaloriesTarget
       ? Math.round((snapshot.macros.actual.calories / snapshot.macros.target.calories) * 100)
       : 0;
-  const proteinPercent =
-    snapshot && hasProteinTarget
-      ? Math.round((snapshot.macros.actual.protein / snapshot.macros.target.protein) * 100)
-      : 0;
+  const proteinPercent = calculateProteinFloorPercent(snapshot.macros.proteinFloor);
 
   const weightValue = formatWeightValue(snapshot);
   const caloriesValueText = snapshot
@@ -176,19 +198,13 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
     : '--';
 
   const proteinValueText = snapshot
-    ? hasProteinTarget
-      ? formatMacroProgressValue(
-          snapshot.macros.actual.protein,
-          snapshot.macros.target.protein,
-          'grams',
-        )
-      : 'No targets set'
+    ? formatProteinFloorSnapshot(snapshot.macros.proteinFloor)
     : '--';
   const proteinValue = snapshot
-    ? hasProteinTarget
+    ? snapshot.macros.proteinFloor.state !== 'unavailable'
       ? proteinValueText
       : [
-          <span key="text">No targets set</span>,
+          <span key="text">Protein minimum unavailable</span>,
           ' ',
           <Link
             key="link"
@@ -303,27 +319,31 @@ export function SnapshotCards({ snapshot }: SnapshotCardsProps) {
         indicatorClassName="top-2.5 right-2.5 bottom-auto px-1.5 py-0.5"
         indicatorLabel=""
         to="/nutrition"
-        viewLabel="View protein details"
+        viewLabel={`View protein details${snapshot ? ` for ${snapshot.date}: ${proteinValueText}` : ''}`}
       >
         <StatCard
           accentTextClassName={
-            snapshot && !hasProteinTarget ? notConfiguredAccentTextClassName : 'text-on-mint'
+            snapshot && snapshot.macros.proteinFloor.state === 'unavailable'
+              ? notConfiguredAccentTextClassName
+              : 'text-on-mint'
           }
           className={cn(
-            snapshot && !hasProteinTarget ? notConfiguredCardClassName : accentCardStyles.mint,
+            snapshot && snapshot.macros.proteinFloor.state === 'unavailable'
+              ? notConfiguredCardClassName
+              : accentCardStyles.mint,
             dashboardDrilldownCardClassName,
           )}
           density="compact"
           data-stagger="2"
           label="Protein"
           trend={
-            snapshot && hasProteinTarget
+            snapshot && snapshot.macros.proteinFloor.state !== 'unavailable'
               ? { direction: 'neutral', value: proteinPercent }
               : undefined
           }
           value={proteinValue}
-          valueClassName={getSnapshotValueClassName(proteinValueText)}
-          valueTitle={hasProteinTarget ? proteinValueText : undefined}
+          valueClassName="whitespace-normal text-sm leading-snug sm:text-base lg:text-lg"
+          valueTitle={snapshot ? proteinValueText : undefined}
         />
       </DashboardDrilldownLink>
 

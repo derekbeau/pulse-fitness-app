@@ -57,6 +57,7 @@ describe('users routes', () => {
       username: 'derek',
       name: 'Derek',
       weightUnit: 'lbs',
+      timeZone: 'America/Detroit',
       createdAt: 1709913600000,
     });
 
@@ -64,7 +65,10 @@ describe('users routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/users/me',
@@ -78,6 +82,7 @@ describe('users routes', () => {
           username: 'derek',
           name: 'Derek',
           weightUnit: 'lbs',
+          timeZone: 'America/Detroit',
           createdAt: 1709913600000,
         },
       });
@@ -93,6 +98,7 @@ describe('users routes', () => {
       username: 'derek',
       name: 'Derek B',
       weightUnit: 'lbs',
+      timeZone: 'America/Detroit',
       createdAt: 1709913600000,
     });
 
@@ -100,7 +106,10 @@ describe('users routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/v1/users/me',
@@ -115,6 +124,7 @@ describe('users routes', () => {
           username: 'derek',
           name: 'Derek B',
           weightUnit: 'lbs',
+          timeZone: 'America/Detroit',
           createdAt: 1709913600000,
         },
       });
@@ -129,7 +139,10 @@ describe('users routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/v1/users/me',
@@ -150,7 +163,10 @@ describe('users routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/v1/users/me',
@@ -171,7 +187,10 @@ describe('users routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/v1/users/me',
@@ -193,6 +212,7 @@ describe('users routes', () => {
       username: 'derek',
       name: 'Derek',
       weightUnit: 'kg',
+      timeZone: 'America/Detroit',
       createdAt: 1709913600000,
     });
 
@@ -200,7 +220,10 @@ describe('users routes', () => {
 
     try {
       await app.ready();
-      const authToken = app.jwt.sign({ sub: 'user-1', type: "session", iss: "pulse-api" }, { expiresIn: "7d" });
+      const authToken = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/v1/users/me',
@@ -215,6 +238,7 @@ describe('users routes', () => {
           username: 'derek',
           name: 'Derek',
           weightUnit: 'kg',
+          timeZone: 'America/Detroit',
           createdAt: 1709913600000,
         },
       });

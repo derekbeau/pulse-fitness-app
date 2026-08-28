@@ -14,6 +14,7 @@ import {
   listAgentContextRecentWorkouts,
   listAgentContextScheduledWorkouts,
 } from '../agent/context-store.js';
+import { getNutritionLocalDateForUser } from '../nutrition/status-store.js';
 
 vi.mock('../../middleware/store.js', () => ({
   findAgentTokenByHash: vi.fn(),
@@ -28,6 +29,10 @@ vi.mock('../agent/context-store.js', () => ({
   listAgentContextHabits: vi.fn(),
   listAgentContextRecentWorkouts: vi.fn(),
   listAgentContextScheduledWorkouts: vi.fn(),
+}));
+
+vi.mock('../nutrition/status-store.js', () => ({
+  getNutritionLocalDateForUser: vi.fn(),
 }));
 
 const createAuthorizationHeader = (token: string, scheme: 'Bearer' | 'AgentToken' = 'Bearer') => ({
@@ -45,6 +50,8 @@ describe('v1 context routes', () => {
     vi.mocked(listAgentContextHabits).mockReset();
     vi.mocked(listAgentContextRecentWorkouts).mockReset();
     vi.mocked(listAgentContextScheduledWorkouts).mockReset();
+    vi.mocked(getNutritionLocalDateForUser).mockReset();
+    vi.mocked(getNutritionLocalDateForUser).mockResolvedValue('2026-03-09');
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-context-route-secret';
   });
@@ -63,6 +70,14 @@ describe('v1 context routes', () => {
     vi.mocked(getAgentContextTodayNutrition).mockResolvedValue({
       actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
       target: { calories: 2200, protein: 180, carbs: 250, fat: 70 },
+      proteinFloor: {
+        actualProteinGrams: 0,
+        proteinFloorGrams: 180,
+        remainingToFloorGrams: 180,
+        amountAboveFloorGrams: 0,
+        state: 'below_floor',
+        isFinal: false,
+      },
       meals: [],
     });
     vi.mocked(getAgentContextWeight).mockResolvedValue({
@@ -98,6 +113,14 @@ describe('v1 context routes', () => {
           todayNutrition: {
             actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
             target: { calories: 2200, protein: 180, carbs: 250, fat: 70 },
+            proteinFloor: {
+              actualProteinGrams: 0,
+              proteinFloorGrams: 180,
+              remainingToFloorGrams: 180,
+              amountAboveFloorGrams: 0,
+              state: 'below_floor',
+              isFinal: false,
+            },
             meals: [],
           },
           weight: { current: 180, trend7d: -1.2, unit: 'lbs' },

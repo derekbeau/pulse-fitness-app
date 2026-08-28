@@ -15,6 +15,7 @@ import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
+import { getUserLocalDate, UserTimeZoneRequiredError } from '../../lib/user-time-zone.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { apiErrorResponseSchema, authSecurity, badRequestResponseSchema } from '../../openapi.js';
 
@@ -51,11 +52,8 @@ const resolvedDashboardTrendRangeSchema = z
     },
   );
 
-// TODO: Accept a user timezone (or offset) so omitted date defaults to the user's local day.
-const getTodayDate = () => new Date().toISOString().slice(0, 10);
-
-const resolveTrendRange = (query: { from?: string; to?: string }) => {
-  const to = query.to ?? getTodayDate();
+const resolveTrendRange = async (userId: string, query: { from?: string; to?: string }) => {
+  const to = query.to ?? (await getUserLocalDate(userId));
   const from = query.from ?? addUtcDays(to, -DEFAULT_TREND_LOOKBACK_DAYS);
 
   return { from, to };
@@ -65,11 +63,21 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
-  const getValidatedTrendRange = (
+  const getValidatedTrendRange = async (
+    userId: string,
     query: z.infer<typeof dashboardTrendQuerySchema>,
     reply: FastifyReply,
   ) => {
-    const range = resolveTrendRange(query);
+    let range;
+    try {
+      range = await resolveTrendRange(userId, query);
+    } catch (error) {
+      if (error instanceof UserTimeZoneRequiredError) {
+        sendError(reply, 400, error.code, error.message);
+        return undefined;
+      }
+      throw error;
+    }
     const parsedRange = resolvedDashboardTrendRangeSchema.safeParse(range);
     if (!parsedRange.success) {
       sendError(reply, 400, 'VALIDATION_ERROR', 'Invalid dashboard trend date range');
@@ -95,7 +103,17 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const requestedDate = request.query.date ?? getTodayDate();
+      let requestedDate = request.query.date;
+      if (!requestedDate) {
+        try {
+          requestedDate = await getUserLocalDate(request.userId);
+        } catch (error) {
+          if (error instanceof UserTimeZoneRequiredError) {
+            return sendError(reply, 400, error.code, error.message);
+          }
+          throw error;
+        }
+      }
       const snapshot = await getDashboardSnapshot(request.userId, requestedDate);
 
       return reply.send({
@@ -120,7 +138,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const range = getValidatedTrendRange(request.query, reply);
+      const range = await getValidatedTrendRange(request.userId, request.query, reply);
       if (!range) {
         return reply;
       }
@@ -151,7 +169,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const range = getValidatedTrendRange(request.query, reply);
+      const range = await getValidatedTrendRange(request.userId, request.query, reply);
       if (!range) {
         return reply;
       }
@@ -180,7 +198,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const range = getValidatedTrendRange(request.query, reply);
+      const range = await getValidatedTrendRange(request.userId, request.query, reply);
       if (!range) {
         return reply;
       }

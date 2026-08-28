@@ -4,7 +4,6 @@ import type {
   DailyEnergyAdherence,
   DeleteMealResult,
   NutritionMeal,
-  NutritionSummary,
   NutritionWeekSummary,
   NutritionLogStatus,
 } from '@pulse/shared';
@@ -12,9 +11,12 @@ import {
   dailyEnergyAdherenceSchema,
   dailyNutritionSchema,
   nutritionLogSchema,
+  nutritionSummarySchema,
 } from '@pulse/shared';
 import { toast } from 'sonner';
 
+import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
+import { macroTrendQueryKeys } from '@/hooks/use-macro-trend';
 import {
   adaptiveNutritionQueryKey,
   crossFeatureInvalidationMap,
@@ -58,10 +60,10 @@ const fetchDailyNutrition = (date: string, signal?: AbortSignal) =>
   }).then((value) => dailyNutritionSchema.parse(value));
 
 const fetchNutritionSummary = (date: string, signal?: AbortSignal) =>
-  apiRequest<NutritionSummary>(`/api/v1/nutrition/${date}/summary`, {
+  apiRequest<unknown>(`/api/v1/nutrition/${date}/summary`, {
     method: 'GET',
     signal,
-  });
+  }).then((value) => nutritionSummarySchema.parse(value));
 
 const fetchDailyEnergyAdherence = (date: string, signal?: AbortSignal) =>
   apiRequest<unknown>(`/api/v1/nutrition/${date}/energy-adherence`, {
@@ -265,9 +267,13 @@ export const useUpdateNutritionStatus = () => {
     onSuccess: async (_result, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: nutritionQueryKeys.day(variables.date) }),
+        queryClient.invalidateQueries({ queryKey: nutritionQueryKeys.summary(variables.date) }),
         queryClient.invalidateQueries({
           queryKey: nutritionQueryKeys.energyAdherence(variables.date),
         }),
+        queryClient.invalidateQueries({ queryKey: nutritionQueryKeys.weekSummary(variables.date) }),
+        queryClient.invalidateQueries({ queryKey: dashboardSnapshotQueryKeys.all }),
+        queryClient.invalidateQueries({ queryKey: macroTrendQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: adaptiveNutritionQueryKey }),
         queryClient.invalidateQueries({ queryKey: dataQualityQueryKey }),
       ]);

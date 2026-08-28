@@ -34,6 +34,7 @@ type CreateUserInput = {
   username: string;
   name?: string;
   passwordHash: string;
+  timeZone: string;
 };
 
 const starterHabitDefinitions: Array<{
@@ -114,6 +115,7 @@ export const createUser = async ({
   username,
   name,
   passwordHash,
+  timeZone,
 }: CreateUserInput): Promise<Omit<AuthUserRecord, 'passwordHash'>> => {
   const { db } = await import('../../db/index.js');
 
@@ -125,6 +127,7 @@ export const createUser = async ({
         username,
         name,
         passwordHash,
+        preferences: { timeZone },
       })
       .run();
 

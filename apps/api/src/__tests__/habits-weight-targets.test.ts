@@ -430,6 +430,7 @@ const registerAndLogin = async (app: FastifyInstance, suffix: string): Promise<A
       username,
       password,
       name: `User ${suffix.toUpperCase()}`,
+      timeZone: 'America/Detroit',
     },
   });
 

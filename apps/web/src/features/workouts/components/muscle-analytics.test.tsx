@@ -141,9 +141,7 @@ describe('MuscleAnalytics', () => {
       </MemoryRouter>,
     );
     fireEvent.click(screen.getByRole('button', { name: '7D' }));
-    expect(useWorkoutMuscleAnalytics).toHaveBeenLastCalledWith(
-      expect.objectContaining({ range: '7d' }),
-    );
+    expect(useWorkoutMuscleAnalytics).toHaveBeenLastCalledWith({ range: '7d' });
     expect(screen.getByRole('button', { name: '7D' })).toHaveAttribute('aria-pressed', 'true');
   });
 });

@@ -11,11 +11,14 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
-import { getTodayDate } from '../../lib/date.js';
+import { getNutritionLocalDateForUser } from '../nutrition/status-store.js';
 import { resolveHabitCompletion } from '../../lib/habit-resolvers.js';
 import { sendError } from '../../lib/reply.js';
 import { requireAuth } from '../../middleware/auth.js';
-import { agentEnrichmentOnSend, setAgentEnrichmentContext } from '../../middleware/agent-enrichment.js';
+import {
+  agentEnrichmentOnSend,
+  setAgentEnrichmentContext,
+} from '../../middleware/agent-enrichment.js';
 import {
   apiErrorResponseSchema,
   authSecurity,
@@ -112,7 +115,7 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const today = getTodayDate();
+      const today = await getNutritionLocalDateForUser(request.userId);
       setAgentEnrichmentContext(request, {
         endpoint: 'habit.list',
         date: today,
@@ -129,10 +132,13 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
 
       const todayEntries = await listHabitEntriesByDateRange(request.userId, today, today);
       const todayEntriesByHabitId = new Map(todayEntries.map((entry) => [entry.habitId, entry]));
-      const resolutionByKey = new Map<ReturnType<typeof buildResolutionCacheKey>, Promise<{
-        completed: boolean;
-        value?: number;
-      }>>();
+      const resolutionByKey = new Map<
+        ReturnType<typeof buildResolutionCacheKey>,
+        Promise<{
+          completed: boolean;
+          value?: number;
+        }>
+      >();
 
       const habitsWithResolvedEntries = await Promise.all(
         habits.map(async (habit) => {
@@ -161,7 +167,10 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
             };
           }
 
-          const resolutionKey = buildResolutionCacheKey(habit.referenceSource, habit.referenceConfig);
+          const resolutionKey = buildResolutionCacheKey(
+            habit.referenceSource,
+            habit.referenceConfig,
+          );
           const existingResolution = resolutionByKey.get(resolutionKey);
           const resolutionPromise =
             existingResolution ?? resolveHabitCompletion(habit, request.userId, today);
@@ -217,7 +226,9 @@ export const habitRoutes: FastifyPluginAsync = async (app) => {
           ? existingHabit.scheduledDays
           : request.body.scheduledDays,
       pausedUntil:
-        request.body.pausedUntil === undefined ? existingHabit.pausedUntil : request.body.pausedUntil,
+        request.body.pausedUntil === undefined
+          ? existingHabit.pausedUntil
+          : request.body.pausedUntil,
       referenceSource:
         request.body.referenceSource === undefined
           ? existingHabit.referenceSource

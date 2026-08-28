@@ -29,6 +29,7 @@ export function RegisterForm({ loginHref, onSuccess }: RegisterFormProps) {
       username: '',
       password: '',
       name: '',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     },
   });
 
@@ -106,6 +107,25 @@ export function RegisterForm({ loginHref, onSuccess }: RegisterFormProps) {
               })}
             />
             {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="register-time-zone">Time zone</Label>
+            <Input
+              id="register-time-zone"
+              aria-describedby="register-time-zone-help"
+              aria-invalid={errors.timeZone ? true : undefined}
+              autoComplete="off"
+              disabled={isLoading}
+              placeholder="America/Detroit"
+              {...register('timeZone', { onChange: handleInputChange })}
+            />
+            <p className="text-sm text-muted-foreground" id="register-time-zone-help">
+              Pulse uses this IANA time zone to determine your current local day.
+            </p>
+            {errors.timeZone ? (
+              <p className="text-sm text-destructive">{errors.timeZone.message}</p>
+            ) : null}
           </div>
 
           {error ? (

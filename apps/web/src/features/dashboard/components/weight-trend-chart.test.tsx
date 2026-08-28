@@ -187,7 +187,7 @@ describe('WeightTrendChart', () => {
     renderChart();
     expect(await screen.findByRole('img', { name: 'Trend Weight chart' })).toBeInTheDocument();
     expect(mockFetch).toHaveBeenCalledWith(
-      '/api/v1/weight/trend?range=1m&timeZone=America%2FDetroit&end=2026-03-08',
+      '/api/v1/weight/trend?range=1m&end=2026-03-08',
       expect.any(Object),
     );
     expect(screen.getByText('Trend Weight')).toBeInTheDocument();
@@ -219,7 +219,7 @@ describe('WeightTrendChart', () => {
     fireEvent.click(screen.getByRole('button', { name: 'All' }));
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/v1/weight/trend?range=all&timeZone=America%2FDetroit&end=2026-03-08',
+        '/api/v1/weight/trend?range=all&end=2026-03-08',
         expect.any(Object),
       );
     });

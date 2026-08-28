@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mealItems, meals, nutritionLogs, nutritionTargets } from '../../db/schema/index.js';
+import { getDailyEnergyAdherenceForDate } from './daily-energy-store.js';
 
 const testState = vi.hoisted(() => {
   const aggregateGet = vi.fn();
@@ -141,9 +142,24 @@ vi.mock('../../db/index.js', () => ({
   db: testState.db,
 }));
 
+vi.mock('./daily-energy-store.js', () => ({
+  getDailyEnergyAdherenceForDate: vi.fn(),
+}));
+
 describe('nutrition store', () => {
   beforeEach(() => {
     testState.reset();
+    vi.mocked(getDailyEnergyAdherenceForDate).mockReset();
+    vi.mocked(getDailyEnergyAdherenceForDate).mockResolvedValue({
+      proteinFloor: {
+        actualProteinGrams: null,
+        proteinFloorGrams: null,
+        remainingToFloorGrams: null,
+        amountAboveFloorGrams: null,
+        state: 'unavailable',
+        isFinal: false,
+      },
+    } as never);
   });
 
   afterEach(() => {
@@ -151,6 +167,16 @@ describe('nutrition store', () => {
   });
 
   it('returns a daily summary using aggregated actuals and effective target macros', async () => {
+    vi.mocked(getDailyEnergyAdherenceForDate).mockResolvedValue({
+      proteinFloor: {
+        actualProteinGrams: 150,
+        proteinFloorGrams: 180,
+        remainingToFloorGrams: 30,
+        amountAboveFloorGrams: 0,
+        state: 'below_floor',
+        isFinal: true,
+      },
+    } as never);
     testState.aggregateGet.mockReturnValue({
       calories: 1_850,
       protein: 150,
@@ -183,6 +209,14 @@ describe('nutrition store', () => {
         carbs: 250,
         fat: 70,
       },
+      proteinFloor: {
+        actualProteinGrams: 150,
+        proteinFloorGrams: 180,
+        remainingToFloorGrams: 30,
+        amountAboveFloorGrams: 0,
+        state: 'below_floor',
+        isFinal: true,
+      },
     });
 
     expect(testState.select).toHaveBeenCalledTimes(2);
@@ -210,6 +244,14 @@ describe('nutrition store', () => {
         fat: 0,
       },
       target: null,
+      proteinFloor: {
+        actualProteinGrams: null,
+        proteinFloorGrams: null,
+        remainingToFloorGrams: null,
+        amountAboveFloorGrams: null,
+        state: 'unavailable',
+        isFinal: false,
+      },
     });
     expect(testState.targetOrderBy).toHaveBeenCalledOnce();
   });
@@ -292,7 +334,10 @@ describe('nutrition store', () => {
     ]);
 
     const { getNutritionWeekSummaryForDate } = await import('./store.js');
-    const summary = await getNutritionWeekSummaryForDate('user-1', new Date('2026-03-05T09:30:00Z'));
+    const summary = await getNutritionWeekSummaryForDate(
+      'user-1',
+      new Date('2026-03-05T09:30:00Z'),
+    );
 
     expect(summary.map((day) => day.date)).toEqual([
       '2026-03-02',

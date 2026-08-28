@@ -119,16 +119,7 @@ export const trendWeightQuerySchema = z
     end: dateSchema.optional(),
     timeZone: trendWeightTimeZoneSchema.optional(),
   })
-  .strict()
-  .superRefine((value, context) => {
-    if (!value.end && !value.timeZone) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Live Trend Weight requests require an IANA time zone',
-        path: ['timeZone'],
-      });
-    }
-  });
+  .strict();
 
 export const trendWeightStateSchema = z.enum([
   'no_data',

@@ -475,8 +475,19 @@ describe('adaptive nutrition lifecycle store', () => {
     expect(() => storeA.upsertProgram('user-4', programInput({ currentWeight: null }))).toThrow(
       AdaptiveCurrentWeightRequiredError,
     );
+    dbA
+      .update(users)
+      .set({ preferences: { timeZone: 'Asia/Tokyo' } })
+      .where(eq(users.id, 'user-3'))
+      .run();
     expect(storeA.getState('user-3').state).toBe('setup_required');
+    expect(storeA.getState('user-3').timeZone).toBe('Asia/Tokyo');
     expect(storeA.getState('user-4').state).toBe('setup_required');
+    expect(storeA.getState('user-4')).toMatchObject({
+      localDate: null,
+      timeZone: null,
+      timeZoneSource: null,
+    });
   });
 
   it('rejects inconsistent goal direction and user floors below the derived system floor', () => {

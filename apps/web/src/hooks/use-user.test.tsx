@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { weightQueryKeys } from '@/features/weight/api/weight';
 import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
 import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
+import { crossFeatureInvalidationMap } from '@/lib/query-invalidation';
 import { createQueryClientWrapper } from '@/test/query-client';
 
 import { useUpdateUser, userQueryKeys } from './use-user';
@@ -29,6 +30,7 @@ describe('useUpdateUser', () => {
             username: 'derek',
             name: 'Derek',
             weightUnit: 'kg',
+            timeZone: 'America/Detroit',
             createdAt: 1,
             updatedAt: 2,
           },
@@ -50,5 +52,36 @@ describe('useUpdateUser', () => {
     expect(removeQueries).toHaveBeenCalledWith({ queryKey: weightQueryKeys.all });
     expect(removeQueries).toHaveBeenCalledWith({ queryKey: dashboardSnapshotQueryKeys.all });
     expect(removeQueries).toHaveBeenCalledWith({ queryKey: dashboardWeightTrendQueryKeys.all });
+  });
+
+  it('invalidates every current-day authority consumer after a time-zone change', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            id: 'user-1',
+            username: 'derek',
+            name: 'Derek',
+            weightUnit: 'lbs',
+            timeZone: 'Asia/Tokyo',
+            createdAt: 1,
+            updatedAt: 2,
+          },
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useUpdateUser(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ timeZone: 'Asia/Tokyo' });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    for (const queryKey of crossFeatureInvalidationMap.adaptiveProgramMutation()) {
+      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey });
+    }
   });
 });

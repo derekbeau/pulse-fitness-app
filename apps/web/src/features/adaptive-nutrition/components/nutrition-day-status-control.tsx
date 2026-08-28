@@ -1,5 +1,6 @@
 import type { NutritionLogStatus } from '@pulse/shared';
 import { CheckCircle2, CircleHelp, CircleSlash2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
@@ -29,21 +30,28 @@ const statusOptions = [
 
 type NutritionDayStatusControlProps = {
   date: string;
+  disabled?: boolean;
   isToday: boolean;
   status: NutritionLogStatus | null;
 };
 
 export function NutritionDayStatusControl({
   date,
+  disabled = false,
   isToday,
   status,
 }: NutritionDayStatusControlProps) {
   const mutation = useUpdateNutritionStatus();
   const { confirm, dialog } = useConfirmation();
   const hasLog = status !== null;
+  const disabledRef = useRef(disabled);
+
+  useEffect(() => {
+    disabledRef.current = disabled;
+  }, [disabled]);
 
   const updateStatus = async (nextStatus: NutritionLogStatus) => {
-    if (!hasLog || nextStatus === status) {
+    if (disabledRef.current || !hasLog || nextStatus === status) {
       return;
     }
 
@@ -51,6 +59,7 @@ export function NutritionDayStatusControl({
   };
 
   const chooseStatus = (nextStatus: NutritionLogStatus) => {
+    if (disabled) return;
     if (nextStatus === 'complete' && isToday) {
       confirm({
         title: 'Mark today complete?',
@@ -106,7 +115,7 @@ export function NutritionDayStatusControl({
                 'h-auto min-h-11 justify-start px-3 py-2.5 text-left',
                 isActive && 'border-primary bg-primary/10 text-foreground',
               )}
-              disabled={!hasLog || mutation.isPending}
+              disabled={disabled || !hasLog || mutation.isPending}
               key={option.value}
               onClick={() => chooseStatus(option.value)}
               type="button"

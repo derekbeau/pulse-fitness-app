@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { dateSchema } from './common.js';
 import { weightUnitSchema } from './users.js';
+import { proteinFloorProgressSchema } from './protein-floor.js';
 
 const macroValueSchema = z.number().nonnegative().finite();
 const percentageSchema = z.number().min(0).max(100).finite();
@@ -55,10 +56,25 @@ export const dashboardMacroTotalsSchema = z.object({
   fat: macroValueSchema,
 });
 
-export const dashboardMacroSnapshotSchema = z.object({
-  actual: dashboardMacroTotalsSchema,
-  target: dashboardMacroTotalsSchema,
-});
+export const dashboardMacroSnapshotSchema = z
+  .object({
+    actual: dashboardMacroTotalsSchema,
+    target: dashboardMacroTotalsSchema,
+    proteinFloor: proteinFloorProgressSchema,
+  })
+  .superRefine((value, context) => {
+    if (
+      (value.proteinFloor.actualProteinGrams !== null &&
+        value.actual.protein !== value.proteinFloor.actualProteinGrams) ||
+      value.target.protein !== (value.proteinFloor.proteinFloorGrams ?? 0)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Dashboard protein macros must match the structured protein floor',
+        path: ['proteinFloor'],
+      });
+    }
+  });
 
 export const dashboardWorkoutSnapshotSchema = z.object({
   name: z.string(),

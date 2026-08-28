@@ -20,6 +20,7 @@ import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 import * as schema from '../../db/schema/index.js';
 import { getApplicationNow } from '../../lib/clock.js';
+import { resolveUserTimeZone, UserTimeZoneRequiredError } from '../../lib/user-time-zone.js';
 import {
   adaptiveNutritionCheckIns,
   adaptiveNutritionGoalRevisions,
@@ -45,23 +46,6 @@ const MARKER_KIND_ORDER = {
 } as const;
 const round = (value: number) => Number(value.toFixed(8));
 const display = (valueKg: number, unit: WeightUnit) => round(convertWeightFromKg(valueKg, unit));
-
-const supportedTimeZone = (value: unknown): value is string => {
-  if (typeof value !== 'string') return false;
-  try {
-    new Intl.DateTimeFormat('en-CA', { timeZone: value }).format(new Date(0));
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const preferenceTimeZone = (preferences: unknown) => {
-  if (!preferences || typeof preferences !== 'object') return null;
-  const value = preferences as { timeZone?: unknown; timezone?: unknown };
-  const candidate = value.timeZone ?? value.timezone;
-  return supportedTimeZone(candidate) ? candidate : null;
-};
 
 const confidenceExplanation = (state: TrendWeightAnalytics['current']['state']) => {
   if (state === 'no_data') return 'No measurements support a trend yet.';
@@ -127,16 +111,26 @@ export const createTrendWeightStore = (dependencies: { db: TrendDatabase; now?: 
         )
       : [];
     const latestRevision = revisions.at(-1);
-    const fallbackTimeZone = query.timeZone ?? preferenceTimeZone(user.preferences) ?? 'UTC';
-    const liveTimeZone = query.timeZone ?? latestRevision?.snapshot.timeZone ?? fallbackTimeZone;
+    const liveAuthority = resolveUserTimeZone({
+      preferences: user.preferences,
+      programTimeZone: latestRevision?.snapshot.timeZone,
+    });
+    if (!liveAuthority) throw new UserTimeZoneRequiredError();
+    const liveTimeZone = liveAuthority.timeZone;
     const liveDate = getDateKeyInTimeZone(now(), liveTimeZone);
     const endDate = query.end ?? liveDate;
     const effectiveRevision = query.end
       ? [...revisions].reverse().find((revision) => revision.effectiveLocalDate <= endDate)
       : latestRevision;
-    const timeZone =
-      query.timeZone ??
-      (query.end ? (effectiveRevision?.snapshot.timeZone ?? fallbackTimeZone) : liveTimeZone);
+    const effectiveAuthority = resolveUserTimeZone({
+      preferences: user.preferences,
+      programTimeZone: effectiveRevision?.snapshot.timeZone,
+    });
+    if (!effectiveAuthority) throw new UserTimeZoneRequiredError();
+    const timeZone = effectiveAuthority.timeZone;
+    if (query.timeZone && query.timeZone !== timeZone) {
+      throw new RangeError('Trend Weight time zone conflicts with the server-resolved authority');
+    }
     const todayInEffectiveZone = getDateKeyInTimeZone(now(), timeZone);
     if (query.end && endDate > todayInEffectiveZone) {
       throw new RangeError('Trend Weight end date cannot be in the future');

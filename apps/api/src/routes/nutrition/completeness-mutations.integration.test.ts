@@ -56,7 +56,12 @@ describe('complete nutrition day mutation downgrades', () => {
 
     dbModule.db
       .insert(users)
-      .values({ id: 'user-1', username: 'user-1', passwordHash: 'hash' })
+      .values({
+        id: 'user-1',
+        username: 'user-1',
+        passwordHash: 'hash',
+        preferences: { timeZone: 'America/Detroit' },
+      })
       .run();
     dbModule.db
       .insert(nutritionLogs)
@@ -285,7 +290,12 @@ describe('complete nutrition day mutation downgrades', () => {
       .run();
     dbModule.db
       .insert(users)
-      .values({ id: 'user-2', username: 'user-2', passwordHash: 'hash' })
+      .values({
+        id: 'user-2',
+        username: 'user-2',
+        passwordHash: 'hash',
+        preferences: { timeZone: 'America/Detroit' },
+      })
       .run();
     dbModule.db
       .insert(nutritionLogs)

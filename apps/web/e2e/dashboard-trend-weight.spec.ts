@@ -67,6 +67,7 @@ async function createUserWithWeights(snapshotDate: string, weights: WeightFixtur
     const registerResponse = await apiContext.post('/api/v1/auth/register', {
       data: {
         password: testPassword,
+        timeZone: 'America/Detroit',
         username: `trend-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
       },
     });

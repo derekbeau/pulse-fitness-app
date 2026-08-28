@@ -40,6 +40,7 @@ describe('auth-store', () => {
         id: 'user-1',
         username: 'derek',
         name: 'Derek',
+        timeZone: 'America/Detroit',
       },
     });
 
@@ -61,6 +62,7 @@ describe('auth-store', () => {
         id: 'user-1',
         username: 'derek',
         name: 'Derek',
+        timeZone: 'America/Detroit',
       },
       isAuthenticated: true,
       hasHydrated: true,
@@ -105,6 +107,7 @@ describe('auth-store', () => {
       username: ' Pulse-User ',
       password: 'super-secret-password',
       name: ' Pulse User ',
+      timeZone: 'America/Detroit',
     });
 
     expect(apiRequest).toHaveBeenCalledWith('/api/v1/auth/register', {
@@ -113,6 +116,7 @@ describe('auth-store', () => {
         username: 'pulse-user',
         password: 'super-secret-password',
         name: 'Pulse User',
+        timeZone: 'America/Detroit',
       },
     });
     expect(useAuthStore.getState()).toMatchObject({
@@ -137,6 +141,7 @@ describe('auth-store', () => {
         id: 'user-1',
         username: 'derek',
         name: 'Derek',
+        timeZone: 'America/Detroit',
       },
       token: 'token-1',
       isAuthenticated: true,

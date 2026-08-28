@@ -9,6 +9,18 @@ import { jsonResponse } from '@/test/test-utils';
 
 import { SessionDetail } from './session-detail';
 
+const dateAuthorityMocks = vi.hoisted(() => ({
+  state: {
+    dateAuthorityLocked: false,
+    getTodayKeyForMutation: () => '2026-03-12' as string | null,
+    todayKey: '2026-03-12' as string | null,
+  },
+}));
+
+vi.mock('@/features/workouts/hooks/use-today-key', () => ({
+  useTodayKey: () => dateAuthorityMocks.state,
+}));
+
 vi.mock('recharts', async () => {
   const actual = await vi.importActual<typeof import('recharts')>('recharts');
   const React = await vi.importActual<typeof import('react')>('react');
@@ -32,6 +44,11 @@ vi.mock('recharts', async () => {
 });
 
 beforeEach(() => {
+  dateAuthorityMocks.state = {
+    dateAuthorityLocked: false,
+    getTodayKeyForMutation: () => '2026-03-12',
+    todayKey: '2026-03-12',
+  };
   window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
 });
 
@@ -128,6 +145,36 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Great pacing and clean reps.')).toBeInTheDocument();
     expect(screen.getByText('Felt strong and stable today.')).toBeInTheDocument();
     expect(screen.getByText('Bench at setting 5; keep elbows tucked.')).toBeInTheDocument();
+  });
+
+  it('retains the receipt but disables repeat workout while date authority is stale', async () => {
+    dateAuthorityMocks.state = {
+      dateAuthorityLocked: true,
+      getTodayKeyForMutation: () => null,
+      todayKey: '2026-03-12',
+    };
+    const currentSession = createSession({
+      id: 'session-stale-authority',
+      templateId: 'template-upper-push',
+    });
+
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [
+        createSessionListItem({
+          id: currentSession.id,
+          templateId: currentSession.templateId,
+          templateName: 'Upper Push',
+          startedAt: currentSession.startedAt,
+        }),
+      ],
+    });
+
+    renderSessionDetail(currentSession.id);
+
+    expect(await screen.findByText('Workout receipt')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Repeat Workout' })).toBeDisabled();
   });
 
   it('renders supplemental receipt sections before cooldown', async () => {

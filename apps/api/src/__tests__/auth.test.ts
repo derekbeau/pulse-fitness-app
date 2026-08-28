@@ -233,6 +233,7 @@ const registerUser = async (
     username: string;
     password: string;
     name: string;
+    timeZone: string;
   }>,
 ) =>
   app.inject({
@@ -242,6 +243,7 @@ const registerUser = async (
       username: 'derek',
       password: 'super-secret-password',
       name: 'Derek',
+      timeZone: 'America/Detroit',
       ...overrides,
     },
   });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { isHabitScheduledForDate, type Habit, type HabitEntry } from '@pulse/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -129,35 +129,6 @@ function buildHabitHistoryRows(
   });
 }
 
-function useTodayKey() {
-  const [todayKey, setTodayKey] = useState(() => toDateKey(getToday()));
-
-  useEffect(() => {
-    let timeoutId: number | undefined;
-
-    const scheduleUpdate = () => {
-      const now = new Date();
-      const nextMidnight = new Date(now);
-      nextMidnight.setHours(24, 0, 0, 50);
-
-      timeoutId = window.setTimeout(() => {
-        setTodayKey(toDateKey(getToday()));
-        scheduleUpdate();
-      }, nextMidnight.getTime() - now.getTime());
-    };
-
-    scheduleUpdate();
-
-    return () => {
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, []);
-
-  return todayKey;
-}
-
 function getHistoryWindow(todayKey: string) {
   const endDate = new Date(`${todayKey}T00:00:00`);
   const startDate = addDays(endDate, -(HISTORY_DAYS - 1));
@@ -174,8 +145,8 @@ function getHistoryWindow(todayKey: string) {
 // HabitHistory
 // ---------------------------------------------------------------------------
 
-export function HabitHistory() {
-  const todayKey = useTodayKey();
+export function HabitHistory({ todayDate = getToday() }: { todayDate?: Date }) {
+  const todayKey = toDateKey(todayDate);
   const { dates, from, to } = useMemo(() => getHistoryWindow(todayKey), [todayKey]);
   const habitsQuery = useHabits({
     refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),

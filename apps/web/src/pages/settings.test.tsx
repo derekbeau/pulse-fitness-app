@@ -7,6 +7,13 @@ import { THEME_STORAGE_KEY } from '@/hooks/useTheme';
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, SettingsPage } from '@/pages/settings';
 import { createQueryClientWrapper } from '@/test/query-client';
 
+vi.mock('@/features/adaptive-nutrition', () => ({
+  useAdaptiveNutritionState: () => ({
+    data: { localDate: '2026-03-08', timeZone: 'America/Detroit' },
+    isRefetchError: false,
+  }),
+}));
+
 type TestState = {
   dashboardConfig: {
     habitChainIds: string[];
@@ -53,6 +60,7 @@ type TestState = {
     username: string;
     name: string | null;
     weightUnit: 'kg' | 'lbs';
+    timeZone: string | null;
     createdAt: number;
   };
 };
@@ -147,6 +155,7 @@ describe('SettingsPage', () => {
         username: 'jordan',
         name: 'Jordan Lee',
         weightUnit: 'lbs',
+        timeZone: 'America/Detroit',
         createdAt: 1_713_225_600_000,
       },
     };
@@ -304,11 +313,13 @@ describe('SettingsPage', () => {
           const body = JSON.parse(String(init.body)) as {
             name?: string;
             weightUnit?: 'kg' | 'lbs';
+            timeZone?: string;
           };
           state.user = {
             ...state.user,
             ...(body.name !== undefined ? { name: body.name } : {}),
             ...(body.weightUnit !== undefined ? { weightUnit: body.weightUnit } : {}),
+            ...(body.timeZone !== undefined ? { timeZone: body.timeZone } : {}),
           };
           return Promise.resolve(
             new Response(JSON.stringify({ data: state.user }), {

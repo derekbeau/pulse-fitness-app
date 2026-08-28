@@ -21,6 +21,14 @@ const snapshotFixture: DashboardSnapshot = {
       carbs: 250,
       fat: 73,
     },
+    proteinFloor: {
+      actualProteinGrams: 145,
+      proteinFloorGrams: 180,
+      remainingToFloorGrams: 35,
+      amountAboveFloorGrams: 0,
+      state: 'below_floor',
+      isFinal: false,
+    },
   },
   workout: null,
   habits: {
@@ -96,18 +104,6 @@ describe('MacroRings', () => {
     expect(screen.getByText('65g')).toBeInTheDocument();
   });
 
-  it('shows zeroed values when snapshot data is unavailable', () => {
-    render(
-      <MemoryRouter>
-        <MacroRings />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByText('0')).toBeInTheDocument();
-    expect(screen.getAllByText('0g')).toHaveLength(3);
-    expect(screen.getAllByText('No target')).toHaveLength(4);
-  });
-
   it('toggles to remaining mode and shows inverse progress labels', () => {
     render(
       <MemoryRouter>
@@ -132,7 +128,7 @@ describe('MacroRings', () => {
     );
   });
 
-  it('turns over-target macros red in remaining mode', () => {
+  it('keeps protein neutral at and above its floor', () => {
     render(
       <MemoryRouter>
         <MacroRings
@@ -144,6 +140,14 @@ describe('MacroRings', () => {
                 ...snapshotFixture.macros.actual,
                 protein: 200,
               },
+              proteinFloor: {
+                actualProteinGrams: 200,
+                proteinFloorGrams: 180,
+                remainingToFloorGrams: 0,
+                amountAboveFloorGrams: 20,
+                state: 'floor_met',
+                isFinal: true,
+              },
             },
           }}
         />
@@ -152,10 +156,12 @@ describe('MacroRings', () => {
 
     const proteinItem = getMacroItem('Protein');
     const eatenIndicator = proteinItem.querySelector('[data-slot="progress-ring-indicator"]');
-    expect(eatenIndicator).toHaveAttribute('stroke', '#DC2626');
+    expect(eatenIndicator).toHaveAttribute('stroke', 'var(--protein-progress-stroke)');
 
     fireEvent.click(screen.getByRole('button', { name: 'Remaining' }));
 
-    expect(within(proteinItem).getByText('+20g over')).toBeInTheDocument();
+    expect(within(proteinItem).getByText('Met')).toBeInTheDocument();
+    expect(proteinItem).toHaveTextContent('Minimum met');
+    expect(proteinItem).not.toHaveTextContent(/over target|too much/i);
   });
 });

@@ -10,6 +10,7 @@ type TestUser = {
   id: string;
   name: string | null;
   username: string;
+  timeZone: string | null;
 };
 
 let user: TestUser;
@@ -32,6 +33,7 @@ describe('ProfilePage', () => {
       id: 'user-1',
       name: 'Jordan Lee',
       username: 'jordan',
+      timeZone: 'America/Detroit',
     };
 
     vi.stubGlobal(
@@ -103,6 +105,7 @@ describe('ProfilePage', () => {
       id: 'user-1',
       name: null,
       username: 'sam',
+      timeZone: null,
     };
 
     renderProfilePage();

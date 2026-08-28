@@ -160,6 +160,7 @@ function setAuthenticatedState() {
       id: 'user-1',
       username: 'derek',
       name: 'Derek',
+      timeZone: 'America/Detroit',
     },
     token: 'test-token',
     isAuthenticated: true,
@@ -189,7 +190,32 @@ describe('App', () => {
               username: 'derek',
               name: 'Derek',
               weightUnit: 'lbs',
+              timeZone: 'America/Detroit',
               createdAt: 1,
+            },
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/adaptive-nutrition') {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              state: 'setup_required',
+              localDate: '2026-03-06',
+              timeZone: 'America/Detroit',
+              timeZoneSource: 'user_profile',
+              program: null,
+              currentTarget: null,
+              latestAcceptedCheckIn: null,
+              pendingCheckIn: null,
+              checkInDue: false,
+              nextCheckInDate: null,
+              eligibility: null,
+              activeGoal: null,
+              goalProgress: null,
+              pendingGoalChange: null,
+              goalActionRequired: null,
             },
           }),
         );

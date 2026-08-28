@@ -9,12 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { ProgressRing } from '@/components/ui/progress-ring';
-import {
-  useHabitEntries,
-  useHabits,
-  useToggleHabit,
-} from '@/features/habits/api/habits';
-import { getToday, toDateKey } from '@/lib/date';
+import { useHabitEntries, useHabits, useToggleHabit } from '@/features/habits/api/habits';
 import { formatPercent, formatServing } from '@/lib/format-utils';
 import { HABIT_ENTRIES_POLL_INTERVAL_MS, getForegroundPollingInterval } from '@/lib/query-polling';
 
@@ -31,6 +26,9 @@ type HabitWithTodayEntry = Habit & {
 type HabitDailyStatusCardProps = {
   habitId: string;
   compact?: boolean;
+  date: string;
+  dateAuthorityLocked?: boolean;
+  isCurrentDate?: boolean;
 };
 
 function formatHabitValue(value: number, unit: string | null) {
@@ -60,10 +58,15 @@ function getProgressPercent(target: number | null, value: number | null) {
   return Math.min((value / target) * 100, 100);
 }
 
-function getEffectiveEntry(habit: HabitWithTodayEntry, entry: HabitEntry | undefined) {
+function getEffectiveEntry(
+  habit: HabitWithTodayEntry,
+  entry: HabitEntry | undefined,
+  useCurrentDayAggregate: boolean,
+) {
   const isReferential = habit.referenceSource != null;
   // For referential habits, use the aggregated `todayEntry` unless there is an explicit manual override.
-  const useTodayEntry = isReferential && habit.todayEntry != null && !entry?.isOverride;
+  const useTodayEntry =
+    useCurrentDayAggregate && isReferential && habit.todayEntry != null && !entry?.isOverride;
 
   return {
     completed: (useTodayEntry ? habit.todayEntry?.completed : entry?.completed) ?? false,
@@ -72,16 +75,21 @@ function getEffectiveEntry(habit: HabitWithTodayEntry, entry: HabitEntry | undef
   };
 }
 
-export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailyStatusCardProps) {
+export function HabitDailyStatusCard({
+  habitId,
+  compact = false,
+  date,
+  dateAuthorityLocked = false,
+  isCurrentDate = false,
+}: HabitDailyStatusCardProps) {
   const [isEditingNumericValue, setIsEditingNumericValue] = useState(false);
   const [numericDraftValue, setNumericDraftValue] = useState('');
   const isCancellingNumericEditRef = useRef(false);
 
-  const todayKey = toDateKey(getToday());
   const habitsQuery = useHabits({
     refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
   });
-  const habitEntriesQuery = useHabitEntries(todayKey, todayKey, {
+  const habitEntriesQuery = useHabitEntries(date, date, {
     refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
   });
   const toggleHabitMutation = useToggleHabit();
@@ -114,7 +122,9 @@ export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailySta
       <Card className="gap-2 border-dashed py-3">
         <CardHeader className="px-3 sm:px-4">
           <CardTitle className="text-sm">Habit status unavailable</CardTitle>
-          <CardDescription className="text-xs">Unable to load today&apos;s habit data.</CardDescription>
+          <CardDescription className="text-xs">
+            Unable to load today&apos;s habit data.
+          </CardDescription>
         </CardHeader>
       </Card>
     );
@@ -125,26 +135,30 @@ export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailySta
       <Card className="gap-2 border-dashed py-3">
         <CardHeader className="px-3 sm:px-4">
           <CardTitle className="text-sm">Habit not found</CardTitle>
-          <CardDescription className="text-xs">This card references a missing habit.</CardDescription>
+          <CardDescription className="text-xs">
+            This card references a missing habit.
+          </CardDescription>
         </CardHeader>
       </Card>
     );
   }
 
-  const { completed, isReferential, value } = getEffectiveEntry(habit, todayEntry);
+  const { completed, isReferential, value } = getEffectiveEntry(habit, todayEntry, isCurrentDate);
   const isBooleanHabit = habit.trackingType === 'boolean';
   const numericValue = typeof value === 'number' ? value : null;
   const hasNumericTarget = habit.target != null && habit.target > 0;
   const progressPercent = getProgressPercent(habit.target, numericValue);
   const progressTarget = habit.target != null && habit.target > 0 ? habit.target : 1;
   const progressValue = hasNumericTarget ? (numericValue ?? 0) : 0;
-  const isSaving = toggleHabitMutation.isPending && toggleHabitMutation.variables?.habitId === habit.id;
+  const isSaving =
+    toggleHabitMutation.isPending && toggleHabitMutation.variables?.habitId === habit.id;
 
   const saveHabitValue = (nextCompleted: boolean, nextNumericValue: number | null) => {
+    if (dateAuthorityLocked) return;
     toggleHabitMutation.mutate({
       habitId: habit.id,
       entryId: todayEntry?.id,
-      date: todayKey,
+      date,
       completed: nextCompleted,
       ...(isReferential ? { isOverride: true } : {}),
       ...(nextNumericValue === null ? {} : { value: nextNumericValue }),
@@ -152,6 +166,11 @@ export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailySta
   };
 
   const commitNumericValue = () => {
+    if (dateAuthorityLocked) {
+      isCancellingNumericEditRef.current = false;
+      setIsEditingNumericValue(false);
+      return;
+    }
     if (isCancellingNumericEditRef.current) {
       isCancellingNumericEditRef.current = false;
       return;
@@ -191,8 +210,9 @@ export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailySta
               <Checkbox
                 aria-label={`${habit.name} completion`}
                 checked={completed}
-                disabled={isSaving}
+                disabled={dateAuthorityLocked || isSaving}
                 onCheckedChange={(checked) => {
+                  if (dateAuthorityLocked) return;
                   const nextCompleted = checked === true;
                   saveHabitValue(nextCompleted, null);
                 }}
@@ -215,7 +235,7 @@ export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailySta
                 <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                   Today
                 </p>
-                {isEditingNumericValue ? (
+                {isEditingNumericValue && !dateAuthorityLocked ? (
                   <Input
                     aria-label={`${habit.name} value`}
                     autoFocus
@@ -245,7 +265,7 @@ export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailySta
                   <Button
                     className="h-auto p-0 text-left text-base font-semibold"
                     data-testid={`habit-daily-value-button-${habit.id}`}
-                    disabled={isSaving}
+                    disabled={dateAuthorityLocked || isSaving}
                     onClick={() => {
                       setNumericDraftValue(numericValue == null ? '' : String(numericValue));
                       setIsEditingNumericValue(true);
@@ -261,9 +281,7 @@ export function HabitDailyStatusCard({ habitId, compact = false }: HabitDailySta
                 )}
                 <p className="text-xs text-muted-foreground">
                   Target:{' '}
-                  {habit.target == null
-                    ? 'Not set'
-                    : formatHabitValue(habit.target, habit.unit)}
+                  {habit.target == null ? 'Not set' : formatHabitValue(habit.target, habit.unit)}
                 </p>
               </div>
             </div>

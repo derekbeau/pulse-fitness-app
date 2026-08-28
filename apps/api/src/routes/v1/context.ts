@@ -2,12 +2,10 @@ import { agentContextResponseSchema, apiDataResponseSchema } from '@pulse/shared
 import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 
-import { addUtcDays, getTodayDate } from '../../lib/date.js';
+import { addUtcDays } from '../../lib/date.js';
+import { getApplicationNow } from '../../lib/clock.js';
 import { requireAgentOnly, requireAuth } from '../../middleware/auth.js';
-import {
-  agentTokenSecurity,
-  apiErrorResponseSchema,
-} from '../../openapi.js';
+import { agentTokenSecurity, apiErrorResponseSchema } from '../../openapi.js';
 import {
   findAgentContextUser,
   getAgentContextTodayNutrition,
@@ -16,6 +14,7 @@ import {
   listAgentContextRecentWorkouts,
   listAgentContextScheduledWorkouts,
 } from '../agent/context-store.js';
+import { getNutritionLocalDateForUser } from '../nutrition/status-store.js';
 
 export const contextRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
@@ -38,7 +37,7 @@ export const contextRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const today = getTodayDate();
+      const today = await getNutritionLocalDateForUser(request.userId, getApplicationNow());
       const scheduleEnd = addUtcDays(today, 6);
 
       const [user, recentWorkouts, todayNutrition, weight, habits, scheduledWorkouts] =

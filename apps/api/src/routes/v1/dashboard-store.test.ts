@@ -2,6 +2,8 @@ import { DASHBOARD_WIDGET_IDS } from '@pulse/shared';
 import { SQLiteSyncDialect } from 'drizzle-orm/sqlite-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { getDailyEnergyAdherenceForDate } from '../nutrition/daily-energy-store.js';
+
 const DEFAULT_VISIBLE_WIDGETS = Object.keys(DASHBOARD_WIDGET_IDS);
 
 const testState = vi.hoisted(() => {
@@ -66,12 +68,37 @@ vi.mock('../../db/index.js', () => ({
   db: testState.db,
 }));
 
+vi.mock('../nutrition/daily-energy-store.js', () => ({
+  getDailyEnergyAdherenceForDate: vi.fn(),
+}));
+
 describe('dashboard store', () => {
   beforeEach(() => {
     testState.reset();
+    vi.mocked(getDailyEnergyAdherenceForDate).mockReset();
+    vi.mocked(getDailyEnergyAdherenceForDate).mockResolvedValue({
+      proteinFloor: {
+        actualProteinGrams: null,
+        proteinFloorGrams: null,
+        remainingToFloorGrams: null,
+        amountAboveFloorGrams: null,
+        state: 'unavailable',
+        isFinal: false,
+      },
+    } as never);
   });
 
   it('aggregates all dashboard snapshot sections from scoped query results', async () => {
+    vi.mocked(getDailyEnergyAdherenceForDate).mockResolvedValue({
+      proteinFloor: {
+        actualProteinGrams: 150,
+        proteinFloorGrams: 180,
+        remainingToFloorGrams: 30,
+        amountAboveFloorGrams: 0,
+        state: 'below_floor',
+        isFinal: true,
+      },
+    } as never);
     testState.selectGetResults.push(
       { valueKg: 80.92087880800001, date: '2026-03-08', unit: 'lbs' },
       {
@@ -135,6 +162,14 @@ describe('dashboard store', () => {
           carbs: 250,
           fat: 70,
         },
+        proteinFloor: {
+          actualProteinGrams: 150,
+          proteinFloorGrams: 180,
+          remainingToFloorGrams: 30,
+          amountAboveFloorGrams: 0,
+          state: 'below_floor',
+          isFinal: true,
+        },
       },
       workout: {
         name: 'Upper Push A',
@@ -172,6 +207,14 @@ describe('dashboard store', () => {
           protein: 0,
           carbs: 0,
           fat: 0,
+        },
+        proteinFloor: {
+          actualProteinGrams: null,
+          proteinFloorGrams: null,
+          remainingToFloorGrams: null,
+          amountAboveFloorGrams: null,
+          state: 'unavailable',
+          isFinal: false,
         },
       },
       workout: null,

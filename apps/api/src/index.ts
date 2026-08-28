@@ -29,6 +29,7 @@ import { weightRoutes } from './routes/weight/index.js';
 import { workoutSessionRoutes } from './routes/workout-sessions/index.js';
 import { workoutProgressionRoutes } from './routes/workout-progression/index.js';
 import { workoutTemplateRoutes } from './routes/workout-templates/index.js';
+import { UserTimeZoneRequiredError } from './lib/user-time-zone.js';
 
 const DEV_JWT_SECRET = 'pulse-dev-jwt-secret';
 const DEFAULT_OPENAPI_SERVER_URL = 'http://localhost:3001';
@@ -208,6 +209,15 @@ export const buildServer = () => {
         error: {
           code: 'INTERNAL_ERROR',
           message: 'Response serialization failed',
+        },
+      });
+    }
+
+    if (error instanceof UserTimeZoneRequiredError) {
+      return reply.code(409).send({
+        error: {
+          code: error.code,
+          message: error.message,
         },
       });
     }

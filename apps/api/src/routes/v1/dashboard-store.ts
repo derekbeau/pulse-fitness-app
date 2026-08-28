@@ -35,6 +35,7 @@ import {
   workoutTemplates,
 } from '../../db/schema/index.js';
 import { addUtcDays, getDatesInRange } from './dashboard-utils.js';
+import { getDailyEnergyAdherenceForDate } from '../nutrition/daily-energy-store.js';
 
 const weightSelection = {
   valueKg: bodyWeight.weightKg,
@@ -401,6 +402,7 @@ export const getDashboardSnapshot = async (
   userId: string,
   date: string,
 ): Promise<DashboardSnapshot> => {
+  const dailyEnergy = await getDailyEnergyAdherenceForDate(userId, date);
   const weight =
     db
       .select(weightSelection)
@@ -505,13 +507,19 @@ export const getDashboardSnapshot = async (
       )
       .where(and(eq(habits.userId, userId), eq(habits.active, true)))
       .get() ?? undefined;
+  const macroTargetTotals = toMacroTotals(macrosTarget);
+  macroTargetTotals.protein = dailyEnergy.proteinFloor.proteinFloorGrams ?? 0;
+  const macroActualTotals = toMacroTotals(macrosActual);
+  macroActualTotals.protein =
+    dailyEnergy.proteinFloor.actualProteinGrams ?? macroActualTotals.protein;
 
   return {
     date,
     weight: toWeightSnapshot(weight, trendWeight),
     macros: {
-      actual: toMacroTotals(macrosActual),
-      target: toMacroTotals(macrosTarget),
+      actual: macroActualTotals,
+      target: macroTargetTotals,
+      proteinFloor: dailyEnergy.proteinFloor,
     },
     workout: toWorkoutSnapshot(workout),
     habits: toHabitSnapshot(habitsSummary),

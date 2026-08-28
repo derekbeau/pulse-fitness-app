@@ -5,6 +5,11 @@ import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'rea
 import { Link } from 'react-router';
 
 import { PageHeader } from '@/components/layout/page-header';
+import {
+  DateAuthorityError,
+  DateAuthorityStaleNotice,
+  TimeZoneRequired,
+} from '@/components/date-authority-state';
 import { StatCardSkeleton } from '@/components/skeletons';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +19,7 @@ import { HelpIcon } from '@/components/ui/help-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Skeleton } from '@/components/ui/skeleton';
 import { CalendarPicker } from '@/features/dashboard/components/calendar-picker';
 import { DashboardEditMode } from '@/features/dashboard/components/dashboard-edit-mode';
 import { DashboardCardHeaderLink } from '@/features/dashboard/components/dashboard-drilldown-link';
@@ -22,8 +28,10 @@ import { HabitChain } from '@/features/dashboard/components/habit-chain';
 import { MacroRings } from '@/features/dashboard/components/macro-rings';
 import { RecentWorkouts } from '@/features/dashboard/components/recent-workouts';
 import { SnapshotCards } from '@/features/dashboard/components/snapshot-cards';
+import { DashboardSnapshotFailure } from '@/features/dashboard/components/dashboard-snapshot-state';
 import { useAdaptiveNutritionState } from '@/features/adaptive-nutrition';
 import { getDashboardGreeting } from '@/features/dashboard/lib/greeting';
+import { scheduleDashboardDateRollover } from '@/features/dashboard/lib/program-date';
 import { TrendSparklines } from '@/features/dashboard/components/trend-sparkline';
 import { WeightTrendChart } from '@/features/dashboard/components/weight-trend-chart';
 import {
@@ -45,7 +53,7 @@ import {
   HABIT_ENTRIES_POLL_INTERVAL_MS,
   getForegroundPollingInterval,
 } from '@/lib/query-polling';
-import { addDays, getToday, isSameDay, toDateKey } from '@/lib/date';
+import { addDays, parseDateInput, toDateKey } from '@/lib/date';
 import { formatWeight as formatDisplayWeight } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
@@ -84,6 +92,29 @@ type DashboardWeightStatus = {
   type: 'error' | 'success';
 };
 
+function DashboardMacroRingsSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading macro progress" className="space-y-2.5" role="status">
+      <div className="flex justify-end">
+        <Skeleton className="h-11 w-36 rounded-lg" />
+      </div>
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            className="flex min-h-28 flex-col items-center justify-center gap-2 rounded-xl border border-border/70 bg-card/40 px-2 py-3"
+            data-testid="macro-ring-skeleton"
+            key={index}
+          >
+            <Skeleton className="size-12 rounded-full lg:size-16" />
+            <Skeleton className="h-3 w-14" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DashboardWidgetFrame({
   children,
   className,
@@ -106,7 +137,8 @@ export function DashboardPage() {
   const isMountedRef = useRef(true);
   const queryClient = useQueryClient();
   const { weightUnit } = useWeightUnit();
-  const [selectedDate, setSelectedDate] = useState<Date>(() => getToday());
+  const [selectedDateKeyState, setSelectedDateKeyState] = useState<string | null>(null);
+  const [isFollowingToday, setIsFollowingToday] = useState(true);
   const [weightInput, setWeightInput] = useState('');
   const [weightStatus, setWeightStatus] = useState<DashboardWeightStatus | null>(null);
   const [isWeightEditorOpen, setIsWeightEditorOpen] = useState(false);
@@ -117,22 +149,40 @@ export function DashboardPage() {
   const [widgetEditMessage, setWidgetEditMessage] = useState('');
   const logWeightMutation = useLogWeight();
   const saveDashboardConfigMutation = useSaveDashboardConfig();
-  const selectedDateKey = toDateKey(selectedDate);
-  const habitRangeStart = toDateKey(addDays(selectedDate, -29));
-  const selectedDateLabel = dashboardDateFormatter.format(selectedDate);
-  const isViewingToday = isSameDay(selectedDate, getToday());
+  const adaptiveStateQuery = useAdaptiveNutritionState();
+  const refetchDateAuthority = adaptiveStateQuery.refetch;
+  const dashboardTimeZone =
+    adaptiveStateQuery.data?.timeZone ?? adaptiveStateQuery.data?.program?.timeZone ?? null;
+  const todayDateKey = adaptiveStateQuery.data?.localDate ?? null;
+  const isDateAuthorityStale = adaptiveStateQuery.isRefetchError && Boolean(dashboardTimeZone);
+  const selectedDateKey = (isFollowingToday ? todayDateKey : selectedDateKeyState) ?? '';
+  const selectedDate = parseDateInput(selectedDateKey || todayDateKey || '1970-01-01');
+  const habitRangeStart = selectedDateKey ? toDateKey(addDays(selectedDate, -29)) : '';
+  const selectedDateLabel = selectedDateKey
+    ? dashboardDateFormatter.format(selectedDate)
+    : 'Resolving your program date…';
+  const isViewingToday = selectedDateKey.length > 0 && selectedDateKey === todayDateKey;
   const greeting = getDashboardGreeting();
 
   const snapshotQuery = useDashboardSnapshot(selectedDateKey, {
+    enabled: selectedDateKey.length > 0,
     refetchIntervalMs: getForegroundPollingInterval(DASHBOARD_SNAPSHOT_POLL_INTERVAL_MS),
   });
-  const adaptiveStateQuery = useAdaptiveNutritionState();
+  const verifiedSnapshot =
+    snapshotQuery.data?.date === selectedDateKey ? snapshotQuery.data : undefined;
+  const isSnapshotPending =
+    !verifiedSnapshot && (snapshotQuery.isPending || snapshotQuery.isFetching);
+  const isSnapshotInitialError = !verifiedSnapshot && snapshotQuery.isError;
+  const isSnapshotRefreshError = Boolean(verifiedSnapshot) && snapshotQuery.isRefetchError;
+  const areDateFactsLocked =
+    isDateAuthorityStale || isSnapshotInitialError || isSnapshotRefreshError;
   // TODO: apply widgetOrder to section layout once ordering UI is added.
   const dashboardConfigQuery = useDashboardConfig();
   const habitsQuery = useHabits({
     refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
   });
   const habitChainEntriesQuery = useHabitChains(habitRangeStart, selectedDateKey, {
+    enabled: selectedDateKey.length > 0,
     refetchIntervalMs: getForegroundPollingInterval(HABIT_ENTRIES_POLL_INTERVAL_MS),
   });
   const recentWorkoutsQuery = useRecentWorkouts();
@@ -153,7 +203,7 @@ export function DashboardPage() {
     hasEditDraft &&
     (!areWidgetArraysEqual(visibleWidgets, persistedVisibleWidgets) ||
       !areWidgetArraysEqual(habitChainIds, persistedHabitChainIds));
-  const selectedWeight = snapshotQuery.data?.weight;
+  const selectedWeight = verifiedSnapshot?.weight;
   const hasWeightForSelectedDay = selectedWeight?.date === selectedDateKey;
 
   useEffect(
@@ -162,6 +212,26 @@ export function DashboardPage() {
     },
     [],
   );
+
+  useEffect(() => {
+    const refreshCurrentTime = () => void refetchDateAuthority();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshCurrentTime();
+    };
+    window.addEventListener('focus', refreshCurrentTime);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('focus', refreshCurrentTime);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [refetchDateAuthority]);
+
+  useEffect(() => {
+    if (!dashboardTimeZone || !todayDateKey) return;
+    return scheduleDashboardDateRollover(dashboardTimeZone, () => {
+      void refetchDateAuthority();
+    });
+  }, [dashboardTimeZone, refetchDateAuthority, todayDateKey]);
 
   function enterEditMode() {
     setVisibleWidgetsDraft(persistedVisibleWidgets);
@@ -174,7 +244,9 @@ export function DashboardPage() {
     setIsWeightEditorOpen(false);
     setWeightInput('');
     setWeightStatus(null);
-    setSelectedDate(nextDate);
+    const nextDateKey = toDateKey(nextDate);
+    setSelectedDateKeyState(nextDateKey);
+    setIsFollowingToday(nextDateKey === todayDateKey);
     setIsCalendarOpen(false);
   }
 
@@ -234,15 +306,70 @@ export function DashboardPage() {
   }
 
   useEffect(() => {
-    const previousDateKey = toDateKey(addDays(selectedDate, -1));
-    const nextDateKey = toDateKey(addDays(selectedDate, 1));
+    if (!selectedDateKey) return;
+    const selectedDateValue = parseDateInput(selectedDateKey);
+    const previousDateKey = toDateKey(addDays(selectedDateValue, -1));
+    const nextDateKey = toDateKey(addDays(selectedDateValue, 1));
 
     void prefetchDashboardSnapshot(queryClient, previousDateKey);
     void prefetchDashboardSnapshot(queryClient, nextDateKey);
-  }, [queryClient, selectedDate]);
+  }, [queryClient, selectedDateKey]);
+
+  if (!adaptiveStateQuery.data && adaptiveStateQuery.isError) {
+    return (
+      <main className="mr-auto flex w-full max-w-screen-xl flex-col gap-6 py-5 sm:gap-7 sm:py-6">
+        <PageHeader title="Dashboard" />
+        <DateAuthorityError
+          isRetrying={adaptiveStateQuery.isFetching}
+          onRetry={() => void refetchDateAuthority()}
+          surface="Dashboard"
+        />
+      </main>
+    );
+  }
+
+  if (adaptiveStateQuery.data && (!selectedDateKey || !todayDateKey || !dashboardTimeZone)) {
+    return (
+      <main className="mr-auto flex w-full max-w-screen-xl flex-col gap-6 py-5 sm:gap-7 sm:py-6">
+        <PageHeader title="Dashboard" />
+        <TimeZoneRequired surface="Dashboard" />
+      </main>
+    );
+  }
+
+  if (!selectedDateKey || !todayDateKey || !dashboardTimeZone) {
+    return (
+      <main
+        aria-busy="true"
+        className="mr-auto flex w-full max-w-screen-xl flex-col gap-6 py-5 sm:gap-7 sm:py-6"
+      >
+        <PageHeader title="Dashboard">
+          <p className="text-sm text-muted-foreground" role="status">
+            Resolving your program date…
+          </p>
+        </PageHeader>
+        <div
+          aria-label="Loading dashboard snapshots"
+          className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+        >
+          {Array.from({ length: 5 }).map((_, index) => (
+            <StatCardSkeleton className={index === 4 ? 'col-span-2' : undefined} key={index} />
+          ))}
+        </div>
+      </main>
+    );
+  }
 
   async function handleWeightSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (areDateFactsLocked || !verifiedSnapshot) {
+      setWeightStatus({
+        message: 'Refresh the selected date before changing its weight.',
+        type: 'error',
+      });
+      return;
+    }
 
     const parsedWeight = Number(weightInput);
     if (Number.isNaN(parsedWeight) || parsedWeight <= 0) {
@@ -274,7 +401,7 @@ export function DashboardPage() {
   }
 
   const shouldShowEmptyState =
-    !snapshotQuery.isLoading &&
+    !isSnapshotPending &&
     !habitsQuery.isLoading &&
     !recentWorkoutsQuery.isLoading &&
     !snapshotQuery.isError &&
@@ -284,6 +411,7 @@ export function DashboardPage() {
     (recentWorkoutsQuery.data?.length ?? 0) === 0;
 
   function renderLogWeightWidget() {
+    if (!verifiedSnapshot) return null;
     return (
       <DashboardWidgetFrame widgetLabel={DASHBOARD_WIDGET_IDS['log-weight']}>
         <Card
@@ -319,6 +447,7 @@ export function DashboardPage() {
                     </p>
                   </div>
                   <Button
+                    disabled={areDateFactsLocked}
                     onClick={() => {
                       setWeightInput(selectedWeight.value.toFixed(1));
                       setWeightStatus(null);
@@ -334,6 +463,7 @@ export function DashboardPage() {
                 <Button
                   className="w-full justify-between border-accent bg-accent/20 text-foreground shadow-[0_0_0_1px_var(--color-accent)] hover:bg-accent/25"
                   data-testid="dashboard-log-weight-cta"
+                  disabled={areDateFactsLocked}
                   onClick={() => {
                     setWeightInput('');
                     setWeightStatus(null);
@@ -382,7 +512,7 @@ export function DashboardPage() {
                       data-qa="dashboard-save-weight"
                       data-testid="dashboard-save-weight"
                       id="dashboard-save-weight"
-                      disabled={logWeightMutation.isPending}
+                      disabled={areDateFactsLocked || logWeightMutation.isPending}
                       type="submit"
                     >
                       {logWeightMutation.isPending ? 'Saving...' : 'Save Weight'}
@@ -425,7 +555,7 @@ export function DashboardPage() {
     if (widgetId === 'snapshot-cards') {
       return (
         <DashboardWidgetFrame widgetLabel={DASHBOARD_WIDGET_IDS['snapshot-cards']}>
-          {snapshotQuery.isLoading ? (
+          {isSnapshotPending ? (
             <div aria-label="Loading dashboard snapshots" className="grid grid-cols-2 gap-3">
               {Array.from({ length: 5 }).map((_, index) => (
                 <StatCardSkeleton
@@ -435,9 +565,9 @@ export function DashboardPage() {
                 />
               ))}
             </div>
-          ) : (
-            <SnapshotCards snapshot={snapshotQuery.data} />
-          )}
+          ) : verifiedSnapshot ? (
+            <SnapshotCards snapshot={verifiedSnapshot} />
+          ) : null}
         </DashboardWidgetFrame>
       );
     }
@@ -449,7 +579,11 @@ export function DashboardPage() {
     if (widgetId === 'macro-rings') {
       return (
         <DashboardWidgetFrame widgetLabel={DASHBOARD_WIDGET_IDS['macro-rings']}>
-          <MacroRings snapshot={snapshotQuery.data} />
+          {isSnapshotPending ? (
+            <DashboardMacroRingsSkeleton />
+          ) : verifiedSnapshot ? (
+            <MacroRings snapshot={verifiedSnapshot} />
+          ) : null}
         </DashboardWidgetFrame>
       );
     }
@@ -492,7 +626,14 @@ export function DashboardPage() {
         dataSlot={`dashboard-habit-daily-card-${habitId}`}
         widgetLabel={habit ? `${habit.name} daily status` : 'Habit daily status'}
       >
-        <HabitDailyStatusCard compact habitId={habitId} />
+        <HabitDailyStatusCard
+          compact
+          date={selectedDateKey}
+          dateAuthorityLocked={areDateFactsLocked}
+          habitId={habitId}
+          isCurrentDate={isViewingToday}
+          key={areDateFactsLocked ? 'date-locked' : 'date-verified'}
+        />
       </DashboardWidgetFrame>
     );
   }
@@ -501,10 +642,13 @@ export function DashboardPage() {
     return (
       <DashboardWidgetFrame widgetLabel={DASHBOARD_WIDGET_IDS['habit-chain']}>
         <HabitChain
+          dateAuthorityLocked={areDateFactsLocked}
           endDate={selectedDateKey}
           habitIds={habitChainIds}
           habits={habitsQuery.data ?? []}
           entries={habitChainEntriesQuery.data ?? []}
+          todayDate={todayDateKey ?? selectedDateKey}
+          key={areDateFactsLocked ? 'date-locked' : 'date-verified'}
         />
       </DashboardWidgetFrame>
     );
@@ -541,7 +685,10 @@ export function DashboardPage() {
               </HelpIcon>
               {!isViewingToday ? (
                 <Button
-                  onClick={() => handleSelectedDateChange(getToday())}
+                  disabled={!todayDateKey || isDateAuthorityStale}
+                  onClick={() => {
+                    if (todayDateKey) handleSelectedDateChange(parseDateInput(todayDateKey));
+                  }}
                   size="sm"
                   type="button"
                   variant="outline"
@@ -600,6 +747,24 @@ export function DashboardPage() {
           </div>
         </PageHeader>
       </div>
+
+      {isDateAuthorityStale ? (
+        <DateAuthorityStaleNotice
+          date={todayDateKey}
+          isRetrying={adaptiveStateQuery.isFetching}
+          onRetry={() => void refetchDateAuthority()}
+          timeZone={dashboardTimeZone}
+        />
+      ) : null}
+
+      {isSnapshotInitialError || isSnapshotRefreshError ? (
+        <DashboardSnapshotFailure
+          dateLabel={selectedDateLabel}
+          isRetrying={snapshotQuery.isFetching}
+          onRetry={() => void snapshotQuery.refetch()}
+          stale={isSnapshotRefreshError}
+        />
+      ) : null}
 
       {isEditMode ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/15 px-3 py-2.5 sm:px-4">
@@ -662,7 +827,7 @@ export function DashboardPage() {
                 <div className="flex flex-col gap-3 sm:gap-4">
                   {visibleWidgets.includes('snapshot-cards') ? (
                     <DashboardWidgetFrame widgetLabel={DASHBOARD_WIDGET_IDS['snapshot-cards']}>
-                      {snapshotQuery.isLoading ? (
+                      {isSnapshotPending ? (
                         <div
                           aria-label="Loading dashboard snapshots"
                           className="grid grid-cols-2 gap-3"
@@ -675,9 +840,9 @@ export function DashboardPage() {
                             />
                           ))}
                         </div>
-                      ) : (
-                        <SnapshotCards snapshot={snapshotQuery.data} />
-                      )}
+                      ) : verifiedSnapshot ? (
+                        <SnapshotCards snapshot={verifiedSnapshot} />
+                      ) : null}
                     </DashboardWidgetFrame>
                   ) : null}
                   {visibleWidgets.includes('log-weight') ? renderLogWeightWidget() : null}
@@ -691,7 +856,11 @@ export function DashboardPage() {
                 dataSlot="dashboard-macro-panel"
                 widgetLabel={DASHBOARD_WIDGET_IDS['macro-rings']}
               >
-                <MacroRings snapshot={snapshotQuery.data} />
+                {isSnapshotPending ? (
+                  <DashboardMacroRingsSkeleton />
+                ) : verifiedSnapshot ? (
+                  <MacroRings snapshot={verifiedSnapshot} />
+                ) : null}
               </DashboardWidgetFrame>
             ) : null}
           </div>
@@ -709,17 +878,27 @@ export function DashboardPage() {
                   dataSlot={`dashboard-habit-daily-card-${habitId}`}
                   widgetLabel={habit ? `${habit.name} daily status` : 'Habit daily status'}
                 >
-                  <HabitDailyStatusCard compact habitId={habitId} />
+                  <HabitDailyStatusCard
+                    compact
+                    date={selectedDateKey}
+                    dateAuthorityLocked={areDateFactsLocked}
+                    habitId={habitId}
+                    isCurrentDate={isViewingToday}
+                    key={areDateFactsLocked ? 'date-locked' : 'date-verified'}
+                  />
                 </DashboardWidgetFrame>
               );
             })}
             {visibleWidgets.includes('habit-chain') ? (
               <DashboardWidgetFrame widgetLabel={DASHBOARD_WIDGET_IDS['habit-chain']}>
                 <HabitChain
+                  dateAuthorityLocked={areDateFactsLocked}
                   endDate={selectedDateKey}
                   habitIds={habitChainIds}
                   habits={habitsQuery.data ?? []}
                   entries={habitChainEntriesQuery.data ?? []}
+                  todayDate={todayDateKey}
+                  key={areDateFactsLocked ? 'date-locked' : 'date-verified'}
                 />
               </DashboardWidgetFrame>
             ) : null}

@@ -132,6 +132,8 @@ describe('Adaptive TDEE preview fixtures', () => {
       'daily-energy-gain': 'updating',
       'daily-energy-manual': 'baseline',
       'daily-energy-revisions': 'pending_recommendation',
+      'protein-floor': 'updating',
+      'protein-floor-unavailable': 'setup_required',
       'review-clean-loss': 'pending_recommendation',
       'review-clean-gain': 'pending_recommendation',
       'review-clean-maintain': 'pending_recommendation',

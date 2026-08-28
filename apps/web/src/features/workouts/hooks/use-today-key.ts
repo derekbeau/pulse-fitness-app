@@ -1,34 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 
-import { toDateKey } from '@/lib/date-utils';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function msUntilNextLocalMidnight(now: Date) {
-  const next = new Date(now);
-  next.setHours(24, 0, 0, 0);
-  return Math.max(next.getTime() - now.getTime(), 0);
-}
+import { useDateAuthority } from '@/hooks/use-date-authority';
 
 export function useTodayKey() {
-  const [todayKey, setTodayKey] = useState(() => toDateKey(new Date()));
+  const authority = useDateAuthority();
+  const mutationDateRef = useRef<string | null>(authority.isLocked ? null : authority.localDate);
 
-  useEffect(() => {
-    const syncToday = () => setTodayKey(toDateKey(new Date()));
-    let cleanup = () => {};
+  useLayoutEffect(() => {
+    mutationDateRef.current = authority.isLocked ? null : authority.localDate;
+  }, [authority.isLocked, authority.localDate]);
 
-    syncToday();
-    const initialTimeout = window.setTimeout(() => {
-      syncToday();
-      const intervalId = window.setInterval(syncToday, DAY_MS);
-      cleanup = () => window.clearInterval(intervalId);
-    }, msUntilNextLocalMidnight(new Date()));
+  const getTodayKeyForMutation = useCallback(() => mutationDateRef.current, []);
 
-    return () => {
-      window.clearTimeout(initialTimeout);
-      cleanup();
-    };
-  }, []);
-
-  return todayKey;
+  return {
+    dateAuthorityLocked: authority.isLocked,
+    getTodayKeyForMutation,
+    todayKey: authority.localDate,
+  };
 }

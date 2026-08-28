@@ -113,6 +113,14 @@ describe('nutrition api hooks', () => {
           carbs: 250,
           fat: 73,
         },
+        proteinFloor: {
+          actualProteinGrams: 172,
+          proteinFloorGrams: 180,
+          remainingToFloorGrams: 8,
+          amountAboveFloorGrams: 0,
+          state: 'below_floor',
+          isFinal: true,
+        },
       }),
     );
 
@@ -144,6 +152,7 @@ describe('nutrition api hooks', () => {
           logId: 'log-1',
           status: 'complete',
           intakeKcal: 2_100,
+          actualProteinGrams: 170,
           mealCount: 3,
           itemCount: 8,
         },
@@ -153,8 +162,17 @@ describe('nutrition api hooks', () => {
           effectiveDate: '2026-03-01',
           recordedAt: 1_772_380_800_000,
           caloriesKcal: 2_000,
+          proteinFloorGrams: 180,
           source: 'manual',
           adaptiveCheckInId: null,
+        },
+        proteinFloor: {
+          actualProteinGrams: 170,
+          proteinFloorGrams: 180,
+          remainingToFloorGrams: 10,
+          amountAboveFloorGrams: 0,
+          state: 'below_floor',
+          isFinal: true,
         },
         expenditure: null,
         intakeMinusTargetKcal: 100,
@@ -233,6 +251,14 @@ describe('nutrition api hooks', () => {
           meals: 0,
           actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
           target: null,
+          proteinFloor: {
+            actualProteinGrams: null,
+            proteinFloorGrams: null,
+            remainingToFloorGrams: null,
+            amountAboveFloorGrams: null,
+            state: 'unavailable',
+            isFinal: false,
+          },
         }),
       )
       .mockResolvedValueOnce(createJsonResponse([]));
@@ -378,6 +404,17 @@ describe('nutrition api hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: nutritionQueryKeys.day('2026-03-09'),
     });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: nutritionQueryKeys.summary('2026-03-09'),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: nutritionQueryKeys.energyAdherence('2026-03-09'),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: nutritionQueryKeys.weekSummary('2026-03-09'),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: dashboardSnapshotQueryKeys.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: macroTrendQueryKeys.all });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: adaptiveNutritionQueryKey });
   });
 

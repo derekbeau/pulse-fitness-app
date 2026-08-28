@@ -30,6 +30,8 @@ describe('globals.css design tokens', () => {
     expect(css).toContain('--color-accent-pink: #b8a1ff;');
     expect(css).toContain('--color-accent-cream: #f4c95d;');
     expect(css).toContain('--color-on-accent: #0b1120;');
+    expect(css).toContain('--protein-progress-stroke: var(--color-on-mint);');
+    expect(css).toContain('--protein-progress-stroke: var(--color-accent-mint);');
 
     const requiredTokens = [
       '--color-background',

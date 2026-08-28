@@ -35,7 +35,7 @@ import {
 } from './weekly-decision-review';
 import { WeeklyReviewHistory } from './weekly-review-history';
 
-export function AdaptiveCoach() {
+export function AdaptiveCoach({ dateAuthorityLocked = false }: { dateAuthorityLocked?: boolean }) {
   const stateQuery = useAdaptiveNutritionState();
   const reviewQuery = usePendingAdaptiveWeeklyReview();
   const reviewPreviewMutation = usePreviewAdaptiveWeeklyReview();
@@ -63,7 +63,7 @@ export function AdaptiveCoach() {
     return <CoachSkeleton />;
   }
 
-  if (stateQuery.isError || !stateQuery.data) {
+  if (!stateQuery.data) {
     return (
       <Card className="gap-4 py-5">
         <CardHeader className="px-5 sm:px-6">
@@ -90,6 +90,7 @@ export function AdaptiveCoach() {
     !reviewQuery.isLoading && !reviewQuery.isError && reviewQuery.data?.review === null;
 
   const requestPreview = async (kind: 'manual' | 'weekly') => {
+    if (dateAuthorityLocked) return;
     setActionError(null);
     setActionMessage('');
     try {
@@ -118,7 +119,7 @@ export function AdaptiveCoach() {
   };
 
   const accept = async (replaceSameDateTarget: boolean) => {
-    if (!pendingId) return;
+    if (dateAuthorityLocked || !pendingId) return;
     setActionError(null);
     try {
       const result = await acceptMutation.mutateAsync({
@@ -152,6 +153,7 @@ export function AdaptiveCoach() {
   };
 
   const openReplacementConfirmation = () => {
+    if (dateAuthorityLocked) return;
     confirm({
       title: 'Replace today’s nutrition target?',
       description:
@@ -163,6 +165,7 @@ export function AdaptiveCoach() {
   };
 
   const handleAccept = () => {
+    if (dateAuthorityLocked) return;
     if (pendingDetailQuery.data?.reasonCodes.includes('SAME_DATE_TARGET_EXISTS')) {
       openReplacementConfirmation();
       return;
@@ -171,7 +174,7 @@ export function AdaptiveCoach() {
   };
 
   const handleDecline = async () => {
-    if (!pendingId) return;
+    if (dateAuthorityLocked || !pendingId) return;
     setActionError(null);
     try {
       await declineMutation.mutateAsync(pendingId);
@@ -183,6 +186,7 @@ export function AdaptiveCoach() {
   };
 
   const handleRefreshStale = async () => {
+    if (dateAuthorityLocked) return;
     if (pendingDetailQuery.data?.kind === 'baseline') {
       setActionError(null);
       setActionMessage('');
@@ -224,167 +228,175 @@ export function AdaptiveCoach() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-5">
-      {state.state === 'setup_required' ? (
-        <AdaptiveSetupForm currentTarget={state.currentTarget} />
-      ) : (
-        <>
-          {reviewQuery.isLoading ? <WeeklyReviewLoading /> : null}
-          {reviewQuery.isError ? (
-            <WeeklyReviewError onRetry={() => void reviewQuery.refetch()} />
-          ) : null}
-          {reviewQuery.data?.review ? (
-            <WeeklyDecisionBrief
-              isPending={reviewActionMutation.isPending || reviewRefreshMutation.isPending}
-              onAction={async (input) => {
-                await reviewActionMutation.mutateAsync({
-                  id: reviewQuery.data.review?.id ?? '',
-                  input,
-                });
-                setActionError(null);
-                setActionMessage(
-                  input.type === 'accept'
-                    ? 'Your weekly decision was accepted.'
-                    : input.type === 'decline'
-                      ? 'Current targets kept. The decision remains in history.'
-                      : input.type === 'defer'
-                        ? 'Review deferred without changing your plan.'
-                        : input.type === 'edit'
-                          ? 'Edited proposal saved. Accept when it looks right.'
-                          : 'Question saved for your connected agent.',
-                );
-              }}
-              onRefresh={async () => {
-                await reviewRefreshMutation.mutateAsync(reviewQuery.data.review?.id ?? '');
-                setActionError(null);
-                setActionMessage('Weekly review refreshed with current source data.');
-              }}
-              review={reviewQuery.data.review}
-            />
-          ) : null}
-
-          <AlgorithmStatusCard state={state} />
-
-          <GoalCard
-            goal={state.activeGoal}
-            goalActionRequired={state.goalActionRequired}
-            editButtonRef={editGoalButtonRef}
-            onEdit={() => {
-              lastGoalTriggerRef.current = editGoalButtonRef.current;
-              setGoalEditorMode('edit');
-            }}
-            onReviewCompletion={() => setCompletionOpen(true)}
-            onStartNew={() => {
-              lastGoalTriggerRef.current = startNewGoalButtonRef.current;
-              setGoalEditorMode('new');
-            }}
-            progress={state.goalProgress}
-            reviewCompletionButtonRef={reviewCompletionButtonRef}
-            startNewButtonRef={startNewGoalButtonRef}
-          />
-
-          {actionMessage ? (
-            <div
-              aria-live="polite"
-              className="flex items-start gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-3 text-sm"
-              role="status"
-            >
-              <CheckCircle2
-                aria-hidden="true"
-                className="mt-0.5 size-4 shrink-0 text-emerald-500"
-              />
-              <p>{actionMessage}</p>
-            </div>
-          ) : null}
-
-          {weeklyReviewResolvedEmpty && state.pendingCheckIn ? (
-            pendingDetailQuery.isLoading ? (
-              <Skeleton className="h-96 rounded-2xl" />
-            ) : pendingDetailQuery.isError || !pendingDetailQuery.data ? (
-              <p
-                className="rounded-xl border border-destructive/30 p-4 text-sm text-destructive"
-                role="alert"
-              >
-                Unable to load the pending recommendation details.
-              </p>
-            ) : (
-              <CheckInComparison
-                checkIn={pendingDetailQuery.data}
-                errorMessage={actionError}
-                isAccepting={acceptMutation.isPending}
-                isDeclining={declineMutation.isPending}
-                isRefreshing={previewMutation.isPending || programMutation.isPending}
-                onAccept={handleAccept}
-                onDecline={() => void handleDecline()}
-                onRefresh={
-                  staleCheckInId === pendingId ? () => void handleRefreshStale() : undefined
-                }
-              />
-            )
-          ) : weeklyReviewResolvedEmpty ? (
-            <CheckInActions
-              actionError={actionError}
-              checkInDue={state.checkInDue}
-              includeToday={includeToday}
-              isPending={previewMutation.isPending || reviewPreviewMutation.isPending}
-              onIncludeTodayChange={setIncludeToday}
-              onPreview={requestPreview}
-            />
-          ) : null}
-
-          {state.activeGoal ? <GoalHistory activeGoalId={state.activeGoal.id} /> : null}
-
-          <WeeklyReviewHistory />
-
-          <CheckInHistory />
-
-          {state.program ? (
-            <>
-              <GoalEditorDialog
-                activeGoal={state.activeGoal}
-                fallbackGoalType={state.program.goalType}
-                fallbackGoalWeightKg={state.program.targetWeightKg}
-                mode={goalEditorMode ?? 'new'}
-                onOpenChange={(open) => {
-                  if (!open) {
-                    setGoalEditorMode(null);
-                    queueMicrotask(() => lastGoalTriggerRef.current?.focus());
-                  }
-                }}
-                onSaved={(message) => {
+    <fieldset className="contents" disabled={dateAuthorityLocked}>
+      <div aria-disabled={dateAuthorityLocked || undefined} className="space-y-4 sm:space-y-5">
+        {state.state === 'setup_required' ? (
+          <AdaptiveSetupForm currentTarget={state.currentTarget} />
+        ) : (
+          <>
+            {reviewQuery.isLoading ? <WeeklyReviewLoading /> : null}
+            {reviewQuery.isError ? (
+              <WeeklyReviewError onRetry={() => void reviewQuery.refetch()} />
+            ) : null}
+            {reviewQuery.data?.review ? (
+              <WeeklyDecisionBrief
+                isPending={reviewActionMutation.isPending || reviewRefreshMutation.isPending}
+                onAction={async (input) => {
+                  if (dateAuthorityLocked) return;
+                  await reviewActionMutation.mutateAsync({
+                    id: reviewQuery.data.review?.id ?? '',
+                    input,
+                  });
                   setActionError(null);
-                  setActionMessage(message);
+                  setActionMessage(
+                    input.type === 'accept'
+                      ? 'Your weekly decision was accepted.'
+                      : input.type === 'decline'
+                        ? 'Current targets kept. The decision remains in history.'
+                        : input.type === 'defer'
+                          ? 'Review deferred without changing your plan.'
+                          : input.type === 'edit'
+                            ? 'Edited proposal saved. Accept when it looks right.'
+                            : 'Question saved for your connected agent.',
+                  );
                 }}
-                open={goalEditorMode !== null}
-                pendingRecommendation={state.pendingCheckIn}
-                progress={state.goalProgress}
+                onRefresh={async () => {
+                  if (dateAuthorityLocked) return;
+                  await reviewRefreshMutation.mutateAsync(reviewQuery.data.review?.id ?? '');
+                  setActionError(null);
+                  setActionMessage('Weekly review refreshed with current source data.');
+                }}
+                review={reviewQuery.data.review}
               />
-              {state.activeGoal ? (
-                <GoalCompletionDialog
-                  checkIn={state.latestAcceptedCheckIn}
-                  goal={state.activeGoal}
-                  onCompleted={(message) => {
+            ) : null}
+
+            <AlgorithmStatusCard state={state} />
+
+            <GoalCard
+              goal={state.activeGoal}
+              goalActionRequired={state.goalActionRequired}
+              editButtonRef={editGoalButtonRef}
+              onEdit={() => {
+                if (dateAuthorityLocked) return;
+                lastGoalTriggerRef.current = editGoalButtonRef.current;
+                setGoalEditorMode('edit');
+              }}
+              onReviewCompletion={() => {
+                if (!dateAuthorityLocked) setCompletionOpen(true);
+              }}
+              onStartNew={() => {
+                if (dateAuthorityLocked) return;
+                lastGoalTriggerRef.current = startNewGoalButtonRef.current;
+                setGoalEditorMode('new');
+              }}
+              progress={state.goalProgress}
+              reviewCompletionButtonRef={reviewCompletionButtonRef}
+              startNewButtonRef={startNewGoalButtonRef}
+            />
+
+            {actionMessage ? (
+              <div
+                aria-live="polite"
+                className="flex items-start gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-3 text-sm"
+                role="status"
+              >
+                <CheckCircle2
+                  aria-hidden="true"
+                  className="mt-0.5 size-4 shrink-0 text-emerald-500"
+                />
+                <p>{actionMessage}</p>
+              </div>
+            ) : null}
+
+            {weeklyReviewResolvedEmpty && state.pendingCheckIn ? (
+              pendingDetailQuery.isLoading ? (
+                <Skeleton className="h-96 rounded-2xl" />
+              ) : pendingDetailQuery.isError || !pendingDetailQuery.data ? (
+                <p
+                  className="rounded-xl border border-destructive/30 p-4 text-sm text-destructive"
+                  role="alert"
+                >
+                  Unable to load the pending recommendation details.
+                </p>
+              ) : (
+                <CheckInComparison
+                  checkIn={pendingDetailQuery.data}
+                  errorMessage={actionError}
+                  isAccepting={acceptMutation.isPending}
+                  isDeclining={declineMutation.isPending}
+                  isRefreshing={previewMutation.isPending || programMutation.isPending}
+                  onAccept={handleAccept}
+                  onDecline={() => void handleDecline()}
+                  onRefresh={
+                    staleCheckInId === pendingId ? () => void handleRefreshStale() : undefined
+                  }
+                />
+              )
+            ) : weeklyReviewResolvedEmpty ? (
+              <CheckInActions
+                actionError={actionError}
+                checkInDue={state.checkInDue}
+                includeToday={includeToday}
+                isPending={previewMutation.isPending || reviewPreviewMutation.isPending}
+                onIncludeTodayChange={setIncludeToday}
+                onPreview={requestPreview}
+              />
+            ) : null}
+
+            {state.activeGoal ? <GoalHistory activeGoalId={state.activeGoal.id} /> : null}
+
+            <WeeklyReviewHistory />
+
+            <CheckInHistory />
+
+            {state.program ? (
+              <>
+                <GoalEditorDialog
+                  activeGoal={state.activeGoal}
+                  fallbackGoalType={state.program.goalType}
+                  fallbackGoalWeightKg={state.program.targetWeightKg}
+                  mode={goalEditorMode ?? 'new'}
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setGoalEditorMode(null);
+                      queueMicrotask(() => lastGoalTriggerRef.current?.focus());
+                    }
+                  }}
+                  onSaved={(message) => {
                     setActionError(null);
                     setActionMessage(message);
                   }}
-                  onOpenChange={(open) => {
-                    setCompletionOpen(open);
-                  }}
-                  onRefresh={async () => {
-                    await stateQuery.refetch();
-                  }}
-                  open={completionOpen}
+                  open={goalEditorMode !== null}
+                  pendingRecommendation={state.pendingCheckIn}
                   progress={state.goalProgress}
-                  revisionId={state.goalProgress?.goalRevisionId ?? null}
-                  triggerRef={reviewCompletionButtonRef}
                 />
-              ) : null}
-            </>
-          ) : null}
-        </>
-      )}
-      {dialog}
-    </div>
+                {state.activeGoal ? (
+                  <GoalCompletionDialog
+                    checkIn={state.latestAcceptedCheckIn}
+                    goal={state.activeGoal}
+                    onCompleted={(message) => {
+                      setActionError(null);
+                      setActionMessage(message);
+                    }}
+                    onOpenChange={(open) => {
+                      setCompletionOpen(open);
+                    }}
+                    onRefresh={async () => {
+                      await stateQuery.refetch();
+                    }}
+                    open={completionOpen}
+                    progress={state.goalProgress}
+                    revisionId={state.goalProgress?.goalRevisionId ?? null}
+                    triggerRef={reviewCompletionButtonRef}
+                  />
+                ) : null}
+              </>
+            ) : null}
+          </>
+        )}
+        {dialog}
+      </div>
+    </fieldset>
   );
 }
 

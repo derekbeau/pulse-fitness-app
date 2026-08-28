@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   calculateHabitCompletionPercent,
+  calculateProteinFloorPercent,
   getSnapshotValueClassName,
   SnapshotCards,
 } from './snapshot-cards';
@@ -32,6 +33,14 @@ const snapshotFixture: DashboardSnapshot = {
       carbs: 260,
       fat: 75,
     },
+    proteinFloor: {
+      actualProteinGrams: 170,
+      proteinFloorGrams: 190,
+      remainingToFloorGrams: 20,
+      amountAboveFloorGrams: 0,
+      state: 'below_floor',
+      isFinal: false,
+    },
   },
   workout: {
     name: 'Upper Push A',
@@ -56,6 +65,31 @@ describe('calculateHabitCompletionPercent', () => {
   it('returns the rounded completion percent for active habits', () => {
     expect(calculateHabitCompletionPercent(1, 3)).toBe(33);
     expect(calculateHabitCompletionPercent(3, 4)).toBe(75);
+  });
+});
+
+describe('calculateProteinFloorPercent', () => {
+  it('never rounds a strict below-floor fact up to visual completion', () => {
+    expect(
+      calculateProteinFloorPercent({
+        actualProteinGrams: 159.999,
+        proteinFloorGrams: 160,
+        remainingToFloorGrams: 0.001,
+        amountAboveFloorGrams: 0,
+        state: 'below_floor',
+        isFinal: true,
+      }),
+    ).toBe(99);
+    expect(
+      calculateProteinFloorPercent({
+        actualProteinGrams: 160,
+        proteinFloorGrams: 160,
+        remainingToFloorGrams: 0,
+        amountAboveFloorGrams: 0,
+        state: 'floor_met',
+        isFinal: true,
+      }),
+    ).toBe(100);
   });
 });
 
@@ -88,7 +122,9 @@ describe('SnapshotCards', () => {
 
     expect(screen.getByText('180.9 lbs')).toBeInTheDocument();
     expect(screen.getByText('1900 / 2300')).toBeInTheDocument();
-    expect(screen.getByText('170g / 190g')).toBeInTheDocument();
+    expect(
+      screen.getByText('170g logged · 20g to minimum · Based on food logged so far'),
+    ).toBeInTheDocument();
     expect(screen.getByText('3/4')).toBeInTheDocument();
     expect(screen.getByText('Upper Push A (Completed)')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'View weight history' })).toHaveAttribute(
@@ -99,10 +135,11 @@ describe('SnapshotCards', () => {
       'href',
       '/nutrition',
     );
-    expect(screen.getByRole('link', { name: 'View protein details' })).toHaveAttribute(
-      'href',
-      '/nutrition',
-    );
+    expect(
+      screen.getByRole('link', {
+        name: /View protein details for 2026-03-06: 170g logged · 20g to minimum/i,
+      }),
+    ).toHaveAttribute('href', '/nutrition');
     expect(screen.getByRole('link', { name: 'View habits details' })).toHaveAttribute(
       'href',
       '/habits',
@@ -189,16 +226,8 @@ describe('SnapshotCards', () => {
     expect(within(weightCard as HTMLElement).queryByText('181.4 lbs')).not.toBeInTheDocument();
   });
 
-  it('renders placeholders for loading and null weight/workout states', () => {
-    const { rerender } = render(
-      <MemoryRouter>
-        <SnapshotCards />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getAllByText('--')).not.toHaveLength(0);
-
-    rerender(
+  it('renders explicit null weight and workout states from a verified snapshot', () => {
+    render(
       <MemoryRouter>
         <SnapshotCards
           snapshot={{
@@ -216,6 +245,14 @@ describe('SnapshotCards', () => {
                 protein: 0,
                 carbs: 0,
                 fat: 0,
+              },
+              proteinFloor: {
+                actualProteinGrams: 120,
+                proteinFloorGrams: null,
+                remainingToFloorGrams: null,
+                amountAboveFloorGrams: null,
+                state: 'unavailable',
+                isFinal: false,
               },
             },
             workout: null,
@@ -246,7 +283,7 @@ describe('SnapshotCards', () => {
     expect(within(weightCard).getByText('Log weight')).toBeInTheDocument();
     expect(within(weightCard).queryByLabelText(/trend/i)).not.toBeInTheDocument();
     expect(within(caloriesCard).getByText('No targets set')).toBeInTheDocument();
-    expect(within(proteinCard).getByText('No targets set')).toBeInTheDocument();
+    expect(within(proteinCard).getByText('Protein minimum unavailable')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Settings' })).toHaveLength(2);
     expect(within(habitsCard).getByText('No habits')).toBeInTheDocument();
     expect(within(habitsCard).queryByLabelText(/trend/i)).not.toBeInTheDocument();

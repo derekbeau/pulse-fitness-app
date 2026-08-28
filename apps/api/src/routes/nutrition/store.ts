@@ -1,5 +1,6 @@
 import { and, asc, between, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 
+import { type ProteinFloorProgress } from '@pulse/shared';
 import type {
   CreateMealInput,
   Food,
@@ -23,9 +24,11 @@ import {
   meals,
   nutritionLogs,
   nutritionTargets,
-  users,
 } from '../../db/schema/index.js';
 import { downgradeCompleteNutritionLogs } from '../../db/nutrition-completeness.js';
+import { getApplicationNow } from '../../lib/clock.js';
+import { getDailyEnergyAdherenceForDate } from './daily-energy-store.js';
+import { getNutritionLocalDateForUser } from './status-store.js';
 
 export type NutritionLogRecord = {
   id: string;
@@ -90,6 +93,7 @@ export type NutritionSummaryRecord = {
     carbs: number;
     fat: number;
   } | null;
+  proteinFloor: ProteinFloorProgress;
 };
 
 const WEEK_DAYS = 7;
@@ -189,63 +193,6 @@ const addUtcDateKeyDays = (date: string, days: number) => {
   const parsed = new Date(`${date}T00:00:00.000Z`);
   parsed.setUTCDate(parsed.getUTCDate() + days);
   return parsed.toISOString().slice(0, 10);
-};
-
-const getLocalDateKey = (date = new Date(), timeZone?: string) => {
-  const options: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    ...(timeZone ? { timeZone } : {}),
-  };
-  const parts = new Intl.DateTimeFormat('en-US', options).formatToParts(date);
-  const year = parts.find((part) => part.type === 'year')?.value;
-  const month = parts.find((part) => part.type === 'month')?.value;
-  const day = parts.find((part) => part.type === 'day')?.value;
-
-  if (!year || !month || !day) {
-    return date.toISOString().slice(0, 10);
-  }
-
-  return `${year}-${month}-${day}`;
-};
-
-const isValidTimeZone = (value: string) => {
-  try {
-    getLocalDateKey(new Date(), value);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const getUserPreferredTimeZone = async (userId: string): Promise<string | undefined> => {
-  const { db } = await import('../../db/index.js');
-  const row =
-    db
-      .select({
-        preferences: users.preferences,
-      })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-      .get() ?? null;
-
-  const preferences = row?.preferences;
-  if (typeof preferences !== 'object' || preferences === null) {
-    return undefined;
-  }
-
-  const timeZone = (preferences as { timeZone?: unknown; timezone?: unknown }).timeZone;
-  const legacyTimezone = (preferences as { timezone?: unknown }).timezone;
-  const candidate =
-    typeof timeZone === 'string'
-      ? timeZone
-      : typeof legacyTimezone === 'string'
-        ? legacyTimezone
-        : undefined;
-
-  return candidate && isValidTimeZone(candidate) ? candidate : undefined;
 };
 
 const getWeekStartMonday = (date: Date) => {
@@ -882,24 +829,30 @@ export const getDailyNutritionSummaryForDate = async (
       .orderBy(desc(nutritionTargets.effectiveDate))
       .limit(1)
       .get() ?? null;
+  const dailyEnergy = await getDailyEnergyAdherenceForDate(userId, date);
+  const acceptedProteinFloorGrams = dailyEnergy.proteinFloor.proteinFloorGrams;
 
   return {
     date,
     meals: Number(actuals.meals ?? 0),
     actual: {
       calories: Number(actuals.calories ?? 0),
-      protein: Number(actuals.protein ?? 0),
+      protein: dailyEnergy.proteinFloor.actualProteinGrams ?? Number(actuals.protein ?? 0),
       carbs: Number(actuals.carbs ?? 0),
       fat: Number(actuals.fat ?? 0),
     },
     target: target
       ? {
           calories: Number(target.calories),
-          protein: Number(target.protein),
+          // Legacy macro targets cannot represent an unavailable protein floor.
+          // Keep the numeric compatibility field neutral instead of leaking a
+          // mutable materialized target that is not causally valid for `date`.
+          protein: acceptedProteinFloorGrams ?? 0,
           carbs: Number(target.carbs),
           fat: Number(target.fat),
         }
       : null,
+    proteinFloor: dailyEnergy.proteinFloor,
   };
 };
 
@@ -907,7 +860,7 @@ export const getNutritionLoggingContext = async (
   userId: string,
   input: NutritionLoggingContextQuery,
 ): Promise<NutritionLoggingContext> => {
-  const date = input.date ?? getLocalDateKey(new Date(), await getUserPreferredTimeZone(userId));
+  const date = input.date ?? (await getNutritionLocalDateForUser(userId, getApplicationNow()));
   const query = input.q;
   const variants = buildNutritionLoggingContextVariants(query);
   const days = input.days ?? 7;

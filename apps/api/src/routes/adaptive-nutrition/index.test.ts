@@ -571,6 +571,9 @@ describe('adaptive nutrition routes', () => {
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     vi.mocked(getAdaptiveNutritionState).mockResolvedValue({
       state: 'setup_required',
+      localDate: '2026-08-23',
+      timeZone: 'America/Detroit',
+      timeZoneSource: 'user_profile',
       program: null,
       currentTarget: null,
       latestAcceptedCheckIn: null,

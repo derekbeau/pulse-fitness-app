@@ -28,7 +28,7 @@ import { Label } from '@/components/ui/label';
 import { StatCard } from '@/components/ui/stat-card';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
-import { toDateKey } from '@/lib/date-utils';
+import { useTodayKey } from '@/features/workouts/hooks/use-today-key';
 import {
   formatDuration,
   formatServing,
@@ -123,6 +123,7 @@ const sectionLabels: Record<SessionDetailSectionType, string> = {
 
 export function SessionDetail({ sessionId }: SessionDetailProps) {
   const { weightUnit } = useWeightUnit();
+  const { dateAuthorityLocked, getTodayKeyForMutation, todayKey } = useTodayKey();
   const comparisonToggleId = useId();
   const [showComparison, setShowComparison] = useState(false);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
@@ -527,7 +528,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
       {session.templateId && template ? (
         <Button
           className="w-full sm:w-auto"
-          disabled={startSessionMutation.isPending}
+          disabled={startSessionMutation.isPending || dateAuthorityLocked || todayKey === null}
           onClick={() => handleRepeatWorkout()}
           size="lg"
           type="button"
@@ -548,14 +549,20 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
     </section>
   );
 
-  async function doRepeatStart() {
-    if (!session?.templateId || !template) {
+  async function doRepeatStart(expectedTodayKey: string) {
+    const mutationTodayKey = getTodayKeyForMutation();
+    if (
+      !session?.templateId ||
+      !template ||
+      mutationTodayKey === null ||
+      mutationTodayKey !== expectedTodayKey
+    ) {
       return;
     }
 
     const startedAt = Date.now();
     const createdSession = await startSessionMutation.mutateAsync({
-      date: toDateKey(new Date(startedAt)),
+      date: mutationTodayKey,
       name: template.name,
       sets: buildInitialSessionSets(template),
       startedAt,
@@ -565,7 +572,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   }
 
   function handleRepeatWorkout() {
-    if (!session?.templateId || !template) {
+    if (!session?.templateId || !template || dateAuthorityLocked || todayKey === null) {
       return;
     }
 
@@ -582,13 +589,13 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
         confirmLabel: 'Start anyway',
         cancelLabel: 'Go back',
         onConfirm: () => {
-          void doRepeatStart();
+          void doRepeatStart(todayKey);
         },
       });
       return;
     }
 
-    void doRepeatStart();
+    void doRepeatStart(todayKey);
   }
 }
 

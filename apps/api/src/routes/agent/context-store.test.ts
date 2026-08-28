@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { getDailyEnergyAdherenceForDate } from '../nutrition/daily-energy-store.js';
+
 const testState = vi.hoisted(() => {
   const getQueue: unknown[] = [];
   const allQueue: unknown[] = [];
@@ -37,9 +39,24 @@ vi.mock('../../db/index.js', () => ({
   db: testState.db,
 }));
 
+vi.mock('../nutrition/daily-energy-store.js', () => ({
+  getDailyEnergyAdherenceForDate: vi.fn(),
+}));
+
 describe('agent context store', () => {
   beforeEach(() => {
     testState.reset();
+    vi.mocked(getDailyEnergyAdherenceForDate).mockReset();
+    vi.mocked(getDailyEnergyAdherenceForDate).mockResolvedValue({
+      proteinFloor: {
+        actualProteinGrams: null,
+        proteinFloorGrams: null,
+        remainingToFloorGrams: null,
+        amountAboveFloorGrams: null,
+        state: 'unavailable',
+        isFinal: false,
+      },
+    } as never);
   });
 
   it('returns user profile name when user exists', async () => {
@@ -139,6 +156,17 @@ describe('agent context store', () => {
   it('returns nutrition totals, target, and meals with nested items for a log date', async () => {
     const { getAgentContextTodayNutrition } = await import('./context-store.js');
 
+    vi.mocked(getDailyEnergyAdherenceForDate).mockResolvedValue({
+      proteinFloor: {
+        actualProteinGrams: 120,
+        proteinFloorGrams: 190,
+        remainingToFloorGrams: 70,
+        amountAboveFloorGrams: 0,
+        state: 'below_floor',
+        isFinal: false,
+      },
+    } as never);
+
     testState.getQueue.push(
       {
         calories: 1450,
@@ -198,6 +226,14 @@ describe('agent context store', () => {
         carbs: 250,
         fat: 70,
       },
+      proteinFloor: {
+        actualProteinGrams: 120,
+        proteinFloorGrams: 190,
+        remainingToFloorGrams: 70,
+        amountAboveFloorGrams: 0,
+        state: 'below_floor',
+        isFinal: false,
+      },
       meals: [
         {
           name: 'Breakfast',
@@ -248,6 +284,14 @@ describe('agent context store', () => {
         protein: 0,
         carbs: 0,
         fat: 0,
+      },
+      proteinFloor: {
+        actualProteinGrams: null,
+        proteinFloorGrams: null,
+        remainingToFloorGrams: null,
+        amountAboveFloorGrams: null,
+        state: 'unavailable',
+        isFinal: false,
       },
       meals: [],
     });

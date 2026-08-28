@@ -473,11 +473,7 @@ export const workoutMuscleAnalyticsQuerySchema = z
     end: dateSchema.optional(),
     timeZone: workoutMuscleTimeZoneSchema.optional(),
   })
-  .strict()
-  .refine((value) => value.end !== undefined || value.timeZone !== undefined, {
-    message: 'timeZone is required when end is omitted',
-    path: ['timeZone'],
-  });
+  .strict();
 
 export const workoutMuscleAnalyticsSchema = z
   .object({

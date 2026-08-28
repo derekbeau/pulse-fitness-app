@@ -17,6 +17,7 @@ import {
   workoutTemplates,
 } from '../../db/schema/index.js';
 import { addUtcDays } from '../../lib/date.js';
+import { getDailyEnergyAdherenceForDate } from '../nutrition/daily-energy-store.js';
 
 type AgentContextUser = AgentContextResponse['user'];
 type AgentContextRecentWorkout = AgentContextResponse['recentWorkouts'][number];
@@ -162,6 +163,7 @@ export const getAgentContextTodayNutrition = async (
   date: string,
 ): Promise<AgentContextResponse['todayNutrition']> => {
   const { db } = await import('../../db/index.js');
+  const dailyEnergy = await getDailyEnergyAdherenceForDate(userId, date);
 
   const actual = db
     .select({
@@ -261,14 +263,14 @@ export const getAgentContextTodayNutrition = async (
   return {
     actual: {
       calories: toNumber(actual.calories),
-      protein: toNumber(actual.protein),
+      protein: dailyEnergy.proteinFloor.actualProteinGrams ?? toNumber(actual.protein),
       carbs: toNumber(actual.carbs),
       fat: toNumber(actual.fat),
     },
     target: target
       ? {
           calories: toNumber(target.calories),
-          protein: toNumber(target.protein),
+          protein: dailyEnergy.proteinFloor.proteinFloorGrams ?? 0,
           carbs: toNumber(target.carbs),
           fat: toNumber(target.fat),
         }
@@ -278,6 +280,7 @@ export const getAgentContextTodayNutrition = async (
           carbs: 0,
           fat: 0,
         },
+    proteinFloor: dailyEnergy.proteinFloor,
     meals: mealsWithItems,
   };
 };

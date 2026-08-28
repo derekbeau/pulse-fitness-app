@@ -44,6 +44,7 @@
   --color-on-cream: #6b4f1d;
   --color-on-pink: #7a2e4e;
   --color-on-mint: #1b6b4e;
+  --protein-progress-stroke: var(--color-on-mint);
   --color-muted: #64718b;
   --color-border: #e2e6ee;
   --color-destructive: #dc2626;
@@ -116,6 +117,7 @@
   --color-on-cream: #7a5517;
   --color-on-pink: #8c2350;
   --color-on-mint: #146249;
+  --protein-progress-stroke: var(--color-accent-mint);
   --color-muted: #8892ad;
   --color-border: #282d48;
   --color-destructive: #f87171;
@@ -134,6 +136,7 @@
   --color-on-cream: #7a5c0a;
   --color-on-pink: #5b3d99;
   --color-on-mint: #1a6699;
+  --protein-progress-stroke: var(--color-accent-mint);
   --color-muted: #6b7fa0;
   --color-border: #1e2a42;
   --color-destructive: #f87171;

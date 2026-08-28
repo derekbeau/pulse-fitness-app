@@ -5,6 +5,7 @@ import { apiRequest } from '@/lib/api-client';
 import { weightQueryKeys } from '@/features/weight/api/weight';
 import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
 import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
+import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
 
 export const userQueryKeys = {
   all: ['user'] as const,
@@ -50,6 +51,13 @@ export const useUpdateUser = () => {
         queryClient.removeQueries({ queryKey: weightQueryKeys.all });
         queryClient.removeQueries({ queryKey: dashboardSnapshotQueryKeys.all });
         queryClient.removeQueries({ queryKey: dashboardWeightTrendQueryKeys.all });
+      }
+
+      if (input.timeZone !== undefined) {
+        await invalidateQueryKeys(
+          queryClient,
+          crossFeatureInvalidationMap.adaptiveProgramMutation(),
+        );
       }
     },
   });

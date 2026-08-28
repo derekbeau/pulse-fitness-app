@@ -480,15 +480,21 @@ test('renders loading, list/detail retry, and empty-library states without weake
   ]);
   await page.clock.setFixedTime(new Date(adaptivePreviewFixtureContract.serverNow));
   await setAuthenticatedSession(page, token);
-  let releaseList: (() => void) | undefined;
+  let releaseList: () => void = () => {};
+  const listRelease = new Promise<void>((resolve) => {
+    releaseList = resolve;
+  });
+  let announceFirstList: () => void = () => {};
+  const firstListStarted = new Promise<void>((resolve) => {
+    announceFirstList = resolve;
+  });
   let listAttempts = 0;
   await page.route('**/api/v1/foods/analytics?**', async (route) => {
     listAttempts += 1;
     if (listAttempts <= 2) {
       if (listAttempts === 1) {
-        await new Promise<void>((resolvePromise) => {
-          releaseList = resolvePromise;
-        });
+        announceFirstList();
+        await listRelease;
       }
       await route.fulfill({
         status: 503,
@@ -501,7 +507,9 @@ test('renders loading, list/detail retry, and empty-library states without weake
   });
   await page.goto('/nutrition?view=foods&foodMode=analytics', { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('status', { name: 'Loading food analytics' })).toBeVisible();
-  releaseList?.();
+  await firstListStarted;
+  releaseList();
+  await expect.poll(() => listAttempts).toBe(2);
   await expect(page.getByText('Food analytics could not be loaded')).toBeVisible();
   const retryResponse = page.waitForResponse(
     (response) =>
@@ -550,7 +558,7 @@ test('renders the no-library state from the strict analytics contract', async ({
         endDate: fixtureDate,
         calendarDays: 30,
         timeZone: 'America/Detroit',
-        timeZoneSource: 'request',
+        timeZoneSource: 'user_profile',
         isHistorical: false,
       },
       summary: {

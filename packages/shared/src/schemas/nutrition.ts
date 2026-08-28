@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { dateSchema } from './common.js';
 import { foodSchema } from './foods.js';
+import { proteinFloorProgressSchema } from './protein-floor.js';
 
 const requiredText = (maxLength = 255) => z.string().trim().min(1).max(maxLength);
 const nonnegativeNumber = z.number().nonnegative().finite();
@@ -73,12 +74,28 @@ export const dailyNutritionSchema = z
   })
   .nullable();
 
-export const nutritionSummarySchema = z.object({
-  date: dateSchema,
-  meals: z.number().int().nonnegative(),
-  actual: nutritionMacroTotalsSchema,
-  target: nutritionMacroTotalsSchema.nullable(),
-});
+export const nutritionSummarySchema = z
+  .object({
+    date: dateSchema,
+    meals: z.number().int().nonnegative(),
+    actual: nutritionMacroTotalsSchema,
+    target: nutritionMacroTotalsSchema.nullable(),
+    proteinFloor: proteinFloorProgressSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      (value.proteinFloor.actualProteinGrams !== null &&
+        value.proteinFloor.actualProteinGrams !== value.actual.protein) ||
+      (value.proteinFloor.proteinFloorGrams ?? 0) !== (value.target?.protein ?? 0)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Summary protein floor facts must match actual and accepted target macros',
+        path: ['proteinFloor'],
+      });
+    }
+  });
 
 export const dailyNutritionMealWithSummarySchema = dailyNutritionMealSchema.extend({
   summary: nutritionSummarySchema,

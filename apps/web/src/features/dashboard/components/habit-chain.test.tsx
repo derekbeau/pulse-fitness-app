@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useUpdateHabitEntry } from '@/features/habits/api/habits';
-import { toDateKey } from '@/lib/date';
+import { getToday, toDateKey } from '@/lib/date';
 
 import { HabitChain } from './habit-chain';
 
@@ -109,10 +109,10 @@ const habitEntryRecords: HabitEntry[] = mockHabits.flatMap((habit, habitIndex) =
   })),
 );
 
-function renderHabitChain(props: HabitChainProps = {}) {
+function renderHabitChain(props: Partial<HabitChainProps> = {}) {
   return render(
     <MemoryRouter>
-      <HabitChain {...props} />
+      <HabitChain todayDate={toDateKey(getToday())} {...props} />
     </MemoryRouter>,
   );
 }
@@ -194,6 +194,33 @@ describe('HabitChain', () => {
     );
     expect(highlightedSquares).toHaveLength(1);
     expect(highlightedSquares[0]).toHaveAttribute('data-date', endDate);
+  });
+
+  it('keeps an explicit completed entry canonical before the mutable habit creation instant', () => {
+    const date = '2026-08-23';
+    const sourceHabit = habitRecords[0];
+    if (!sourceHabit) {
+      throw new Error('Expected a source habit record.');
+    }
+    const habit: Habit = {
+      ...sourceHabit,
+      createdAt: new Date('2026-08-27T12:00:00.000Z').getTime(),
+      id: 'habit-imported-history',
+      name: 'Imported history',
+    };
+    const entry: HabitEntry = {
+      completed: true,
+      createdAt: new Date('2026-08-27T12:00:00.000Z').getTime(),
+      date,
+      habitId: habit.id,
+      id: 'entry-imported-history',
+      userId: habit.userId,
+      value: null,
+    };
+
+    renderHabitChain({ endDate: date, entries: [entry], habits: [habit], todayDate: date });
+
+    expect(screen.getByLabelText(`Imported history ${date} Completed`)).toBeVisible();
   });
 
   it('uses mint, red, and gray squares for completed, missed, and not scheduled', () => {

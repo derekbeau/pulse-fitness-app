@@ -7,6 +7,18 @@ import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { jsonResponse } from '@/test/test-utils';
 import { TemplateBrowser } from './template-browser';
 
+const dateAuthorityMocks = vi.hoisted(() => ({
+  state: {
+    dateAuthorityLocked: false,
+    getTodayKeyForMutation: () => '2026-03-12' as string | null,
+    todayKey: '2026-03-12' as string | null,
+  },
+}));
+
+vi.mock('@/features/workouts/hooks/use-today-key', () => ({
+  useTodayKey: () => dateAuthorityMocks.state,
+}));
+
 const renameMutateMock = vi.fn();
 const deleteMutateMock = vi.fn();
 const scheduleMutateAsyncMock = vi.fn();
@@ -59,12 +71,14 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DropdownMenuItem: ({
     children,
+    disabled,
     onSelect,
   }: {
     children: ReactNode;
+    disabled?: boolean;
     onSelect?: (event: MouseEvent<HTMLButtonElement>) => void;
   }) => (
-    <button onClick={onSelect} type="button">
+    <button disabled={disabled} onClick={onSelect} type="button">
       {children}
     </button>
   ),
@@ -73,6 +87,11 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
 
 describe('TemplateBrowser', () => {
   beforeEach(() => {
+    dateAuthorityMocks.state = {
+      dateAuthorityLocked: false,
+      getTodayKeyForMutation: () => '2026-03-12',
+      todayKey: '2026-03-12',
+    };
     window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
     window.history.pushState({}, '', '/workouts?view=templates');
     renameMutateMock.mockReset();
@@ -383,10 +402,32 @@ describe('TemplateBrowser', () => {
     await waitFor(() => {
       expect(scheduleMutateAsyncMock).toHaveBeenCalledWith(
         expect.objectContaining({
+          date: '2026-03-12',
           templateId: 'template-1',
         }),
       );
     });
+  });
+
+  it('uses the retained authority date for display but disables scheduling while stale', async () => {
+    dateAuthorityMocks.state = {
+      dateAuthorityLocked: true,
+      getTodayKeyForMutation: () => null,
+      todayKey: '2026-03-12',
+    };
+
+    render(
+      <MemoryRouter>
+        <TemplateBrowser
+          buildTemplateHref={(templateId) => `/workouts/template/${templateId}`}
+          templates={[createTemplate({ id: 'template-1', name: 'Upper Push' })]}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Template actions for Upper Push' }));
+    expect(await screen.findByRole('button', { name: 'Schedule workout' })).toBeDisabled();
+    expect(scheduleMutateAsyncMock).not.toHaveBeenCalled();
   });
 
   it('warns before scheduling another workout on an occupied day', async () => {

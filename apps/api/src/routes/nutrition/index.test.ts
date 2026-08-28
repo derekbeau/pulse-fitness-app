@@ -174,6 +174,14 @@ const nutritionSummary = {
     carbs: 250,
     fat: 70,
   },
+  proteinFloor: {
+    actualProteinGrams: 70,
+    proteinFloorGrams: 180,
+    remainingToFloorGrams: 110,
+    amountAboveFloorGrams: 0,
+    state: 'below_floor' as const,
+    isFinal: false,
+  },
 };
 
 const loggingContext = {
@@ -1255,6 +1263,14 @@ describe('nutrition routes', () => {
           fat: 0,
         },
         target: null,
+        proteinFloor: {
+          actualProteinGrams: null,
+          proteinFloorGrams: null,
+          remainingToFloorGrams: null,
+          amountAboveFloorGrams: null,
+          state: 'unavailable',
+          isFinal: false,
+        },
       });
 
     const app = buildServer();
@@ -1295,6 +1311,14 @@ describe('nutrition routes', () => {
             fat: 0,
           },
           target: null,
+          proteinFloor: {
+            actualProteinGrams: null,
+            proteinFloorGrams: null,
+            remainingToFloorGrams: null,
+            amountAboveFloorGrams: null,
+            state: 'unavailable',
+            isFinal: false,
+          },
         },
       });
       expect(vi.mocked(getDailyNutritionSummaryForDate)).toHaveBeenNthCalledWith(
@@ -1377,6 +1401,7 @@ describe('nutrition routes', () => {
         logId: 'log-1',
         status: 'complete' as const,
         intakeKcal: 2_100,
+        actualProteinGrams: 170,
         mealCount: 3,
         itemCount: 8,
       },
@@ -1386,8 +1411,17 @@ describe('nutrition routes', () => {
         effectiveDate: '2026-03-01',
         recordedAt: 1_772_380_800_000,
         caloriesKcal: 2_000,
+        proteinFloorGrams: 180,
         source: 'adaptive' as const,
         adaptiveCheckInId: 'check-in-1',
+      },
+      proteinFloor: {
+        actualProteinGrams: 170,
+        proteinFloorGrams: 180,
+        remainingToFloorGrams: 10,
+        amountAboveFloorGrams: 0,
+        state: 'below_floor' as const,
+        isFinal: true,
       },
       expenditure: {
         caloriesKcal: 2_500,

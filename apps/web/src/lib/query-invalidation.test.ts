@@ -13,6 +13,8 @@ import {
   crossFeatureInvalidationMap,
   dataQualityQueryKey,
   nutritionTargetQueryKey,
+  scheduledWorkoutQueryKey,
+  weightQueryKey,
 } from './query-invalidation';
 
 describe('crossFeatureInvalidationMap', () => {
@@ -31,6 +33,7 @@ describe('crossFeatureInvalidationMap', () => {
     expect(crossFeatureInvalidationMap.mealMutation()).toEqual([
       adaptiveNutritionQueryKey,
       dataQualityQueryKey,
+      nutritionQueryKeys.all,
       dashboardSnapshotQueryKeys.all,
       macroTrendQueryKeys.all,
       habitQueryKeys.list(),
@@ -73,6 +76,16 @@ describe('crossFeatureInvalidationMap', () => {
     expect(crossFeatureInvalidationMap.adaptiveProgramMutation()).toEqual([
       adaptiveNutritionQueryKey,
       dataQualityQueryKey,
+      nutritionTargetQueryKey,
+      nutritionQueryKeys.all,
+      dashboardSnapshotQueryKeys.all,
+      dashboardWeightTrendQueryKeys.all,
+      macroTrendQueryKeys.all,
+      habitQueryKeys.list(),
+      habitQueryKeys.entryList(),
+      habitChainQueryKeys.all,
+      weightQueryKey,
+      scheduledWorkoutQueryKey,
     ]);
     expect(crossFeatureInvalidationMap.adaptiveGoalMutation()).toEqual([
       adaptiveNutritionQueryKey,

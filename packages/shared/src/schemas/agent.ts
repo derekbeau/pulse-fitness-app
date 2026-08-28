@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { dateSchema } from './common.js';
 import { habitTrackingTypeSchema } from './habits.js';
 import { weightUnitSchema } from './users.js';
+import { proteinFloorProgressSchema } from './protein-floor.js';
 import { createWeightInputSchema } from './weight.js';
 
 const requiredText = (maxLength = 255) => z.string().trim().min(1).max(maxLength);
@@ -96,11 +97,26 @@ export const agentContextResponseSchema = z.object({
     name: z.string().nullable(),
   }),
   recentWorkouts: z.array(agentContextRecentWorkoutSchema),
-  todayNutrition: z.object({
-    actual: agentContextMacroTotalsSchema,
-    target: agentContextMacroTotalsSchema,
-    meals: z.array(agentContextMealSchema),
-  }),
+  todayNutrition: z
+    .object({
+      actual: agentContextMacroTotalsSchema,
+      target: agentContextMacroTotalsSchema,
+      proteinFloor: proteinFloorProgressSchema,
+      meals: z.array(agentContextMealSchema),
+    })
+    .superRefine((value, context) => {
+      if (
+        (value.proteinFloor.actualProteinGrams !== null &&
+          value.actual.protein !== value.proteinFloor.actualProteinGrams) ||
+        value.target.protein !== (value.proteinFloor.proteinFloorGrams ?? 0)
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Agent context protein macros must match the structured protein floor',
+          path: ['proteinFloor'],
+        });
+      }
+    }),
   weight: z.object({
     current: z.number(),
     trend7d: z.number(),

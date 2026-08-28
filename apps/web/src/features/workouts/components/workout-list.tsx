@@ -87,11 +87,12 @@ export function WorkoutList({
   sessions,
   scheduledWorkouts,
 }: WorkoutListProps) {
-  const todayKey = useTodayKey();
+  const { dateAuthorityLocked, getTodayKeyForMutation, todayKey } = useTodayKey();
+  const resolvedTodayKey = todayKey ?? '1970-01-01';
   const sessionsQuery = useWorkoutSessions({}, { enabled: sessions === undefined });
-  const scheduledRange = useMemo(() => getScheduledRange(todayKey), [todayKey]);
+  const scheduledRange = useMemo(() => getScheduledRange(resolvedTodayKey), [resolvedTodayKey]);
   const scheduledQuery = useScheduledWorkouts(scheduledRange, {
-    enabled: scheduledWorkouts === undefined,
+    enabled: scheduledWorkouts === undefined && todayKey !== null,
   });
 
   const resolvedSessions = sessions ?? sessionsQuery.data ?? [];
@@ -113,7 +114,7 @@ export function WorkoutList({
     .map((scheduledWorkout) => ({
       ...scheduledWorkout,
       isMissed:
-        scheduledWorkout.date < todayKey &&
+        scheduledWorkout.date < resolvedTodayKey &&
         (scheduledWorkout.sessionId == null || !sessionsById.has(scheduledWorkout.sessionId)),
       isUnavailable: scheduledWorkout.templateId == null || scheduledWorkout.templateName == null,
     }))
@@ -198,8 +199,11 @@ export function WorkoutList({
             {visibleScheduledItems.map((scheduledWorkout) => (
               <ScheduledWorkoutCard
                 buildStartWorkoutHref={buildStartWorkoutHref}
+                dateAuthorityLocked={dateAuthorityLocked}
+                getTodayKeyForMutation={getTodayKeyForMutation}
                 key={scheduledWorkout.id}
                 scheduledWorkout={scheduledWorkout}
+                todayKey={todayKey}
               />
             ))}
           </div>
@@ -352,10 +356,16 @@ function InProgressWorkoutCard({
 
 function ScheduledWorkoutCard({
   buildStartWorkoutHref,
+  dateAuthorityLocked,
+  getTodayKeyForMutation,
   scheduledWorkout,
+  todayKey,
 }: {
   buildStartWorkoutHref: (templateId: string) => string;
+  dateAuthorityLocked: boolean;
+  getTodayKeyForMutation: () => string | null;
   scheduledWorkout: ScheduledWorkoutListItem & { isMissed: boolean; isUnavailable: boolean };
+  todayKey: string | null;
 }) {
   const navigate = useNavigate();
   const { confirm, dialog } = useConfirmation();
@@ -374,24 +384,61 @@ function ScheduledWorkoutCard({
     scheduledWorkout.templateTrackingTypes ?? [],
   );
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
+  const [rescheduleAuthorityDate, setRescheduleAuthorityDate] = useState<string | null>(null);
   const isTemplateAvailable = !scheduledWorkout.isUnavailable && !templateQuery.isError;
-  const isStartDisabled = isMutating || !isTemplateAvailable || templateQuery.isPending;
+  const isStartDisabled =
+    isMutating ||
+    dateAuthorityLocked ||
+    todayKey === null ||
+    !isTemplateAvailable ||
+    templateQuery.isPending;
 
   async function handleReschedule(requestedDate: string) {
+    const mutationTodayKey = getTodayKeyForMutation();
+    if (
+      dateAuthorityLocked ||
+      rescheduleAuthorityDate === null ||
+      mutationTodayKey !== rescheduleAuthorityDate
+    ) {
+      return;
+    }
+
     await rescheduleWorkoutMutation.mutateAsync({
       date: requestedDate,
       id: scheduledWorkout.id,
     });
   }
 
-  async function doStart() {
-    if (!templateQuery.data || !scheduledWorkout.templateId || !scheduledWorkout.templateName) {
+  function handleRescheduleOpenChange(open: boolean) {
+    setIsRescheduleDialogOpen(open);
+    if (!open) {
+      setRescheduleAuthorityDate(null);
+    }
+  }
+
+  function openRescheduleDialog() {
+    if (dateAuthorityLocked || todayKey === null) {
+      return;
+    }
+    setRescheduleAuthorityDate(todayKey);
+    setIsRescheduleDialogOpen(true);
+  }
+
+  async function doStart(expectedTodayKey: string) {
+    const mutationTodayKey = getTodayKeyForMutation();
+    if (
+      mutationTodayKey === null ||
+      mutationTodayKey !== expectedTodayKey ||
+      !templateQuery.data ||
+      !scheduledWorkout.templateId ||
+      !scheduledWorkout.templateName
+    ) {
       return;
     }
 
     const startedAt = Date.now();
     const session = await startSessionMutation.mutateAsync({
-      date: toDateKey(new Date(startedAt)),
+      date: mutationTodayKey,
       name: scheduledWorkout.templateName,
       sets: buildInitialSessionSets(templateQuery.data),
       startedAt,
@@ -401,7 +448,10 @@ function ScheduledWorkoutCard({
   }
 
   function handleStartNow() {
-    const todayKey = toDateKey(new Date());
+    if (dateAuthorityLocked || todayKey === null) {
+      return;
+    }
+
     const activeSessions = activeSessionsQuery.data ?? [];
 
     if (scheduledWorkout.date !== todayKey) {
@@ -410,7 +460,7 @@ function ScheduledWorkoutCard({
         description: `This workout is scheduled for ${sessionDateFormatter.format(parseDateForDisplay(scheduledWorkout.date))}. Starting now will begin it today instead.`,
         confirmLabel: 'Start now',
         onConfirm: () => {
-          void doStart();
+          void doStart(todayKey);
         },
       });
       return;
@@ -423,16 +473,25 @@ function ScheduledWorkoutCard({
         confirmLabel: 'Start anyway',
         cancelLabel: 'Go back',
         onConfirm: () => {
-          void doStart();
+          void doStart(todayKey);
         },
       });
       return;
     }
 
-    void doStart();
+    void doStart(todayKey);
   }
 
   async function handleRemove() {
+    const mutationTodayKey = getTodayKeyForMutation();
+    if (
+      dateAuthorityLocked ||
+      rescheduleAuthorityDate === null ||
+      mutationTodayKey !== rescheduleAuthorityDate
+    ) {
+      return;
+    }
+
     await unscheduleWorkoutMutation.mutateAsync({ id: scheduledWorkout.id });
   }
 
@@ -518,8 +577,10 @@ function ScheduledWorkoutCard({
           </Button>
           <Button
             className="hover:text-foreground active:text-foreground"
-            disabled={isMutating || !isTemplateAvailable}
-            onClick={() => setIsRescheduleDialogOpen(true)}
+            disabled={
+              isMutating || dateAuthorityLocked || todayKey === null || !isTemplateAvailable
+            }
+            onClick={openRescheduleDialog}
             size="sm"
             type="button"
             variant="outline"
@@ -539,10 +600,10 @@ function ScheduledWorkoutCard({
         description={`Move ${scheduledWorkout.templateName ?? 'this workout'} to a new date.`}
         initialDate={scheduledWorkout.date}
         isPending={rescheduleWorkoutMutation.isPending}
-        onOpenChange={setIsRescheduleDialogOpen}
+        onOpenChange={handleRescheduleOpenChange}
         onRemove={handleRemove}
         onSubmitDate={handleReschedule}
-        open={isRescheduleDialogOpen}
+        open={isRescheduleDialogOpen && !dateAuthorityLocked}
         disallowDateKey={scheduledWorkout.date}
         disallowDateMessage="Pick a different date to reschedule."
         submitLabel="Save"

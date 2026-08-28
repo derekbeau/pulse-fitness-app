@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { dateSchema } from './common.js';
 import { nutritionLogStatusSchema } from './nutrition.js';
 import { createNutritionTargetInputSchema, nutritionTargetSchema } from './nutrition-targets.js';
-import { weightUnitSchema } from './users.js';
+import { userTimeZoneSchema, weightUnitSchema } from './users.js';
 
 export const adaptiveTdeeAlgorithmVersionSchema = z.literal('adaptive-tdee-v1');
 export const adaptiveProgramStatusSchema = z.enum(['active', 'paused']);
@@ -103,7 +103,7 @@ const calorieSchema = z.number().positive().finite();
 const adaptiveProgramCalculationObjectSchema = z
   .object({
     status: adaptiveProgramStatusSchema,
-    timeZone: z.string().trim().min(1),
+    timeZone: userTimeZoneSchema,
     rmrEquation: adaptiveRmrEquationSchema,
     heightCm: z.number().min(100).max(250).finite().nullable(),
     birthDate: dateSchema.nullable(),
@@ -443,7 +443,7 @@ export const adaptiveRecommendationSchema = z.discriminatedUnion('state', [
 const adaptiveProgramMutationObjectSchema = z
   .object({
     status: adaptiveProgramStatusSchema.default('active'),
-    timeZone: z.string().trim().min(1),
+    timeZone: userTimeZoneSchema,
     heightCm: z.number().min(100).max(250).finite().nullable(),
     birthDate: dateSchema.nullable(),
     rmrEquation: adaptiveRmrEquationSchema,
@@ -1003,7 +1003,7 @@ export const adaptiveEligibilityProgressSchema = z
     latestUsableWeightAgeDays: z.number().int().nonnegative().nullable(),
     analysisEndDate: dateSchema,
     pendingCutoffDate: dateSchema,
-    timeZone: z.string().trim().min(1),
+    timeZone: userTimeZoneSchema,
     noteCodes: z.array(adaptiveReadinessNoteCodeSchema),
     reasonCodes: z.array(adaptiveReasonCodeSchema),
   })
@@ -1021,6 +1021,9 @@ export const adaptiveNutritionReadStateSchema = z.enum([
 export const adaptiveNutritionStateSchema = z
   .object({
     state: adaptiveNutritionReadStateSchema,
+    localDate: dateSchema.nullable(),
+    timeZone: userTimeZoneSchema.nullable(),
+    timeZoneSource: z.enum(['adaptive_program', 'user_profile']).nullable(),
     program: adaptiveProgramSchema.nullable(),
     currentTarget: nutritionTargetSchema.nullable(),
     latestAcceptedCheckIn: adaptiveCheckInSummarySchema.nullable(),
@@ -1033,7 +1036,31 @@ export const adaptiveNutritionStateSchema = z
     pendingGoalChange: adaptiveCheckInSummarySchema.nullable(),
     goalActionRequired: z.enum(['select_goal', 'complete_goal']).nullable(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const resolvedFields = [value.localDate, value.timeZone, value.timeZoneSource];
+    if (
+      resolvedFields.some((field) => field === null) &&
+      resolvedFields.some((field) => field !== null)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'localDate, timeZone, and timeZoneSource must all be resolved or all be null',
+      });
+    }
+    if (value.program && value.timeZoneSource !== 'adaptive_program') {
+      context.addIssue({
+        code: 'custom',
+        message: 'program state must use the adaptive program time zone',
+      });
+    }
+    if (!value.program && value.timeZoneSource === 'adaptive_program') {
+      context.addIssue({
+        code: 'custom',
+        message: 'adaptive program time zone source requires a program',
+      });
+    }
+  });
 
 export const adaptiveAcceptResultSchema = z
   .object({

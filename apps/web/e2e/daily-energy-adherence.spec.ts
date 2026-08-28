@@ -30,6 +30,7 @@ function monitorPage(
   page: Page,
   expectedResponses: Array<{ path: string; status: number }> = [],
   expectedRequestFailures: Array<{ errorText: string; method: string; path: string }> = [],
+  allowedRequestFailures: Array<{ errorText: string; method: string; path: string }> = [],
 ) {
   const failures: string[] = [];
   const failedResourceConsoleMessages: string[] = [];
@@ -37,6 +38,7 @@ function monitorPage(
   const expectedRequestFailureCounts = new Map(
     expectedRequestFailures.map((expected) => [JSON.stringify(expected), 0]),
   );
+  const remainingAllowedRequestFailures = [...allowedRequestFailures];
   page.on('console', (message) => {
     if (message.type() === 'warning' || message.type() === 'error') {
       const value = `${message.type()}: ${message.text()}`;
@@ -66,6 +68,16 @@ function monitorPage(
     if (expected) {
       const key = JSON.stringify(expected);
       expectedRequestFailureCounts.set(key, (expectedRequestFailureCounts.get(key) ?? 0) + 1);
+      return;
+    }
+    const allowedIndex = remainingAllowedRequestFailures.findIndex(
+      (candidate) =>
+        candidate.errorText === errorText &&
+        candidate.method === failed.method() &&
+        candidate.path === path,
+    );
+    if (allowedIndex >= 0) {
+      remainingAllowedRequestFailures.splice(allowedIndex, 1);
       return;
     }
     failures.push(`requestfailed: ${failed.method()} ${failed.url()} ${errorText}`);
@@ -460,6 +472,17 @@ test.describe.serial('Daily energy adherence', () => {
     page,
   }) => {
     const diagnostics = monitorPage(page);
+    let hasCrossedProgramMidnight = false;
+    await page.route('**/api/v1/adaptive-nutrition', async (route) => {
+      const response = await route.fetch();
+      const payload = (await response.json()) as {
+        data: { localDate: string };
+      };
+      if (hasCrossedProgramMidnight) {
+        payload.data.localDate = '2026-08-24';
+      }
+      await route.fulfill({ response, json: payload });
+    });
     const beforeMidnight = new Date('2026-08-24T03:59:50.000Z');
     await page.clock.install({ time: beforeMidnight });
     await openNutrition(page, '2026-08-23');
@@ -467,6 +490,7 @@ test.describe.serial('Daily energy adherence', () => {
       'Accepted facts for 2026-08-23',
     );
 
+    hasCrossedProgramMidnight = true;
     await page.clock.fastForward(11_000);
     await expect(page.getByRole('article', { name: 'Daily energy' })).toContainText(
       'Accepted facts for 2026-08-24',
@@ -538,7 +562,7 @@ test.describe.serial('Daily energy adherence', () => {
 
   test('keeps loading and rapid date changes scoped to the selected day', async ({ page }) => {
     const today = fixtureDate;
-    const slowDate = addDays(fixtureDate, -2);
+    const slowDate = addDays(fixtureDate, -4);
     const selectedDate = addDays(fixtureDate, -1);
     const diagnostics = monitorPage(
       page,
@@ -548,6 +572,14 @@ test.describe.serial('Daily energy adherence', () => {
           errorText: 'net::ERR_ABORTED',
           method: 'GET',
           path: `/api/v1/nutrition/${slowDate}/energy-adherence`,
+        },
+      ],
+      [
+        { errorText: 'net::ERR_ABORTED', method: 'GET', path: `/api/v1/nutrition/${slowDate}` },
+        {
+          errorText: 'net::ERR_ABORTED',
+          method: 'GET',
+          path: `/api/v1/nutrition/${slowDate}/summary`,
         },
       ],
     );
@@ -594,13 +626,14 @@ test.describe.serial('Daily energy adherence', () => {
       await slowRelease;
       await route.continue();
     });
-    const slowResponse = page.waitForResponse(
-      (response) =>
-        response.url().endsWith(`/api/v1/nutrition/${slowDate}/energy-adherence`) &&
-        response.status() === 200,
-    );
     await page.getByRole('button', { name: `Select ${slowDate}` }).click();
     await slowStarted;
+    const slowRequestAborted = page.waitForEvent('requestfailed', {
+      predicate: (request) =>
+        request.method() === 'GET' &&
+        request.url().endsWith(`/api/v1/nutrition/${slowDate}/energy-adherence`) &&
+        request.failure()?.errorText === 'net::ERR_ABORTED',
+    });
     const selectedResponse = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/api/v1/nutrition/${selectedDate}/energy-adherence`) &&
@@ -612,7 +645,7 @@ test.describe.serial('Daily energy adherence', () => {
       `Accepted facts for ${selectedDate}`,
     );
     releaseSlow();
-    await slowResponse;
+    await slowRequestAborted;
     await expect(page.getByRole('article', { name: 'Daily energy' })).toContainText(
       `Accepted facts for ${selectedDate}`,
     );

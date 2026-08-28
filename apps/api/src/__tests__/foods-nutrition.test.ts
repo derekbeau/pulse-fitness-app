@@ -481,6 +481,14 @@ vi.mock('../routes/nutrition/store.js', () => ({
           fat: 0,
         },
         target: null,
+        proteinFloor: {
+          actualProteinGrams: null,
+          proteinFloorGrams: null,
+          remainingToFloorGrams: null,
+          amountAboveFloorGrams: null,
+          state: 'unavailable',
+          isFinal: false,
+        },
       };
     }
 
@@ -488,16 +496,26 @@ vi.mock('../routes/nutrition/store.js', () => ({
     const dayMealIds = new Set(dayMeals.map((meal) => meal.id));
     const items = [...testState.mealItems.values()].filter((item) => dayMealIds.has(item.mealId));
 
+    const actualProteinGrams = items.reduce((total, item) => total + item.protein, 0);
+
     return {
       date,
       meals: dayMeals.length,
       actual: {
         calories: items.reduce((total, item) => total + item.calories, 0),
-        protein: items.reduce((total, item) => total + item.protein, 0),
+        protein: actualProteinGrams,
         carbs: items.reduce((total, item) => total + item.carbs, 0),
         fat: items.reduce((total, item) => total + item.fat, 0),
       },
       target: null,
+      proteinFloor: {
+        actualProteinGrams,
+        proteinFloorGrams: null,
+        remainingToFloorGrams: null,
+        amountAboveFloorGrams: null,
+        state: 'unavailable',
+        isFinal: false,
+      },
     };
   }),
   getNutritionLoggingContext: vi.fn(),
@@ -960,6 +978,14 @@ describe('foods and nutrition integration', () => {
           fat: 50,
         },
         target: null,
+        proteinFloor: {
+          actualProteinGrams: 84,
+          proteinFloorGrams: null,
+          remainingToFloorGrams: null,
+          amountAboveFloorGrams: null,
+          state: 'unavailable',
+          isFinal: false,
+        },
       });
 
       const emptySummaryResponse = await app.inject({
@@ -979,6 +1005,14 @@ describe('foods and nutrition integration', () => {
           fat: 0,
         },
         target: null,
+        proteinFloor: {
+          actualProteinGrams: null,
+          proteinFloorGrams: null,
+          remainingToFloorGrams: null,
+          amountAboveFloorGrams: null,
+          state: 'unavailable',
+          isFinal: false,
+        },
       });
     } finally {
       await app.close();

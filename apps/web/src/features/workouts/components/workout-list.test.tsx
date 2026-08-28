@@ -1,13 +1,65 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { ScheduledWorkoutListItem, WorkoutSessionListItem } from '@pulse/shared';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { renderWithQueryClient } from '@/test/render-with-query-client';
+import { jsonResponse } from '@/test/test-utils';
 
 import { WorkoutList } from './workout-list';
 
+vi.mock('./schedule-workout-dialog', () => ({
+  ScheduleWorkoutDialog: ({
+    onRemove,
+    onSubmitDate,
+    open,
+  }: {
+    onRemove?: () => Promise<unknown>;
+    onSubmitDate: (dateKey: string) => Promise<unknown>;
+    open: boolean;
+  }) =>
+    open ? (
+      <div>
+        <button onClick={() => void onSubmitDate('2026-03-20')} type="button">
+          Submit reschedule
+        </button>
+        {onRemove ? (
+          <button onClick={() => void onRemove()} type="button">
+            Remove from schedule
+          </button>
+        ) : null}
+      </div>
+    ) : null,
+}));
+
+const dateAuthorityMocks = vi.hoisted(() => {
+  let mutationDate: string | null = '2026-03-12';
+
+  return {
+    setMutationDate: (value: string | null) => {
+      mutationDate = value;
+    },
+    state: {
+      dateAuthorityLocked: false,
+      getTodayKeyForMutation: () => mutationDate,
+      todayKey: '2026-03-12' as string | null,
+    },
+  };
+});
+
+vi.mock('@/features/workouts/hooks/use-today-key', () => ({
+  useTodayKey: () => dateAuthorityMocks.state,
+}));
+
 describe('WorkoutList', () => {
+  beforeEach(() => {
+    dateAuthorityMocks.setMutationDate('2026-03-12');
+    dateAuthorityMocks.state.dateAuthorityLocked = false;
+    dateAuthorityMocks.state.todayKey = '2026-03-12';
+    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'test-token');
+  });
+
   it('renders sections in order and includes in-progress actions', async () => {
     const sessions = [
       createSession({
@@ -295,6 +347,190 @@ describe('WorkoutList', () => {
     const completedSection = getSectionByTitle('Completed');
 
     expect(within(completedSection).getByText('1h 30m')).toBeInTheDocument();
+  });
+
+  it('does not start after date authority locks while early-start confirmation is open', async () => {
+    dateAuthorityMocks.setMutationDate('2026-03-12');
+    const createSessionSpy = vi.fn();
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+
+      if (url.pathname === '/api/v1/workout-templates/template-push') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                id: 'template-push',
+                userId: 'user-1',
+                name: 'Upper Push',
+                description: null,
+                tags: [],
+                sections: [
+                  { type: 'warmup', exercises: [] },
+                  { type: 'main', exercises: [] },
+                  { type: 'cooldown', exercises: [] },
+                ],
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            }),
+            { headers: { 'Content-Type': 'application/json' }, status: 200 },
+          ),
+        );
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions' && (init?.method ?? 'GET') === 'GET') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: [] }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      if (url.pathname === '/api/v1/workout-sessions' && init?.method === 'POST') {
+        createSessionSpy();
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: { id: 'session-new' } }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 201,
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url.pathname}`);
+    });
+
+    renderWorkoutList(
+      [],
+      [
+        createScheduledWorkout({
+          date: '2026-03-15',
+          templateId: 'template-push',
+          templateName: 'Upper Push',
+        }),
+      ],
+    );
+
+    const startButton = await screen.findByRole('button', { name: 'Start' });
+    await waitFor(() => expect(startButton).toBeEnabled());
+    fireEvent.click(startButton);
+    const dialog = await screen.findByRole('alertdialog');
+    dateAuthorityMocks.setMutationDate(null);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Start now' }));
+
+    await waitFor(() => expect(createSessionSpy).not.toHaveBeenCalled());
+  });
+
+  it('disables rescheduling while date authority is stale', async () => {
+    dateAuthorityMocks.state.dateAuthorityLocked = true;
+    dateAuthorityMocks.setMutationDate(null);
+
+    renderWorkoutList(
+      [],
+      [createScheduledWorkout({ templateId: 'template-push', templateName: 'Upper Push' })],
+    );
+
+    expect(await screen.findByRole('button', { name: 'Reschedule' })).toBeDisabled();
+  });
+
+  it('does not reschedule after date authority locks while the dialog is open', async () => {
+    const rescheduleSpy = vi.fn();
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/workout-templates/template-push' && method === 'GET') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                id: 'template-push',
+                userId: 'user-1',
+                name: 'Upper Push',
+                description: null,
+                tags: [],
+                sections: [],
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            }),
+            { headers: { 'Content-Type': 'application/json' }, status: 200 },
+          ),
+        );
+      }
+
+      if (url.pathname === '/api/v1/scheduled-workouts/schedule-default' && method === 'PATCH') {
+        rescheduleSpy();
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: {} }), {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }),
+        );
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWorkoutList(
+      [],
+      [createScheduledWorkout({ templateId: 'template-push', templateName: 'Upper Push' })],
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reschedule' }));
+    const submit = await screen.findByRole('button', { name: 'Submit reschedule' });
+    dateAuthorityMocks.setMutationDate(null);
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(rescheduleSpy).not.toHaveBeenCalled());
+  });
+
+  it('does not remove a schedule after date authority locks while confirmation is open', async () => {
+    const unscheduleSpy = vi.fn();
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+
+      if (url.pathname === '/api/v1/workout-templates/template-push' && method === 'GET') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                id: 'template-push',
+                userId: 'user-1',
+                name: 'Upper Push',
+                description: null,
+                tags: [],
+                sections: [],
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            }),
+            { headers: { 'Content-Type': 'application/json' }, status: 200 },
+          ),
+        );
+      }
+
+      if (url.pathname === '/api/v1/scheduled-workouts/schedule-default' && method === 'DELETE') {
+        unscheduleSpy();
+        return Promise.resolve(jsonResponse({ data: { success: true } }));
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWorkoutList(
+      [],
+      [createScheduledWorkout({ templateId: 'template-push', templateName: 'Upper Push' })],
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reschedule' }));
+    const remove = await screen.findByRole('button', { name: 'Remove from schedule' });
+    dateAuthorityMocks.setMutationDate(null);
+    fireEvent.click(remove);
+
+    await waitFor(() => expect(unscheduleSpy).not.toHaveBeenCalled());
   });
 });
 

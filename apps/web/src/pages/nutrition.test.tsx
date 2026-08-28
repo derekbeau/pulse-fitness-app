@@ -1,5 +1,11 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
-import type { DailyNutrition, DailyNutritionMeal, NutritionMacroTotals } from '@pulse/shared';
+import {
+  calculateProteinFloorProgress,
+  chartDateKeyInTimeZone,
+  type DailyNutrition,
+  type DailyNutritionMeal,
+  type NutritionMacroTotals,
+} from '@pulse/shared';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -134,6 +140,9 @@ function createNutritionApiMock(
     if (url.pathname === '/api/v1/adaptive-nutrition' && method === 'GET') {
       return createJsonResponse({
         state: 'baseline',
+        localDate: chartDateKeyInTimeZone(Date.now(), timeZone),
+        timeZone,
+        timeZoneSource: 'adaptive_program',
         program: {
           activityLevel: null,
           activityMultiplier: null,
@@ -229,12 +238,19 @@ function createNutritionApiMock(
     if (method === 'GET' && pathParts.length === 5 && pathParts[4] === 'summary') {
       const actual = calculateActuals(dateState.daily);
       const meals = dateState.daily?.meals.length ?? 0;
+      const proteinFloor = calculateProteinFloorProgress({
+        actualProteinGrams: dateState.daily ? actual.protein : null,
+        proteinFloorGrams: dateState.target?.protein ?? null,
+        isFinal: date <= today && dateState.daily?.log.status === 'complete',
+        canEvaluate: date <= today,
+      });
 
       return createJsonResponse({
         date,
         meals,
         actual,
         target: dateState.target,
+        proteinFloor,
       });
     }
 
@@ -293,6 +309,12 @@ function createNutritionApiMock(
                   : dataState === 'missing'
                     ? 'MISSING_NUTRITION_NOT_GRADED'
                     : null;
+      const proteinFloor = calculateProteinFloorProgress({
+        actualProteinGrams: dateState.daily ? actual.protein : null,
+        proteinFloorGrams: hasTarget ? (dateState.target?.protein ?? null) : null,
+        isFinal: dataState !== 'future' && status === 'complete',
+        canEvaluate: dataState !== 'future',
+      });
 
       return createJsonResponse({
         localDate: date,
@@ -307,6 +329,7 @@ function createNutritionApiMock(
           logId: dateState.daily?.log.id ?? null,
           status,
           intakeKcal: status === null ? null : Math.round(actual.calories),
+          actualProteinGrams: proteinFloor.actualProteinGrams,
           mealCount: dateState.daily?.meals.length ?? 0,
           itemCount: dateState.daily?.meals.flatMap((entry) => entry.items).length ?? 0,
         },
@@ -317,10 +340,12 @@ function createNutritionApiMock(
               effectiveDate: '2026-03-01',
               recordedAt: 1_772_380_800_000,
               caloriesKcal: Math.round(targetCalories ?? 0),
+              proteinFloorGrams: dateState.target?.protein ?? 0,
               source: 'manual',
               adaptiveCheckInId: null,
             }
           : null,
+        proteinFloor,
         expenditure: null,
         intakeMinusTargetKcal: difference,
         intakeMinusExpenditureKcal: null,
@@ -510,9 +535,9 @@ function renderNutritionPage(
   });
 }
 
-function renderNutritionLogTab(timeZone: string) {
+function renderNutritionLogTab(todayDate: string) {
   const { wrapper: QueryClientWrapper } = createQueryClientWrapper();
-  return render(<NutritionLogTab timeZone={timeZone} />, {
+  return render(<NutritionLogTab todayDate={todayDate} />, {
     wrapper: ({ children }: { children: ReactNode }) => (
       <MemoryRouter>
         <QueryClientWrapper>{children}</QueryClientWrapper>
@@ -891,7 +916,7 @@ describe('NutritionPage', () => {
     await vi.advanceTimersByTimeAsync(1000);
     await Promise.resolve();
 
-    expect(screen.getByRole('status', { name: 'Loading nutrition trends' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Loading nutrition date' })).toBeInTheDocument();
     expect(
       fetchMock.mock.calls.some(([input]) =>
         String(input).includes('/api/v1/dashboard/trends/macros'),
@@ -901,6 +926,9 @@ describe('NutritionPage', () => {
     adaptiveResponse.resolve(
       createJsonResponse({
         state: 'baseline',
+        localDate: '2026-03-07',
+        timeZone: 'America/Detroit',
+        timeZoneSource: 'adaptive_program',
         program: {
           activityLevel: null,
           activityMultiplier: null,
@@ -950,6 +978,37 @@ describe('NutritionPage', () => {
         expect.any(Object),
       ],
     ]);
+  });
+
+  it('advances the trends reference date while Nutrition stays open across program midnight', async () => {
+    vi.setSystemTime(new Date('2026-03-07T04:59:58.000Z'));
+    const { fetchMock: baseFetchMock } = createNutritionApiMock(
+      {
+        '2026-03-06': { daily: null, target: TARGETS },
+        '2026-03-07': { daily: null, target: TARGETS },
+      },
+      { today: '2026-03-06' },
+    );
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === 'string' ? input : input.toString(), 'http://localhost');
+      if (url.pathname === '/api/v1/dashboard/trends/macros') return createJsonResponse([]);
+      return baseFetchMock(input, init);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderNutritionPage();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_100));
+    fireEvent.click(screen.getByRole('tab', { name: 'Trends' }));
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).includes('/api/v1/dashboard/trends/macros?from=2026-02-06&to=2026-03-07'),
+      ),
+    ).toBe(true);
   });
 
   it.each([
@@ -1092,7 +1151,7 @@ describe('NutritionPage', () => {
     expect(screen.getByRole('button', { name: /^Today$/ })).not.toHaveClass('invisible');
   });
 
-  it('reschedules the boundary and moves a prior-today view when the program zone changes', async () => {
+  it('moves a prior-today view when the server date authority changes', async () => {
     vi.setSystemTime(new Date('2026-03-06T09:59:58.000Z'));
     const { fetchMock } = createNutritionApiMock(
       {
@@ -1103,15 +1162,11 @@ describe('NutritionPage', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    const view = renderNutritionLogTab('America/Detroit');
+    const view = renderNutritionLogTab('2026-03-06');
     await vi.advanceTimersByTimeAsync(1_000);
     expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
 
-    view.rerender(<NutritionLogTab timeZone="Pacific/Kiritimati" />);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(screen.getByText(/Friday, March 6/)).toBeInTheDocument();
-
-    await act(async () => vi.advanceTimersByTimeAsync(2_100));
+    view.rerender(<NutritionLogTab todayDate="2026-03-07" />);
     expect(screen.getByText(/Saturday, March 7/)).toBeInTheDocument();
   });
 
@@ -1328,7 +1383,7 @@ describe('NutritionPage', () => {
 
   it('clears historical date and meal state when the authenticated session changes', async () => {
     useAuthStore.setState({
-      user: { id: 'user-a', username: 'a', name: null },
+      user: { id: 'user-a', username: 'a', name: null, timeZone: 'America/Detroit' },
       token: 'token-a',
       isAuthenticated: true,
     });
@@ -1345,7 +1400,7 @@ describe('NutritionPage', () => {
 
     act(() => {
       useAuthStore.setState({
-        user: { id: 'user-b', username: 'b', name: null },
+        user: { id: 'user-b', username: 'b', name: null, timeZone: 'America/Detroit' },
         token: 'token-b',
         isAuthenticated: true,
       });

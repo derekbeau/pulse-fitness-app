@@ -61,7 +61,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { useStartSession } from '@/hooks/use-workout-session';
 import { ApiError } from '@/lib/api-client';
-import { toDateKey } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 
 import {
@@ -78,6 +77,7 @@ import {
 } from '../lib/day-workout-conflicts';
 import { getSupersetAccentClass } from '../lib/superset-utils';
 import { buildInitialSessionSets } from '../lib/workout-session-sets';
+import { useTodayKey } from '../hooks/use-today-key';
 import { ExerciseDetailModal } from './exercise-detail-modal';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
@@ -122,6 +122,7 @@ const supersetAccentStyles = [
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps) {
   const { weightUnit } = useWeightUnit();
+  const { dateAuthorityLocked, getTodayKeyForMutation, todayKey } = useTodayKey();
   const navigate = useNavigate();
   const { confirm, dialog } = useConfirmation();
   const templateQuery = useWorkoutTemplate(templateId);
@@ -852,12 +853,21 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
         <div className="flex flex-wrap gap-2">
           <Button
             className="w-full sm:w-auto"
-            disabled={startWorkoutMutation.isPending}
+            disabled={startWorkoutMutation.isPending || dateAuthorityLocked || todayKey === null}
             onClick={() => {
-              const todayDateKey = toDateKey(new Date());
+              if (dateAuthorityLocked || todayKey === null) {
+                return;
+              }
+
               void (async () => {
-                const shouldCreateAnother = await confirmDuplicateDayWorkouts(todayDateKey);
+                const expectedTodayKey = todayKey;
+                const shouldCreateAnother = await confirmDuplicateDayWorkouts(expectedTodayKey);
                 if (!shouldCreateAnother) {
+                  return;
+                }
+
+                const mutationTodayKey = getTodayKeyForMutation();
+                if (mutationTodayKey === null || mutationTodayKey !== expectedTodayKey) {
                   return;
                 }
 
@@ -865,7 +875,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
 
                 startWorkoutMutation.mutate(
                   {
-                    date: toDateKey(new Date(startedAt)),
+                    date: mutationTodayKey,
                     name: template.name,
                     sets: buildInitialSessionSets(template),
                     startedAt,
@@ -886,6 +896,7 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
           </Button>
           <Button
             className="w-full sm:w-auto"
+            disabled={dateAuthorityLocked || todayKey === null}
             onClick={() => setIsScheduleDialogOpen(true)}
             size="lg"
             type="button"
@@ -899,26 +910,37 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
           <p className="text-sm text-destructive">Unable to start the workout. Try again.</p>
         ) : null}
       </div>
-      <ScheduleWorkoutDialog
-        description={`Pick a date for ${template.name}.`}
-        initialDate={toDateKey(new Date())}
-        isPending={scheduleWorkoutMutation.isPending}
-        onOpenChange={setIsScheduleDialogOpen}
-        onSubmitDate={async (date) => {
-          const shouldCreateAnother = await confirmDuplicateDayWorkouts(date);
-          if (!shouldCreateAnother) {
-            return;
-          }
+      {todayKey !== null ? (
+        <ScheduleWorkoutDialog
+          description={`Pick a date for ${template.name}.`}
+          initialDate={todayKey}
+          isPending={scheduleWorkoutMutation.isPending}
+          onOpenChange={setIsScheduleDialogOpen}
+          onSubmitDate={async (date) => {
+            if (dateAuthorityLocked) {
+              return;
+            }
 
-          await scheduleWorkoutMutation.mutateAsync({
-            date,
-            templateId: template.id,
-          });
-        }}
-        open={isScheduleDialogOpen}
-        submitLabel="Schedule"
-        title="Schedule workout"
-      />
+            const expectedTodayKey = todayKey;
+            const shouldCreateAnother = await confirmDuplicateDayWorkouts(date);
+            if (!shouldCreateAnother) {
+              return;
+            }
+
+            if (getTodayKeyForMutation() !== expectedTodayKey) {
+              return;
+            }
+
+            await scheduleWorkoutMutation.mutateAsync({
+              date,
+              templateId: template.id,
+            });
+          }}
+          open={isScheduleDialogOpen && !dateAuthorityLocked}
+          submitLabel="Schedule"
+          title="Schedule workout"
+        />
+      ) : null}
       {dialog}
     </section>
   );

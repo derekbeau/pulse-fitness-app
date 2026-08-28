@@ -39,7 +39,11 @@ const createAgentTokenHeader = (token: string) => ({
   authorization: `AgentToken ${token}`,
 });
 
-const seedUser = (id: string, username: string, preferences?: Record<string, unknown>) =>
+const seedUser = (
+  id: string,
+  username: string,
+  preferences: Record<string, unknown> = { timeZone: 'America/Detroit' },
+) =>
   context.db
     .insert(users)
     .values({
