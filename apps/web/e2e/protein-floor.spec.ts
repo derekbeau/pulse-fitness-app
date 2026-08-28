@@ -97,7 +97,7 @@ function monitorPage(
       remainingExpectedRequestFailures.splice(expectedIndex, 1);
       return;
     }
-    if (allowedRequestFailureSet.has(signature)) return;
+    if (allowedRequestFailureSet.delete(signature)) return;
     failures.push(`requestfailed: ${signature}`);
   });
   page.on('response', (response) => {

@@ -38,6 +38,7 @@ function monitorPage(
   const expectedRequestFailureCounts = new Map(
     expectedRequestFailures.map((expected) => [JSON.stringify(expected), 0]),
   );
+  const remainingAllowedRequestFailures = [...allowedRequestFailures];
   page.on('console', (message) => {
     if (message.type() === 'warning' || message.type() === 'error') {
       const value = `${message.type()}: ${message.text()}`;
@@ -69,15 +70,16 @@ function monitorPage(
       expectedRequestFailureCounts.set(key, (expectedRequestFailureCounts.get(key) ?? 0) + 1);
       return;
     }
-    if (
-      allowedRequestFailures.some(
-        (candidate) =>
-          candidate.errorText === errorText &&
-          candidate.method === failed.method() &&
-          candidate.path === path,
-      )
-    )
+    const allowedIndex = remainingAllowedRequestFailures.findIndex(
+      (candidate) =>
+        candidate.errorText === errorText &&
+        candidate.method === failed.method() &&
+        candidate.path === path,
+    );
+    if (allowedIndex >= 0) {
+      remainingAllowedRequestFailures.splice(allowedIndex, 1);
       return;
+    }
     failures.push(`requestfailed: ${failed.method()} ${failed.url()} ${errorText}`);
   });
   page.on('response', (response) => {

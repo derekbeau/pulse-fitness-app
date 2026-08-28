@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { WorkoutMuscleAnalyticsRange } from '@pulse/shared';
 import { Link } from 'react-router';
 import {
@@ -74,8 +74,7 @@ export function MuscleAnalytics() {
   const [range, setRange] = useState<WorkoutMuscleAnalyticsRange>('30d');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  const analyticsQuery = useWorkoutMuscleAnalytics({ range, timeZone });
+  const analyticsQuery = useWorkoutMuscleAnalytics({ range });
   const analytics = analyticsQuery.data;
   const muscle =
     analytics?.rows.find((row) => row.muscle === selectedMuscle) ?? analytics?.rows[0] ?? null;
@@ -88,13 +87,6 @@ export function MuscleAnalytics() {
     : null;
   const selectedSources =
     analytics?.sources.filter((source) => source.muscle === muscle?.muscle) ?? [];
-
-  useEffect(() => {
-    setSelectedDate(null);
-    if (analytics?.rows.length && !analytics.rows.some((row) => row.muscle === selectedMuscle)) {
-      setSelectedMuscle(analytics.rows[0]?.muscle ?? null);
-    }
-  }, [analytics?.rows, selectedMuscle]);
 
   return (
     <section aria-labelledby="muscle-analytics-heading" className="space-y-4">
