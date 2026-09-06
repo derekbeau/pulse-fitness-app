@@ -24,8 +24,14 @@ const user = {
 const fixtureDate = '2026-08-23';
 const exerciseNames = {
   bench: `RIR Bench Press ${suffix}`,
+  cardio: `RIR Cardio ${suffix}`,
+  distance: `RIR Distance ${suffix}`,
+  duration: `RIR Duration ${suffix}`,
   plank: `RIR Timed Plank ${suffix}`,
   pushup: `RIR Push-up ${suffix}`,
+  repsOnly: `RIR Reps Only ${suffix}`,
+  repsSeconds: `RIR Reps Seconds ${suffix}`,
+  weightSeconds: `RIR Weight Seconds ${suffix}`,
 };
 
 let api: APIRequestContext;
@@ -33,6 +39,7 @@ let authToken = '';
 let agentToken: { id: string; token: string } | undefined;
 let activeSessionId = '';
 let activeBenchSetId = '';
+let activeBenchSecondSetId = '';
 let benchExerciseId = '';
 let completedSessionId = '';
 let completedLegacySetId = '';
@@ -91,13 +98,73 @@ async function authenticate(page: Page, theme: 'light' | 'dark' | 'midnight') {
 }
 
 async function capture(page: Page, filename: string) {
-  const directory = resolve(process.cwd(), '../../artifacts/issue-130');
+  const directory = resolve(process.cwd(), '../../artifacts/issues-140-142');
   mkdirSync(directory, { recursive: true });
   await page.screenshot({
     animations: 'disabled',
     fullPage: true,
     path: resolve(directory, filename),
   });
+}
+
+async function expectPopulatedMetricGeometry(panel: Locator, width: number, layoutName: string) {
+  const measurements = await panel.locator('[data-slot="metric-input"]').evaluateAll((inputs) =>
+    inputs
+      .filter(
+        (input): input is HTMLInputElement =>
+          input instanceof HTMLInputElement && input.value !== '',
+      )
+      .map((input) => {
+        const styles = getComputedStyle(input);
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Canvas text measurement is unavailable');
+        context.font = styles.font;
+        const textWidth = context.measureText(input.value).width;
+        const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+        const horizontalBorder =
+          parseFloat(styles.borderLeftWidth) + parseFloat(styles.borderRightWidth);
+        const nativeNumberControlAllowance = 18;
+        return {
+          accessibleName: input.getAttribute('aria-label'),
+          innerContentWidth:
+            input.getBoundingClientRect().width -
+            horizontalPadding -
+            horizontalBorder -
+            nativeNumberControlAllowance,
+          requiredTextWidth: textWidth + 4,
+          touchHeight: input.getBoundingClientRect().height,
+          value: input.value,
+        };
+      }),
+  );
+
+  expect(measurements.length, `${width}px ${layoutName} populated input count`).toBeGreaterThan(0);
+  for (const measurement of measurements) {
+    expect(
+      measurement.innerContentWidth,
+      `${width}px ${measurement.accessibleName} inner width`,
+    ).toBeGreaterThanOrEqual(Math.max(24, measurement.requiredTextWidth));
+    expect(
+      measurement.touchHeight,
+      `${width}px ${measurement.accessibleName} touch height`,
+    ).toBeGreaterThanOrEqual(44);
+  }
+
+  const fieldBoxes = await panel.locator('[data-slot="metric-field"]').evaluateAll((fields) =>
+    fields.map((field) => {
+      const input = field.querySelector<HTMLInputElement>('[data-slot="metric-input"]');
+      const unit = field.querySelector<HTMLElement>('[data-slot="metric-unit"]');
+      if (!input || !unit) return null;
+      const inputBox = input.getBoundingClientRect();
+      const unitBox = unit.getBoundingClientRect();
+      return { inputRight: inputBox.right, unitLeft: unitBox.left };
+    }),
+  );
+  for (const boxes of fieldBoxes) {
+    if (boxes)
+      expect(boxes.unitLeft, `${width}px unit separation`).toBeGreaterThanOrEqual(boxes.inputRight);
+  }
 }
 
 async function textContrastRatio(locator: Locator) {
@@ -147,6 +214,19 @@ async function expectNoOverflow(page: Page, width: number, inspected?: Locator) 
   }
 }
 
+async function editMetricAndWaitForSave(page: Page, input: Locator, value: string) {
+  const response = page.waitForResponse(
+    (candidate) =>
+      candidate.request().method() === 'PATCH' &&
+      candidate.url().includes('/api/v1/workout-sessions/') &&
+      candidate.url().includes('/sets/') &&
+      candidate.status() === 200,
+  );
+  await input.fill(value);
+  await input.blur();
+  await response;
+}
+
 async function exercisePanel(page: Page, exerciseName: string) {
   const toggle = page
     .getByRole('button')
@@ -191,8 +271,14 @@ test.describe('First-class RIR logging', () => {
 
     const exerciseIds: Record<keyof typeof exerciseNames, string> = {
       bench: '',
+      cardio: '',
+      distance: '',
+      duration: '',
       plank: '',
       pushup: '',
+      repsOnly: '',
+      repsSeconds: '',
+      weightSeconds: '',
     };
     for (const [key, exercise] of Object.entries({
       bench: {
@@ -201,6 +287,27 @@ test.describe('First-class RIR logging', () => {
         muscleGroups: ['chest'],
         name: exerciseNames.bench,
         trackingType: 'weight_reps',
+      },
+      cardio: {
+        category: 'cardio',
+        equipment: 'bodyweight',
+        muscleGroups: ['full-body'],
+        name: exerciseNames.cardio,
+        trackingType: 'cardio',
+      },
+      distance: {
+        category: 'cardio',
+        equipment: 'bodyweight',
+        muscleGroups: ['full-body'],
+        name: exerciseNames.distance,
+        trackingType: 'distance',
+      },
+      duration: {
+        category: 'mobility',
+        equipment: 'bodyweight',
+        muscleGroups: ['core'],
+        name: exerciseNames.duration,
+        trackingType: 'duration',
       },
       plank: {
         category: 'mobility',
@@ -215,6 +322,27 @@ test.describe('First-class RIR logging', () => {
         muscleGroups: ['chest'],
         name: exerciseNames.pushup,
         trackingType: 'bodyweight_reps',
+      },
+      repsOnly: {
+        category: 'mobility',
+        equipment: 'bodyweight',
+        muscleGroups: ['core'],
+        name: exerciseNames.repsOnly,
+        trackingType: 'reps_only',
+      },
+      repsSeconds: {
+        category: 'mobility',
+        equipment: 'bodyweight',
+        muscleGroups: ['core'],
+        name: exerciseNames.repsSeconds,
+        trackingType: 'reps_seconds',
+      },
+      weightSeconds: {
+        category: 'compound',
+        equipment: 'barbell',
+        muscleGroups: ['back'],
+        name: exerciseNames.weightSeconds,
+        trackingType: 'weight_seconds',
       },
     }) as Array<[keyof typeof exerciseNames, Record<string, unknown>]>) {
       const response = await api.post('/api/v1/exercises', { data: exercise });
@@ -233,9 +361,32 @@ test.describe('First-class RIR logging', () => {
           exerciseId: exerciseIds.bench,
           orderIndex: 0,
           reps: null,
+          rpe: 8,
           section: 'main',
           setNumber: 1,
           weight: null,
+        },
+        {
+          completed: true,
+          exerciseId: exerciseIds.bench,
+          orderIndex: 0,
+          reps: 12,
+          rir: 5,
+          section: 'main',
+          setNumber: 2,
+          targetWeight: 155,
+          weight: 157.5,
+        },
+        {
+          completed: true,
+          exerciseId: exerciseIds.bench,
+          orderIndex: 0,
+          reps: 12,
+          section: 'main',
+          setNumber: 3,
+          targetWeightMax: 225,
+          targetWeightMin: 205,
+          weight: 225,
         },
         {
           completed: false,
@@ -247,6 +398,15 @@ test.describe('First-class RIR logging', () => {
           weight: null,
         },
         {
+          completed: true,
+          exerciseId: exerciseIds.pushup,
+          orderIndex: 1,
+          reps: 12,
+          section: 'main',
+          setNumber: 2,
+          weight: null,
+        },
+        {
           completed: false,
           exerciseId: exerciseIds.plank,
           orderIndex: 2,
@@ -255,6 +415,75 @@ test.describe('First-class RIR logging', () => {
           setNumber: 1,
           weight: null,
         },
+        {
+          completed: true,
+          exerciseId: exerciseIds.plank,
+          orderIndex: 2,
+          reps: null,
+          seconds: 3600,
+          section: 'main',
+          setNumber: 2,
+          targetSeconds: 3600,
+          weight: null,
+        },
+        ...[
+          {
+            exerciseId: exerciseIds.repsOnly,
+            orderIndex: 3,
+            populated: { reps: 12 },
+            target: {},
+          },
+          {
+            exerciseId: exerciseIds.repsSeconds,
+            orderIndex: 4,
+            populated: { reps: 12, seconds: 3600 },
+            target: { targetSeconds: 3600 },
+          },
+          {
+            exerciseId: exerciseIds.weightSeconds,
+            orderIndex: 5,
+            populated: { reps: null, seconds: 3600, weight: 155.5 },
+            target: { targetSeconds: 45, targetWeight: 155 },
+          },
+          {
+            exerciseId: exerciseIds.duration,
+            orderIndex: 6,
+            populated: { reps: null, rpe: 8, seconds: 3600, zone: 3 },
+            target: { targetSeconds: 3600 },
+          },
+          {
+            exerciseId: exerciseIds.distance,
+            orderIndex: 7,
+            populated: { distance: 5.4, reps: null },
+            target: { targetDistance: 5.4 },
+          },
+          {
+            exerciseId: exerciseIds.cardio,
+            orderIndex: 8,
+            populated: { distance: 5.4, reps: null, seconds: 3600 },
+            target: { targetDistance: 5.4, targetSeconds: 3600 },
+          },
+        ].flatMap(({ exerciseId, orderIndex, populated, target }) => [
+          {
+            completed: true,
+            exerciseId,
+            orderIndex,
+            section: 'main',
+            setNumber: 1,
+            weight: null,
+            ...populated,
+            ...target,
+          },
+          {
+            completed: false,
+            exerciseId,
+            orderIndex,
+            reps: null,
+            section: 'main',
+            setNumber: 2,
+            weight: null,
+          },
+        ]),
       ],
       startedAt,
       status: 'in-progress',
@@ -262,6 +491,9 @@ test.describe('First-class RIR logging', () => {
     activeSessionId = activeSession.id;
     activeBenchSetId =
       activeSession.sets.find((set) => set.exerciseId === exerciseIds.bench)?.id ?? '';
+    activeBenchSecondSetId =
+      activeSession.sets.find((set) => set.exerciseId === exerciseIds.bench && set.setNumber === 2)
+        ?.id ?? '';
 
     const completedSession = await createSession({
       completedAt: startedAt - 82_800_000,
@@ -310,120 +542,144 @@ test.describe('First-class RIR logging', () => {
     await api.dispose();
   });
 
-  test('logs boundaries by keyboard, persists on resume, excludes timed work, and rolls back failure', async ({
+  test('keeps every populated tracking layout readable across viewport and theme matrices', async ({
     page,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(240_000);
+    const diagnostics = monitorPage(page);
+    const layouts = [
+      {
+        labels: ['Weight for set 2', 'Reps for set 2'],
+        name: exerciseNames.bench,
+        values: ['157.5', '12'],
+      },
+      {
+        labels: ['Weight for set 1', 'Seconds for set 1'],
+        name: exerciseNames.weightSeconds,
+        values: ['155.5', '3600'],
+      },
+      { labels: ['Reps for set 2'], name: exerciseNames.pushup, values: ['12'] },
+      { labels: ['Reps for set 1'], name: exerciseNames.repsOnly, values: ['12'] },
+      {
+        labels: ['Reps for set 1', 'Seconds for set 1'],
+        name: exerciseNames.repsSeconds,
+        values: ['12', '3600'],
+      },
+      { labels: ['Seconds for set 2'], name: exerciseNames.plank, values: ['3600'] },
+      {
+        labels: ['Duration for set 1', 'RPE for set 1', 'Zone for set 1'],
+        name: exerciseNames.duration,
+        values: ['3600', '8', '3'],
+      },
+      { labels: ['Distance for set 1'], name: exerciseNames.distance, values: ['5.4'] },
+      {
+        labels: ['Seconds for set 1', 'Distance for set 1'],
+        name: exerciseNames.cardio,
+        values: ['3600', '5.4'],
+      },
+    ] as const;
+    const viewports = [320, 390, 430, 768, 1280] as const;
+    const themes = ['light', 'dark', 'midnight'] as const;
+
+    await authenticate(page, 'light');
+    await page.setViewportSize({ width: 320, height: 1200 });
+    await page.goto(`/workouts/active?sessionId=${activeSessionId}`, {
+      waitUntil: 'networkidle',
+    });
+
+    for (const width of viewports) {
+      for (const theme of themes) {
+        await page.setViewportSize({ width, height: 1200 });
+        await page.evaluate((selectedTheme) => {
+          window.localStorage.setItem('pulse-theme', selectedTheme);
+        }, theme);
+        await page.reload({ waitUntil: 'networkidle' });
+        await expectTheme(page, theme);
+
+        for (const layout of layouts) {
+          const panel = await exercisePanel(page, layout.name);
+          for (const [index, label] of layout.labels.entries()) {
+            const input = panel.getByLabel(label);
+            await expect(input).toHaveValue(layout.values[index] ?? '');
+            await input.focus();
+            await expect(input).toBeFocused();
+          }
+          await expectPopulatedMetricGeometry(panel, width, layout.name);
+          await expect(panel.locator('[data-slot="set-row"].bg-emerald-500\\/10')).toHaveCount(
+            layout.name === exerciseNames.bench ? 2 : 1,
+          );
+        }
+
+        await expect(page.getByText('Target: 155 lbs', { exact: true })).toBeVisible();
+        await expect(page.getByText('Target: 155 lbs × 45 sec', { exact: true })).toBeVisible();
+        await expectNoOverflow(page, width);
+        await capture(page, `mobile-entry-${width}-${theme}.png`);
+      }
+    }
+
+    const persistedEdits = [
+      { label: 'Reps for set 1', name: exerciseNames.pushup, value: '12' },
+      { label: 'Seconds for set 1', name: exerciseNames.plank, value: '45' },
+      { label: 'Reps for set 2', name: exerciseNames.repsOnly, value: '12' },
+      { label: 'Reps for set 2', name: exerciseNames.repsSeconds, value: '12' },
+      { label: 'Seconds for set 2', name: exerciseNames.repsSeconds, value: '3600' },
+      { label: 'Weight for set 2', name: exerciseNames.weightSeconds, value: '155.5' },
+      { label: 'Seconds for set 2', name: exerciseNames.weightSeconds, value: '45' },
+      { label: 'Duration for set 2', name: exerciseNames.duration, value: '3600' },
+      { label: 'RPE for set 2', name: exerciseNames.duration, value: '9' },
+      { label: 'Zone for set 2', name: exerciseNames.duration, value: '4' },
+      { label: 'Distance for set 2', name: exerciseNames.distance, value: '5.4' },
+      { label: 'Seconds for set 2', name: exerciseNames.cardio, value: '3600' },
+      { label: 'Distance for set 2', name: exerciseNames.cardio, value: '5.4' },
+    ] as const;
+    for (const edit of persistedEdits) {
+      const panel = await exercisePanel(page, edit.name);
+      await editMetricAndWaitForSave(page, panel.getByLabel(edit.label), edit.value);
+    }
+
+    await page.setViewportSize({ width: 430, height: 1200 });
+    await page.reload({ waitUntil: 'networkidle' });
+    for (const edit of persistedEdits) {
+      const panel = await exercisePanel(page, edit.name);
+      await expect(panel.getByLabel(edit.label)).toHaveValue(edit.value);
+    }
+    await expectNoOverflow(page, 430);
+    await capture(page, 'mobile-entry-edited-resume-430-midnight.png');
+
+    await page.setViewportSize({ width: 320, height: 568 });
+    const keyboardHeightPanel = await exercisePanel(page, exerciseNames.weightSeconds);
+    const keyboardHeightInput = keyboardHeightPanel.getByLabel('Seconds for set 1');
+    await keyboardHeightInput.scrollIntoViewIfNeeded();
+    await keyboardHeightInput.focus();
+    const keyboardHeightBox = await keyboardHeightInput.boundingBox();
+    expect(keyboardHeightBox?.y, 'simulated keyboard-height input top').toBeGreaterThanOrEqual(0);
+    expect(
+      (keyboardHeightBox?.y ?? 568) + (keyboardHeightBox?.height ?? 0),
+      'simulated keyboard-height input bottom',
+    ).toBeLessThanOrEqual(568);
+    await expectNoOverflow(page, 320);
+    await capture(page, 'mobile-entry-320-midnight-keyboard-height-emulation.png');
+    diagnostics();
+  });
+
+  test('scopes digit shortcuts, saves once, persists on resume, and rolls back the RIR/RPE pair', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
     const diagnostics = monitorPage(
       page,
       [`PATCH /api/v1/workout-sessions/${activeSessionId}/sets/${activeBenchSetId} 503`],
       ['Failed to load resource: the server responded with a status of 503 (Service Unavailable)'],
     );
-    await page.setViewportSize({ width: 320, height: 1000 });
-    await authenticate(page, 'light');
-    await page.goto(`/workouts/active?sessionId=${activeSessionId}`, {
-      waitUntil: 'domcontentloaded',
+    const patchBodies: Array<Record<string, unknown>> = [];
+    page.on('request', (request) => {
+      if (
+        request.method() === 'PATCH' &&
+        request.url().endsWith(`/workout-sessions/${activeSessionId}/sets/${activeBenchSetId}`)
+      ) {
+        patchBodies.push(request.postDataJSON() as Record<string, unknown>);
+      }
     });
-    await expectTheme(page, 'light');
-
-    const benchPanel = await exercisePanel(page, exerciseNames.bench);
-    const benchTrigger = benchPanel.locator('[data-slot="popover-trigger"]');
-    await expect(benchTrigger).toBeVisible();
-    await expect(benchTrigger).toHaveAccessibleName(
-      'RIR for set 1: No repetitions in reserve logged',
-    );
-    await expect(benchTrigger).toHaveText('RIR —');
-    const triggerBox = await benchTrigger.boundingBox();
-    expect(triggerBox?.height, 'RIR trigger touch target').toBeGreaterThanOrEqual(44);
-    await expectNoOverflow(page, 320, benchPanel.locator('[data-slot="set-row"]').first());
-    await capture(page, 'rir-active-unset-320-light.png');
-
-    const firstPatch = page.waitForResponse(
-      (response) =>
-        response.url().endsWith(`/sets/${activeBenchSetId}`) && response.status() === 200,
-    );
-    await benchTrigger.focus();
-    await page.keyboard.press('Enter');
-    const group = page.getByRole('radiogroup', { name: 'RIR selection for set 1' });
-    await expect(group).toBeVisible();
-    await expect(
-      page.getByRole('dialog', { name: 'Repetitions in reserve · Set 1' }),
-    ).toHaveAccessibleDescription('0 = no reps left · 5+ = five or more reps left');
-    const clear = group.getByRole('radio', { name: 'Clear repetitions in reserve' });
-    await clear.focus();
-    expect(await textContrastRatio(clear), 'selected RIR contrast').toBeGreaterThanOrEqual(4.5);
-    await page.keyboard.press('ArrowRight');
-    const firstPayload = (await (await firstPatch).json()) as {
-      data: { completed: boolean; rir?: number };
-    };
-    expect(firstPayload.data).toMatchObject({ completed: false, rir: 0 });
-    await expect(
-      benchPanel.getByRole('button', { name: /0 repetitions in reserve/u }),
-    ).toBeVisible();
-    for (const option of await group.getByRole('radio').all()) {
-      const box = await option.boundingBox();
-      expect(
-        box?.height,
-        `${await option.getAttribute('aria-label')} touch target`,
-      ).toBeGreaterThanOrEqual(44);
-      expect(
-        box?.width,
-        `${await option.getAttribute('aria-label')} touch target`,
-      ).toBeGreaterThanOrEqual(44);
-    }
-    await page.keyboard.press('Escape');
-    await expect(benchTrigger).toBeFocused();
-    await expectNoOverflow(page, 320, benchPanel.locator('[data-slot="set-row"]').first());
-    await capture(page, 'rir-active-0-320-light.png');
-
-    await benchTrigger.click();
-    const fivePatch = page.waitForResponse(
-      (response) =>
-        response.url().endsWith(`/sets/${activeBenchSetId}`) && response.status() === 200,
-    );
-    await group.getByRole('radio', { name: '5 or more repetitions in reserve' }).click();
-    const fivePayload = (await (await fivePatch).json()) as {
-      data: { completed: boolean; rir?: number; rpe?: number };
-    };
-    expect(fivePayload.data).toMatchObject({ completed: false, rir: 5 });
-    expect(fivePayload.data).not.toHaveProperty('rpe');
-    await expect(benchTrigger).toBeFocused();
-    await page.reload({ waitUntil: 'networkidle' });
-    const resumedBenchPanel = await exercisePanel(page, exerciseNames.bench);
-    await expect(
-      resumedBenchPanel.getByRole('button', { name: /5 or more repetitions in reserve/u }),
-    ).toHaveText('5+ RIR');
-
-    const pushupPanel = await exercisePanel(page, exerciseNames.pushup);
-    await expect(pushupPanel.getByRole('button', { name: /RIR for set 1/u })).toBeVisible();
-    const plankPanel = await exercisePanel(page, exerciseNames.plank);
-    await expect(plankPanel.getByLabel('Seconds for set 1')).toBeVisible();
-    await expect(plankPanel.getByRole('button', { name: /RIR for set 1/u })).toHaveCount(0);
-
-    await page.setViewportSize({ width: 390, height: 1000 });
-    await page.evaluate(() => window.localStorage.setItem('pulse-theme', 'dark'));
-    await page.reload({ waitUntil: 'networkidle' });
-    await expectTheme(page, 'dark');
-    const darkBenchPanel = await exercisePanel(page, exerciseNames.bench);
-    await expectNoOverflow(page, 390, darkBenchPanel.locator('[data-slot="set-row"]').first());
-    await capture(page, 'rir-active-5-plus-390-dark.png');
-
-    await page.setViewportSize({ width: 430, height: 1000 });
-    await page.evaluate(() => window.localStorage.setItem('pulse-theme', 'midnight'));
-    await page.reload({ waitUntil: 'networkidle' });
-    await expectTheme(page, 'midnight');
-    const midnightBenchPanel = await exercisePanel(page, exerciseNames.bench);
-    await expectNoOverflow(page, 430, midnightBenchPanel.locator('[data-slot="set-row"]').first());
-    await capture(page, 'rir-active-5-plus-430-midnight.png');
-
-    await page.setViewportSize({ width: 1280, height: 1000 });
-    await page.evaluate(() => window.localStorage.setItem('pulse-theme', 'light'));
-    await page.reload({ waitUntil: 'networkidle' });
-    await expectTheme(page, 'light');
-    const desktopBenchPanel = await exercisePanel(page, exerciseNames.bench);
-    await expectNoOverflow(page, 1280, desktopBenchPanel.locator('[data-slot="set-row"]').first());
-    await capture(page, 'rir-active-5-plus-1280-light.png');
-
     let failedOnce = false;
     await page.route(
       `**/api/v1/workout-sessions/${activeSessionId}/sets/${activeBenchSetId}`,
@@ -440,25 +696,204 @@ test.describe('First-class RIR logging', () => {
         await route.fallback();
       },
     );
-    const restoredTrigger = desktopBenchPanel.locator('[data-slot="popover-trigger"]');
-    await expect(restoredTrigger).toHaveAccessibleName(
-      'RIR for set 1: 5 or more repetitions in reserve',
+    await page.setViewportSize({ width: 320, height: 1000 });
+    await authenticate(page, 'light');
+    await page.goto(`/workouts/active?sessionId=${activeSessionId}`, {
+      waitUntil: 'domcontentloaded',
+    });
+    await expectTheme(page, 'light');
+
+    const benchPanel = await exercisePanel(page, exerciseNames.bench);
+    const benchTrigger = benchPanel.locator('[data-slot="popover-trigger"]').first();
+    await expect(benchTrigger).toBeVisible();
+    await expect(benchTrigger).toHaveAccessibleName(
+      'RIR for set 1: No repetitions in reserve logged',
     );
-    await restoredTrigger.click();
-    await page.getByRole('radio', { name: '4 repetitions in reserve' }).click();
+    await expect(benchTrigger).toHaveText('RIR —');
+    const triggerBox = await benchTrigger.boundingBox();
+    expect(triggerBox?.height, 'RIR trigger touch target').toBeGreaterThanOrEqual(44);
+    await expectNoOverflow(page, 320, benchPanel.locator('[data-slot="set-row"]').first());
+    await capture(page, 'rir-active-unset-320-light.png');
+
+    await benchTrigger.focus();
+    await page.keyboard.press('Enter');
+    const group = page.getByRole('radiogroup', { name: 'RIR selection for set 1' });
+    await expect(group).toBeVisible();
+    await expect(
+      page.getByRole('dialog', { name: 'Repetitions in reserve · Set 1' }),
+    ).toHaveAccessibleDescription('0 = no reps left · 5+ = five or more reps left');
+    const clear = group.getByRole('radio', { name: 'Clear repetitions in reserve' });
+    await clear.focus();
+    expect(await textContrastRatio(clear), 'selected RIR contrast').toBeGreaterThanOrEqual(4.5);
+    for (const option of await group.getByRole('radio').all()) {
+      const box = await option.boundingBox();
+      expect(
+        box?.height,
+        `${await option.getAttribute('aria-label')} touch target`,
+      ).toBeGreaterThanOrEqual(44);
+      expect(
+        box?.width,
+        `${await option.getAttribute('aria-label')} touch target`,
+      ).toBeGreaterThanOrEqual(44);
+    }
+
+    for (const key of ['Shift+3', 'Control+3', 'Alt+3', 'Meta+3']) {
+      await page.keyboard.press(key);
+      await expect(group).toBeVisible();
+    }
+    await clear.dispatchEvent('keydown', { key: '3', repeat: true });
+    await clear.dispatchEvent('keydown', { isComposing: true, key: '3' });
+    await expect(group).toBeVisible();
+    expect(patchBodies).toHaveLength(0);
+
+    const failedPatch = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/sets/${activeBenchSetId}`) && response.status() === 503,
+    );
+    await page.keyboard.press('3');
+    await failedPatch;
     await expect(
       page.getByText('RIR was not saved. The previous value was restored.'),
     ).toBeVisible();
-    await expect(restoredTrigger).toHaveText('5+ RIR');
+    await expect(benchTrigger).toBeFocused();
+    await expect(benchTrigger).toHaveText('RIR —');
+    expect(patchBodies).toHaveLength(1);
+    expect(patchBodies[0]).toMatchObject({ completed: false, rir: 3, rpe: null });
+    const afterFailure = await api.get(`/api/v1/workout-sessions/${activeSessionId}`);
+    const failedSet = (
+      (await afterFailure.json()) as {
+        data: { sets: Array<{ id: string; rir?: number; rpe?: number }> };
+      }
+    ).data.sets.find((set) => set.id === activeBenchSetId);
+    expect(failedSet).toMatchObject({ rpe: 8 });
+    expect(failedSet).not.toHaveProperty('rir');
+
+    for (const digit of [0, 1, 2, 3, 4, 5]) {
+      await benchTrigger.click();
+      const digitGroup = page.getByRole('radiogroup', { name: 'RIR selection for set 1' });
+      await digitGroup.getByRole('radio').first().focus();
+      const successfulPatch = page.waitForResponse(
+        (response) =>
+          response.url().endsWith(`/sets/${activeBenchSetId}`) && response.status() === 200,
+      );
+      await page.keyboard.press(`${digit}`);
+      await successfulPatch;
+      await expect(benchTrigger).toBeFocused();
+      expect(patchBodies.at(-1)).toMatchObject({ completed: false, rir: digit, rpe: null });
+      expect(patchBodies).toHaveLength(digit + 2);
+    }
+    await expect(benchTrigger).toHaveText('5+ RIR');
+
+    await benchTrigger.click();
+    const keypadOption = page.getByRole('radiogroup').getByRole('radio').first();
+    await keypadOption.focus();
+    const keypadPatch = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/sets/${activeBenchSetId}`) && response.status() === 200,
+    );
+    await keypadOption.dispatchEvent('keydown', { code: 'Numpad5', key: '5' });
+    await keypadPatch;
+    expect(patchBodies.at(-1)).toMatchObject({ rir: 5, rpe: null });
+    expect(patchBodies).toHaveLength(8);
+
+    await benchTrigger.click();
+    const scopedWeightPatch = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/sets/${activeBenchSetId}`) && response.status() === 200,
+    );
+    await benchPanel.getByLabel('Weight for set 1').fill('155');
+    await benchPanel.getByLabel('Weight for set 1').blur();
+    await scopedWeightPatch;
+    expect(patchBodies).toHaveLength(9);
+    expect(patchBodies.at(-1)).toMatchObject({ completed: false, reps: null, weight: 155 });
+    expect(patchBodies.at(-1)).not.toHaveProperty('rir');
+
+    await benchTrigger.click();
+    const scopedRepsPatch = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/sets/${activeBenchSetId}`) && response.status() === 200,
+    );
+    await benchPanel.getByLabel('Reps for set 1').fill('12');
+    await benchPanel.getByLabel('Reps for set 1').blur();
+    await scopedRepsPatch;
+    expect(patchBodies).toHaveLength(10);
+    expect(patchBodies.at(-1)).toMatchObject({ completed: true, reps: 12, weight: 155 });
+    expect(patchBodies.at(-1)).not.toHaveProperty('rir');
+
+    await page.reload({ waitUntil: 'networkidle' });
+    const resumedBenchPanel = await exercisePanel(page, exerciseNames.bench);
+    await expect(
+      resumedBenchPanel.getByRole('button', {
+        name: /RIR for set 1: 5 or more repetitions in reserve/u,
+      }),
+    ).toHaveText('5+ RIR');
+
+    await expect(resumedBenchPanel.getByLabel('Weight for set 1')).toHaveValue('155');
+    await expect(resumedBenchPanel.getByLabel('Reps for set 1')).toHaveValue('12');
     const persisted = await api.get(`/api/v1/workout-sessions/${activeSessionId}`);
-    expect(persisted.ok(), await persisted.text()).toBeTruthy();
     const persistedPayload = (await persisted.json()) as {
-      data: { sets: Array<{ id: string; rir?: number; completed: boolean }> };
+      data: { sets: Array<{ completed: boolean; id: string; rir?: number; setNumber: number }> };
     };
     expect(persistedPayload.data.sets.find((set) => set.id === activeBenchSetId)).toMatchObject({
-      completed: false,
+      completed: true,
       rir: 5,
     });
+    expect(
+      persistedPayload.data.sets.find((set) => set.id === activeBenchSecondSetId),
+    ).toMatchObject({ rir: 5 });
+
+    const completedTrigger = resumedBenchPanel.locator('[data-slot="popover-trigger"]').nth(1);
+    await expect(completedTrigger).toHaveAccessibleName(
+      /RIR for set 2: 5 or more repetitions in reserve/u,
+    );
+    await completedTrigger.click();
+    await page.getByRole('radiogroup').getByRole('radio').first().focus();
+    const completedSelectionRequest = page.waitForRequest(
+      (candidate) =>
+        candidate.method() === 'PATCH' &&
+        candidate.url().endsWith(`/sets/${activeBenchSecondSetId}`),
+    );
+    await page.keyboard.press('4');
+    expect((await completedSelectionRequest).postDataJSON()).toMatchObject({
+      completed: true,
+      rir: 4,
+      rpe: null,
+    });
+    await expect(completedTrigger).toBeFocused();
+
+    await completedTrigger.click();
+    await page.getByRole('radiogroup').getByRole('radio').first().focus();
+    const restoreCompletedSelection = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/sets/${activeBenchSecondSetId}`) && response.status() === 200,
+    );
+    await page.keyboard.press('5');
+    await restoreCompletedSelection;
+    const afterCompletedRirEdit = await api.get(`/api/v1/workout-sessions/${activeSessionId}`);
+    const afterCompletedRirPayload = (await afterCompletedRirEdit.json()) as {
+      data: { sets: Array<{ completed: boolean; id: string; rir?: number }> };
+    };
+    expect(
+      afterCompletedRirPayload.data.sets.find((set) => set.id === activeBenchSecondSetId),
+    ).toMatchObject({ completed: true, rir: 5 });
+    expect(
+      afterCompletedRirPayload.data.sets.find((set) => set.id === activeBenchSetId),
+    ).toMatchObject({ completed: true, rir: 5 });
+
+    const pushupPanel = await exercisePanel(page, exerciseNames.pushup);
+    await expect(pushupPanel.getByRole('button', { name: /RIR for set 1/u })).toBeVisible();
+    const plankPanel = await exercisePanel(page, exerciseNames.plank);
+    await expect(plankPanel.getByLabel('Seconds for set 1')).toBeVisible();
+    await expect(plankPanel.getByRole('button', { name: /RIR for set 1/u })).toHaveCount(0);
+
+    await page.setViewportSize({ width: 430, height: 1000 });
+    await page.evaluate(() => window.localStorage.setItem('pulse-theme', 'midnight'));
+    await page.reload({ waitUntil: 'networkidle' });
+    await expectTheme(page, 'midnight');
+    const midnightBenchPanel = await exercisePanel(page, exerciseNames.bench);
+    await expectNoOverflow(page, 430, midnightBenchPanel.locator('[data-slot="set-row"]').first());
+    await capture(page, 'rir-active-5-plus-430-midnight.png');
+
     diagnostics();
   });
 
@@ -477,7 +912,24 @@ test.describe('First-class RIR logging', () => {
     await expectTheme(page, 'midnight');
     await expect(page.getByText(/Set 1: 155 lbs × 8 reps \(RPE 8\)/u)).toBeVisible();
     await expect(page.getByText(/Set 2: 155 lbs × 8 reps \(5\+ RIR\)/u)).toBeVisible();
+    const initialCompletedResponse = await api.get(
+      `/api/v1/workout-sessions/${completedSessionId}`,
+    );
+    const initialCompletedSession = (
+      (await initialCompletedResponse.json()) as {
+        data: { completedAt: number | null; startedAt: number; status: string };
+      }
+    ).data;
 
+    let correctionRequestCount = 0;
+    page.on('request', (candidate) => {
+      if (
+        candidate.method() === 'PATCH' &&
+        candidate.url().endsWith(`/workout-sessions/${completedSessionId}/corrections`)
+      ) {
+        correctionRequestCount += 1;
+      }
+    });
     let failedCorrection = false;
     await page.route(
       `**/api/v1/workout-sessions/${completedSessionId}/corrections`,
@@ -495,16 +947,22 @@ test.describe('First-class RIR logging', () => {
       },
     );
     await page.getByRole('button', { name: 'Edit' }).click();
-    await page
-      .getByRole('button', { name: /RIR for set 1: No repetitions in reserve logged/u })
-      .click();
-    await page.getByRole('radio', { name: '3 repetitions in reserve' }).click();
+    const failedDraftTrigger = page.locator('[data-slot="popover-trigger"]').first();
+    await expect(failedDraftTrigger).toHaveAccessibleName(
+      /RIR for set 1: No repetitions in reserve logged/u,
+    );
+    await failedDraftTrigger.click();
+    await page.getByRole('radiogroup').getByRole('radio').first().focus();
+    await page.keyboard.press('3');
+    await expect(failedDraftTrigger).toBeFocused();
+    expect(correctionRequestCount).toBe(0);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Failed to save corrections. Please try again.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled();
     await expect(
       page.getByRole('button', { name: /RIR for set 1: 3 repetitions in reserve/u }),
     ).toBeVisible();
+    expect(correctionRequestCount).toBe(1);
     const afterFailedCorrection = await api.get(`/api/v1/workout-sessions/${completedSessionId}`);
     expect(afterFailedCorrection.ok(), await afterFailedCorrection.text()).toBeTruthy();
     const failedSet = (
@@ -514,28 +972,43 @@ test.describe('First-class RIR logging', () => {
     ).data.sets.find((set) => set.id === completedLegacySetId);
     expect(failedSet).toMatchObject({ rpe: 8 });
     expect(failedSet).not.toHaveProperty('rir');
-    await page.getByRole('button', { name: 'Cancel' }).click();
+
+    const retainedDraftRetry = page.waitForRequest(
+      (candidate) =>
+        candidate.url().endsWith(`/workout-sessions/${completedSessionId}/corrections`) &&
+        candidate.method() === 'PATCH',
+    );
+    await page.getByRole('button', { name: 'Save' }).click();
+    expect((await retainedDraftRetry).postDataJSON()).toEqual({
+      corrections: [{ setId: completedLegacySetId, rir: 3, rpe: null }],
+    });
+    expect(correctionRequestCount).toBe(2);
+    await expect(page.getByText(/Set 1: 155 lbs × 8 reps \(3 RIR\)/u)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save' })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Edit' }).click();
-    const trigger = page.getByRole('button', {
-      name: /RIR for set 1: No repetitions in reserve logged/u,
-    });
+    const trigger = page.locator('[data-slot="popover-trigger"]').first();
+    await expect(trigger).toHaveAccessibleName(/RIR for set 1: 3 repetitions in reserve/u);
     await trigger.click();
     await expect(page.getByText('0 = no reps left · 5+ = five or more reps left')).toBeVisible();
     await expectNoOverflow(page, 430, page.getByRole('dialog'));
     await capture(page, 'rir-correction-picker-430-midnight.png');
 
+    await page.getByRole('radiogroup').getByRole('radio').first().focus();
+    await page.keyboard.press('2');
+    await expect(trigger).toBeFocused();
+    expect(correctionRequestCount).toBe(2);
     const correctionRequest = page.waitForRequest(
       (candidate) =>
         candidate.url().endsWith(`/workout-sessions/${completedSessionId}/corrections`) &&
         candidate.method() === 'PATCH',
     );
-    await page.getByRole('radio', { name: '2 repetitions in reserve' }).click();
     await page.getByRole('button', { name: 'Save' }).click();
     const requestPayload = (await correctionRequest).postDataJSON() as unknown;
     expect(requestPayload).toEqual({
-      corrections: [{ setId: completedLegacySetId, rir: 2, rpe: null }],
+      corrections: [{ setId: completedLegacySetId, rir: 2 }],
     });
+    expect(correctionRequestCount).toBe(3);
     await expect(page.getByText(/Set 1: 155 lbs × 8 reps \(2 RIR\)/u)).toBeVisible();
     await expect(page.getByText(/Set 2: 155 lbs × 8 reps \(5\+ RIR\)/u)).toBeVisible();
 
@@ -549,7 +1022,21 @@ test.describe('First-class RIR logging', () => {
     ]);
     expect(jwtDetail.ok(), await jwtDetail.text()).toBeTruthy();
     expect(agentDetail.ok(), await agentDetail.text()).toBeTruthy();
-    expect((await agentDetail.json()).data).toEqual((await jwtDetail.json()).data);
+    const jwtPayload = (
+      (await jwtDetail.json()) as {
+        data: { completedAt: number | null; startedAt: number; status: string };
+      }
+    ).data;
+    expect((await agentDetail.json()).data).toEqual(jwtPayload);
+    expect({
+      completedAt: jwtPayload.completedAt,
+      startedAt: jwtPayload.startedAt,
+      status: jwtPayload.status,
+    }).toEqual({
+      completedAt: initialCompletedSession.completedAt,
+      startedAt: initialCompletedSession.startedAt,
+      status: initialCompletedSession.status,
+    });
     expect(history.ok(), await history.text()).toBeTruthy();
     expect(((await history.json()) as { data: unknown }).data).toEqual(
       expect.arrayContaining([

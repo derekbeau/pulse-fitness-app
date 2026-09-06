@@ -14,7 +14,7 @@ describe('SetRow', () => {
     vi.useRealTimers();
   });
 
-  it('renders compact inline inputs and auto-completes when all fields are filled', () => {
+  it('renders touch-sized populated inputs in a dedicated metric row and auto-completes', () => {
     const onUpdate = vi.fn();
 
     render(
@@ -31,8 +31,14 @@ describe('SetRow', () => {
     const weightInput = screen.getByLabelText('Weight for set 3');
     const repsInput = screen.getByLabelText('Reps for set 3');
 
-    expect(weightInput).toHaveClass('h-9');
-    expect(repsInput).toHaveClass('h-9');
+    expect(weightInput).toHaveClass('h-11');
+    expect(repsInput).toHaveClass('h-11');
+    expect(weightInput).toHaveAttribute('aria-describedby');
+    expect(repsInput).toHaveAttribute('aria-describedby');
+    expect(document.querySelector('[data-slot="set-metrics"]')).toHaveClass(
+      'col-span-2',
+      'row-start-2',
+    );
     expect(screen.getByText('Set 3')).toBeInTheDocument();
     expect(screen.queryByText('Weight')).not.toBeInTheDocument();
 
@@ -275,7 +281,84 @@ describe('SetRow', () => {
     );
 
     expect(screen.getByText('km')).toBeInTheDocument();
+    expect(screen.getByLabelText('Distance for set 1')).toHaveValue(5);
   });
+
+  it.each([
+    {
+      labels: ['Weight', 'Reps'],
+      props: { reps: 12, trackingType: 'weight_reps' as const, weight: 157.5 },
+      values: [157.5, 12],
+    },
+    {
+      labels: ['Weight', 'Seconds'],
+      props: {
+        reps: null,
+        seconds: 3600,
+        trackingType: 'weight_seconds' as const,
+        weight: 155.5,
+      },
+      values: [155.5, 3600],
+    },
+    {
+      labels: ['Reps'],
+      props: { reps: 12, trackingType: 'bodyweight_reps' as const },
+      values: [12],
+    },
+    {
+      labels: ['Reps'],
+      props: { reps: 12, trackingType: 'reps_only' as const },
+      values: [12],
+    },
+    {
+      labels: ['Reps', 'Seconds'],
+      props: { reps: 12, seconds: 3600, trackingType: 'reps_seconds' as const },
+      values: [12, 3600],
+    },
+    {
+      labels: ['Seconds'],
+      props: { reps: null, seconds: 3600, trackingType: 'seconds_only' as const },
+      values: [3600],
+    },
+    {
+      labels: ['Duration', 'RPE', 'Zone'],
+      props: {
+        reps: null,
+        rpe: 8,
+        seconds: 3600,
+        trackingType: 'duration' as const,
+        zone: 3,
+      },
+      values: [3600, 8, 3],
+    },
+    {
+      labels: ['Distance'],
+      props: { distance: 5.4, reps: null, trackingType: 'distance' as const },
+      values: [5.4],
+    },
+    {
+      labels: ['Seconds', 'Distance'],
+      props: {
+        distance: 5.4,
+        reps: null,
+        seconds: 3600,
+        trackingType: 'cardio' as const,
+      },
+      values: [3600, 5.4],
+    },
+  ])(
+    'keeps populated $props.trackingType metrics and units explicit',
+    ({ labels, props, values }) => {
+      render(<SetRow completed={false} onUpdate={vi.fn()} setNumber={7} {...props} />);
+
+      labels.forEach((label, index) => {
+        const input = screen.getByLabelText(`${label} for set 7`);
+        expect(input).toHaveValue(values[index]);
+        expect(input).toHaveClass('h-11', 'tabular-nums');
+        expect(input).toHaveAttribute('aria-describedby');
+      });
+    },
+  );
 
   it('renders read-only target hints when prescribed targets exist', () => {
     render(

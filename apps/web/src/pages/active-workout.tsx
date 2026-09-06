@@ -1932,7 +1932,10 @@ function createSessionSetDrafts(
           : sessionSet.reps;
     const nextSet = {
       completed: sessionSet.completed,
-      distance: null,
+      distance:
+        trackingType === 'distance' || trackingType === 'cardio'
+          ? (sessionSet.distance ?? null)
+          : null,
       id: sessionSet.id,
       number: sessionSet.setNumber,
       reps: nextReps,
