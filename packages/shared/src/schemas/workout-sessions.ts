@@ -310,6 +310,15 @@ export const sessionSetSchema = z
     targetWeightMax: z.number().min(0).nullable().optional(),
     targetSeconds: z.number().int().min(0).max(MAX_DURATION_SECONDS).nullable().optional(),
     targetDistance: z.number().min(0).nullable().optional(),
+    sourceScheduledSetId: requiredStringSchema.nullable().optional(),
+    exerciseIdSnapshot: requiredStringSchema.nullable().optional(),
+    exerciseNameSnapshot: requiredStringSchema.nullable().optional(),
+    trackingTypeSnapshot: exerciseTrackingTypeSchema.nullable().optional(),
+    targetReps: nullableIntegerSchema.optional(),
+    targetRepsMin: nullableIntegerSchema.optional(),
+    targetRepsMax: nullableIntegerSchema.optional(),
+    targetZone: nullableZoneSchema.optional(),
+    supersetGroup: nullableShortStringSchema.optional(),
     completed: z.boolean(),
     skipped: z.boolean(),
     section: workoutTemplateSectionTypeSchema.nullable(),
@@ -327,6 +336,7 @@ export const sessionSetSchema = z
   .superRefine(validateMutuallyExclusiveWorkoutEffort);
 
 export const workoutSessionExerciseSchema = z.object({
+  sourceScheduledExerciseId: requiredStringSchema.nullable().optional(),
   exerciseId: requiredStringSchema.nullable(),
   exerciseName: requiredStringSchema,
   deletedAt: z.string().nullable().optional(),
@@ -341,6 +351,8 @@ export const workoutSessionExerciseSchema = z.object({
     .optional(),
   orderIndex: z.number().int().min(0),
   section: workoutTemplateSectionTypeSchema.nullable(),
+  tempo: z.string().nullable().optional(),
+  restSeconds: z.number().int().nonnegative().nullable().optional(),
   programmingNotes: nullableLongStringSchema.default(null),
   agentNotes: nullableLongStringSchema.default(null),
   agentNotesMeta: z
@@ -360,6 +372,7 @@ export const workoutSessionSchema = z
     id: z.string(),
     userId: z.string(),
     templateId: z.string().nullable(),
+    scheduledWorkoutId: requiredStringSchema.nullable().optional(),
     name: requiredStringSchema,
     date: dateSchema,
     status: workoutSessionStatusSchema,

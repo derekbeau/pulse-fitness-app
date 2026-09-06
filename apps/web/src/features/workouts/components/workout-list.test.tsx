@@ -137,7 +137,8 @@ describe('WorkoutList', () => {
       });
   });
 
-  it('shows unavailable state for soft-deleted scheduled templates and hides stale start actions', async () => {
+  it('allows snapshot start when the reusable template is unavailable', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ data: [] }));
     const sessions = [
       createSession({
         id: 'session-hidden',
@@ -171,9 +172,11 @@ describe('WorkoutList', () => {
     expect(screen.getByText('Workout unavailable')).toBeInTheDocument();
     const unavailableCard = screen.getByText('Workout unavailable').closest('[data-slot="card"]');
     expect(unavailableCard).not.toBeNull();
-    expect(
-      within(unavailableCard as HTMLElement).getByRole('button', { name: 'Start' }),
-    ).toBeDisabled();
+    await waitFor(() =>
+      expect(
+        within(unavailableCard as HTMLElement).getByRole('button', { name: 'Start' }),
+      ).toBeEnabled(),
+    );
   });
 
   it('shows planned-workout onboarding when no scheduled or active workouts exist', async () => {

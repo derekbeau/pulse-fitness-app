@@ -156,6 +156,10 @@ describe('use-workout-session hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: workoutQueryKeys.scheduledWorkout('scheduled-1'),
     });
+    const body = JSON.parse(String(mockFetch.mock.calls[0]?.[1]?.body));
+    expect(body.scheduledWorkoutId).toBe('scheduled-1');
+    expect(body).not.toHaveProperty('templateId');
+    expect(body).not.toHaveProperty('sets');
   });
 
   it('patches session start time and refreshes the session query', async () => {

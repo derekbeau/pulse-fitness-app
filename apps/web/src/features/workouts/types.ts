@@ -36,7 +36,7 @@ export type ActiveWorkoutTemplateExercise = {
   formCues: string[];
   programmingNotes?: string | null;
   reps: string;
-  restSeconds: number;
+  restSeconds: number | null;
   sets: number;
   supersetGroup?: string | null;
   targetDistance?: number | null;
@@ -44,7 +44,7 @@ export type ActiveWorkoutTemplateExercise = {
   targetWeight?: number | null;
   targetWeightMax?: number | null;
   targetWeightMin?: number | null;
-  tempo: string;
+  tempo: string | null;
   templateCues?: string[];
   trackingType?: ExerciseTrackingType;
 };
@@ -56,6 +56,7 @@ export type ActiveWorkoutTemplateSection = {
 };
 
 export type ActiveWorkoutTemplate = {
+  scheduledWorkoutId?: string | null;
   description: string;
   id: string;
   name: string;
@@ -176,7 +177,7 @@ export type ActiveWorkoutExerciseMetadata = {
   prescribedReps: string;
   prescribedSets: number;
   priority: ActiveWorkoutPriority;
-  restSeconds: number;
+  restSeconds: number | null;
   reversePyramid: ActiveWorkoutReversePyramidTarget[];
   supersetGroup: string | null;
   tempo: string | null;

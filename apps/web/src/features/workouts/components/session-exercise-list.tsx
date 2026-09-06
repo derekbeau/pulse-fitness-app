@@ -493,7 +493,7 @@ export function SessionExerciseList({
                         (exercise) => exercise.id === (focusTarget?.exerciseId ?? null),
                       );
                       const sharedRestSeconds = Math.max(
-                        ...item.exercises.map((exercise) => exercise.restSeconds),
+                        ...item.exercises.map((exercise) => exercise.restSeconds ?? 0),
                       );
                       const isGroupCompleted = item.exercises.every(
                         (exercise) => exercise.completedSets >= exercise.targetSets,
@@ -1013,7 +1013,7 @@ function ExerciseCardItem({
               {exercise.tempo ? (
                 <MetadataPill label={`Tempo: ${formatTempo(exercise.tempo)}`} />
               ) : null}
-              {exercise.restSeconds > 0 ? (
+              {exercise.restSeconds != null && exercise.restSeconds > 0 ? (
                 <MetadataPill label={`Rest: ${formatRestDuration(exercise.restSeconds)}`} />
               ) : null}
             </div>

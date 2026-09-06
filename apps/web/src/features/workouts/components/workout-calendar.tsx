@@ -28,13 +28,14 @@ import {
   useRescheduleWorkout,
   useScheduledWorkouts,
   useUnscheduleWorkout,
-  useWorkoutTemplate,
   useWorkoutSessions,
 } from '../api/workouts';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 import { useTodayKey } from '../hooks/use-today-key';
 import { hasAvailableTemplate } from '../lib/workout-filters';
-import { buildInitialSessionSets } from '../lib/workout-session-sets';
+import { buildScheduledStartPayload } from '../lib/scheduled-start';
+import { ApiError } from '@/lib/api-client';
+import { toast } from 'sonner';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 const monthFormatter = new Intl.DateTimeFormat('en-US', {
@@ -441,17 +442,10 @@ function DayWorkoutItemCard({
   const deleteSessionMutation = useDeleteSession(workout.session?.id ?? null);
   const cancelSessionMutation = useCancelAndRevertSession(workout.session?.id ?? null);
   const activeSessionsQuery = useWorkoutSessions({ status: ['in-progress', 'paused'] });
-  const templateId = workout.templateId ?? '';
-  const shouldFetchTemplate = workout.status === 'scheduled' && templateId.trim().length > 0;
-  const templateQuery = useWorkoutTemplate(templateId, { enabled: shouldFetchTemplate });
   const { confirm, dialog } = useConfirmation();
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
   const [rescheduleAuthorityDate, setRescheduleAuthorityDate] = useState<string | null>(null);
-  const canStart =
-    !dateAuthorityLocked &&
-    todayKey !== null &&
-    workout.status === 'scheduled' &&
-    !workout.isUnavailable;
+  const canStart = !dateAuthorityLocked && todayKey !== null && workout.status === 'scheduled';
   const isMutating =
     unscheduleWorkoutMutation.isPending ||
     rescheduleWorkoutMutation.isPending ||
@@ -459,27 +453,38 @@ function DayWorkoutItemCard({
     deleteSessionMutation.isPending ||
     cancelSessionMutation.isPending;
 
-  async function doStart(expectedTodayKey: string) {
+  async function doStart(expectedTodayKey: string, force = false) {
     const mutationTodayKey = getTodayKeyForMutation();
     if (
       mutationTodayKey === null ||
       mutationTodayKey !== expectedTodayKey ||
-      !workout.scheduledWorkout ||
-      !workout.templateId ||
-      !templateQuery.data
+      !workout.scheduledWorkout
     ) {
       return;
     }
 
-    const startedAt = Date.now();
-    const session = await startSessionMutation.mutateAsync({
-      date: mutationTodayKey,
-      name: workout.name,
-      sets: buildInitialSessionSets(templateQuery.data),
-      startedAt,
-      templateId: workout.templateId,
-    });
-    navigate(`/workouts/active?template=${workout.templateId}&sessionId=${session.id}`);
+    try {
+      const session = await startSessionMutation.mutateAsync(
+        buildScheduledStartPayload(workout.scheduledWorkout.id, mutationTodayKey, { force }),
+      );
+      const search = new URLSearchParams({ sessionId: session.id });
+      const templateId = session.templateId ?? workout.templateId;
+      if (templateId) search.set('template', templateId);
+      navigate(`/workouts/active?${search.toString()}`);
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'STALE_SNAPSHOT_EXERCISES') {
+        confirm({
+          title: 'Some scheduled exercises are unavailable',
+          description: 'Start the scheduled snapshot and skip unavailable exercises?',
+          confirmLabel: 'Start anyway',
+          onConfirm: () => {
+            void doStart(expectedTodayKey, true);
+          },
+        });
+        return;
+      }
+      toast.error(error instanceof Error ? error.message : 'Unable to start workout');
+    }
   }
 
   function handleStart() {
@@ -610,7 +615,7 @@ function DayWorkoutItemCard({
       <div className="mt-3 flex flex-wrap gap-2">
         {workout.status === 'scheduled' ? (
           <Button
-            disabled={isMutating || !canStart || templateQuery.isPending}
+            disabled={isMutating || activeSessionsQuery.isPending || !canStart}
             onClick={() => {
               void handleStart();
             }}

@@ -1,3 +1,4 @@
+import { buildScheduledStartPayload } from '../lib/scheduled-start';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import {
@@ -260,13 +261,12 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
     const startedAt = Date.now();
 
     try {
-      const session = await startSessionMutation.mutateAsync({
-        date: mutationTodayKey,
-        ...(options?.force ? { force: true } : {}),
-        ...(template?.name ? { name: template.name } : {}),
-        scheduledWorkoutId: scheduledWorkout.id,
-        startedAt,
-      });
+      const session = await startSessionMutation.mutateAsync(
+        buildScheduledStartPayload(scheduledWorkout.id, mutationTodayKey, {
+          startedAt,
+          force: options?.force,
+        }),
+      );
 
       const searchParams = new URLSearchParams({ sessionId: session.id });
       const templateId = session.templateId ?? scheduledWorkout.templateId;

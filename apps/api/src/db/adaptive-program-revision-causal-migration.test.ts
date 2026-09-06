@@ -21,6 +21,11 @@ type MigrationJournal = {
   entries: Array<{ idx: number; version: string; when: number; tag: string; breakpoints: boolean }>;
 };
 
+const currentJournal = JSON.parse(
+  readFileSync(join(sourceMigrationsFolder, 'meta/_journal.json'), 'utf8'),
+) as MigrationJournal;
+const pendingAfter0055 = currentJournal.entries.filter((entry) => entry.idx > 55).length;
+
 const stageMigrationsThrough = (root: string, maximumIndex: number) => {
   const destination = join(root, `through-${maximumIndex}`);
   mkdirSync(join(destination, 'meta'), { recursive: true });
@@ -461,7 +466,7 @@ describe('adaptive program revision causal migration', () => {
       }
 
       expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
-        applied: 4,
+        applied: pendingAfter0055,
         projectionRevisions: 3,
       });
       expect(
@@ -690,7 +695,7 @@ describe('adaptive program revision causal migration', () => {
       ).toEqual({ createdAt: 1787702400000 });
 
       expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
-        applied: 4,
+        applied: pendingAfter0055,
         projectionRevisions: 1,
       });
       expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
@@ -762,7 +767,7 @@ describe('adaptive program revision causal migration', () => {
       });
 
       expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
-        applied: 4,
+        applied: pendingAfter0055,
         projectionRevisions: 1,
       });
       expectHealthyDatabase(sqlite);
@@ -778,7 +783,7 @@ describe('adaptive program revision causal migration', () => {
     sqlite.pragma('foreign_keys = ON');
     try {
       expect(migratePulseDatabase(sqlite, { migrationsFolder: sourceMigrationsFolder })).toEqual({
-        applied: 60,
+        applied: currentJournal.entries.length,
         projectionRevisions: 0,
       });
       expect(

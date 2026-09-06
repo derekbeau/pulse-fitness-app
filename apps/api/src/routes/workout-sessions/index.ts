@@ -51,7 +51,6 @@ import {
   findScheduledWorkoutById,
   findScheduledWorkoutBySessionId,
   unlinkScheduledWorkoutSession,
-  linkTodayScheduledWorkoutToSession,
 } from '../scheduled-workouts/store.js';
 import {
   readSnapshot,
@@ -86,6 +85,7 @@ import {
   SessionSetEffortConflictError,
   SessionSetNotFoundError,
   SessionSetRirUnsupportedError,
+  ScheduledWorkoutLinkConflictError,
   type SessionSetSnapshotFact,
   swapWorkoutSessionExercise,
   updateSessionSet,
@@ -493,6 +493,23 @@ const buildScheduledSnapshotSessionSeed = ({
     agentNotesByExerciseSection,
     agentNotesMetaByExerciseSection,
     setSnapshotFactsByKey,
+    exercisePrescriptions: Object.fromEntries(
+      persistedExercises.map((exercise) => [
+        `${exercise.section ?? 'main'}::${exercise.exerciseId}`,
+        {
+          tempo: exercise.tempo,
+          restSeconds: exercise.restSeconds,
+          sourceScheduledExerciseId: exercise.id,
+          sourceSetCount: exercise.sets.length,
+          exerciseId: exercise.exerciseId,
+          exerciseName: exercise.exerciseNameSnapshot ?? 'Unknown exercise',
+          trackingType: exercise.trackingTypeSnapshot ?? 'reps_only',
+          section: exercise.section,
+          orderIndex: exercise.orderIndex,
+          supersetGroup: exercise.supersetGroup,
+        },
+      ]),
+    ),
   };
 };
 
@@ -646,7 +663,11 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             NonNullable<ScheduledWorkoutSnapshot['exercises'][number]['agentNotesMeta']> | null
           >
         | undefined;
+      let exercisePrescriptions:
+        | ReturnType<typeof buildScheduledSnapshotSessionSeed>['exercisePrescriptions']
+        | undefined;
       let scheduledWorkoutId: string | undefined;
+      let replaceScheduledWorkoutSessionId: string | null | undefined;
       let setSnapshotFactsByKey: Record<string, SessionSetSnapshotFact> | undefined;
       let linkScheduledWorkoutSession = false;
       let warnings: Array<z.infer<typeof workoutSessionCreateWarningSchema>> | undefined;
@@ -724,7 +745,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             });
           }
 
-          await unlinkScheduledWorkoutSession(schedule.id, request.userId);
+          replaceScheduledWorkoutSessionId = schedule.sessionId;
         }
 
         const snapshot = await readSnapshot(schedule.id);
@@ -772,6 +793,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         agentNotesByExerciseSection = scheduledSeed.agentNotesByExerciseSection;
         agentNotesMetaByExerciseSection = scheduledSeed.agentNotesMetaByExerciseSection;
         setSnapshotFactsByKey = scheduledSeed.setSnapshotFactsByKey;
+        exercisePrescriptions = scheduledSeed.exercisePrescriptions;
         scheduledWorkoutId = schedule.id;
         linkScheduledWorkoutSession = true;
 
@@ -863,6 +885,30 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
+      // Persisted snapshots may predate current validation. Reject invalid prescriptions
+      // before the transaction, rather than failing response serialization after commit.
+      if (hasScheduledStart) {
+        const validInput = createWorkoutSessionInputSchema.safeParse(input).success;
+        const validSnapshotSets = input.sets.every((set) => {
+          const key = `${set.section ?? 'main'}::${set.exerciseId}::${set.setNumber}`;
+          const facts = setSnapshotFactsByKey?.[key];
+          return sessionSetSchema.safeParse({
+            ...set,
+            ...facts,
+            id: facts?.sourceScheduledSetId ?? '',
+            createdAt: input.startedAt,
+          }).success;
+        });
+        if (!validInput || !validSnapshotSets) {
+          return sendError(
+            reply,
+            400,
+            'INVALID_SCHEDULED_SNAPSHOT',
+            'Scheduled snapshot contains invalid prescriptions',
+          );
+        }
+      }
+
       let session;
       try {
         session = await createWorkoutSession({
@@ -874,22 +920,18 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           agentNotesMetaByExerciseSection,
           scheduledWorkoutId,
           linkScheduledWorkoutSession,
+          replaceScheduledWorkoutSessionId,
           setSnapshotFactsByKey,
+          exercisePrescriptions,
         });
       } catch (error) {
         if (error instanceof SessionSetRirUnsupportedError) {
           return sendError(reply, 400, 'RIR_UNSUPPORTED_TRACKING_TYPE', error.message);
         }
+        if (error instanceof ScheduledWorkoutLinkConflictError) {
+          return sendError(reply, 409, 'SCHEDULED_WORKOUT_LINK_CONFLICT', error.message);
+        }
         throw error;
-      }
-
-      if (!hasScheduledStart && input.templateId !== null) {
-        await linkTodayScheduledWorkoutToSession({
-          userId: request.userId,
-          templateId: input.templateId,
-          date: input.date,
-          sessionId: session.id,
-        });
       }
 
       setAgentEnrichmentContext(request, {

@@ -14,9 +14,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { setStoredActiveWorkoutSessionId } from '@/features/workouts/lib/session-persistence';
-import {
-  workoutQueryKeys,
-} from '@/features/workouts/api/workouts';
+import { workoutQueryKeys } from '@/features/workouts/api/workouts';
 import {
   syncSessionMutationCache,
   workoutSessionQueryKeys,
@@ -55,8 +53,12 @@ async function getWorkoutSession(sessionId: string) {
 
 async function startSession(input: CreateWorkoutSessionRequest) {
   const parsedInput = createWorkoutSessionRequestSchema.parse(input);
+  // Schema defaults belong to the server; scheduled requests never seed template sets.
+  const requestBody = parsedInput.scheduledWorkoutId
+    ? { ...parsedInput, templateId: undefined, sets: undefined }
+    : parsedInput;
   const data = await apiRequest<unknown>('/api/v1/workout-sessions', {
-    body: JSON.stringify(parsedInput),
+    body: JSON.stringify(requestBody),
     method: 'POST',
   });
   const payload = workoutSessionResponseSchema.parse({ data });

@@ -31,12 +31,13 @@ import {
   useRescheduleWorkout,
   useScheduledWorkouts,
   useUnscheduleWorkout,
-  useWorkoutTemplate,
   useWorkoutSessions,
 } from '../api/workouts';
 import { useTodayKey } from '../hooks/use-today-key';
 import { hasAvailableTemplate } from '../lib/workout-filters';
-import { buildInitialSessionSets } from '../lib/workout-session-sets';
+import { buildScheduledStartPayload } from '../lib/scheduled-start';
+import { ApiError } from '@/lib/api-client';
+import { toast } from 'sonner';
 import {
   useCancelAndRevertSession,
   useDeleteSession,
@@ -373,8 +374,6 @@ function ScheduledWorkoutCard({
   const unscheduleWorkoutMutation = useUnscheduleWorkout();
   const startSessionMutation = useStartSession();
   const activeSessionsQuery = useWorkoutSessions({ status: ['in-progress', 'paused'] });
-  const templateId = scheduledWorkout.templateId ?? '';
-  const templateQuery = useWorkoutTemplate(templateId);
 
   const isMutating =
     rescheduleWorkoutMutation.isPending ||
@@ -385,13 +384,9 @@ function ScheduledWorkoutCard({
   );
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
   const [rescheduleAuthorityDate, setRescheduleAuthorityDate] = useState<string | null>(null);
-  const isTemplateAvailable = !scheduledWorkout.isUnavailable && !templateQuery.isError;
+  const isTemplateAvailable = !scheduledWorkout.isUnavailable;
   const isStartDisabled =
-    isMutating ||
-    dateAuthorityLocked ||
-    todayKey === null ||
-    !isTemplateAvailable ||
-    templateQuery.isPending;
+    isMutating || activeSessionsQuery.isPending || dateAuthorityLocked || todayKey === null;
 
   async function handleReschedule(requestedDate: string) {
     const mutationTodayKey = getTodayKeyForMutation();
@@ -424,27 +419,34 @@ function ScheduledWorkoutCard({
     setIsRescheduleDialogOpen(true);
   }
 
-  async function doStart(expectedTodayKey: string) {
+  async function doStart(expectedTodayKey: string, force = false) {
     const mutationTodayKey = getTodayKeyForMutation();
-    if (
-      mutationTodayKey === null ||
-      mutationTodayKey !== expectedTodayKey ||
-      !templateQuery.data ||
-      !scheduledWorkout.templateId ||
-      !scheduledWorkout.templateName
-    ) {
+    if (mutationTodayKey === null || mutationTodayKey !== expectedTodayKey) {
       return;
     }
 
-    const startedAt = Date.now();
-    const session = await startSessionMutation.mutateAsync({
-      date: mutationTodayKey,
-      name: scheduledWorkout.templateName,
-      sets: buildInitialSessionSets(templateQuery.data),
-      startedAt,
-      templateId: scheduledWorkout.templateId,
-    });
-    navigate(`/workouts/active?template=${scheduledWorkout.templateId}&sessionId=${session.id}`);
+    try {
+      const session = await startSessionMutation.mutateAsync(
+        buildScheduledStartPayload(scheduledWorkout.id, mutationTodayKey, { force }),
+      );
+      const search = new URLSearchParams({ sessionId: session.id });
+      const templateId = session.templateId ?? scheduledWorkout.templateId;
+      if (templateId) search.set('template', templateId);
+      navigate(`/workouts/active?${search.toString()}`);
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'STALE_SNAPSHOT_EXERCISES') {
+        confirm({
+          title: 'Some scheduled exercises are unavailable',
+          description: 'Start the scheduled snapshot and skip unavailable exercises?',
+          confirmLabel: 'Start anyway',
+          onConfirm: () => {
+            void doStart(expectedTodayKey, true);
+          },
+        });
+        return;
+      }
+      toast.error(error instanceof Error ? error.message : 'Unable to start workout');
+    }
   }
 
   function handleStartNow() {

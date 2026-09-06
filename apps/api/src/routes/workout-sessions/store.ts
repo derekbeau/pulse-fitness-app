@@ -1,3 +1,4 @@
+import type { SessionExercisePrescription } from '../../db/schema/workout-sessions.js';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -58,6 +59,8 @@ export const sectionRank = (section: WorkoutTemplateSectionType | null): number 
   return index === -1 ? SECTION_ORDER.length + 1 : index;
 };
 
+type ExercisePrescriptions = Record<string, SessionExercisePrescription>;
+
 type WorkoutSessionRecord = {
   id: string;
   userId: string;
@@ -74,6 +77,7 @@ type WorkoutSessionRecord = {
   exerciseProgrammingNotes: string | null;
   exerciseAgentNotes: Record<string, string | null> | null;
   exerciseAgentNotesMeta: Record<string, WorkoutSessionExerciseAgentNotesMeta | null> | null;
+  exercisePrescriptions: ExercisePrescriptions | null;
   notes: string | null;
   createdAt: number;
   updatedAt: number;
@@ -84,7 +88,7 @@ type WorkoutSessionAccessRecord = {
   status: WorkoutSession['status'];
 };
 
-type SessionSetRecord = {
+type SessionSetRecord = SessionSetSnapshotFact & {
   id: string;
   sessionId: string;
   exerciseId: string | null;
@@ -155,6 +159,7 @@ const workoutSessionSelection = {
   exerciseProgrammingNotes: workoutSessions.exerciseProgrammingNotes,
   exerciseAgentNotes: workoutSessions.exerciseAgentNotes,
   exerciseAgentNotesMeta: workoutSessions.exerciseAgentNotesMeta,
+  exercisePrescriptions: workoutSessions.exercisePrescriptions,
   notes: workoutSessions.notes,
   createdAt: workoutSessions.createdAt,
   updatedAt: workoutSessions.updatedAt,
@@ -187,6 +192,15 @@ const workoutSessionListSelection = {
 const sessionSetSelection = {
   id: sessionSets.id,
   sessionId: sessionSets.sessionId,
+  sourceScheduledSetId: sessionSets.sourceScheduledSetId,
+  exerciseIdSnapshot: sessionSets.exerciseIdSnapshot,
+  exerciseNameSnapshot: sessionSets.exerciseNameSnapshot,
+  trackingTypeSnapshot: sessionSets.trackingTypeSnapshot,
+  targetReps: sessionSets.targetReps,
+  targetRepsMin: sessionSets.targetRepsMin,
+  targetRepsMax: sessionSets.targetRepsMax,
+  targetZone: sessionSets.targetZone,
+
   exerciseId: sessionSets.exerciseId,
   orderIndex: sessionSets.orderIndex,
   setNumber: sessionSets.setNumber,
@@ -252,6 +266,24 @@ const buildSessionSet = (set: SessionSetRecord): SessionSet => ({
   ...(set.targetWeightMax !== null ? { targetWeightMax: set.targetWeightMax } : {}),
   ...(set.targetSeconds !== null ? { targetSeconds: set.targetSeconds } : {}),
   ...(set.targetDistance !== null ? { targetDistance: set.targetDistance } : {}),
+  ...(set.sourceScheduledSetId
+    ? {
+        sourceScheduledSetId: set.sourceScheduledSetId,
+        exerciseIdSnapshot: set.exerciseIdSnapshot,
+        exerciseNameSnapshot: set.exerciseNameSnapshot,
+        trackingTypeSnapshot: set.trackingTypeSnapshot,
+        targetReps: set.targetReps,
+        targetRepsMin: set.targetRepsMin,
+        targetRepsMax: set.targetRepsMax,
+        targetZone: set.targetZone,
+        targetWeight: set.targetWeight,
+        targetWeightMin: set.targetWeightMin,
+        targetWeightMax: set.targetWeightMax,
+        targetSeconds: set.targetSeconds,
+        targetDistance: set.targetDistance,
+        supersetGroup: set.supersetGroup,
+      }
+    : {}),
   completed: set.completed,
   skipped: set.skipped,
   section: set.section,
@@ -263,7 +295,7 @@ const buildSessionSetGroups = (sets: SessionSetRecord[]): SessionSetGroup[] => {
   const groups = new Map<string, { exerciseId: string | null; sets: SessionSet[] }>();
 
   for (const set of sets.sort(sortSessionSets)) {
-    const groupKey = set.exerciseId ?? `deleted-${set.section ?? 'supplemental'}-${set.orderIndex}`;
+    const groupKey = `${set.section ?? 'main'}::${set.exerciseId ?? `deleted-${set.orderIndex}`}`;
     const existingGroup = groups.get(groupKey);
     const parsedSet = buildSessionSet(set);
 
@@ -313,6 +345,7 @@ const buildWorkoutSession = (
     id: session.id,
     userId: session.userId,
     templateId: session.templateId,
+    ...(session.scheduledWorkoutId ? { scheduledWorkoutId: session.scheduledWorkoutId } : {}),
     name: session.name,
     date: session.date,
     status: session.status,
@@ -329,6 +362,7 @@ const buildWorkoutSession = (
       programmingNotesByExerciseSection,
       agentNotesByExerciseSection,
       agentNotesMetaByExerciseSection,
+      session.exercisePrescriptions ?? {},
     ),
     sets: sets.sort(sortSessionSets).map<SessionSet>(buildSessionSet),
     createdAt: session.createdAt,
@@ -352,6 +386,7 @@ const buildWorkoutSessionExercises = (
   programmingNotesByExerciseSection: Record<string, string | null>,
   agentNotesByExerciseSection: Record<string, string | null>,
   agentNotesMetaByExerciseSection: Record<string, WorkoutSessionExerciseAgentNotesMeta | null>,
+  prescriptions: ExercisePrescriptions,
 ): WorkoutSessionExercise[] => {
   const groupedByExercise = new Map<
     string,
@@ -371,13 +406,14 @@ const buildWorkoutSessionExercises = (
   >();
 
   for (const set of sets.sort(sortSessionSets)) {
-    const groupKey = set.exerciseId ?? `deleted-${set.section ?? 'supplemental'}-${set.orderIndex}`;
+    const groupKey = `${set.section ?? 'main'}::${set.exerciseId ?? `deleted-${set.orderIndex}`}`;
     const existing = groupedByExercise.get(groupKey);
     const parsedSet = buildSessionSet(set);
     const exerciseInfo =
       typeof set.exerciseId === 'string' ? exerciseInfoById.get(set.exerciseId) : undefined;
     const exerciseName =
-      set.exerciseId === null ? 'Deleted exercise' : (exerciseInfo?.name ?? 'Unknown Exercise');
+      set.exerciseNameSnapshot ??
+      (set.exerciseId === null ? 'Deleted exercise' : (exerciseInfo?.name ?? 'Unknown Exercise'));
 
     if (existing) {
       existing.orderIndex = Math.min(existing.orderIndex, set.orderIndex);
@@ -393,7 +429,8 @@ const buildWorkoutSessionExercises = (
       exerciseName,
       deletedAt: exerciseInfo?.deletedAt ?? null,
       supersetGroup: set.supersetGroup,
-      trackingType: (exerciseInfo?.trackingType as ExerciseTrackingType) ?? null,
+      trackingType:
+        set.trackingTypeSnapshot ?? (exerciseInfo?.trackingType as ExerciseTrackingType) ?? null,
       orderIndex: set.orderIndex,
       section: set.section,
       sets: [parsedSet],
@@ -401,6 +438,21 @@ const buildWorkoutSessionExercises = (
       coachingNotes: exerciseInfo?.coachingNotes ?? null,
       instructions: exerciseInfo?.instructions ?? null,
     });
+  }
+
+  // Retain source exercises even when all planned sets were removed.
+  for (const prescription of Object.values(prescriptions)) {
+    const key = `${prescription.section}::${prescription.exerciseId}`;
+    if (prescription.sourceSetCount === 0 && !groupedByExercise.has(key)) {
+      groupedByExercise.set(key, {
+        ...prescription,
+        deletedAt: exerciseInfoById.get(prescription.exerciseId)?.deletedAt ?? null,
+        formCues: [],
+        coachingNotes: null,
+        instructions: null,
+        sets: [],
+      });
+    }
   }
 
   return Array.from(groupedByExercise.values())
@@ -448,6 +500,12 @@ const buildWorkoutSessionExercises = (
           : (agentNotesMetaByExerciseSection[
               `${exercise.section ?? 'main'}::${exercise.exerciseId}`
             ] ?? null),
+      tempo: prescriptions[`${exercise.section ?? 'main'}::${exercise.exerciseId}`]?.tempo,
+      restSeconds:
+        prescriptions[`${exercise.section ?? 'main'}::${exercise.exerciseId}`]?.restSeconds,
+      sourceScheduledExerciseId:
+        prescriptions[`${exercise.section ?? 'main'}::${exercise.exerciseId}`]
+          ?.sourceScheduledExerciseId,
       sets: exercise.sets,
     }));
 };
@@ -533,6 +591,13 @@ export class SessionSetNotFoundError extends Error {
     super(`Session set ${setId} not found`);
     this.name = 'SessionSetNotFoundError';
     this.setId = setId;
+  }
+}
+
+export class ScheduledWorkoutLinkConflictError extends Error {
+  constructor() {
+    super('Scheduled workout is already linked to another session');
+    this.name = 'ScheduledWorkoutLinkConflictError';
   }
 }
 
@@ -1364,6 +1429,8 @@ export const createWorkoutSession = async ({
   agentNotesMetaByExerciseSection,
   scheduledWorkoutId,
   linkScheduledWorkoutSession,
+  replaceScheduledWorkoutSessionId,
+  exercisePrescriptions,
   setSnapshotFactsByKey = {},
 }: {
   id: string;
@@ -1374,6 +1441,8 @@ export const createWorkoutSession = async ({
   agentNotesMetaByExerciseSection?: Record<string, WorkoutSessionExerciseAgentNotesMeta | null>;
   scheduledWorkoutId?: string;
   linkScheduledWorkoutSession?: boolean;
+  replaceScheduledWorkoutSessionId?: string | null;
+  exercisePrescriptions?: ExercisePrescriptions;
   setSnapshotFactsByKey?: Record<string, SessionSetSnapshotFact>;
 }): Promise<WorkoutSession> => {
   const { db } = await import('../../db/index.js');
@@ -1433,6 +1502,7 @@ export const createWorkoutSession = async ({
         ),
         exerciseAgentNotes: agentNotesByExerciseSection ?? null,
         exerciseAgentNotesMeta: agentNotesMetaByExerciseSection ?? null,
+        exercisePrescriptions: exercisePrescriptions ?? null,
         notes: input.notes,
       })
       .run();
@@ -1455,13 +1525,16 @@ export const createWorkoutSession = async ({
           and(
             eq(scheduledWorkouts.id, scheduledWorkoutId),
             eq(scheduledWorkouts.userId, userId),
-            isNull(scheduledWorkouts.sessionId),
+            replaceScheduledWorkoutSessionId === null ||
+              replaceScheduledWorkoutSessionId === undefined
+              ? isNull(scheduledWorkouts.sessionId)
+              : eq(scheduledWorkouts.sessionId, replaceScheduledWorkoutSessionId),
           ),
         )
         .run();
 
       if (linkResult.changes !== 1) {
-        throw new Error('Failed to link scheduled workout to the new session');
+        throw new ScheduledWorkoutLinkConflictError();
       }
     }
   });

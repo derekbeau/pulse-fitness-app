@@ -104,7 +104,7 @@ function estimateSingleExerciseTime(exercise: ActiveWorkoutExercise, setCount: n
   const secondsPerRep = estimateSecondsPerRep(exercise.tempo);
   const repTime = secondsPerRep * averageReps;
   const totalWork = repTime * normalizedSetCount;
-  const totalRest = Math.max(normalizedSetCount - 1, 0) * exercise.restSeconds;
+  const totalRest = Math.max(normalizedSetCount - 1, 0) * (exercise.restSeconds ?? 0);
 
   return Math.max(0, Math.round(totalWork + totalRest));
 }
@@ -134,7 +134,7 @@ function estimateSupersetGroupTime(
 
   const totalWork = entries.reduce((total, entry) => total + entry.workPerSet * entry.setCount, 0);
   const roundCount = entries.reduce((max, entry) => Math.max(max, entry.setCount), 0);
-  const trailingRestSeconds = entries[entries.length - 1].exercise.restSeconds;
+  const trailingRestSeconds = entries[entries.length - 1].exercise.restSeconds ?? 0;
   const totalRest = Math.max(roundCount - 1, 0) * trailingRestSeconds;
 
   return Math.max(0, Math.round(totalWork + totalRest));

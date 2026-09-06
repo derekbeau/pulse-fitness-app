@@ -71,26 +71,47 @@ Lifecycle rules:
 
 ### Scheduled Start Lifecycle
 
-`POST /api/v1/workout-sessions` supports three start selectors:
+`POST /api/v1/workout-sessions` accepts exactly one source selector:
 
-1. `scheduledWorkoutId` (scheduled snapshot start)
-2. `templateId` or `templateName` (template start)
-3. `name` (ad-hoc start)
+1. `scheduledWorkoutId`: materialize that owned snapshot.
+2. `templateId` or AgentToken `templateName`: create an independent template session.
+3. `name` without either selector: create an independent ad-hoc session.
 
-Scheduled starts seed from `scheduled_workout_exercises` + `scheduled_workout_exercise_sets`, not from live template rows.
+Template and ad-hoc starts never claim a schedule, including the explicit “Create another
+anyway” action. No same-day template matching or post-create auto-link is performed. Missing,
+malformed, foreign and nonexistent scheduled selectors cannot fall through to a template start.
 
-- Session set prescriptions copy snapshot targets (`targetWeight*`, `targetSeconds`, `targetDistance`, and exact `reps` when present).
-- Session exercise note snapshots copy `programmingNotes`, `agentNotes`, and `agentNotesMeta` from the scheduled snapshot.
+List, calendar and scheduled detail use `buildScheduledStartPayload`; dashboard links to scheduled
+detail. Scheduled requests omit `templateId` and `sets`, including after schema validation.
+The date-authority hook supplies the current local day and is rechecked after confirmations.
+The API intentionally retains `schedule.date`; `startedAt` records when the early start occurs.
+If local midnight passes or date authority locks while a confirmation is open, the pending start
+is aborted. Browser timezone is never used to select a schedule.
 
-Scheduled-start idempotency:
+Session creation, all set inserts and reverse schedule linking are one transaction. Both link
+columns must agree. A live linked session returns `409 SCHEDULED_WORKOUT_ALREADY_STARTED`;
+a competing transaction returns `409 SCHEDULED_WORKOUT_LINK_CONFLICT`. A cancelled/deleted
+link is replaced atomically only if it still has the observed value. Failed inserts/links preserve
+that old link and leave no new session or sets. Stored prescriptions are validated before
+creation; invalid targets return `400 INVALID_SCHEDULED_SNAPSHOT` with no writes. Cancellation permits another start of the same
+snapshot without changing its source rows.
 
-- If `scheduled_workouts.sessionId` points to a live session (not cancelled and not soft-deleted), start returns `409 SCHEDULED_WORKOUT_ALREADY_STARTED`.
-- If the linked session is cancelled or deleted, the server clears `scheduled_workouts.sessionId` and allows a fresh start from the same snapshot.
+Scheduled materialization copies exact source set IDs, identity/tracking snapshots, all targets
+(including nulls), section/order/supersets and the three note channels. The session response exposes
+`scheduledWorkoutId`, source exercise/set IDs, immutable facts and nullable targets. Migration
+`0060_scheduled_session_prescriptions` adds nullable exercise prescription JSON for tempo/rest
+and source exercise identity, including exercises with zero source sets. It does not backfill
+historical sessions. Legacy responses remain readable without these optional fields.
 
-Stale snapshot exercises:
+Active rendering uses session snapshot names, tracking, notes, sets and prescriptions. Scheduled
+sessions never union in template supplemental exercises or replace explicit null notes/tempo/rest
+with template values. Null rest disables the automatic rest timer; time estimates count it as zero
+without changing the prescription. Later live changes to set order/supersets remain session data.
 
-- If snapshot exercises reference deleted/unavailable exercises, start returns `409 STALE_SNAPSHOT_EXERCISES` with `staleExercises`.
-- `force: true` allows start to continue by skipping stale snapshot exercises and returns `warnings: [{ code: 'STALE_EXERCISES_SKIPPED', exercises: [...] }]`.
+Stale snapshot exercises return `409 STALE_SNAPSHOT_EXERCISES`. The explicit force confirmation
+reuses the same scheduled selector and skips only stale exercises, returning
+`STALE_EXERCISES_SKIPPED`. Source completeness applies to every non-skipped source set.
+An empty snapshot can start an empty session; it never silently loads a template.
 
 ## Completed Session Detail Surface
 
@@ -152,7 +173,7 @@ A workout session is the user-specific execution record of a template.
 - API response ordering: `GET /api/v1/workout-sessions/:id` must return both `sets[]` and `exercises[]` ordered as `warmup → main → supplemental → cooldown → null-section orphans → unknown`. This is enforced by `sectionRank` in `apps/api/src/routes/workout-sessions/store.ts`.
 - Unknown section values always sort to the end. If a new section type is introduced, add it to `SECTION_ORDER` in `apps/api/src/routes/workout-sessions/store.ts` so it sorts in the intended position.
 - Session snapshot rule: section membership is snapshotted at session creation via `buildInitialSessionSets` in `apps/api/src/routes/workout-sessions/session-set-utils.ts`. Later template edits do not backfill an in-flight session. To modify upcoming workouts, edit the scheduled-workout snapshot endpoints instead of the template source.
-- Supplemental UI fallback: `buildTemplateFromSession` in `apps/web/src/pages/active-workout.tsx` unions in fallback-template supplemental exercises when the session snapshot has zero supplemental rows.
+- Legacy/template-only supplemental UI fallback: `buildTemplateFromSession` in `apps/web/src/pages/active-workout.tsx` unions in fallback-template supplemental exercises when the session snapshot has zero supplemental rows.
 - Logging against a fallback-sourced supplemental exercise writes a real supplemental session-set row through the existing bulk `PATCH /api/v1/workout-sessions/:id` path; once logged, that row is part of the session snapshot.
 - Warmup/main/cooldown are not unioned from fallback templates. If those sections are empty in a session response, treat it as data corruption, not expected product behavior.
 
