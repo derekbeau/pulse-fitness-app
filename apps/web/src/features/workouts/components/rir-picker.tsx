@@ -41,6 +41,24 @@ export function RirPicker({
   };
 
   const handleGroupKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const isModified =
+      event.shiftKey ||
+      event.ctrlKey ||
+      event.altKey ||
+      event.metaKey ||
+      event.getModifierState('AltGraph');
+    if (
+      /^[0-5]$/u.test(event.key) &&
+      !isModified &&
+      !event.repeat &&
+      !event.nativeEvent.isComposing
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      choose(Number(event.key));
+      return;
+    }
+
     const currentIndex = RIR_OPTIONS.findIndex((option) => option === value);
     let nextIndex: number | null = null;
     if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {

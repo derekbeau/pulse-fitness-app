@@ -1025,10 +1025,13 @@ describe('SessionDetail', () => {
       name: /RIR for set 1: no repetitions in reserve logged/i,
     });
     fireEvent.click(trigger);
-    fireEvent.click(screen.getByRole('radio', { name: '5 or more repetitions in reserve' }));
+    const clearOption = screen.getByRole('radio', { name: 'Clear repetitions in reserve' });
+    clearOption.focus();
+    fireEvent.keyDown(clearOption, { code: 'Digit5', key: '5' });
     await screen.findByRole('button', {
       name: /RIR for set 1: 5 or more repetitions in reserve/i,
     });
+    expect(capturedCorrectionPayload).toBeNull();
     expect(trigger).toHaveFocus();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -1117,7 +1120,9 @@ describe('SessionDetail', () => {
     fireEvent.click(
       screen.getByRole('button', { name: /RIR for set 1: no repetitions in reserve logged/i }),
     );
-    fireEvent.click(screen.getByRole('radio', { name: '2 repetitions in reserve' }));
+    const clearOption = screen.getByRole('radio', { name: 'Clear repetitions in reserve' });
+    clearOption.focus();
+    fireEvent.keyDown(clearOption, { code: 'Digit2', key: '2' });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).not.toBeDisabled());
