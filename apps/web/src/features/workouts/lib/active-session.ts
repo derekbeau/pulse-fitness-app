@@ -110,7 +110,7 @@ export function buildActiveWorkoutSession(
         lastPerformance: sessions
           ? getLastPerformance(templateExercise.exerciseId, sessionStartedAt, sessions)
           : (enhancedExercise?.lastPerformance ?? null),
-        name: enhancedExercise?.name ?? fallbackExerciseName,
+        name: templateExercise.exerciseName ?? enhancedExercise?.name ?? fallbackExerciseName,
         notes: exerciseNotes[templateExercise.exerciseId] ?? '',
         phaseBadge: enhancedExercise?.phaseBadge ?? 'moderate',
         programmingNotes: templateExerciseWithMetadata.programmingNotes ?? null,
@@ -122,7 +122,9 @@ export function buildActiveWorkoutSession(
         sets,
         supersetGroup: hasSupersetOverride
           ? exerciseSupersetOverrides[templateExercise.exerciseId]
-          : (templateExercise.supersetGroup ?? enhancedExercise?.supersetGroup ?? null),
+          : template.scheduledWorkoutId
+            ? (templateExercise.supersetGroup ?? null)
+            : (templateExercise.supersetGroup ?? enhancedExercise?.supersetGroup ?? null),
         tempo: templateExercise.tempo ?? null,
         targetSets: sets.length,
         trackingType,

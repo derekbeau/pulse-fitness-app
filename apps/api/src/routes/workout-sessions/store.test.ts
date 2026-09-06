@@ -199,6 +199,15 @@ describe('workout session store deleteSessionSet', () => {
     ): SortableSetRecord => ({
       id,
       sessionId: 'session-sort',
+      sourceScheduledSetId: null,
+      exerciseIdSnapshot: null,
+      exerciseNameSnapshot: null,
+      trackingTypeSnapshot: null,
+      targetReps: null,
+      targetRepsMin: null,
+      targetRepsMax: null,
+      targetZone: null,
+
       exerciseId: `${id}-exercise`,
       orderIndex: 0,
       setNumber: 1,

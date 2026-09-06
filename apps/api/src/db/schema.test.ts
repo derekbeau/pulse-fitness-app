@@ -1213,6 +1213,7 @@ describe('workoutSessions schema', () => {
       'exerciseProgrammingNotes',
       'exerciseAgentNotes',
       'exerciseAgentNotesMeta',
+      'exercisePrescriptions',
       'notes',
       'deletedAt',
       'createdAt',

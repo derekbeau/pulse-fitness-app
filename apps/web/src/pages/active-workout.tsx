@@ -98,7 +98,7 @@ import { buildSessionSetInputs, extractExerciseNotes } from '@/features/workouts
 import { startCase } from '@/features/workouts/lib/start-case';
 import { ApiError, apiRequest } from '@/lib/api-client';
 import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
-import type { ActiveWorkoutExercise, ActiveWorkoutTemplate } from '@/features/workouts/types';
+import type { ActiveWorkoutTemplate } from '@/features/workouts/types';
 
 const sectionTitleByType: Record<WorkoutTemplateSectionType, string> = {
   warmup: 'Warmup',
@@ -1501,6 +1501,13 @@ export function ActiveWorkoutPage() {
       return;
     }
 
+    if (
+      templateExercise.exercise.restSeconds == null ||
+      templateExercise.exercise.restSeconds <= 0
+    ) {
+      setRestTimer(null);
+      return;
+    }
     restTimerTokenRef.current += 1;
     setRestTimer({
       duration: templateExercise.exercise.restSeconds,
@@ -2599,7 +2606,9 @@ export function buildTemplateFromSession(
       continue;
     }
 
-    const fallbackExercise = fallbackExerciseById.get(sessionExercise.exerciseId)?.exercise;
+    const fallbackExercise = activeSession.scheduledWorkoutId
+      ? undefined
+      : fallbackExerciseById.get(sessionExercise.exerciseId)?.exercise;
     const defaultReps = fallbackExercise?.reps ?? inferExerciseRepsFromSets(sessionExercise.sets);
 
     const sessionSetCount = sessionExercise.sets.reduce(
@@ -2618,10 +2627,18 @@ export function buildTemplateFromSession(
         sessionExercise.supersetGroup === undefined
           ? (fallbackExercise?.supersetGroup ?? null)
           : sessionExercise.supersetGroup,
-      sets: sessionSetCount > 0 ? sessionSetCount : (fallbackExercise?.sets ?? 1),
+      sets: activeSession.scheduledWorkoutId
+        ? sessionExercise.sets.length
+        : sessionSetCount > 0
+          ? sessionSetCount
+          : (fallbackExercise?.sets ?? 1),
       reps: defaultReps,
-      tempo: fallbackExercise?.tempo ?? '2111',
-      restSeconds: fallbackExercise?.restSeconds ?? 60,
+      tempo: activeSession.scheduledWorkoutId
+        ? (sessionExercise.tempo ?? null)
+        : (fallbackExercise?.tempo ?? '2111'),
+      restSeconds: activeSession.scheduledWorkoutId
+        ? (sessionExercise.restSeconds ?? null)
+        : (fallbackExercise?.restSeconds ?? 60),
       formCues: fallbackExercise?.formCues ?? [],
       templateCues: fallbackExercise?.templateCues ?? [],
       programmingNotes:
@@ -2633,7 +2650,11 @@ export function buildTemplateFromSession(
   }
 
   const supplementalSection = sectionsByType.get('supplemental');
-  if (supplementalSection && supplementalSection.exercises.length === 0) {
+  if (
+    !activeSession.scheduledWorkoutId &&
+    supplementalSection &&
+    supplementalSection.exercises.length === 0
+  ) {
     const fallbackSupplemental = fallbackTemplate.sections.find(
       (section) => section.type === 'supplemental',
     );
@@ -2660,6 +2681,7 @@ export function buildTemplateFromSession(
   return {
     ...fallbackTemplate,
     id: activeSession.templateId ?? fallbackTemplate.id,
+    scheduledWorkoutId: activeSession.scheduledWorkoutId,
     name: activeSession.name,
     sections: sectionOrder
       .map((type) => sectionsByType.get(type))
@@ -2669,7 +2691,9 @@ export function buildTemplateFromSession(
   };
 }
 
-function buildSessionExercisesFromSets(session: ApiWorkoutSession) {
+function buildSessionExercisesFromSets(
+  session: ApiWorkoutSession,
+): NonNullable<ApiWorkoutSession['exercises']> {
   const namesById = new Map(
     session.sets
       .filter(
@@ -2688,7 +2712,7 @@ function buildSessionExercisesFromSets(session: ApiWorkoutSession) {
       supersetGroup: string | null;
       programmingNotes: string | null;
       agentNotes: string | null;
-      agentNotesMeta: ActiveWorkoutExercise['agentNotesMeta'];
+      agentNotesMeta: NonNullable<ApiWorkoutSession['exercises']>[number]['agentNotesMeta'];
       sets: SessionSet[];
     }
   >();

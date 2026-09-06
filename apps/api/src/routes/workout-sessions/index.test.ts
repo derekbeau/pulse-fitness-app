@@ -3870,7 +3870,7 @@ describe('workout session routes', () => {
     });
   });
 
-  it('links a newly started session to an unclaimed scheduled workout for today', async () => {
+  it('keeps an independent template start separate from an unclaimed scheduled workout', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
       { expiresIn: '7d' },
@@ -3912,9 +3912,15 @@ describe('workout session routes', () => {
       .limit(1)
       .get();
 
-    expect(linkedSchedule).toEqual({
-      sessionId,
-    });
+    expect(linkedSchedule).toEqual({ sessionId: null });
+
+    const persistedSession = context.db
+      .select({ scheduledWorkoutId: workoutSessions.scheduledWorkoutId })
+      .from(workoutSessions)
+      .where(eq(workoutSessions.id, sessionId))
+      .limit(1)
+      .get();
+    expect(persistedSession).toEqual({ scheduledWorkoutId: null });
   });
 
   it('starts a session from scheduled-workout snapshot and propagates programming and agent notes', async () => {
@@ -4049,6 +4055,454 @@ describe('workout session routes', () => {
     expect(persistedSession).toEqual({
       scheduledWorkoutId: 'schedule-snapshot-seed',
     });
+
+    const persistedSets = context.db
+      .select({
+        sourceScheduledSetId: sessionSets.sourceScheduledSetId,
+        targetRepsMin: sessionSets.targetRepsMin,
+        targetRepsMax: sessionSets.targetRepsMax,
+        targetReps: sessionSets.targetReps,
+        targetWeight: sessionSets.targetWeight,
+        targetWeightMin: sessionSets.targetWeightMin,
+        targetWeightMax: sessionSets.targetWeightMax,
+        section: sessionSets.section,
+      })
+      .from(sessionSets)
+      .where(eq(sessionSets.sessionId, payload.data.id))
+      .all()
+      .sort((left, right) =>
+        (left.sourceScheduledSetId ?? '').localeCompare(right.sourceScheduledSetId ?? ''),
+      );
+    expect(persistedSets).toEqual([
+      {
+        sourceScheduledSetId: 'schedule-snapshot-bench-set-1',
+        targetRepsMin: null,
+        targetRepsMax: null,
+        targetReps: 6,
+        targetWeight: 190,
+        targetWeightMin: null,
+        targetWeightMax: null,
+        section: 'main',
+      },
+      {
+        sourceScheduledSetId: 'schedule-snapshot-bench-set-2',
+        targetRepsMin: null,
+        targetRepsMax: null,
+        targetReps: 6,
+        targetWeight: null,
+        targetWeightMin: 190,
+        targetWeightMax: 195,
+        section: 'main',
+      },
+    ]);
+  });
+
+  function seedProvenanceFixture(identical = true) {
+    seedScheduledWorkout({
+      id: 'proof-schedule',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-09-07',
+    });
+    const names = identical
+      ? ['Bench', 'Row', 'Curl', 'Dead Bug']
+      : ['Leg Extension', 'Leg Curl', 'Hip Flexion', 'Hip Abduction'];
+    return names.flatMap((name, i) => {
+      const exerciseId = `proof-exercise-${i}`;
+      const snapshotId = `proof-snapshot-${i}`;
+      seedExercise({ id: exerciseId, userId: 'user-1', name });
+      seedTemplateExercise({
+        id: `proof-template-${i}`,
+        templateId: 'template-1',
+        exerciseId,
+        orderIndex: i,
+        sets: 5,
+      });
+      context.db
+        .insert(scheduledWorkoutExercises)
+        .values({
+          id: snapshotId,
+          scheduledWorkoutId: 'proof-schedule',
+          exerciseId,
+          exerciseNameSnapshot: name,
+          trackingTypeSnapshot: 'weight_reps',
+          section: identical || i < 3 ? 'main' : 'cooldown',
+          orderIndex: 3 - i,
+          programmingNotes: i === 0 ? null : `Programming ${i}`,
+          agentNotes: i === 1 ? null : `Recovery gate ${i}`,
+          agentNotesMeta:
+            i === 1
+              ? null
+              : {
+                  author: 'Fictional Coach',
+                  generatedAt: '2026-09-06T22:00:00Z',
+                  scheduledDateAtGeneration: '2026-09-07',
+                  stale: false,
+                },
+          supersetGroup: i < 2 ? 'pair' : null,
+          tempo: i === 0 ? null : '3110',
+          restSeconds: i === 0 ? null : 75,
+        })
+        .run();
+      return Array.from({ length: identical ? 5 : i + 1 }, (_, n) => {
+        const fields = {
+          setNumber: n + 1,
+          reps: n === 0 ? null : 8,
+          repsMin: n === 0 ? 6 : null,
+          repsMax: n === 0 ? 10 : null,
+          targetWeight: n === 1 ? 40 : null,
+          targetWeightMin: n === 2 ? 30 : null,
+          targetWeightMax: n === 2 ? 45 : null,
+          targetSeconds: n === 3 ? 60 : null,
+          targetDistance: n === 3 ? 100 : null,
+          targetZone: n === 3 ? 2 : null,
+        };
+        const id = `proof-set-${i}-${n}`;
+        context.db
+          .insert(scheduledWorkoutExerciseSets)
+          .values({ id, scheduledWorkoutExerciseId: snapshotId, ...fields })
+          .run();
+        return {
+          sourceScheduledSetId: id,
+          exerciseId,
+          exerciseIdSnapshot: exerciseId,
+          exerciseNameSnapshot: name,
+          trackingTypeSnapshot: 'weight_reps',
+          section: identical || i < 3 ? 'main' : 'cooldown',
+          orderIndex: 3 - i,
+          supersetGroup: i < 2 ? 'pair' : null,
+          setNumber: fields.setNumber,
+          targetReps: fields.reps,
+          targetRepsMin: fields.repsMin,
+          targetRepsMax: fields.repsMax,
+          targetWeight: fields.targetWeight,
+          targetWeightMin: fields.targetWeightMin,
+          targetWeightMax: fields.targetWeightMax,
+          targetSeconds: fields.targetSeconds,
+          targetDistance: fields.targetDistance,
+          targetZone: fields.targetZone,
+        };
+      });
+    });
+  }
+
+  const proofHeaders = () =>
+    createAuthorizationHeader(
+      context.app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      ),
+    );
+  const proofStart = (headers: Record<string, string> = proofHeaders()) =>
+    context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers,
+      payload: {
+        scheduledWorkoutId: 'proof-schedule',
+        date: '2026-09-06',
+        startedAt: Date.parse('2026-09-07T03:59:59Z'),
+      },
+    });
+
+  it.each([true, false])(
+    'preserves full DB/API snapshot provenance, nulls and notes (20-set visible parity=%s)',
+    async (identical) => {
+      const expectedSets = seedProvenanceFixture(identical);
+      if (!identical) {
+        // The later reusable workout contains only a removed exercise, with unrelated targets.
+        context.db
+          .delete(templateExercises)
+          .where(eq(templateExercises.templateId, 'template-1'))
+          .run();
+        seedTemplateExercise({
+          id: 'diverged-template',
+          templateId: 'template-1',
+          exerciseId: 'global-bench-press',
+          orderIndex: 0,
+          sets: 12,
+          notes: 'Do not leak',
+        });
+        context.db
+          .update(exercises)
+          .set({ name: 'Later catalog rename', trackingType: 'duration' })
+          .where(eq(exercises.id, 'proof-exercise-0'))
+          .run();
+      }
+      const response = await proofStart(
+        identical ? proofHeaders() : createAgentTokenHeader(seedAgentToken('user-1')),
+      );
+      expect(response.statusCode, response.body).toBe(201);
+      const session = response.json().data;
+      expect(session.scheduledWorkoutId).toBe('proof-schedule');
+      expect(session.date).toBe('2026-09-07'); // starts before local midnight, retains scheduled date
+      expect(session.sets).toHaveLength(identical ? 20 : 10);
+      const dbSets = context.db
+        .select()
+        .from(sessionSets)
+        .where(eq(sessionSets.sessionId, session.id))
+        .all();
+      for (const expected of expectedSets) {
+        expect(
+          dbSets.find((set) => set.sourceScheduledSetId === expected.sourceScheduledSetId),
+        ).toMatchObject(expected);
+        expect(
+          session.sets.find(
+            (set: { sourceScheduledSetId: string }) =>
+              set.sourceScheduledSetId === expected.sourceScheduledSetId,
+          ),
+        ).toMatchObject(expected);
+      }
+      const dbSession = context.db
+        .select()
+        .from(workoutSessions)
+        .where(eq(workoutSessions.id, session.id))
+        .get();
+      expect(dbSession?.scheduledWorkoutId).toBe('proof-schedule');
+      expect(
+        context.db
+          .select()
+          .from(scheduledWorkouts)
+          .where(eq(scheduledWorkouts.id, 'proof-schedule'))
+          .get()?.sessionId,
+      ).toBe(session.id);
+      const snapshot = context.db.select().from(scheduledWorkoutExercises).all();
+      for (const exercise of snapshot) {
+        const key = `${exercise.section}::${exercise.exerciseId}`;
+        expect(JSON.parse(dbSession?.exerciseProgrammingNotes ?? '{}')[key]).toBe(
+          exercise.programmingNotes,
+        );
+        expect(dbSession?.exerciseAgentNotes?.[key]).toBe(exercise.agentNotes);
+        expect(dbSession?.exerciseAgentNotesMeta?.[key]).toEqual(exercise.agentNotesMeta);
+        expect(dbSession?.exercisePrescriptions?.[key]).toMatchObject({
+          tempo: exercise.tempo,
+          restSeconds: exercise.restSeconds,
+        });
+        expect(
+          session.exercises.find(
+            (row: { exerciseId: string }) => row.exerciseId === exercise.exerciseId,
+          ),
+        ).toMatchObject({
+          exerciseName: exercise.exerciseNameSnapshot,
+          trackingType: exercise.trackingTypeSnapshot,
+          section: exercise.section,
+          orderIndex: exercise.orderIndex,
+          programmingNotes: exercise.programmingNotes,
+          agentNotes: exercise.agentNotes,
+          agentNotesMeta: exercise.agentNotesMeta,
+          tempo: exercise.tempo,
+          restSeconds: exercise.restSeconds,
+          supersetGroup: exercise.supersetGroup,
+        });
+      }
+      const refreshed = await context.app.inject({
+        method: 'GET',
+        url: `/api/v1/workout-sessions/${session.id}`,
+        headers: proofHeaders(),
+      });
+      expect(refreshed.json().data).toEqual(session);
+    },
+  );
+
+  it('retains a source exercise whose scheduled sets have all been removed', async () => {
+    seedProvenanceFixture();
+    context.db
+      .delete(scheduledWorkoutExerciseSets)
+      .where(eq(scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId, 'proof-snapshot-0'))
+      .run();
+    const response = await proofStart();
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.json().data.sets).toHaveLength(15);
+    expect(response.json().data.exercises).toHaveLength(4);
+    expect(
+      response
+        .json()
+        .data.exercises.find(
+          (exercise: { exerciseId: string }) => exercise.exerciseId === 'proof-exercise-0',
+        ),
+    ).toMatchObject({
+      sourceScheduledExerciseId: 'proof-snapshot-0',
+      exerciseName: 'Bench',
+      sets: [],
+      tempo: null,
+      restSeconds: null,
+      programmingNotes: null,
+    });
+  });
+
+  it.each([
+    { exerciseId: 'missing-exercise', setNumber: 1 },
+    { exerciseId: 'global-bench-press', setNumber: 1, targetWeight: -1 },
+  ])('rejects invalid template materialization without consuming the schedule', async (set) => {
+    seedProvenanceFixture();
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: proofHeaders(),
+      payload: { templateId: 'template-1', date: '2026-09-06', startedAt: 1, sets: [set] },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(context.db.select().from(workoutSessions).all()).toHaveLength(0);
+    expect(context.db.select().from(sessionSets).all()).toHaveLength(0);
+    expect(
+      context.db
+        .select()
+        .from(scheduledWorkouts)
+        .where(eq(scheduledWorkouts.id, 'proof-schedule'))
+        .get()?.sessionId,
+    ).toBeNull();
+  });
+
+  it('rejects invalid stored snapshot targets before creating or linking any session', async () => {
+    seedProvenanceFixture();
+    context.db
+      .update(scheduledWorkoutExerciseSets)
+      .set({ targetSeconds: 2147483647 })
+      .where(eq(scheduledWorkoutExerciseSets.id, 'proof-set-0-0'))
+      .run();
+    const response = await proofStart();
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('INVALID_SCHEDULED_SNAPSHOT');
+    expect(context.db.select().from(workoutSessions).all()).toHaveLength(0);
+    expect(context.db.select().from(sessionSets).all()).toHaveLength(0);
+    expect(
+      context.db
+        .select()
+        .from(scheduledWorkouts)
+        .where(eq(scheduledWorkouts.id, 'proof-schedule'))
+        .get()?.sessionId,
+    ).toBeNull();
+  });
+
+  it('allows exactly one concurrent scheduled start and leaves no orphan session or sets', async () => {
+    seedProvenanceFixture();
+    const responses = await Promise.all([proofStart(), proofStart()]);
+    expect(responses.map((response) => response.statusCode).sort()).toEqual([201, 409]);
+    expect(context.db.select().from(workoutSessions).all()).toHaveLength(1);
+    expect(context.db.select().from(sessionSets).all()).toHaveLength(20);
+    const conflict = responses.find((response) => response.statusCode === 409)?.json();
+    expect(['SCHEDULED_WORKOUT_LINK_CONFLICT', 'SCHEDULED_WORKOUT_ALREADY_STARTED']).toContain(
+      conflict.error.code,
+    );
+  });
+
+  it.each(['sets', 'link'])(
+    'rolls back session and set inserts on injected %s failure, retaining cancelled link',
+    async (failure) => {
+      seedProvenanceFixture();
+      seedWorkoutSession({
+        id: 'old-cancelled',
+        userId: 'user-1',
+        templateId: 'template-1',
+        scheduledWorkoutId: 'proof-schedule',
+        name: 'Cancelled',
+        date: '2026-09-07',
+        status: 'cancelled',
+        startedAt: 1,
+      });
+      context.db
+        .update(scheduledWorkouts)
+        .set({ sessionId: 'old-cancelled' })
+        .where(eq(scheduledWorkouts.id, 'proof-schedule'))
+        .run();
+      context.sqlite.exec(
+        failure === 'sets'
+          ? "CREATE TRIGGER fail_proof BEFORE INSERT ON session_sets BEGIN SELECT RAISE(ABORT, 'injected set failure'); END"
+          : 'CREATE TRIGGER fail_proof BEFORE UPDATE OF session_id ON scheduled_workouts BEGIN SELECT RAISE(IGNORE); END',
+      );
+      try {
+        const response = await proofStart();
+        expect(response.statusCode).toBe(failure === 'sets' ? 500 : 409);
+        expect(
+          context.db
+            .select()
+            .from(workoutSessions)
+            .all()
+            .map((row) => row.id),
+        ).toEqual(['old-cancelled']);
+        expect(context.db.select().from(sessionSets).all()).toHaveLength(0);
+        expect(
+          context.db
+            .select()
+            .from(scheduledWorkouts)
+            .where(eq(scheduledWorkouts.id, 'proof-schedule'))
+            .get()?.sessionId,
+        ).toBe('old-cancelled');
+      } finally {
+        context.sqlite.exec('DROP TRIGGER fail_proof');
+      }
+      expect((await proofStart()).statusCode).toBe(201);
+    },
+  );
+
+  it.each(['jwt', 'agent', 'missing', 'malformed'])(
+    'rejects unauthorized or malformed scheduled selector (%s) without writes',
+    async (mode) => {
+      seedProvenanceFixture();
+      const response =
+        mode === 'malformed'
+          ? await context.app.inject({
+              method: 'POST',
+              url: '/api/v1/workout-sessions',
+              headers: proofHeaders(),
+              payload: {
+                scheduledWorkoutId: '',
+                templateId: 'template-1',
+                date: '2026-09-06',
+                startedAt: 1,
+              },
+            })
+          : await proofStart(
+              mode === 'missing'
+                ? {}
+                : mode === 'agent'
+                  ? createAgentTokenHeader(seedAgentToken('user-2'))
+                  : createAuthorizationHeader(
+                      context.app.jwt.sign(
+                        { sub: 'user-2', type: 'session', iss: 'pulse-api' },
+                        { expiresIn: '7d' },
+                      ),
+                    ),
+            );
+      expect(response.statusCode).toBe(mode === 'missing' ? 401 : mode === 'malformed' ? 400 : 404);
+      expect(context.db.select().from(workoutSessions).all()).toHaveLength(0);
+      expect(context.db.select().from(sessionSets).all()).toHaveLength(0);
+      expect(
+        context.db
+          .select()
+          .from(scheduledWorkouts)
+          .where(eq(scheduledWorkouts.id, 'proof-schedule'))
+          .get()?.sessionId,
+      ).toBeNull();
+    },
+  );
+
+  it('fails closed for an unknown scheduled workout id without creating a template session', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        scheduledWorkoutId: 'missing-scheduled-workout',
+        templateId: null,
+        date: '2026-03-12',
+        startedAt: 1_700_000_400_000,
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'SCHEDULED_WORKOUT_NOT_FOUND',
+        message: 'Scheduled workout not found',
+      },
+    });
+    expect(context.db.select({ id: workoutSessions.id }).from(workoutSessions).all()).toEqual([]);
   });
 
   it('returns 409 when scheduled workout is already linked to a live session', async () => {

@@ -20,6 +20,19 @@ import type { WorkoutTemplateSectionType } from './workout-templates.js';
 import { workoutTemplates } from './workout-templates.js';
 import { users } from './users.js';
 
+export type SessionExercisePrescription = {
+  tempo: string | null;
+  restSeconds: number | null;
+  sourceScheduledExerciseId: string;
+  sourceSetCount: number;
+  exerciseId: string;
+  exerciseName: string;
+  trackingType: ExerciseTrackingType;
+  section: WorkoutTemplateSectionType;
+  orderIndex: number;
+  supersetGroup: string | null;
+};
+
 export type WorkoutSessionStatus =
   | 'scheduled'
   | 'in-progress'
@@ -123,6 +136,10 @@ export const workoutSessions = sqliteTable(
     exerciseAgentNotesMeta: text('exercise_agent_notes_meta', { mode: 'json' }).$type<Record<
       string,
       WorkoutSessionExerciseAgentNotesMeta | null
+    > | null>(),
+    exercisePrescriptions: text('exercise_prescriptions', { mode: 'json' }).$type<Record<
+      string,
+      SessionExercisePrescription
     > | null>(),
     notes: text('notes'),
     deletedAt: text('deleted_at'),

@@ -2992,6 +2992,29 @@ describe('buildTemplateFromSession', () => {
     ]);
   });
 
+  it('never restores removed supplemental exercises or cleared notes from a scheduled template', () => {
+    const fallbackTemplate = createTemplateForBuildTemplateTests({
+      supplementalExercises: [
+        createTemplateExerciseForBuildTemplateTests({ exerciseId: 'removed' }),
+      ],
+    });
+    fallbackTemplate.sections[0].exercises[0] = {
+      ...fallbackTemplate.sections[0].exercises[0],
+      programmingNotes: 'Later template notes',
+      agentNotes: 'Wrong notes',
+      trackingType: 'duration',
+    };
+    const session = createSessionForBuildTemplateTests({ scheduledWorkoutId: 'schedule-1' });
+    const result = buildTemplateFromSession(session, fallbackTemplate);
+    expect(result.sections.find((section) => section.type === 'supplemental')).toBeUndefined();
+    const exercise = result.sections.find((section) => section.type === 'main')?.exercises[0];
+    expect(exercise?.programmingNotes).toBeNull();
+    expect(exercise?.agentNotes).toBeNull();
+    expect(exercise?.trackingType).toBe('weight_reps');
+    expect(exercise?.tempo).toBeNull();
+    expect(exercise?.restSeconds).toBeNull();
+  });
+
   it('omits supplemental when neither snapshot nor template has supplemental exercises', () => {
     const fallbackTemplate = createTemplateForBuildTemplateTests({
       supplementalExercises: [],
