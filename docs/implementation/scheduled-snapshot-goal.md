@@ -2,7 +2,7 @@
 
 ## Contract status
 
-**Frozen handoff for Pulse issue #134. Docs-only; implementation is not authorized in this worktree.**
+**Frozen handoff for Pulse issue #134. The handoff commit is docs-only. Upon verified Goal Mode launch, implementation in this isolated worktree is authorized; production deployment/data repair and executor merge remain prohibited.**
 
 - Repository: `/Users/meridian/Projects/pulse-scheduled-snapshot-fix`
 - Upstream repository: `https://github.com/derekbeau/pulse-fitness-app.git`
