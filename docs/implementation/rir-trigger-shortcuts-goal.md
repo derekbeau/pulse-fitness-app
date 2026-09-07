@@ -53,7 +53,7 @@ Run focused tests during work. Do **not** run heavy/full gates while the #133 in
 
 ## Coordination and final status
 
-The #133 independent reviewer currently owns the full-gate/browser slot. This implementation lane is allowed to code and run focused checks in this isolated worktree, but must wait for explicit parent release before full gates or browser acceptance. Do not deadlock: report **READY FOR GATE — NOT DONE** with exact commit, draft PR, focused-test results, remaining full gates/browser acceptance, and any blockers.
+The #133 independent reviewer is complete and has released the full-gate/browser slot. Before taking that slot, confirm no other active owner is using it; then this implementation lane may run the complete agreed gates and built-in-browser acceptance. If a new owner appears, do not contend: report **READY FOR GATE — NOT DONE** with exact commit, draft PR, focused-test results, remaining gates/browser acceptance, and the blocker.
 
 Primary launcher routing: GPT-6 Astra, **Extra High / actual `Extra High`**, with **Fast mode ON**. Verify visible Fast-mode readback at launch; Fast does not lower reasoning effort. Internal review/support: GPT-5.6 Luna, Medium, with Fast mode enabled when supported; verify actual supported setting and do not invent delegation flags.
 
