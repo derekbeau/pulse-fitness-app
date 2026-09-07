@@ -1,0 +1,590 @@
+COMMAND: pnpm exec turbo run test --only --force --concurrency=1 -- --maxWorkers=1
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running test in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/api:test: cache bypass, force executing dc2462a13a790a23
+@pulse/api:test: 
+@pulse/api:test: > @pulse/api@0.0.0 test /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api
+@pulse/api:test: > vitest run --maxWorkers=1
+@pulse/api:test: 
+@pulse/api:test: 
+@pulse/api:test:  RUN  v4.0.18 /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api
+@pulse/api:test: 
+@pulse/api:test:  ✓ src/routes/workout-sessions/index.test.ts (119 tests) 1255ms
+@pulse/api:test:  ✓ src/routes/scheduled-workouts/index.test.ts (44 tests) 538ms
+@pulse/api:test:  ✓ src/db/nutrition-target-event-migration.test.ts (78 tests) 3636ms
+@pulse/api:test:  ✓ src/routes/exercises/index.test.ts (40 tests) 340ms
+@pulse/api:test:  ✓ src/routes/adaptive-nutrition/review-store.integration.test.ts (78 tests) 4852ms
+@pulse/api:test:      ✓ serializes simultaneous accepts in separate processes into one transition  669ms
+@pulse/api:test:  ✓ src/db/schema.test.ts (47 tests) 10ms
+@pulse/api:test:  ✓ src/routes/adaptive-nutrition/store.integration.test.ts (35 tests) 517ms
+@pulse/api:test:  ✓ src/routes/workout-progression/store.integration.test.ts (27 tests) 1943ms
+@pulse/api:test:  ✓ src/routes/adaptive-nutrition/index.test.ts (20 tests) 370ms
+@pulse/api:test:  ✓ src/db/migrations.test.ts (19 tests) 40ms
+@pulse/api:test:  ✓ src/routes/nutrition/index.test.ts (15 tests) 191ms
+@pulse/api:test:  ✓ src/routes/adaptive-nutrition/goal-trajectory-store.integration.test.ts (16 tests) 663ms
+@pulse/api:test:  ✓ src/routes/data-quality/store.integration.test.ts (18 tests) 3986ms
+@pulse/api:test:      ✓ reduces large revision and action histories before Data Quality materialization  2355ms
+@pulse/api:test:      ✓ preserves per-date context and event caps across a fully dense 42-day range  380ms
+@pulse/api:test:  ✓ src/routes/workout-templates/index.test.ts (14 tests) 308ms
+@pulse/api:test:  ✓ src/db/adaptive-goal-migration.test.ts (11 tests) 265ms
+@pulse/api:test:  ✓ src/routes/foods/analytics-store.integration.test.ts (11 tests) 792ms
+@pulse/api:test:  ✓ src/routes/foods/index.test.ts (27 tests) 279ms
+@pulse/api:test:  ✓ src/routes/adaptive-nutrition/analytics-store.integration.test.ts (17 tests) 397ms
+@pulse/api:test:  ✓ src/routes/meals/index.test.ts (15 tests) 184ms
+@pulse/api:test:  ✓ src/routes/nutrition/daily-energy-store.integration.test.ts (23 tests) 637ms
+@pulse/api:test:      ✓ uses constant-row indexed lookups across dense pre-date revision history  380ms
+@pulse/api:test:  ✓ src/__tests__/foods-nutrition.test.ts (4 tests) 478ms
+@pulse/api:test:      ✓ covers foods CRUD, search, deletion, and recency sorting  392ms
+@pulse/api:test:  ✓ src/__tests__/habits-weight-targets.test.ts (6 tests) 5323ms
+@pulse/api:test:      ✓ logs weight, supports range and latest reads, and scopes results per user  1259ms
+@pulse/api:test:      ✓ filters weight entries by days lookback  470ms
+@pulse/api:test:      ✓ upserts weight entries by user and date without leaking across users  890ms
+@pulse/api:test:      ✓ deletes weight entries, updates latest/list reads, and enforces ownership  922ms
+@pulse/api:test:      ✓ returns the current nutrition target based on the latest effective date on or before today  892ms
+@pulse/api:test:      ✓ upserts nutrition targets by user and effective date without crossing user boundaries  889ms
+@pulse/api:test:  ✓ src/scripts/seed-adaptive-tdee-preview.test.ts (3 tests) 5554ms
+@pulse/api:test:      ✓ rebuilds every Coach state and keeps goal completion explicit  3866ms
+@pulse/api:test:      ✓ matches the independent 2026-08-23 fixture contract across all repaired domains  1684ms
+@pulse/api:test:  ✓ src/routes/weight/index.test.ts (17 tests) 198ms
+@pulse/api:test:  ✓ src/db/adaptive-program-revision-causal-migration.test.ts (10 tests) 593ms
+@pulse/api:test: {"level":30,"time":1788818098933,"pid":42371,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","req":{"method":"POST","url":"/api/v1/habits","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+@pulse/api:test: {"level":30,"time":1788818098933,"pid":42371,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","res":{"statusCode":401},"responseTime":0.27745795249938965,"msg":"request completed"}
+@pulse/api:test: {"level":30,"time":1788818098941,"pid":42371,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","req":{"method":"GET","url":"/api/v1/habits","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+@pulse/api:test: {"level":30,"time":1788818098941,"pid":42371,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","res":{"statusCode":200},"responseTime":0.21574997901916504,"msg":"request completed"}
+@pulse/api:test:  ✓ src/routes/habits/index.test.ts (14 tests) 208ms
+@pulse/api:test:  ✓ src/routes/nutrition/store.food-usage.test.ts (11 tests) 11821ms
+@pulse/api:test:      ✓ preserves exact links through append, metadata, all corrections, delete and retry  2203ms
+@pulse/api:test:      ✓ rolls back create, append, correction and delete when usage persistence fails  3061ms
+@pulse/api:test:      ✓ derives merge from links despite stale counters, with atomic restore and ownership failures  3063ms
+@pulse/api:test:      ✓ keeps trashed food exact through linked-item edits, deletes, reconciliation and restore  784ms
+@pulse/api:test:      ✓ rejects unprefixed agent tokens and rolls back date route create failures  811ms
+@pulse/api:test:      ✓ falls back to the newest surviving timestamp and refuses foreign or partial purges  1565ms
+@pulse/api:test:  ✓ src/__tests__/auth.test.ts (20 tests) 7148ms
+@pulse/api:test:      ✓ registers a user, returns a JWT, and stores a hashed password  815ms
+@pulse/api:test:      ✓ logs in with valid credentials and returns a JWT  460ms
+@pulse/api:test:      ✓ returns INVALID_CREDENTIALS for the wrong password  457ms
+@pulse/api:test:      ✓ accepts a valid JWT on a protected route  452ms
+@pulse/api:test:      ✓ rejects expired JWTs on protected routes  456ms
+@pulse/api:test:      ✓ rejects JWTs without the required type claim  465ms
+@pulse/api:test:      ✓ rejects JWTs with the wrong type claim  467ms
+@pulse/api:test:      ✓ rejects JWTs without the required issuer claim  461ms
+@pulse/api:test:      ✓ creates and lists agent tokens without exposing stored hashes  461ms
+@pulse/api:test:      ✓ authenticates unified /api/v1 routes with an agent token and updates lastUsedAt  458ms
+@pulse/api:test:      ✓ rejects expired agent tokens on unified /api/v1 routes  462ms
+@pulse/api:test:      ✓ accepts agent tokens with null expiresAt for backward compatibility  462ms
+@pulse/api:test:      ✓ extends expiring agent tokens from the new rotation time  452ms
+@pulse/api:test:      ✓ rejects deleted agent tokens on subsequent use  449ms
+@pulse/api:test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: Skipping duplicate food "Large Eggs" for user user-1.
+@pulse/api:test: Foods migration summary: inserted 2, skipped 1, lastUsedAt updated 0.
+@pulse/api:test: 
+@pulse/api:test: stderr | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: Missing food reference for "Mystery Food" on 2026-03-05; item imported without linked foodId.
+@pulse/api:test: Missing habit reference for "Unknown Habit" on 2026-03-05; entry skipped for this day.
+@pulse/api:test: 
+@pulse/api:test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: Processed 2026-03-05: 2 meals, 2 habit entries, weight: 181.9
+@pulse/api:test: Processed 2026-03-06: 1 meals, 1 habit entries, weight: 180.8
+@pulse/api:test: Processed 2026-03-07: 0 meals, 0 habit entries, weight: 181.1
+@pulse/api:test: Migration summary: processed 3 day(s), failed 0, meals 3, habit entries 3, weight entries 3.
+@pulse/api:test: 
+@pulse/api:test: stderr | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: Missing food reference for "Mystery Food" on 2026-03-05; item imported without linked foodId.
+@pulse/api:test: Missing habit reference for "Unknown Habit" on 2026-03-05; entry skipped for this day.
+@pulse/api:test: 
+@pulse/api:test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: Processed 2026-03-05: 2 meals, 2 habit entries, weight: 181.9
+@pulse/api:test: Processed 2026-03-06: 1 meals, 1 habit entries, weight: 180.8
+@pulse/api:test: Processed 2026-03-07: 0 meals, 0 habit entries, weight: 181.1
+@pulse/api:test: Migration summary: processed 3 day(s), failed 0, meals 3, habit entries 3, weight entries 3.
+@pulse/api:test: 
+@pulse/api:test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: Skipping duplicate food "Greek Yogurt" (Fage) for user user-1.
+@pulse/api:test: Skipping duplicate food "Oat Bran" for user user-1.
+@pulse/api:test: Skipping duplicate food "Large Eggs" for user user-1.
+@pulse/api:test: Foods migration summary: inserted 0, skipped 3, lastUsedAt updated 0.
+@pulse/api:test: 
+@pulse/api:test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > is idempotent for foods migration when re-run
+@pulse/api:test: Skipping duplicate food "Large Eggs" for user user-1.
+@pulse/api:test: Foods migration summary: inserted 2, skipped 1, lastUsedAt updated 0.
+@pulse/api:test: 
+@pulse/api:test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > is idempotent for foods migration when re-run
+@pulse/api:test: Skipping duplicate food "Greek Yogurt" (Fage) for user user-1.
+@pulse/api:test: Skipping duplicate food "Oat Bran" for user user-1.
+@pulse/api:test: Skipping duplicate food "Large Eggs" for user user-1.
+@pulse/api:test: Foods migration summary: inserted 0, skipped 3, lastUsedAt updated 0.
+@pulse/api:test: 
+@pulse/api:test:  ✓ src/scripts/migrate-static.test.ts (8 tests) 1490ms
+@pulse/api:test:      ✓ derives food usage from imported links and preserves exact usage on reimport  931ms
+@pulse/api:test:  ✓ src/__tests__/workouts.test.ts (4 tests) 301ms
+@pulse/api:test:  ✓ src/routes/v1/dashboard.test.ts (12 tests) 172ms
+@pulse/api:test:  ✓ src/routes/workout-progression/muscle-store.integration.test.ts (9 tests) 1014ms
+@pulse/api:test:      ✓ keeps dense 90-day totals exact while bounding source references  378ms
+@pulse/api:test:  ✓ src/routes/scheduled-workouts/store.test.ts (13 tests) 149ms
+@pulse/api:test:  ✓ src/routes/weight/trend-store.integration.test.ts (8 tests) 695ms
+@pulse/api:test:  ✓ src/routes/nutrition/daily-notes.integration.test.ts (26 tests) 550ms
+@pulse/api:test:  ✓ src/routes/workout-sessions/store.test.ts (9 tests) 276ms
+@pulse/api:test:  ✓ src/routes/v1/dashboard-store.test.ts (16 tests) 28ms
+@pulse/api:test:  ✓ src/db/adaptive-weekly-review-migration.test.ts (3 tests) 195ms
+@pulse/api:test:  ✓ src/routes/habit-entries/index.test.ts (9 tests) 137ms
+@pulse/api:test:  ✓ src/__tests__/food-usage-reconciliation.test.ts (22 tests) 15747ms
+@pulse/api:test:      ✓ defaults to a byte-identical dry run, isolates hostile links and deleted foods, then applies idempotently  3175ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"mode":"invalid"} without writes  761ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"mode":null} without writes  758ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"limit":0} without writes  786ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"limit":501} without writes  766ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"limit":1.5} without writes  760ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"limit":"1"} without writes  757ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"cursor":"anything"} without writes  788ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"userId":"user-2"} without writes  759ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"allUsers":true} without writes  755ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"foodId":"foreign"} without writes  758ms
+@pulse/api:test:      ✓ fails closed on excessive scope, missing users and invalid JWT claims  780ms
+@pulse/api:test:      ✓ rolls back earlier target writes when a later update fails  785ms
+@pulse/api:test:      ✓ rejects query selectors and explicit null bodies without writes  773ms
+@pulse/api:test:      ✓ previews and repairs malformed stored count -1 without a post-commit serialization error  753ms
+@pulse/api:test:      ✓ previews and repairs malformed stored count 1.5 without a post-commit serialization error  792ms
+@pulse/api:test:      ✓ rolls back all apply writes if a malformed source timestamp cannot produce a valid response  770ms
+@pulse/api:test:  ✓ src/middleware/auth.test.ts (19 tests) 51ms
+@pulse/api:test:  ✓ src/db/workout-progression-migration.test.ts (4 tests) 247ms
+@pulse/api:test:  ✓ src/index.test.ts (8 tests) 268ms
+@pulse/api:test: stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > restores original parent IDs transactionally without rewriting child links
+@pulse/api:test: {
+@pulse/api:test:   alreadyAppliedCount: 0,
+@pulse/api:test:   dryRun: false,
+@pulse/api:test:   foreignKeyViolationCountBefore: 2,
+@pulse/api:test:   mapSha256: '4225ccbe5c1e2df09de67991dcd8d4a42826fb5dd199d51de7908071820e0f92',
+@pulse/api:test:   missingExerciseCount: 2,
+@pulse/api:test:   orphanLinkCount: 2,
+@pulse/api:test:   proposedRepairCount: 2,
+@pulse/api:test:   remainingForeignKeyViolationCount: 0,
+@pulse/api:test:   sessionSetOrphanCount: 1,
+@pulse/api:test:   templateExerciseOrphanCount: 1,
+@pulse/api:test:   unresolvedExerciseCount: 0
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: 
+@pulse/api:test: stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > is replayable and makes no changes after the map has already been applied
+@pulse/api:test: {
+@pulse/api:test:   alreadyAppliedCount: 0,
+@pulse/api:test:   dryRun: false,
+@pulse/api:test:   foreignKeyViolationCountBefore: 1,
+@pulse/api:test:   mapSha256: 'a2c728a915f6c0ad2db9373de9439e7b0f824d01471cb380e065562a53720c01',
+@pulse/api:test:   missingExerciseCount: 1,
+@pulse/api:test:   orphanLinkCount: 1,
+@pulse/api:test:   proposedRepairCount: 1,
+@pulse/api:test:   remainingForeignKeyViolationCount: 0,
+@pulse/api:test:   sessionSetOrphanCount: 1,
+@pulse/api:test:   templateExerciseOrphanCount: 0,
+@pulse/api:test:   unresolvedExerciseCount: 0
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: {
+@pulse/api:test:   alreadyAppliedCount: 1,
+@pulse/api:test:   dryRun: false,
+@pulse/api:test:   foreignKeyViolationCountBefore: 0,
+@pulse/api:test:   mapSha256: 'a2c728a915f6c0ad2db9373de9439e7b0f824d01471cb380e065562a53720c01',
+@pulse/api:test:   missingExerciseCount: 0,
+@pulse/api:test:   orphanLinkCount: 0,
+@pulse/api:test:   proposedRepairCount: 0,
+@pulse/api:test:   remainingForeignKeyViolationCount: 0,
+@pulse/api:test:   sessionSetOrphanCount: 0,
+@pulse/api:test:   templateExerciseOrphanCount: 0,
+@pulse/api:test:   unresolvedExerciseCount: 0
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: 
+@pulse/api:test: stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > relinks an exact canonical match while preserving the template row
+@pulse/api:test: {
+@pulse/api:test:   alreadyAppliedCount: 0,
+@pulse/api:test:   dryRun: false,
+@pulse/api:test:   foreignKeyViolationCountBefore: 1,
+@pulse/api:test:   mapSha256: 'ffcfe1cb7e1acf87f0122d2cd063cd1cf035d8759838991951bc94f4a49483ba',
+@pulse/api:test:   missingExerciseCount: 1,
+@pulse/api:test:   orphanLinkCount: 1,
+@pulse/api:test:   proposedRepairCount: 1,
+@pulse/api:test:   remainingForeignKeyViolationCount: 0,
+@pulse/api:test:   sessionSetOrphanCount: 0,
+@pulse/api:test:   templateExerciseOrphanCount: 1,
+@pulse/api:test:   unresolvedExerciseCount: 0
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: {
+@pulse/api:test:   alreadyAppliedCount: 1,
+@pulse/api:test:   dryRun: false,
+@pulse/api:test:   foreignKeyViolationCountBefore: 0,
+@pulse/api:test:   mapSha256: 'ffcfe1cb7e1acf87f0122d2cd063cd1cf035d8759838991951bc94f4a49483ba',
+@pulse/api:test:   missingExerciseCount: 0,
+@pulse/api:test:   orphanLinkCount: 0,
+@pulse/api:test:   proposedRepairCount: 0,
+@pulse/api:test:   remainingForeignKeyViolationCount: 0,
+@pulse/api:test:   sessionSetOrphanCount: 0,
+@pulse/api:test:   templateExerciseOrphanCount: 0,
+@pulse/api:test:   unresolvedExerciseCount: 0
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: 
+@pulse/api:test: stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > refuses ambiguous ownership, incomplete maps, and unrelated violations
+@pulse/api:test: {
+@pulse/api:test:   alreadyAppliedCount: 0,
+@pulse/api:test:   dryRun: true,
+@pulse/api:test:   foreignKeyViolationCountBefore: 2,
+@pulse/api:test:   mapSha256: '33363e5be74a423945de2208b335fe01d3bf19d2aecc820f91829b839b3ea2b1',
+@pulse/api:test:   missingExerciseCount: 1,
+@pulse/api:test:   orphanLinkCount: 2,
+@pulse/api:test:   proposedRepairCount: 0,
+@pulse/api:test:   remainingForeignKeyViolationCount: 2,
+@pulse/api:test:   sessionSetOrphanCount: 1,
+@pulse/api:test:   templateExerciseOrphanCount: 1,
+@pulse/api:test:   unresolvedExerciseCount: 1
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: 
+@pulse/api:test:  ✓ src/scripts/repair-workout-exercise-links.test.ts (7 tests) 31ms
+@pulse/api:test:  ✓ src/routes/nutrition/logging-context.integration.test.ts (3 tests) 283ms
+@pulse/api:test:  ✓ src/routes/workout-progression/index.test.ts (6 tests) 118ms
+@pulse/api:test:  ✓ src/routes/foods/store.test.ts (6 tests) 220ms
+@pulse/api:test:  ✓ src/routes/nutrition/completeness-mutations.integration.test.ts (5 tests) 196ms
+@pulse/api:test:  ✓ src/routes/weight/store.test.ts (10 tests) 59ms
+@pulse/api:test:  ✓ src/db/canonical-weight-migration.test.ts (16 tests) 62ms
+@pulse/api:test:  ✓ src/routes/trash/index.test.ts (4 tests) 267ms
+@pulse/api:test:  ✓ src/scripts/backtest-adaptive-tdee.test.ts (10 tests) 142ms
+@pulse/api:test:  ✓ src/routes/adaptive-nutrition/goal-store.integration.test.ts (4 tests) 203ms
+@pulse/api:test:  ✓ src/middleware/agent-transforms.test.ts (9 tests) 38ms
+@pulse/api:test:  ✓ src/db/rir-migration.test.ts (1 test) 67ms
+@pulse/api:test:  ✓ src/routes/nutrition/store.test.ts (6 tests) 54ms
+@pulse/api:test:  ✓ src/routes/agent-tokens/index.test.ts (9 tests) 155ms
+@pulse/api:test:  ✓ src/routes/agent/context-store.test.ts (9 tests) 229ms
+@pulse/api:test:  ✓ src/routes/nutrition-targets/index.test.ts (5 tests) 103ms
+@pulse/api:test:  ✓ src/routes/users/index.test.ts (8 tests) 137ms
+@pulse/api:test:  ✓ src/middleware/agent-enrichment.test.ts (8 tests) 3ms
+@pulse/api:test:  ✓ src/db/adaptive-nutrition-migration.test.ts (3 tests) 55ms
+@pulse/api:test:  ✓ src/routes/nutrition-targets/provenance.integration.test.ts (4 tests) 92ms
+@pulse/api:test:  ✓ src/routes/nutrition/store.display-fields.test.ts (3 tests) 68ms
+@pulse/api:test:  ✓ src/db/adaptive-program-revision-migration.test.ts (1 test) 10ms
+@pulse/api:test:  ✓ src/routes/nutrition-targets/store.test.ts (4 tests) 5ms
+@pulse/api:test:  ✓ src/routes/workout-sessions/session-set-utils.test.ts (5 tests) 2ms
+@pulse/api:test:  ✓ src/scripts/run-migration.test.ts (6 tests) 3ms
+@pulse/api:test:  ✓ src/routes/scheduled-workouts/snapshot-store.test.ts (2 tests) 114ms
+@pulse/api:test:  ✓ src/routes/auth/index.test.ts (6 tests) 1420ms
+@pulse/api:test:      ✓ registers a new user, normalizes the username, hashes the password, and returns a 7-day JWT  509ms
+@pulse/api:test:      ✓ logs in a user and returns the auth envelope  441ms
+@pulse/api:test:      ✓ returns INVALID_CREDENTIALS for incorrect passwords  437ms
+@pulse/api:test:  ✓ src/routes/v1/dashboard-store.integration.test.ts (6 tests) 406ms
+@pulse/api:test:  ✓ src/routes/habit-entries/store.test.ts (4 tests) 168ms
+@pulse/api:test:  ✓ src/routes/data-quality/index.test.ts (3 tests) 94ms
+@pulse/api:test:  ✓ src/routes/v1/context.test.ts (2 tests) 75ms
+@pulse/api:test:  ✓ src/routes/workout-sessions/time-segments.test.ts (10 tests) 2ms
+@pulse/api:test:  ✓ src/routes/auth/starter-habits.test.ts (1 test) 485ms
+@pulse/api:test:  ✓ src/db/backfill/scheduled-workout-snapshots.test.ts (1 test) 62ms
+@pulse/api:test:  ✓ src/db/integrity.test.ts (5 tests) 5ms
+@pulse/api:test:  ✓ src/routes/nutrition/status-store.test.ts (3 tests) 191ms
+@pulse/api:test:  ✓ src/db/index.test.ts (3 tests) 173ms
+@pulse/api:test:  ✓ src/lib/habit-resolvers.test.ts (4 tests) 227ms
+@pulse/api:test:  ✓ src/db/scheduled-session-prescriptions-migration.test.ts (1 test) 68ms
+@pulse/api:test:  ✓ src/db/adaptive-program-revision-projection.test.ts (2 tests) 6ms
+@pulse/api:test:  ✓ src/lib/user-time-zone.test.ts (4 tests) 11ms
+@pulse/api:test:  ✓ src/scripts/rehearse-adaptive-goal-migration.test.ts (1 test) 1ms
+@pulse/api:test:  ✓ src/__tests__/placeholder.test.ts (1 test) 1ms
+@pulse/api:test: 
+@pulse/api:test:  Test Files  86 passed (86)
+@pulse/api:test:       Tests  1140 passed (1140)
+@pulse/api:test:    Start at  17:54:16
+@pulse/api:test:    Duration  103.94s (transform 1.28s, setup 0ms, import 16.55s, tests 79.95s, environment 5ms)
+@pulse/api:test: 
+@pulse/shared:test: cache bypass, force executing 7538fbbf10cbb964
+@pulse/shared:test: 
+@pulse/shared:test: > @pulse/shared@0.0.0 test /Users/meridian/Projects/pulse-daily-nutrition-notes/packages/shared
+@pulse/shared:test: > vitest run --maxWorkers=1
+@pulse/shared:test: 
+@pulse/shared:test: 
+@pulse/shared:test:  RUN  v4.0.18 /Users/meridian/Projects/pulse-daily-nutrition-notes/packages/shared
+@pulse/shared:test: 
+@pulse/shared:test:  ✓ src/utils/adaptive-tdee.test.ts (56 tests) 88ms
+@pulse/shared:test:  ✓ src/schemas/workout-sessions.test.ts (47 tests) 8ms
+@pulse/shared:test:  ✓ src/utils/adaptive-goal-trajectory.test.ts (37 tests) 19ms
+@pulse/shared:test:  ✓ src/schemas/adaptive-nutrition.test.ts (18 tests) 11ms
+@pulse/shared:test:  ✓ src/schemas/nutrition.test.ts (44 tests) 6ms
+@pulse/shared:test:  ✓ src/schemas/weight.test.ts (26 tests) 9ms
+@pulse/shared:test:  ✓ src/conventions-docs.test.ts (6 tests) 7ms
+@pulse/shared:test:  ✓ src/utils/workout-progression.test.ts (30 tests) 4ms
+@pulse/shared:test:  ✓ src/schemas/workout-templates.test.ts (19 tests) 5ms
+@pulse/shared:test:  ✓ src/schemas/scheduled-workouts.test.ts (23 tests) 5ms
+@pulse/shared:test:  ✓ src/schemas/exercises.test.ts (24 tests) 5ms
+@pulse/shared:test:  ✓ src/schemas/dashboard.test.ts (15 tests) 4ms
+@pulse/shared:test:  ✓ src/utils/adaptive-goal-progress.test.ts (8 tests) 5ms
+@pulse/shared:test:  ✓ src/utils/energy-balance.test.ts (9 tests) 4ms
+@pulse/shared:test:  ✓ src/schemas/adaptive-weekly-review.test.ts (6 tests) 15ms
+@pulse/shared:test:  ✓ src/utils/ewma.test.ts (14 tests) 36ms
+@pulse/shared:test:  ✓ src/schemas/data-quality-calendar.test.ts (8 tests) 15ms
+@pulse/shared:test:  ✓ src/schemas/workout-progression.test.ts (6 tests) 14ms
+@pulse/shared:test:  ✓ src/utils/adaptive-setup-projection.test.ts (15 tests) 6ms
+@pulse/shared:test:  ✓ src/utils/daily-energy-adherence.test.ts (44 tests) 15ms
+@pulse/shared:test:  ✓ src/schemas/habits.test.ts (21 tests) 4ms
+@pulse/shared:test:  ✓ src/schemas/foods.test.ts (19 tests) 4ms
+@pulse/shared:test:  ✓ src/schemas/health-conditions.test.ts (13 tests) 4ms
+@pulse/shared:test:  ✓ src/utils/protein-floor.test.ts (24 tests) 3ms
+@pulse/shared:test:  ✓ src/utils/chart-exploration.test.ts (19 tests) 13ms
+@pulse/shared:test:  ✓ src/schemas/session-set.test.ts (9 tests) 3ms
+@pulse/shared:test:  ✓ src/schemas/nutrition-targets.test.ts (7 tests) 3ms
+@pulse/shared:test:  ✓ src/utils/food-analytics.test.ts (6 tests) 3ms
+@pulse/shared:test:  ✓ src/schemas/habit-entries.test.ts (12 tests) 4ms
+@pulse/shared:test:  ✓ src/unified-api-docs.test.ts (4 tests) 3ms
+@pulse/shared:test:  ✓ src/schemas/agent.test.ts (11 tests) 4ms
+@pulse/shared:test:  ✓ src/schemas/dashboard-config.test.ts (8 tests) 3ms
+@pulse/shared:test:  ✓ src/schemas/food-analytics.test.ts (4 tests) 13ms
+@pulse/shared:test:  ✓ src/monorepo-config.test.ts (2 tests) 3ms
+@pulse/shared:test:  ✓ src/schemas/energy-balance.test.ts (3 tests) 4ms
+@pulse/shared:test:  ✓ src/utils/habit-scheduling.test.ts (5 tests) 1ms
+@pulse/shared:test:  ✓ src/schemas/workout-progression-compatibility.test.ts (19 tests) 5ms
+@pulse/shared:test:  ✓ src/schemas/auth.test.ts (7 tests) 12ms
+@pulse/shared:test:  ✓ src/schemas/equipment.test.ts (5 tests) 2ms
+@pulse/shared:test:  ✓ src/schemas/common.test.ts (4 tests) 3ms
+@pulse/shared:test:  ✓ src/schemas/journal.test.ts (3 tests) 3ms
+@pulse/shared:test:  ✓ src/schemas/resources.test.ts (3 tests) 2ms
+@pulse/shared:test:  ✓ src/schemas/entity-links.test.ts (3 tests) 2ms
+@pulse/shared:test:  ✓ src/schemas/activities.test.ts (3 tests) 3ms
+@pulse/shared:test:  ✓ src/index.test.ts (5 tests) 3ms
+@pulse/shared:test:  ✓ src/schemas/agent-tokens.test.ts (4 tests) 2ms
+@pulse/shared:test:  ✓ src/utils/weight-unit.test.ts (4 tests) 1ms
+@pulse/shared:test: 
+@pulse/shared:test:  Test Files  47 passed (47)
+@pulse/shared:test:       Tests  682 passed (682)
+@pulse/shared:test:    Start at  17:56:01
+@pulse/shared:test:    Duration  5.23s (transform 323ms, setup 0ms, import 888ms, tests 393ms, environment 2ms)
+@pulse/shared:test: 
+@pulse/web:test: cache bypass, force executing e3dbea2a72b58e4d
+@pulse/web:test: 
+@pulse/web:test: > @pulse/web@0.0.0 test /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/web
+@pulse/web:test: > vitest run --maxWorkers=1
+@pulse/web:test: 
+@pulse/web:test: 
+@pulse/web:test:  RUN  v4.0.18 /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/web
+@pulse/web:test: 
+@pulse/web:test:  ✓ src/pages/active-workout.test.tsx (39 tests) 3952ms
+@pulse/web:test:      ✓ renders the active workout UI and does not auto-focus any set after rest timer completion  559ms
+@pulse/web:test:      ✓ moves from session logging to feedback, summary, and back to workouts  1085ms
+@pulse/web:test:      ✓ keeps the session active after the last set until completion is explicitly confirmed  1018ms
+@pulse/web:test:  ✓ src/features/workouts/components/session-exercise-list.test.tsx (34 tests) 2378ms
+@pulse/web:test:  ✓ src/pages/nutrition.test.tsx (33 tests) 1318ms
+@pulse/web:test:  ✓ src/features/workouts/components/template-detail.test.tsx (23 tests) 3963ms
+@pulse/web:test:      ✓ renders a fallback state when the template request returns 404  1017ms
+@pulse/web:test:      ✓ treats legacy slug template IDs as not found when the request fails  1016ms
+@pulse/web:test:      ✓ keeps generic error messaging for UUID template IDs on non-404 failures  1016ms
+@pulse/web:test:  ✓ src/features/adaptive-nutrition/components/adaptive-coach.test.tsx (33 tests) 751ms
+@pulse/web:test:  ✓ src/pages/dashboard.test.tsx (23 tests) 1236ms
+@pulse/web:test:  ✓ src/features/workouts/components/session-detail.test.tsx (22 tests) 1563ms
+@pulse/web:test:      ✓ renders a not-found state for unknown sessions  1070ms
+@pulse/web:test:  ✓ src/features/workouts/components/scheduled-workout-detail.test.tsx (14 tests) 568ms
+@pulse/web:test:  ✓ src/pages/weight-history.test.tsx (10 tests) 963ms
+@pulse/web:test:  ✓ src/features/foods/components/food-list.test.tsx (14 tests) 2470ms
+@pulse/web:test:      ✓ debounces search and sends the query to the foods API  447ms
+@pulse/web:test:  ✓ src/pages/workouts.test.tsx (13 tests) 545ms
+@pulse/web:test:  ✓ src/features/workouts/components/exercise-library.test.tsx (16 tests) 3019ms
+@pulse/web:test:      ✓ filters exercises by case-insensitive name search and syncs q to the URL  430ms
+@pulse/web:test:      ✓ shows an empty state and still supports the unified exercise detail modal  723ms
+@pulse/web:test:      ✓ falls back to the no-results state when the exercises request fails  1026ms
+@pulse/web:test:  ✓ src/features/adaptive-nutrition/api/adaptive-nutrition.test.tsx (8 tests) 235ms
+@pulse/web:test:  ✓ src/pages/active-workout.remove-set.test.tsx (2 tests) 271ms
+@pulse/web:test:  ✓ src/features/dashboard/components/habit-chain.test.tsx (18 tests) 295ms
+@pulse/web:test:  ✓ src/features/weight/api/weight.test.tsx (17 tests) 747ms
+@pulse/web:test:  ✓ src/features/adaptive-nutrition/components/weekly-decision-review.test.tsx (16 tests) 379ms
+@pulse/web:test:  ✓ src/features/adaptive-nutrition/components/goal-trajectory-workspace.test.tsx (15 tests) 433ms
+@pulse/web:test:  ✓ src/features/workouts/components/workout-list.test.tsx (13 tests) 220ms
+@pulse/web:test:  ✓ src/features/workouts/components/workout-calendar.test.tsx (8 tests) 326ms
+@pulse/web:test:  ✓ src/pages/settings.test.tsx (11 tests) 983ms
+@pulse/web:test:  ✓ src/features/adaptive-nutrition/components/energy-balance-workspace.test.tsx (15 tests) 428ms
+@pulse/web:test:  ✓ src/features/habits/api/habits.test.tsx (10 tests) 302ms
+@pulse/web:test:  ✓ src/features/nutrition/api/nutrition.test.tsx (10 tests) 461ms
+@pulse/web:test:  ✓ src/features/workouts/components/template-browser.test.tsx (11 tests) 392ms
+@pulse/web:test:  ✓ src/features/habits/components/habit-card-menu.test.tsx (12 tests) 180ms
+@pulse/web:test:  ✓ src/features/workouts/components/workout-progression-review.test.tsx (12 tests) 141ms
+@pulse/web:test:  ✓ src/features/dashboard/components/snapshot-cards.test.tsx (15 tests) 87ms
+@pulse/web:test:  ✓ src/features/dashboard/components/trend-sparkline.test.tsx (16 tests) 144ms
+@pulse/web:test:  ✓ src/features/workouts/api/workouts.mutations.test.tsx (8 tests) 32ms
+@pulse/web:test:  ✓ src/lib/api-client.test.ts (14 tests) 7ms
+@pulse/web:test:  ✓ src/features/workouts/components/session-summary.test.tsx (4 tests) 209ms
+@pulse/web:test:  ✓ src/features/workouts/components/set-row.test.tsx (26 tests) 122ms
+@pulse/web:test:  ✓ src/features/foods/components/food-analytics-workspace.test.tsx (5 tests) 207ms
+@pulse/web:test:  ✓ src/features/data-quality/components/data-quality-calendar-workspace.test.tsx (6 tests) 382ms
+@pulse/web:test:  ✓ src/App.test.tsx (25 tests) 6778ms
+@pulse/web:test:      ✓ renders 'Welcome back' page for '/login' when signed out  355ms
+@pulse/web:test:      ✓ renders 'Create account' page for '/register' when signed out  318ms
+@pulse/web:test:      ✓ renders 'Dashboard' page for '/' when signed in  351ms
+@pulse/web:test:      ✓ renders 'Design System' page for '/design-system' when signed in  330ms
+@pulse/web:test:      ✓ renders 'Workouts' page for '/workouts' when signed in  331ms
+@pulse/web:test:      ✓ renders 'No active workout' page for '/workouts/active' when signed in  336ms
+@pulse/web:test:      ✓ renders 'Upper Push' page for '/workouts/session/session-upper-push-…' when signed in  363ms
+@pulse/web:test:      ✓ renders 'Upper Push' page for '/workouts/template/upper-push' when signed in  352ms
+@pulse/web:test:      ✓ renders 'Nutrition' page for '/nutrition' when signed in  331ms
+@pulse/web:test:      ✓ renders 'Energy Balance & Expenditure' page for '/nutrition/energy-balance' when signed in  321ms
+@pulse/web:test:      ✓ renders 'Habits' page for '/habits' when signed in  323ms
+@pulse/web:test:      ✓ renders 'Activity' page for '/activity' when signed in  332ms
+@pulse/web:test:      ✓ renders 'Journal' page for '/journal' when signed in  317ms
+@pulse/web:test:      ✓ renders 'Trend Weight' page for '/weight' when signed in  324ms
+@pulse/web:test:      ✓ renders 'Profile' page for '/profile' when signed in  330ms
+@pulse/web:test:      ✓ renders 'Equipment' page for '/profile/equipment' when signed in  351ms
+@pulse/web:test:      ✓ renders 'Health Tracking' page for '/profile/injuries' when signed in  336ms
+@pulse/web:test:      ✓ renders 'Resources' page for '/profile/resources' when signed in  322ms
+@pulse/web:test:      ✓ renders 'McGill Big 3' page for '/profile/resources/mcgill-big-3' when signed in  328ms
+@pulse/web:test:      ✓ renders 'Settings' page for '/settings' when signed in  329ms
+@pulse/web:test:  ✓ src/features/habits/components/daily-habits.test.tsx (8 tests) 204ms
+@pulse/web:test:  ✓ src/features/adaptive-nutrition/components/adaptive-setup-form.test.tsx (11 tests) 845ms
+@pulse/web:test:  ✓ src/pages/habits.test.tsx (6 tests) 288ms
+@pulse/web:test:  ✓ src/features/workouts/api/workouts.optimistic.test.tsx (4 tests) 234ms
+@pulse/web:test:  ✓ src/features/workouts/components/session-feedback.test.tsx (7 tests) 195ms
+@pulse/web:test:  ✓ src/features/workouts/lib/active-session.test.ts (8 tests) 3ms
+@pulse/web:test:  ✓ src/features/dashboard/components/habit-daily-status-card.test.tsx (8 tests) 81ms
+@pulse/web:test:  ✓ src/hooks/use-workout-session.test.tsx (7 tests) 71ms
+@pulse/web:test:  ✓ src/hooks/use-last-performance.test.tsx (6 tests) 282ms
+@pulse/web:test:  ✓ src/features/workouts/components/exercise-detail-modal.test.tsx (11 tests) 138ms
+@pulse/web:test:  ✓ src/hooks/use-session-sets.test.tsx (3 tests) 229ms
+@pulse/web:test:  ✓ src/features/dashboard/components/weight-trend-chart.test.tsx (5 tests) 219ms
+@pulse/web:test:  ✓ src/pages/workout-session-detail.test.tsx (7 tests) 1213ms
+@pulse/web:test:      ✓ renders not-found state for unknown sessionId  1082ms
+@pulse/web:test:  ✓ src/__tests__/components/daily-habits.test.tsx (8 tests) 162ms
+@pulse/web:test:  ✓ src/features/habits/components/habit-form-dialog.test.tsx (8 tests) 295ms
+@pulse/web:test:  ✓ src/features/nutrition/components/daily-energy-adherence-card.test.tsx (17 tests) 100ms
+@pulse/web:test:  ✓ src/features/dashboard/components/recent-workouts.test.tsx (9 tests) 80ms
+@pulse/web:test:  ✓ src/features/workouts/lib/session-persistence.test.ts (18 tests) 3ms
+@pulse/web:test:  ✓ src/hooks/use-complete-session.test.tsx (2 tests) 18ms
+@pulse/web:test:  ✓ src/features/nutrition/components/daily-nutrition-note.test.tsx (7 tests) 261ms
+@pulse/web:test:  ✓ src/features/workouts/components/exercise-trend-chart.test.tsx (17 tests) 189ms
+@pulse/web:test:  ✓ src/features/nutrition/components/nutrition-macro-rings.test.tsx (12 tests) 103ms
+@pulse/web:test:  ✓ src/features/workouts/components/swap-exercise-dialog.test.tsx (2 tests) 87ms
+@pulse/web:test:  ✓ src/pages/activity.test.tsx (6 tests) 403ms
+@pulse/web:test:  ✓ src/features/workouts/api/workouts.test.tsx (2 tests) 221ms
+@pulse/web:test:  ✓ src/features/habits/components/habit-day-modal.test.tsx (6 tests) 113ms
+@pulse/web:test:  ✓ src/store/auth-store.test.ts (7 tests) 6ms
+@pulse/web:test:  ✓ src/features/injuries/components/severity-chart.test.tsx (6 tests) 133ms
+@pulse/web:test:  ✓ src/features/nutrition/components/meal-card.test.tsx (14 tests) 92ms
+@pulse/web:test:  ✓ src/hooks/use-pull-to-refresh.test.tsx (6 tests) 74ms
+@pulse/web:test:  ✓ src/features/workouts/lib/time-estimates.test.ts (9 tests) 2ms
+@pulse/web:test:  ✓ src/features/workouts/components/session-comparison.test.tsx (6 tests) 28ms
+@pulse/web:test:  ✓ src/components/layout/sidebar.test.tsx (6 tests) 127ms
+@pulse/web:test:  ✓ src/features/workouts/components/scheduled-start-surfaces.test.tsx (14 tests) 446ms
+@pulse/web:test:  ✓ src/pages/equipment.test.tsx (6 tests) 731ms
+@pulse/web:test:  ✓ src/features/workouts/components/workout-exercise-card/index.test.tsx (5 tests) 59ms
+@pulse/web:test:  ✓ src/components/ui/confirmation-dialog.test.tsx (9 tests) 178ms
+@pulse/web:test:  ✓ src/features/auth/components/register-form.test.tsx (8 tests) 94ms
+@pulse/web:test:  ✓ src/components/workouts/active-session-resume-gate.test.tsx (4 tests) 157ms
+@pulse/web:test:  ✓ src/features/habits/components/weekly-habit-date-picker.test.tsx (4 tests) 62ms
+@pulse/web:test:  ✓ src/pages/journal.test.tsx (4 tests) 151ms
+@pulse/web:test:  ✓ src/features/settings/api/trash.test.tsx (4 tests) 68ms
+@pulse/web:test:  ✓ src/components/charts/chart-primitives.test.tsx (7 tests) 80ms
+@pulse/web:test:  ✓ src/features/foods/api/foods.test.tsx (2 tests) 167ms
+@pulse/web:test:  ✓ src/features/dashboard/components/calendar-picker.test.tsx (7 tests) 64ms
+@pulse/web:test:  ✓ src/components/layout/bottom-nav.test.tsx (3 tests) 114ms
+@pulse/web:test:  ✓ src/features/habits/components/habit-history.test.tsx (4 tests) 193ms
+@pulse/web:test:  ✓ src/features/dashboard/components/macro-rings.test.tsx (7 tests) 69ms
+@pulse/web:test:  ✓ src/features/nutrition/api/daily-note.test.tsx (4 tests) 382ms
+@pulse/web:test:  ✓ src/features/workouts/components/muscle-analytics.test.tsx (2 tests) 118ms
+@pulse/web:test:  ✓ src/lib/optimistic.test.tsx (3 tests) 224ms
+@pulse/web:test:  ✓ src/features/nutrition/components/nutrition-week-strip.test.tsx (6 tests) 88ms
+@pulse/web:test:  ✓ src/features/nutrition/components/nutrition-trends.test.tsx (5 tests) 244ms
+@pulse/web:test:  ✓ src/features/auth/components/login-form.test.tsx (8 tests) 84ms
+@pulse/web:test:  ✓ src/features/workouts/lib/tracking.test.ts (15 tests) 2ms
+@pulse/web:test:  ✓ src/features/settings/components/trash-manager.test.tsx (3 tests) 104ms
+@pulse/web:test:  ✓ src/hooks/use-dashboard-snapshot.test.tsx (4 tests) 222ms
+@pulse/web:test:  ✓ src/hooks/use-sync-sets.test.tsx (4 tests) 17ms
+@pulse/web:test:  ✓ src/pages/design-system.test.tsx (3 tests) 169ms
+@pulse/web:test:  ✓ src/features/dashboard/lib/widget-utils.test.ts (10 tests) 3ms
+@pulse/web:test:  ✓ src/features/workouts/components/session-context.test.tsx (4 tests) 66ms
+@pulse/web:test:  ✓ src/lib/use-debounced-callback.test.tsx (6 tests) 17ms
+@pulse/web:test:  ✓ src/hooks/use-weight-trend.test.tsx (4 tests) 173ms
+@pulse/web:test:  ✓ src/pages/profile.test.tsx (4 tests) 101ms
+@pulse/web:test:  ✓ src/features/workouts/components/session-header.test.tsx (3 tests) 70ms
+@pulse/web:test:  ✓ src/features/nutrition/lib/nutrition-utils.test.ts (12 tests) 8ms
+@pulse/web:test:  ✓ src/features/workouts/components/rir-picker.test.tsx (14 tests) 183ms
+@pulse/web:test:  ✓ src/hooks/useTheme.test.tsx (5 tests) 11ms
+@pulse/web:test:  ✓ src/features/nutrition/api/targets.test.tsx (3 tests) 118ms
+@pulse/web:test:  ✓ src/components/ui/stat-card.test.tsx (8 tests) 27ms
+@pulse/web:test:  ✓ src/lib/query-invalidation.test.ts (6 tests) 2ms
+@pulse/web:test:  ✓ src/hooks/use-recent-workouts.test.tsx (2 tests) 115ms
+@pulse/web:test:  ✓ src/hooks/use-exercise-history.test.tsx (4 tests) 170ms
+@pulse/web:test:  ✓ src/features/workouts/lib/workout-session-sets.test.ts (2 tests) 2ms
+@pulse/web:test:  ✓ src/styles/globals.test.ts (2 tests) 2ms
+@pulse/web:test:  ✓ src/lib/query-client.test.ts (6 tests) 6ms
+@pulse/web:test:  ✓ src/hooks/use-macro-trend.test.tsx (3 tests) 120ms
+@pulse/web:test:  ✓ src/hooks/use-habit-chains.test.tsx (3 tests) 169ms
+@pulse/web:test:  ✓ src/hooks/use-save-as-template.test.tsx (2 tests) 15ms
+@pulse/web:test:  ✓ src/hooks/use-user.test.tsx (2 tests) 122ms
+@pulse/web:test:  ✓ src/features/activity/lib/mock-data.test.ts (3 tests) 4ms
+@pulse/web:test:  ✓ src/__tests__/components/theme-toggle.test.tsx (3 tests) 45ms
+@pulse/web:test:  ✓ src/features/resources/components/resource-detail.test.tsx (3 tests) 76ms
+@pulse/web:test:  ✓ src/components/auth/protected-route.test.tsx (3 tests) 44ms
+@pulse/web:test:  ✓ src/hooks/usePersistedState.test.tsx (5 tests) 16ms
+@pulse/web:test:  ✓ src/features/adaptive-nutrition/components/nutrition-day-status-control.test.tsx (4 tests) 111ms
+@pulse/web:test:  ✓ src/features/workouts/components/workout-exercise-card/last-performance-chip.test.tsx (4 tests) 20ms
+@pulse/web:test:  ✓ src/components/ui/data-table.test.tsx (4 tests) 53ms
+@pulse/web:test:  ✓ src/hooks/use-date-authority.test.tsx (3 tests) 15ms
+@pulse/web:test:  ✓ src/components/theme-provider.test.tsx (2 tests) 41ms
+@pulse/web:test:  ✓ src/pages/journal-entry.test.tsx (3 tests) 58ms
+@pulse/web:test:  ✓ src/hooks/use-dashboard-config.test.tsx (2 tests) 66ms
+@pulse/web:test:  ✓ src/components/auth/guest-route.test.tsx (3 tests) 41ms
+@pulse/web:test:  ✓ src/features/workouts/components/form-cue-chips.test.tsx (3 tests) 49ms
+@pulse/web:test:  ✓ src/features/weight/lib/trend-weight-date.test.ts (10 tests) 3ms
+@pulse/web:test:  ✓ src/components/ui/button.test.tsx (4 tests) 47ms
+@pulse/web:test:  ✓ src/components/ui/progress-bar.test.tsx (4 tests) 40ms
+@pulse/web:test:  ✓ src/features/workouts/components/rest-timer.test.tsx (3 tests) 65ms
+@pulse/web:test:  ✓ src/components/layout/page-header.test.tsx (4 tests) 52ms
+@pulse/web:test:  ✓ src/features/resources/components/resource-grid.test.tsx (1 test) 64ms
+@pulse/web:test:  ✓ src/components/ui/preview-banner.test.tsx (5 tests) 43ms
+@pulse/web:test:  ✓ src/__tests__/components/progress-ring.test.tsx (5 tests) 37ms
+@pulse/web:test:  ✓ src/features/workouts/api/progression.test.tsx (2 tests) 124ms
+@pulse/web:test:  ✓ src/lib/api-error.test.ts (6 tests) 1ms
+@pulse/web:test:  ✓ src/components/ui/progress-ring.test.tsx (5 tests) 37ms
+@pulse/web:test:  ✓ src/features/workouts/components/workout-exercise-card/prescription-block.test.tsx (3 tests) 17ms
+@pulse/web:test:  ✓ src/components/layout/app-layout.test.tsx (2 tests) 31ms
+@pulse/web:test:  ✓ src/features/activity/components/activity-list.test.tsx (2 tests) 90ms
+@pulse/web:test:  ✓ src/features/workouts/components/workout-exercise-card/exercise-header.test.tsx (2 tests) 40ms
+@pulse/web:test:  ✓ src/lib/format-utils.test.ts (8 tests) 2ms
+@pulse/web:test:  ✓ src/features/workouts/components/workout-exercise-card/agent-notes-block.test.tsx (3 tests) 27ms
+@pulse/web:test:  ✓ src/components/ui/notes-indicator.test.tsx (3 tests) 67ms
+@pulse/web:test:  ✓ src/components/ui/pull-to-refresh.test.tsx (3 tests) 18ms
+@pulse/web:test:  ✓ src/features/workouts/api/workouts.keys.test.ts (5 tests) 2ms
+@pulse/web:test:  ✓ src/components/ui/column-picker.test.tsx (1 test) 71ms
+@pulse/web:test:  ✓ src/components/ui/dialog.test.tsx (1 test) 59ms
+@pulse/web:test:  ✓ src/lib/date.test.ts (5 tests) 2ms
+@pulse/web:test:  ✓ src/__tests__/components/progress-bar.test.tsx (4 tests) 40ms
+@pulse/web:test:  ✓ src/components/skeletons/skeleton-variants.test.tsx (2 tests) 23ms
+@pulse/web:test:  ✓ src/pages/login.test.tsx (1 test) 123ms
+@pulse/web:test:  ✓ src/features/dashboard/components/trend-sparkline-responsive.test.tsx (1 test) 49ms
+@pulse/web:test:  ✓ src/components/ui/help-icon.test.tsx (2 tests) 79ms
+@pulse/web:test:  ✓ src/components/error-boundary.test.tsx (2 tests) 50ms
+@pulse/web:test:  ✓ src/components/ui/sort-selector.test.tsx (2 tests) 107ms
+@pulse/web:test:  ✓ src/features/workouts/components/workout-exercise-card/form-cues-block.test.tsx (2 tests) 40ms
+@pulse/web:test:  ✓ src/features/workouts/components/workout-exercise-card/workout-exercise-set-list.test.tsx (2 tests) 23ms
+@pulse/web:test:  ✓ src/components/ui/empty-state.test.tsx (2 tests) 39ms
+@pulse/web:test:  ✓ src/features/workouts/components/scheduled-workout-header.test.tsx (2 tests) 44ms
+@pulse/web:test:  ✓ src/components/ui/view-toggle.test.tsx (2 tests) 51ms
+@pulse/web:test:  ✓ src/features/dashboard/lib/program-date.test.ts (2 tests) 6ms
+@pulse/web:test:  ✓ src/components/ui/input.test.tsx (3 tests) 39ms
+@pulse/web:test:  ✓ src/features/nutrition/api/keys.test.ts (3 tests) 2ms
+@pulse/web:test:  ✓ src/__tests__/components/stat-card.test.tsx (3 tests) 20ms
+@pulse/web:test:  ✓ src/components/ui/per-page-selector.test.tsx (2 tests) 82ms
+@pulse/web:test:  ✓ src/components/ui/pagination-bar.test.tsx (2 tests) 41ms
+@pulse/web:test:  ✓ src/components/ui/help-modal.test.tsx (2 tests) 55ms
+@pulse/web:test:  ✓ src/lib/date-utils.test.ts (3 tests) 1ms
+@pulse/web:test:  ✓ src/components/ui/filter-bar.test.tsx (1 test) 15ms
+@pulse/web:test:  ✓ src/features/adaptive-nutrition/lib/format-adaptive-nutrition.test.ts (2 tests) 1ms
+@pulse/web:test:  ✓ src/features/workouts/components/workout-exercise-card/programming-notes-block.test.tsx (2 tests) 18ms
+@pulse/web:test:  ✓ src/features/nutrition/lib/program-local-midnight.test.ts (3 tests) 6ms
+@pulse/web:test:  ✓ src/pages/injuries.test.tsx (1 test) 59ms
+@pulse/web:test:  ✓ src/pages/resources.test.tsx (1 test) 48ms
+@pulse/web:test:  ✓ src/components/ui/skeleton.test.tsx (1 test) 13ms
+@pulse/web:test:  ✓ src/lib/utils.test.ts (3 tests) 4ms
+@pulse/web:test:  ✓ src/features/workouts/components/tag-chips.test.tsx (2 tests) 16ms
+@pulse/web:test:  ✓ src/components/ui/checkbox.test.tsx (1 test) 35ms
+@pulse/web:test:  ✓ src/features/foods/api/keys.test.ts (1 test) 1ms
+@pulse/web:test:  ✓ src/components/ui/card.test.tsx (1 test) 14ms
+@pulse/web:test:  ✓ src/__tests__/placeholder.test.ts (1 test) 1ms
+@pulse/web:test: 
+@pulse/web:test:  Test Files  186 passed (186)
+@pulse/web:test:       Tests  1276 passed (1276)
+@pulse/web:test:    Start at  17:56:06
+@pulse/web:test:    Duration  139.72s (transform 2.18s, setup 10.16s, import 31.12s, tests 51.50s, environment 29.99s)
+@pulse/web:test: 
+
+ Tasks:    3 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    4m10.409s 
+
+
+EXIT_CODE: 0

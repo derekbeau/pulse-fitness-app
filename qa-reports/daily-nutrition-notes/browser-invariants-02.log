@@ -1,0 +1,12 @@
+COMMAND: python3 qa-reports/daily-nutrition-notes/verify-browser-readbacks.py
+browser-readback-00.json PASS: meals/items/food usage/targets/weights/status/timestamps/energy/quality/analytics/preview identity and note-reader parity
+browser-readback-01.json PASS: meals/items/food usage/targets/weights/status/timestamps/energy/quality/analytics/preview identity and note-reader parity
+browser-readback-02.json PASS: meals/items/food usage/targets/weights/status/timestamps/energy/quality/analytics/preview identity and note-reader parity
+browser-readback-03.json PASS: meals/items/food usage/targets/weights/status/timestamps/energy/quality/analytics/preview identity and note-reader parity
+browser-readback-04.json PASS: meals/items/food usage/targets/weights/status/timestamps/energy/quality/analytics/preview identity and note-reader parity
+browser-readback-05.json PASS: meals/items/food usage/targets/weights/status/timestamps/energy/quality/analytics/preview identity and note-reader parity
+PASS: failure rollback byte-equivalent; both cleared notes SQL NULL; note-only row timestamps/status stable; missing energy remains missing; database integrity clean
+PREVIEW_ID: 2c944750-20d6-4cf7-966a-9a2fb6aceaf1
+DATA_FINGERPRINT: ab51a5f7af619cc0f64ec74b32a06fb2626d40e4593105c0e17f5478db223559
+
+EXIT_CODE: 0

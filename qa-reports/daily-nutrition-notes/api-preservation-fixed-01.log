@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api
+
+ ✓ src/routes/nutrition/daily-notes.integration.test.ts (14 tests) 927ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  17:47:24
+   Duration  1.69s (transform 575ms, setup 0ms, import 655ms, tests 927ms, environment 0ms)
+

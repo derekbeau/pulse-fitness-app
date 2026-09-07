@@ -196,6 +196,7 @@ describe('nutrition store', () => {
 
     expect(summary).toEqual({
       date: '2026-03-09',
+      notes: null,
       meals: 3,
       actual: {
         calories: 1_850,
@@ -236,6 +237,7 @@ describe('nutrition store', () => {
 
     expect(summary).toEqual({
       date: '2026-03-10',
+      notes: null,
       meals: 0,
       actual: {
         calories: 0,

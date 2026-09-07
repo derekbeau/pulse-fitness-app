@@ -1,0 +1,162 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts (12 tests | 9 failed) 704ms
+     × creates an empty historical day, trims only edges, replaces, omits, and clears idempotently 14ms
+     × has consistent detail, summary, logging context, and compact week notes with user isolation 2ms
+     × rejects malformed bodies and dates, counts UTF-16 units after trim, and allows valid future notes 1ms
+     × preserves all meal, food, target, energy, and adaptive facts on a populated complete day 15ms
+     × rolls back failed insert and update triggers without partial notes or any integrity side effects 1ms
+     ✓ creates an empty historical day, trims only edges, replaces, omits, and clears idempotently 13ms
+     × has consistent detail, summary, logging context, and compact week notes with user isolation 1ms
+     ✓ rejects malformed bodies and dates, counts UTF-16 units after trim, and allows valid future notes 5ms
+     × preserves all meal, food, target, energy, and adaptive facts on a populated complete day 6ms
+     × rolls back failed insert and update triggers without partial notes or any integrity side effects 1ms
+   × rejects missing/invalid authentication without creating a log 1ms
+   ✓ publishes unified generated OpenAPI schemas and an explicit nullable daily response 56ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer daily note contract > creates an empty historical day, trims only edges, replaces, omits, and clears idempotently
+AssertionError: expected { error: { …(2) } } to deeply equal { data: null }
+
+- Expected
++ Received
+
+  {
+-   "data": null,
++   "error": {
++     "code": "UNAUTHORIZED",
++     "message": "Authentication required",
++   },
+  }
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:135:53
+    133| describe.each(['Bearer', 'AgentToken'] as const)('%s daily note contra…
+    134|   it('creates an empty historical day, trims only edges, replaces, omi…
+    135|     expect((await patch({}, headers[mode])).json()).toEqual({ data: nu…
+       |                                                     ^
+    136|     expect((await patch({ notes: null }, headers[mode])).json()).toEqu…
+    137|     const created = await patch({ notes: '  Restaurant\n  estimated ma…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer daily note contract > has consistent detail, summary, logging context, and compact week notes with user isolation
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > AgentToken daily note contract > has consistent detail, summary, logging context, and compact week notes with user isolation
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ ❯ get src/routes/nutrition/daily-notes.integration.test.ts:31:31
+     29|     headers: auth,
+     30|   });
+     31|   expect(response.statusCode).toBe(200);
+       |                               ^
+     32|   return response.json().data;
+     33| };
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:168:27
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer daily note contract > rejects malformed bodies and dates, counts UTF-16 units after trim, and allows valid future notes
+AssertionError: {"notes":""}: expected 401 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 401
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:203:70
+    201|     ]) {
+    202|       const response = await patch(body, headers[mode]);
+    203|       expect(response.statusCode, JSON.stringify(body).slice(0, 60)).t…
+       |                                                                      ^
+    204|       expect(response.json().error.code).toBe('VALIDATION_ERROR');
+    205|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer daily note contract > preserves all meal, food, target, energy, and adaptive facts on a populated complete day
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:252:31
+    250|       payload: { status: 'complete' },
+    251|     });
+    252|     expect(status.statusCode).toBe(200);
+       |                               ^
+    253|     const facts = persistentFacts();
+    254|     const before = await get(date);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer daily note contract > rolls back failed insert and update triggers without partial notes or any integrity side effects
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > AgentToken daily note contract > rolls back failed insert and update triggers without partial notes or any integrity side effects
+SqliteError: no such table: adaptive_nutrition_check_ins
+ ❯ Database.prepare ../../node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/methods/wrappers.js:5:21
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:52:46
+     50|       'adaptive_nutrition_programs',
+     51|       'adaptive_nutrition_check_ins',
+     52|     ].map((table) => [table, database.sqlite.prepare(`SELECT * FROM ${…
+       |                                              ^
+     53|   );
+     54| const makeProgram = () => {
+ ❯ persistentFacts src/routes/nutrition/daily-notes.integration.test.ts:52:7
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:270:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > AgentToken daily note contract > preserves all meal, food, target, energy, and adaptive facts on a populated complete day
+SqliteError: no such table: adaptive_nutrition_check_ins
+ ❯ Database.prepare ../../node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/methods/wrappers.js:5:21
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:52:46
+     50|       'adaptive_nutrition_programs',
+     51|       'adaptive_nutrition_check_ins',
+     52|     ].map((table) => [table, database.sqlite.prepare(`SELECT * FROM ${…
+       |                                              ^
+     53|   );
+     54| const makeProgram = () => {
+ ❯ persistentFacts src/routes/nutrition/daily-notes.integration.test.ts:52:7
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:253:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > rejects missing/invalid authentication without creating a log
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ ❯ get src/routes/nutrition/daily-notes.integration.test.ts:31:31
+     29|     headers: auth,
+     30|   });
+     31|   expect(response.statusCode).toBe(200);
+       |                               ^
+     32|   return response.json().data;
+     33| };
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:306:10
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  9 failed | 3 passed (12)
+   Start at  16:50:20
+   Duration  1.59s (transform 622ms, setup 0ms, import 767ms, tests 704ms, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/nutrition/daily-notes.integration.test.ts --maxWorkers=1

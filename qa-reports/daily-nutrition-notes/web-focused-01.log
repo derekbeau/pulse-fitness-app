@@ -1,0 +1,125 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/web
+
+stderr | src/pages/nutrition.test.tsx > NutritionPage > adds a day note before meals, keeps it after reload, and discovers and clears it in historical navigation
+No routes matched location "/" 
+
+ ❯ src/pages/nutrition.test.tsx (33 tests | 1 failed) 1508ms
+     ✓ renders log, Coach, foods, and trends tabs and syncs the active view to search params 216ms
+     ✓ loads tab content from a foods view search param 26ms
+     ✓ loads tab content from a trends view search param 36ms
+     ✓ waits for the program zone before requesting production trends across Detroit midnight 13ms
+     ✓ advances the trends reference date while Nutrition stays open across program midnight 39ms
+     ✓ uses the program-local Nutrition Log date in 'Detroit before the spring DST boundary' 30ms
+     ✓ uses the program-local Nutrition Log date in 'Detroit after the spring DST boundary' 28ms
+     ✓ uses the program-local Nutrition Log date in 'Tokyo across the opposite-side browse…' 26ms
+     ✓ uses the program-local Nutrition Log date in 'Kiritimati across the opposite-side b…' 21ms
+     ✓ rolls a continuously visible today view at program-local midnight 25ms
+     ✓ rolls after the Detroit 'spring-forward 23-hour day' 19ms
+     ✓ rolls after the Detroit 'fall-back 25-hour day' 15ms
+     ✓ preserves an intentionally selected historical date across midnight 33ms
+     ✓ moves a prior-today view when the server date authority changes 13ms
+     ✓ never flashes a delayed prior-date energy response under a newer selected date 39ms
+     × adds a day note before meals, keeps it after reload, and discovers and clears it in historical navigation 64ms
+     ✓ loads today from API, shows empty state, and blocks future navigation 32ms
+     ✓ renders week strip above meals section and updates selected date when a strip day is tapped 46ms
+     ✓ replays a direct meal deep link through back and forward navigation and focuses once ready 60ms
+     ✓ focuses a matching meal when date and meal are present on the initial URL 13ms
+     ✓ clears historical date and meal state when the authenticated session changes 25ms
+     ✓ shows a non-blocking fallback message when week summary fails 17ms
+     ✓ opens contextual nutrition help from the page header 36ms
+     ✓ shows date-aware empty-state copy and today shortcuts on non-today dates 52ms
+     ✓ renders selected-day meals sorted by time descending by default 48ms
+     ✓ shows an accessible meal sort toggle and reverses order when toggled 64ms
+     ✓ persists meal sort preference while navigating dates in the same session 124ms
+     ✓ shows grouped food rows and deletes a meal via the API mutation 95ms
+     ✓ renames a meal inline and keeps the updated name after reloading the page 109ms
+     ✓ marks a past day complete and shows the automatic partial downgrade after a meal edit 70ms
+     ✓ does not call rename mutation when editing is cancelled or name is empty 52ms
+     ✓ shows loading skeletons while daily + summary queries are pending 4ms
+     ✓ shows no-target copy and hides macro rings when no daily target is configured 18ms
+ ❯ src/features/nutrition/api/nutrition.test.tsx (10 tests | 1 failed) 1396ms
+     ✓ loads daily nutrition for a given date 64ms
+     ✓ loads daily nutrition summary for a given date 54ms
+     × strictly parses daily energy adherence for the selected date 1007ms
+     ✓ loads nutrition week summary for the selected date 54ms
+     ✓ normalizes week summary request when called with an ISO timestamp 51ms
+     ✓ configures foreground polling when nutrition refetch intervals are provided 54ms
+     ✓ deletes a meal and invalidates daily + summary + week-summary cache for that date 3ms
+     ✓ updates explicit day status and invalidates day plus adaptive state 1ms
+     ✓ renames a meal and invalidates daily + summary + week-summary cache for that date 1ms
+     ✓ optimistically updates meal name and rolls back when rename fails 106ms
+ ✓ src/features/nutrition/components/daily-nutrition-note.test.tsx (7 tests) 299ms
+ ✓ src/features/nutrition/components/nutrition-week-strip.test.tsx (6 tests) 76ms
+ ✓ src/features/nutrition/api/daily-note.test.tsx (3 tests) 276ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/nutrition.test.tsx > NutritionPage > adds a day note before meals, keeps it after reload, and discovers and clears it in historical navigation
+TestingLibraryElementError: Unable to find an element with the text: /Travel day/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mid[39m=[32m"recharts_measurement_span"[39m
+    [33mstyle[39m=[32m"position: absolute; top: -20000px; left: 0px; padding: 0px; margin: 0px; white-space: pre; letter-spacing: undefined;"[39m
+  [36m>[39m
+    [0m550[0m
+  [36m</span>[39m
+  [36m<div />[39m
+  [36m<div />[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/nutrition.test.tsx:1260:19
+    1258|     renderNutritionPage({ initialEntries: ['/nutrition?date=2026-03-05…
+    1259|     await act(flushNutritionTimers);
+    1260|     expect(screen.getByText(/Travel day/)).toBeVisible();
+       |                   ^
+    1261|     fireEvent.click(screen.getByRole('button', { name: 'Clear note' })…
+    1262|     fireEvent.click(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/features/nutrition/api/nutrition.test.tsx > nutrition api hooks > strictly parses daily energy adherence for the selected date
+AssertionError: expected false to be true // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div />[39m
+  [36m</body>[39m
+[36m</html>[39m...
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/features/nutrition/api/nutrition.test.tsx:192:58
+    190|     const { result } = renderHook(() => useDailyEnergyAdherence('2026-…
+    191| 
+    192|     await waitFor(() => expect(result.current.isSuccess).toBe(true));
+       |                                                          ^
+    193|     expect(result.current.data?.intakeMinusTargetKcal).toBe(100);
+    194|     expect(mockFetch).toHaveBeenCalledWith(
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed | 3 passed (5)
+      Tests  2 failed | 57 passed (59)
+   Start at  16:54:31
+   Duration  6.96s (transform 657ms, setup 350ms, import 1.63s, tests 3.56s, environment 951ms)
+
+undefined
+/Users/meridian/Projects/pulse-daily-nutrition-notes/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/features/nutrition/components/daily-nutrition-note.test.tsx src/features/nutrition/components/nutrition-week-strip.test.tsx src/features/nutrition/api/daily-note.test.tsx src/features/nutrition/api/nutrition.test.tsx src/pages/nutrition.test.tsx --maxWorkers=1

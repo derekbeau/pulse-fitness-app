@@ -13,6 +13,7 @@ import type {
   NutritionWaterHabitState,
   NutritionWeekDaySummary,
   NutritionWeekSummary,
+  PatchNutritionLogInput,
   PatchMealInput,
   PatchMealItemInput,
 } from '@pulse/shared';
@@ -81,6 +82,7 @@ export type DailyNutritionRecord = {
 
 export type NutritionSummaryRecord = {
   date: string;
+  notes: string | null;
   meals: number;
   actual: {
     calories: number;
@@ -153,6 +155,7 @@ const mealItemSelection = {
 };
 
 const nutritionSummarySelection = {
+  notes: nutritionLogs.notes,
   calories: sql<number>`coalesce(sum(${mealItems.calories}), 0)`,
   protein: sql<number>`coalesce(sum(${mealItems.protein}), 0)`,
   carbs: sql<number>`coalesce(sum(${mealItems.carbs}), 0)`,
@@ -685,6 +688,15 @@ export const getDailyNutritionForDate = async (
 ): Promise<DailyNutritionRecord | null> => {
   const { db } = await import('../../db/index.js');
 
+  return readDailyNutrition(db, userId, date);
+};
+
+// Share the owned read model with the note transaction so its response is atomic.
+const readDailyNutrition = (
+  db: Pick<(typeof import('../../db/index.js'))['db'], 'select'>,
+  userId: string,
+  date: string,
+): DailyNutritionRecord | null => {
   const log = db
     .select(nutritionLogSelection)
     .from(nutritionLogs)
@@ -734,6 +746,37 @@ export const getDailyNutritionForDate = async (
   };
 };
 
+export const patchNutritionLogForDate = async (
+  userId: string,
+  date: string,
+  input: PatchNutritionLogInput,
+): Promise<DailyNutritionRecord | null> => {
+  const { db } = await import('../../db/index.js');
+
+  return db.transaction(
+    (tx) => {
+      const ownerDate = and(eq(nutritionLogs.userId, userId), eq(nutritionLogs.date, date));
+      const log = tx.select(nutritionLogSelection).from(nutritionLogs).where(ownerDate).get();
+
+      if (input.notes !== undefined && input.notes !== (log?.notes ?? null)) {
+        if (log) {
+          tx.update(nutritionLogs)
+            .set({ notes: input.notes, updatedAt: log.updatedAt })
+            .where(ownerDate)
+            .run();
+        } else {
+          tx.insert(nutritionLogs).values({ userId, date, notes: input.notes }).run();
+        }
+      }
+
+      // Omitted and repeated writes are true no-ops; clearing an absent day stays absent.
+      // Notes never change completeness or refresh food usage projections.
+      return readDailyNutrition(tx, userId, date);
+    },
+    { behavior: 'immediate' },
+  );
+};
+
 export const getDailyNutritionSummaryForDate = async (
   userId: string,
   date: string,
@@ -752,6 +795,7 @@ export const getDailyNutritionSummaryForDate = async (
     carbs: 0,
     fat: 0,
     meals: 0,
+    notes: null,
   };
 
   const target =
@@ -767,6 +811,7 @@ export const getDailyNutritionSummaryForDate = async (
 
   return {
     date,
+    notes: actuals.notes ?? null,
     meals: Number(actuals.meals ?? 0),
     actual: {
       calories: Number(actuals.calories ?? 0),
@@ -855,6 +900,7 @@ export const getNutritionWeekSummaryForDate = async (
   const actualRows = db
     .select({
       date: nutritionLogs.date,
+      notes: nutritionLogs.notes,
       calories: sql<number>`coalesce(sum(${mealItems.calories}), 0)`,
       protein: sql<number>`coalesce(sum(${mealItems.protein}), 0)`,
       mealCount: sql<number>`count(distinct ${meals.id})`,
@@ -886,6 +932,7 @@ export const getNutritionWeekSummaryForDate = async (
         calories: Number(row.calories ?? 0),
         protein: Number(row.protein ?? 0),
         mealCount: Number(row.mealCount ?? 0),
+        hasNote: Boolean(row.notes?.trim()),
       },
     ]),
   );
@@ -910,7 +957,12 @@ export const getNutritionWeekSummaryForDate = async (
   }
 
   return weekDates.map<NutritionWeekDaySummary>((date) => {
-    const actual = actualByDate.get(date) ?? { calories: 0, protein: 0, mealCount: 0 };
+    const actual = actualByDate.get(date) ?? {
+      calories: 0,
+      protein: 0,
+      mealCount: 0,
+      hasNote: false,
+    };
     const target = targetsByDate.get(date) ?? { calories: 0, protein: 0 };
 
     return {
@@ -920,6 +972,7 @@ export const getNutritionWeekSummaryForDate = async (
       protein: actual.protein,
       proteinTarget: target.protein,
       mealCount: actual.mealCount,
+      hasNote: actual.hasNote,
       completeness: calculateNutritionCompleteness({
         calories: actual.calories,
         caloriesTarget: target.calories,

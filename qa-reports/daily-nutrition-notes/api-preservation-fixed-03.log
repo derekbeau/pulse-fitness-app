@@ -1,0 +1,13 @@
+COMMAND: pnpm --filter @pulse/api exec vitest run src/routes/nutrition/daily-notes.integration.test.ts --maxWorkers=1
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api
+
+ ✓ src/routes/nutrition/daily-notes.integration.test.ts (26 tests) 971ms
+
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  17:53:36
+   Duration  1.73s (transform 573ms, setup 0ms, import 654ms, tests 971ms, environment 0ms)
+
+
+EXIT_CODE: 0

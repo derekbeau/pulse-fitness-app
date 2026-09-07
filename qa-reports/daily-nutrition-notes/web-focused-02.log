@@ -1,0 +1,14 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/web
+
+ ✓ src/pages/nutrition.test.tsx (33 tests) 1594ms
+ ✓ src/features/nutrition/api/nutrition.test.tsx (10 tests) 446ms
+ ✓ src/features/nutrition/components/daily-nutrition-note.test.tsx (7 tests) 321ms
+ ✓ src/features/nutrition/api/daily-note.test.tsx (4 tests) 382ms
+ ✓ src/features/nutrition/components/nutrition-week-strip.test.tsx (6 tests) 92ms
+
+ Test Files  5 passed (5)
+      Tests  60 passed (60)
+   Start at  16:58:44
+   Duration  6.49s (transform 728ms, setup 366ms, import 1.73s, tests 2.83s, environment 986ms)
+

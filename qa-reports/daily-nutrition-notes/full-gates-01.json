@@ -1,0 +1,71 @@
+[
+  {
+    "name": "api-preservation-fixed-03",
+    "command": [
+      "pnpm",
+      "--filter",
+      "@pulse/api",
+      "exec",
+      "vitest",
+      "run",
+      "src/routes/nutrition/daily-notes.integration.test.ts",
+      "--maxWorkers=1"
+    ],
+    "exit": 0,
+    "seconds": 2.47
+  },
+  {
+    "name": "full-typecheck-02",
+    "command": [
+      "pnpm",
+      "exec",
+      "turbo",
+      "run",
+      "typecheck",
+      "--force",
+      "--concurrency=1"
+    ],
+    "exit": 0,
+    "seconds": 17.82
+  },
+  {
+    "name": "full-repo-scripts-01",
+    "command": [
+      "pnpm",
+      "test:repo-scripts"
+    ],
+    "exit": 0,
+    "seconds": 1.83
+  },
+  {
+    "name": "full-build-01",
+    "command": [
+      "pnpm",
+      "exec",
+      "turbo",
+      "run",
+      "build",
+      "--force",
+      "--concurrency=1"
+    ],
+    "exit": 0,
+    "seconds": 18.46
+  },
+  {
+    "name": "full-tests-01",
+    "command": [
+      "pnpm",
+      "exec",
+      "turbo",
+      "run",
+      "test",
+      "--only",
+      "--force",
+      "--concurrency=1",
+      "--",
+      "--maxWorkers=1"
+    ],
+    "exit": 0,
+    "seconds": 251.03
+  }
+]

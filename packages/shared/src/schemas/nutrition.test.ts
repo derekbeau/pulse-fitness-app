@@ -25,6 +25,7 @@ import {
   patchMealInputSchema,
   patchMealItemInputSchema,
   nutritionSummarySchema,
+  patchNutritionLogInputSchema,
   updateNutritionLogStatusInputSchema,
 } from './nutrition';
 
@@ -348,6 +349,7 @@ describe('nutritionLoggingContext schemas', () => {
         nutrition: null,
         summary: {
           date: '2026-03-09',
+          notes: null,
           meals: 0,
           actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
           target: null,
@@ -646,6 +648,7 @@ describe('nutritionSummarySchema', () => {
   it('parses summary payloads with and without target', () => {
     const withTarget = nutritionSummarySchema.parse({
       date: '2026-03-09',
+      notes: null,
       meals: 3,
       actual: {
         calories: 2100,
@@ -671,6 +674,7 @@ describe('nutritionSummarySchema', () => {
 
     const withoutTarget = nutritionSummarySchema.parse({
       date: '2026-03-09',
+      notes: null,
       meals: 0,
       actual: {
         calories: 0,
@@ -696,6 +700,7 @@ describe('nutritionSummarySchema', () => {
   it('infers NutritionSummary from the schema', () => {
     const summary: NutritionSummary = {
       date: '2026-03-09',
+      notes: null,
       meals: 1,
       actual: {
         calories: 210,
@@ -739,6 +744,7 @@ describe('nutritionWeekSummarySchema', () => {
         protein: 175,
         proteinTarget: 180,
         mealCount: 3,
+        hasNote: false,
         completeness: 0.96,
       },
       {
@@ -748,6 +754,7 @@ describe('nutritionWeekSummarySchema', () => {
         protein: 0,
         proteinTarget: 180,
         mealCount: 0,
+        hasNote: false,
         completeness: 0,
       },
       {
@@ -757,6 +764,7 @@ describe('nutritionWeekSummarySchema', () => {
         protein: 150,
         proteinTarget: 180,
         mealCount: 2,
+        hasNote: false,
         completeness: 0.83,
       },
       {
@@ -766,6 +774,7 @@ describe('nutritionWeekSummarySchema', () => {
         protein: 180,
         proteinTarget: 180,
         mealCount: 4,
+        hasNote: false,
         completeness: 1,
       },
       {
@@ -775,6 +784,7 @@ describe('nutritionWeekSummarySchema', () => {
         protein: 160,
         proteinTarget: 180,
         mealCount: 3,
+        hasNote: false,
         completeness: 0.9,
       },
       {
@@ -784,6 +794,7 @@ describe('nutritionWeekSummarySchema', () => {
         protein: 190,
         proteinTarget: 180,
         mealCount: 4,
+        hasNote: false,
         completeness: 1,
       },
       {
@@ -793,6 +804,7 @@ describe('nutritionWeekSummarySchema', () => {
         protein: 120,
         proteinTarget: 180,
         mealCount: 2,
+        hasNote: false,
         completeness: 0.72,
       },
     ]);
@@ -809,9 +821,27 @@ describe('nutritionWeekSummarySchema', () => {
       protein: 0,
       proteinTarget: 180,
       mealCount: 0,
+      hasNote: false,
       completeness: 0,
     }));
 
     expect(summary[6]?.mealCount).toBe(0);
+  });
+});
+
+describe('daily nutrition note PATCH schema', () => {
+  it('preserves omitted/null semantics and internal whitespace', () => {
+    expect(patchNutritionLogInputSchema.parse({})).toEqual({});
+    expect(patchNutritionLogInputSchema.parse({ notes: null })).toEqual({ notes: null });
+    expect(patchNutritionLogInputSchema.parse({ notes: '  One\n  Two  ' })).toEqual({
+      notes: 'One\n  Two',
+    });
+  });
+  it('enforces meaningful trimmed UTF-16 length and rejects aliases', () => {
+    expect(patchNutritionLogInputSchema.safeParse({ notes: '😀'.repeat(1000) }).success).toBe(true);
+    for (const notes of ['', '  \n ', '😀'.repeat(1001), 'a'.repeat(2001), 3, false, []]) {
+      expect(patchNutritionLogInputSchema.safeParse({ notes }).success).toBe(false);
+    }
+    expect(patchNutritionLogInputSchema.safeParse({ context: 'alias' }).success).toBe(false);
   });
 });

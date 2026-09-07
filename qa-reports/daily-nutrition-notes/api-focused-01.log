@@ -1,0 +1,96 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api
+
+ ❯ src/routes/nutrition/index.test.ts (15 tests | 2 failed) 289ms
+     ✓ updates nutrition status for JWT and AgentToken callers 124ms
+     ✓ maps nutrition status domain errors and rejects invalid status values 14ms
+     ✓ creates a meal for a date and updates referenced food recency 16ms
+     ✓ creates a meal with an updated daily summary when requested 12ms
+     ✓ gets logging context for JWT and AgentToken callers 11ms
+     ✓ gets nested daily nutrition data or null for missing logs 10ms
+     ✓ returns week summary data for the requested center date 14ms
+     ✓ deletes an existing meal in user scope and returns not found otherwise 8ms
+     ✓ patches meals with partial payloads and returns 404 for out-of-scope meals 9ms
+     ✓ patches meal-item snapshots and returns 404 for out-of-scope items 14ms
+     ✓ gets a daily nutrition summary with actuals, target, and meal count 8ms
+     × returns the same daily summary schema for JWT and AgentToken callers 13ms
+     × returns identical accepted daily energy facts for JWT and AgentToken callers 12ms
+     ✓ validates date and meal payloads 15ms
+     ✓ requires auth for nutrition endpoints 8ms
+ ✓ src/routes/nutrition/daily-notes.integration.test.ts (12 tests) 547ms
+ ✓ src/routes/nutrition/store.test.ts (6 tests) 70ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/nutrition/index.test.ts > nutrition routes > returns the same daily summary schema for JWT and AgentToken callers
+AssertionError: expected { …(2) } to match object { …(2) }
+(24 matching properties omitted from actual)
+
+- Expected
++ Received
+
+@@ -11,11 +11,24 @@
+          "fat": 22,
+          "protein": 70,
+        },
+        "date": "2026-03-09",
+        "meals": 1,
+-       "notes": null,
++       "proteinFloor": {
++         "actualProteinGrams": 70,
++         "amountAboveFloorGrams": 0,
++         "isFinal": false,
++         "proteinFloorGrams": 180,
++         "remainingToFloorGrams": 110,
++         "state": "below_floor",
++       },
++       "remaining": {
++         "calories": 1706,
++         "carbs": 250,
++         "fat": 48,
++         "protein": 110,
++       },
+        "target": {
+          "calories": 2200,
+          "carbs": 250,
+          "fat": 70,
+          "protein": 180,
+
+ ❯ src/routes/nutrition/index.test.ts:1324:36
+    1322|       });
+    1323|       expect(agentResponse.statusCode).toBe(200);
+    1324|       expect(agentResponse.json()).toMatchObject({
+       |                                    ^
+    1325|         data: nutritionSummary,
+    1326|         agent: {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/routes/nutrition/index.test.ts > nutrition routes > returns identical accepted daily energy facts for JWT and AgentToken callers
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ src/routes/nutrition/index.test.ts:1420:38
+    1418|       ]);
+    1419| 
+    1420|       expect(jwtResponse.statusCode).toBe(200);
+       |                                      ^
+    1421|       expect(agentResponse.statusCode).toBe(200);
+    1422|       expect(jwtResponse.json()).toEqual(agentResponse.json());
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  2 failed | 31 passed (33)
+   Start at  16:53:45
+   Duration  2.91s (transform 720ms, setup 0ms, import 1.70s, tests 906ms, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/nutrition/daily-notes.integration.test.ts src/routes/nutrition/index.test.ts src/routes/nutrition/store.test.ts --maxWorkers=1

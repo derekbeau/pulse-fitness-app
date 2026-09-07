@@ -1,0 +1,127 @@
+[
+  {
+    "step": "saved-reloaded-mobile",
+    "note": "Day note\nEdit note\nClear note\n\nRestaurant estimates\n  <img src=x onerror=\"alert(133)\">\nRecovery context — longwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongwordlongword",
+    "layout": {
+      "noteActions": [
+        {
+          "height": 44,
+          "text": "Edit note",
+          "width": 85.546875
+        },
+        {
+          "height": 44,
+          "text": "Clear note",
+          "width": 92.1875
+        }
+      ],
+      "scrollWidth": 375,
+      "unsafeImages": 0,
+      "width": 375
+    }
+  },
+  {
+    "step": "save-failure",
+    "editor": "Simulated save failure",
+    "status": "Day note\nNote for 2026-09-03\n\n22 / 2,000 characters after trimming\n\nSave note\nCancel\n\nCould not save the day note. Your text is still here; try again."
+  },
+  {
+    "step": "whitespace-validation",
+    "status": "Day note\nNote for 2026-09-03\n\n0 / 2,000 characters after trimming\n\nEnter a day note\n\nSave note\nCancel",
+    "invalid": "true"
+  },
+  {
+    "step": "cancel",
+    "beforeRequests": 3,
+    "afterRequests": 3,
+    "note": "Day note\nEdit note\nClear note\n\nRecovery day\n  Estimated restaurant macros",
+    "focus": "Edit note"
+  },
+  {
+    "step": "clear-dialog-cancel",
+    "beforeRequests": 3,
+    "afterRequests": 3
+  },
+  {
+    "step": "populated-clear",
+    "note": "Day note\nAdd day note\n\nAdd context for the whole day, even before your first meal.\n\nDay note cleared.",
+    "focus": "Add day note"
+  },
+  {
+    "step": "empty-day-save",
+    "note": "Day note\nEdit note\nClear note\n\nTravel day\nAppetite context before logging any meals.\n\nDay note saved.",
+    "energyBefore": "Daily energy\n\nAccepted facts for 2026-09-04 in America/Detroit.\n\nNo nutrition log\n\nThere is no intake record for this day, so Pulse won't invent a comparison.\n\nLogged intake\n\nNot available\n\nAccepted target\n\n2500 kcal\n\nAccepted expenditure\n\n2500 kcal\n\nTarget difference: Not available\n\nExpenditure difference: Not available\n\nAccepted target comparison is not available. Accepted expenditure comparison is not available.\n\nTarget adherence is symmetric: the same distance above or below the accepted target gets the same label. Exercise calories are not credited here.\n\nAccepted-fact provenance",
+    "energyAfter": "Daily energy\n\nAccepted facts for 2026-09-04 in America/Detroit.\n\nNo nutrition log\n\nThere is no intake record for this day, so Pulse won't invent a comparison.\n\nLogged intake\n\nNot available\n\nAccepted target\n\n2500 kcal\n\nAccepted expenditure\n\n2500 kcal\n\nTarget difference: Not available\n\nExpenditure difference: Not available\n\nAccepted target comparison is not available. Accepted expenditure comparison is not available.\n\nTarget adherence is symmetric: the same distance above or below the accepted target gets the same label. Exercise calories are not credited here.\n\nAccepted-fact provenance"
+  },
+  {
+    "step": "empty-reload",
+    "note": "Day note\nEdit note\nClear note\n\nTravel day\nAppetite context before logging any meals.",
+    "energy": "Daily energy\n\nAccepted facts for 2026-09-04 in America/Detroit.\n\nNo nutrition log\n\nThere is no intake record for this day, so Pulse won't invent a comparison.\n\nLogged intake\n\nNot available\n\nAccepted target\n\n2500 kcal\n\nAccepted expenditure\n\n2500 kcal\n\nTarget difference: Not available\n\nExpenditure difference: Not available\n\nAccepted target comparison is not available. Accepted expenditure comparison is not available.\n\nTarget adherence is symmetric: the same distance above or below the accepted target gets the same label. Exercise calories are not credited here.\n\nAccepted-fact provenance",
+    "weekHasNote": true
+  },
+  {
+    "step": "empty-clear-reload",
+    "note": "Day note\nAdd day note\n\nAdd context for the whole day, even before your first meal.",
+    "energy": "Daily energy\n\nAccepted facts for 2026-09-04 in America/Detroit.\n\nNo nutrition log\n\nThere is no intake record for this day, so Pulse won't invent a comparison.\n\nLogged intake\n\nNot available\n\nAccepted target\n\n2500 kcal\n\nAccepted expenditure\n\n2500 kcal\n\nTarget difference: Not available\n\nExpenditure difference: Not available\n\nAccepted target comparison is not available. Accepted expenditure comparison is not available.\n\nTarget adherence is symmetric: the same distance above or below the accepted target gets the same label. Exercise calories are not credited here.\n\nAccepted-fact provenance",
+    "weekIndicatorRemoved": true
+  },
+  {
+    "step": "tablet-editor",
+    "layout": {
+      "actions": [
+        {
+          "height": 44,
+          "text": "Save note",
+          "width": 96.578125
+        },
+        {
+          "height": 44,
+          "text": "Cancel",
+          "width": 79.734375
+        }
+      ],
+      "scrollWidth": 768,
+      "width": 768
+    }
+  },
+  {
+    "step": "reduced-height-keyboard-layout",
+    "layout": {
+      "actions": [
+        {
+          "bottom": 271.609375,
+          "height": 44,
+          "text": "Save note",
+          "top": 227.609375
+        },
+        {
+          "bottom": 271.609375,
+          "height": 44,
+          "text": "Cancel",
+          "top": 227.609375
+        }
+      ],
+      "focus": "Cancel",
+      "height": 500,
+      "scrollWidth": 375,
+      "width": 375
+    }
+  },
+  {
+    "step": "desktop-final",
+    "layout": {
+      "scrollWidth": 1280,
+      "width": 1280
+    },
+    "note": "Day note\nEdit note\nClear note\n\nRecovery day\nRestaurant estimates, with meal context kept separate.\n\nDay note saved."
+  },
+  {
+    "step": "other-user-same-date",
+    "note": "Day note\nEdit note\nClear note\n\nPrivate fictional stranger note",
+    "page": "- complementary:\n  - paragraph: Pulse\n  - button \"Collapse sidebar\":\n  - navigation \"Desktop navigation\":\n    - link \"Dashboard\":\n      - /url: /\n      - generic: Dashboard\n    - link \"Workouts\":\n      - /url: /workouts\n      - generic: Workouts\n    - link \"Nutrition\":\n      - /url: /nutrition\n      - generic: Nutrition\n    - link \"Habits\":\n      - /url: /habits\n      - generic: Habits\n    - link \"Data Quality\":\n      - /url: /data-quality\n      - generic: Data Quality\n    - link \"Activity\":\n      - /url: /activity\n      - generic: Activity\n    - link \"Journal\":\n      - /url: /journal\n      - generic: Journal\n    - link \"Profile\":\n      - /url: /profile\n      - generic: Profile\n  - link \"S Sam Example @fictional-notes-stranger\":\n    - /url: /profile\n    - generic: S\n    - paragraph: Sam Example\n    - paragraph: \"@fictional-notes-stranger\"\n  - button \"Log out\":\n    - generic: Log out\n- main:\n  - heading \"Nutrition\" [level=1]\n  - paragraph: Review daily meal logs and macro progress.\n  - button \"Help\":\n  - tablist \"Nutrition views\":\n    - tab \"Log\" [selected]\n    - tab \"Coach\"\n    - tab \"Foods\"\n    - tab \"Trends\"\n  - tabpanel \"Log\":\n    - paragraph:\n      - text: Agent-logged meals for Thursday, September 3.\n      - button \"Today\"\n    - button \"Go to previous week\":\n    - list \"Nutrition week summary\":\n      - button \"Select 2026-08-31\":\n        - generic: M\n        - generic: \"31\"\n        - generic \"Completeness empty for 2026-08-31\"\n      - button \"Select 2026-09-01\":\n        - generic: T\n        - generic: \"1\"\n        - generic \"Completeness empty for 2026-09-01\"\n      - button \"Select 2026-09-02\":\n        - generic: W\n        - generic: \"2\"\n        - generic \"Completeness empty for 2026-09-02\"\n      - button \"Select 2026-09-03, has note\":\n        - generic: T\n        - generic: \"3\"\n        - generic \"Completeness empty for 2026-09-03\"\n      - button \"Select 2026-09-04, has note\":\n        - generic: F\n        - generic: \"4\"\n        - generic \"Completeness empty for 2026-09-04\"\n      - button \"Select 2026-09-05\":\n        - generic: S\n        - generic: \"5\"\n        - generic \"Completeness empty for 2026-09-05\"\n      - button \"Select 2026-09-06\":\n        - generic: S\n        - generic: \"6\"\n        - generic \"Completeness empty for 2026-09-06\"\n    - button \"Go to next week\":\n    - region \"Is this day fully logged?\":\n      - heading \"Is this day fully logged?\" [level=2]\n      - paragraph: Estimated restaurant meals are fine; omitted meals are not. Only Complete days can train your Adaptive TDEE.\n      - paragraph: unknown\n      - group \"Nutrition day completeness\":\n        - button \"Unknown Not confirmed\" [pressed]:\n          - generic: Unknown\n          - generic: Not confirmed\n        - button \"Partial Something is missing\":\n          - generic: Partial\n          - generic: Something is missing\n        - button \"Complete All intake is logged\":\n          - generic: Complete\n          - generic: All intake is logged\n    - article \"Daily energy\":\n      - heading \"Daily energy\" [level=2]\n      - paragraph: Accepted facts for 2026-09-03 in America/Detroit.\n      - generic: No nutrition log\n      - paragraph: There is no intake record for this day, so Pulse won't invent a comparison.\n      - paragraph: Logged intake\n      - paragraph: Not available\n      - paragraph: Accepted target\n      - paragraph: Not available\n      - paragraph: Accepted expenditure\n      - paragraph: Not available\n      - paragraph: \"Target difference: Not available\"\n      - paragraph: \"Expenditure difference: Not available\"\n      - paragraph: Accepted target comparison is not available. Accepted expenditure comparison is not available.\n      - paragraph: \"Target adherence is symmetric: the same distance above or below the accepted target gets the same label. Exercise calories are not credited here.\"\n      - generic \"Accepted-fact provenance\"\n    - heading \"Macro progress\" [level=2]\n    - paragraph: No daily macro target is set yet. Add one in settings to enable progress rings.\n    - paragraph: Protein minimum unavailable\n    - region \"Day note\":\n      - heading \"Day note\" [level=2]:\n        - text: Day note\n      - button \"Edit note\"\n      - button \"Clear note\"\n      - paragraph: Private fictional stranger note\n      - status\n    - generic \"Meals logged section\":\n      - heading \"Meals logged\" [level=2]\n      - button \"Toggle meal sort direction\" [pressed]:\n        - generic: Newest first\n      - heading \"No meals logged for this day\" [level=2]\n      - paragraph: Ask your agent to log a meal.\n      - button \"Go to today\"\n- region \"Notifications alt+T\""
+  },
+  {
+    "step": "console",
+    "entries": []
+  }
+]

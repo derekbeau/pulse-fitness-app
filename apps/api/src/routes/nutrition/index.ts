@@ -11,6 +11,7 @@ import {
   nutritionMealSchema,
   nutritionSummarySchema,
   nutritionWeekSummarySchema,
+  patchNutritionLogInputSchema,
   patchMealInputSchema,
   patchMealItemInputSchema,
   updateNutritionLogStatusInputSchema,
@@ -44,6 +45,7 @@ import {
   getDailyNutritionSummaryForDate,
   getNutritionLoggingContext,
   getNutritionWeekSummaryForDate,
+  patchNutritionLogForDate,
   patchMealById,
   patchMealItemById,
 } from './store.js';
@@ -91,6 +93,34 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
       return reply.send({
         data: summary,
       });
+    },
+  );
+
+  typedApp.patch(
+    '/:date',
+    {
+      schema: {
+        params: dateParamsSchema,
+        body: patchNutritionLogInputSchema,
+        response: {
+          200: apiDataResponseSchema(dailyNutritionSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Create, replace, or clear a daily nutrition note',
+        description:
+          'Returns canonical daily detail. Trimmed notes are limited to 2,000 Unicode code units. Null clears; omission preserves. Clearing an absent day returns data: null. Valid future dates are allowed without changing completeness.',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const nutrition = await patchNutritionLogForDate(
+        request.userId,
+        request.params.date,
+        request.body,
+      );
+      return reply.send({ data: nutrition });
     },
   );
 

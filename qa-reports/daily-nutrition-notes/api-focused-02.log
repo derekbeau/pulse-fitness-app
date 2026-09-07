@@ -1,0 +1,22 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api
+
+ ✓ src/routes/nutrition/index.test.ts (15 tests) 267ms
+ ✓ src/__tests__/foods-nutrition.test.ts (4 tests) 531ms
+     ✓ covers foods CRUD, search, deletion, and recency sorting  435ms
+ ✓ src/routes/nutrition/store.food-usage.test.ts (11 tests) 13194ms
+     ✓ preserves exact links through append, metadata, all corrections, delete and retry  2545ms
+     ✓ rolls back create, append, correction and delete when usage persistence fails  3346ms
+     ✓ derives merge from links despite stale counters, with atomic restore and ownership failures  3313ms
+     ✓ keeps trashed food exact through linked-item edits, deletes, reconciliation and restore  864ms
+     ✓ rejects unprefixed agent tokens and rolls back date route create failures  868ms
+     ✓ falls back to the newest surviving timestamp and refuses foreign or partial purges  1736ms
+ ✓ src/routes/nutrition/logging-context.integration.test.ts (3 tests) 487ms
+ ✓ src/routes/nutrition/daily-notes.integration.test.ts (12 tests) 518ms
+ ✓ src/routes/nutrition/store.test.ts (6 tests) 64ms
+
+ Test Files  6 passed (6)
+      Tests  51 passed (51)
+   Start at  16:57:13
+   Duration  17.64s (transform 704ms, setup 0ms, import 2.00s, tests 15.06s, environment 0ms)
+

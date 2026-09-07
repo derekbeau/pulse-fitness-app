@@ -1,0 +1,2315 @@
+{
+  "facts": {
+    "nutrition_logs": [
+      {
+        "id": "10263888-a8c1-433e-a1a9-34bdedf52737",
+        "user_id": "fictional-notes-stranger",
+        "date": "2026-09-04",
+        "notes": "Private fictional stranger empty-day note",
+        "status": "unknown",
+        "status_updated_at": null,
+        "created_at": 1788818191000,
+        "updated_at": 1788818191000
+      },
+      {
+        "id": "732c0ae6-836a-4ced-8ebe-b0ab5495f5c5",
+        "user_id": "fictional-notes-stranger",
+        "date": "2026-09-03",
+        "notes": "Private fictional stranger note",
+        "status": "unknown",
+        "status_updated_at": null,
+        "created_at": 1788818191000,
+        "updated_at": 1788818191000
+      },
+      {
+        "id": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+        "user_id": "fictional-notes-owner",
+        "date": "2026-09-03",
+        "notes": null,
+        "status": "complete",
+        "status_updated_at": 1788796800000,
+        "created_at": 1788818191000,
+        "updated_at": 1788818191000
+      }
+    ],
+    "meals": [
+      {
+        "id": "7328fba3-1955-461a-9c53-97e2b18aa76f",
+        "nutrition_log_id": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+        "name": "Breakfast oats",
+        "time": "08:00",
+        "notes": "Meal context remains separate.",
+        "created_at": 1788818191000,
+        "updated_at": 1788818191000,
+        "summary": null
+      },
+      {
+        "id": "a79e57d4-e212-426f-bf22-1a8991bc2dad",
+        "nutrition_log_id": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+        "name": "Dinner salmon",
+        "time": "18:30",
+        "notes": "Meal context remains separate.",
+        "created_at": 1788818191000,
+        "updated_at": 1788818191000,
+        "summary": null
+      },
+      {
+        "id": "fe0e5227-d6c9-4df5-9fbb-f086c4a30daf",
+        "nutrition_log_id": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+        "name": "Lunch grain bowl",
+        "time": "12:30",
+        "notes": "Meal context remains separate.",
+        "created_at": 1788818191000,
+        "updated_at": 1788818191000,
+        "summary": null
+      }
+    ],
+    "meal_items": [
+      {
+        "id": "464192b4-06ee-478a-907f-10d941e5f89d",
+        "meal_id": "fe0e5227-d6c9-4df5-9fbb-f086c4a30daf",
+        "food_id": "fictional-12:30",
+        "name": "Lunch grain bowl",
+        "amount": 1,
+        "unit": "serving",
+        "display_quantity": null,
+        "display_unit": null,
+        "calories": 800,
+        "protein": 60,
+        "carbs": 95,
+        "fat": 20,
+        "fiber": null,
+        "sugar": null,
+        "created_at": 1788818191000
+      },
+      {
+        "id": "7a1f7636-6d8b-4f7c-8014-047247fc2231",
+        "meal_id": "7328fba3-1955-461a-9c53-97e2b18aa76f",
+        "food_id": "fictional-08:00",
+        "name": "Breakfast oats",
+        "amount": 1,
+        "unit": "serving",
+        "display_quantity": null,
+        "display_unit": null,
+        "calories": 550,
+        "protein": 35,
+        "carbs": 70,
+        "fat": 15,
+        "fiber": null,
+        "sugar": null,
+        "created_at": 1788818191000
+      },
+      {
+        "id": "9be789ac-36f2-46ce-a1a0-0d71cf531259",
+        "meal_id": "a79e57d4-e212-426f-bf22-1a8991bc2dad",
+        "food_id": "fictional-18:30",
+        "name": "Dinner salmon",
+        "amount": 1,
+        "unit": "serving",
+        "display_quantity": null,
+        "display_unit": null,
+        "calories": 1050,
+        "protein": 85,
+        "carbs": 90,
+        "fat": 40,
+        "fiber": null,
+        "sugar": null,
+        "created_at": 1788818191000
+      }
+    ],
+    "foods": [
+      {
+        "id": "fictional-08:00",
+        "user_id": "fictional-notes-owner",
+        "name": "Breakfast oats",
+        "brand": null,
+        "serving_size": null,
+        "serving_grams": null,
+        "calories": 550,
+        "protein": 35,
+        "carbs": 70,
+        "fat": 15,
+        "fiber": null,
+        "sugar": null,
+        "verified": 0,
+        "source": null,
+        "notes": null,
+        "last_used_at": 1788818191000,
+        "created_at": 1788818191000,
+        "updated_at": 1788818191000,
+        "deleted_at": null,
+        "usage_count": 1,
+        "tags": "[]"
+      },
+      {
+        "id": "fictional-12:30",
+        "user_id": "fictional-notes-owner",
+        "name": "Lunch grain bowl",
+        "brand": null,
+        "serving_size": null,
+        "serving_grams": null,
+        "calories": 800,
+        "protein": 60,
+        "carbs": 95,
+        "fat": 20,
+        "fiber": null,
+        "sugar": null,
+        "verified": 0,
+        "source": null,
+        "notes": null,
+        "last_used_at": 1788818191000,
+        "created_at": 1788818191000,
+        "updated_at": 1788818191000,
+        "deleted_at": null,
+        "usage_count": 1,
+        "tags": "[]"
+      },
+      {
+        "id": "fictional-18:30",
+        "user_id": "fictional-notes-owner",
+        "name": "Dinner salmon",
+        "brand": null,
+        "serving_size": null,
+        "serving_grams": null,
+        "calories": 1050,
+        "protein": 85,
+        "carbs": 90,
+        "fat": 40,
+        "fiber": null,
+        "sugar": null,
+        "verified": 0,
+        "source": null,
+        "notes": null,
+        "last_used_at": 1788818191000,
+        "created_at": 1788818191000,
+        "updated_at": 1788818191000,
+        "deleted_at": null,
+        "usage_count": 1,
+        "tags": "[]"
+      }
+    ],
+    "nutrition_targets": [
+      {
+        "id": "97c79561-b439-445f-a5bd-783cf6cb3454",
+        "user_id": "fictional-notes-owner",
+        "calories": 2500,
+        "protein": 180,
+        "carbs": 254,
+        "fat": 85,
+        "source": "adaptive",
+        "adaptive_check_in_id": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+        "macro_calories": 2501,
+        "effective_date": "2026-09-01",
+        "created_at": 1788278400000,
+        "updated_at": 1788278400000
+      }
+    ],
+    "nutrition_target_events": [
+      {
+        "id": "2750f26d-5e2e-4b80-a089-6f52bc6ae4c0",
+        "target_id": "97c79561-b439-445f-a5bd-783cf6cb3454",
+        "user_id": "fictional-notes-owner",
+        "sequence": 1,
+        "effective_date": "2026-09-01",
+        "calories": 2500,
+        "protein": 180,
+        "carbs": 254,
+        "fat": 85,
+        "macro_calories": 2501,
+        "source": "adaptive",
+        "adaptive_check_in_id": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+        "event_type": "adaptive_accept",
+        "recorded_at": 1788278400000,
+        "created_at": 1788278400000
+      }
+    ],
+    "body_weight": [
+      {
+        "id": "6ce22d15-020f-4894-98a5-e463a8315a8e",
+        "user_id": "fictional-notes-owner",
+        "date": "2026-09-01",
+        "weight": 180.7790549915996,
+        "weight_kg": 82,
+        "unit_at_entry": "kg",
+        "notes": null,
+        "created_at": 1788818191000,
+        "updated_at": 1788278400000
+      }
+    ],
+    "adaptive_nutrition_programs": [
+      {
+        "id": "aec65b7c-efd8-4fea-b797-4c17fd5b349f",
+        "user_id": "fictional-notes-owner",
+        "status": "active",
+        "time_zone": "America/Detroit",
+        "height_cm": null,
+        "birth_date": null,
+        "rmr_equation": "manual_tdee",
+        "activity_level": null,
+        "activity_multiplier": null,
+        "estimated_rmr_kcal": null,
+        "calculated_baseline_tdee_kcal": null,
+        "manual_baseline_tdee_kcal": 2500,
+        "baseline_tdee_kcal": 2500,
+        "goal_type": "maintain",
+        "target_weight_kg": null,
+        "goal_rate_pct_per_week": 0,
+        "protein_grams": 180,
+        "fat_allocation_pct": 30,
+        "system_calorie_floor_kcal": 1500,
+        "user_calorie_floor_kcal": 1500,
+        "algorithm_version": "adaptive-tdee-v1",
+        "created_at": 1788278400000,
+        "updated_at": 1788278400000
+      }
+    ],
+    "adaptive_nutrition_checkins": [
+      {
+        "id": "2c944750-20d6-4cf7-966a-9a2fb6aceaf1",
+        "user_id": "fictional-notes-owner",
+        "program_id": "aec65b7c-efd8-4fea-b797-4c17fd5b349f",
+        "goal_id": "480b3b95-3a10-44b9-824c-3a2f35bb9eb0",
+        "goal_revision_id": "cd598f8d-7c24-4cdc-80f7-1f35d763ff36",
+        "kind": "weekly",
+        "status": "held",
+        "calculation_state": "holding",
+        "local_date": "2026-09-07",
+        "analysis_start": "2026-08-17",
+        "analysis_end": "2026-09-06",
+        "include_today": 0,
+        "algorithm_version": "adaptive-tdee-v1",
+        "data_fingerprint": "ab51a5f7af619cc0f64ec74b32a06fb2626d40e4593105c0e17f5478db223559",
+        "input_snapshot": "{\"version\":2,\"constants\":{\"algorithmVersion\":\"adaptive-tdee-v1\",\"poundsToKilograms\":0.45359237,\"activityMultipliers\":{\"sedentary\":1.2,\"low_active\":1.375,\"active\":1.55,\"very_active\":1.725},\"energyDensityKcalPerKg\":7700,\"ewmaHalfLifeDays\":7,\"analysisDays\":21,\"warmupDays\":21,\"minimumCompleteNutritionDays\":12,\"minimumActualWeights\":3,\"minimumWeightSpanDays\":14,\"maximumWeightAgeDays\":7,\"minimumTrendPoints\":14,\"suspectAdjacentMaximumDays\":3,\"suspectWeightChangeFraction\":0.05,\"suspectMedianWindowDays\":7,\"suspectReturnFraction\":0.02,\"weightFrequencyFullCount\":7,\"recencyFullDays\":2,\"recencyDecayDays\":5,\"nutritionConfidenceWeight\":0.55,\"weightFrequencyConfidenceWeight\":0.2,\"weightSpanConfidenceWeight\":0.15,\"recencyConfidenceWeight\":0.1,\"estimatedRmrMinimumFraction\":0.8,\"estimatedRmrMaximumMultiple\":3,\"manualObservedTdeeMinimumKcal\":800,\"manualObservedTdeeMaximumKcal\":8000,\"maximumAdaptiveChangeKcal\":150,\"adaptiveStepFraction\":0.35,\"minimumLossCaloriesFraction\":0.75,\"absoluteCalorieFloorKcal\":1200,\"goalToleranceAbsoluteKg\":0.23,\"goalToleranceFraction\":0.0025,\"calorieRoundingIncrement\":10,\"macroFatRoundingIncrement\":5,\"proteinCaloriesPerGram\":4,\"carbohydrateCaloriesPerGram\":4,\"fatCaloriesPerGram\":9},\"program\":{\"status\":\"active\",\"timeZone\":\"America/Detroit\",\"rmrEquation\":\"manual_tdee\",\"heightCm\":null,\"birthDate\":null,\"activityLevel\":null,\"activityMultiplier\":null,\"estimatedRmrKcal\":null,\"calculatedBaselineTdeeKcal\":null,\"manualBaselineTdeeKcal\":2500,\"baselineTdeeKcal\":2500,\"goalType\":\"maintain\",\"targetWeightKg\":null,\"goalRatePctPerWeek\":0,\"proteinGrams\":180,\"fatAllocationPct\":30,\"systemCalorieFloorKcal\":1500,\"userCalorieFloorKcal\":1500,\"algorithmVersion\":\"adaptive-tdee-v1\"},\"priorTdee\":{\"checkInId\":\"d86ca8de-02f9-4a87-a9da-dfee46b35d3d\",\"tdeeKcal\":2500},\"currentTarget\":{\"id\":\"97c79561-b439-445f-a5bd-783cf6cb3454\",\"calories\":2500,\"protein\":180,\"carbs\":254,\"fat\":85,\"source\":\"adaptive\",\"adaptiveCheckInId\":\"d86ca8de-02f9-4a87-a9da-dfee46b35d3d\",\"macroCalories\":2501,\"effectiveDate\":\"2026-09-01\",\"updatedAt\":1788278400000},\"boundaries\":{\"previewDate\":\"2026-09-07\",\"analysisStart\":\"2026-08-17\",\"analysisEnd\":\"2026-09-06\",\"warmupStart\":\"2026-07-27\"},\"includeToday\":false,\"nutritionDays\":[{\"id\":\"ce9f1a03-2099-4f8a-a1d5-21560678a5fb\",\"date\":\"2026-09-03\",\"status\":\"complete\",\"calories\":2400,\"itemCount\":3,\"updatedAt\":1788818191000}],\"weightEntries\":[{\"id\":\"6ce22d15-020f-4894-98a5-e463a8315a8e\",\"date\":\"2026-09-01\",\"weightKg\":82,\"updatedAt\":1788278400000}],\"goal\":{\"id\":\"480b3b95-3a10-44b9-824c-3a2f35bb9eb0\",\"revisionId\":\"cd598f8d-7c24-4cdc-80f7-1f35d763ff36\",\"type\":\"maintain\",\"targetWeightKg\":null,\"maintenanceCenterKg\":82,\"goalRatePctPerWeek\":0}}",
+        "calculation_snapshot": "{\"algorithmVersion\":\"adaptive-tdee-v1\",\"inputFingerprint\":\"ab51a5f7af619cc0f64ec74b32a06fb2626d40e4593105c0e17f5478db223559\",\"kind\":\"weekly\",\"boundaries\":{\"previewDate\":\"2026-09-07\",\"analysisStart\":\"2026-08-17\",\"analysisEnd\":\"2026-09-06\",\"warmupStart\":\"2026-07-27\"},\"reasonCodes\":[\"INSUFFICIENT_WEIGHT\",\"NO_OVERLAPPING_DATA\",\"INSUFFICIENT_TREND_POINTS\",\"INSUFFICIENT_NUTRITION\"],\"suspectWeightEntryIds\":[],\"suspectWeightEntries\":[],\"excludedNutritionDates\":[],\"completeNutritionDays\":0,\"actualWeightCount\":1,\"trendPointCount\":1,\"averageDailyIntakeKcal\":null,\"priorTdeeKcal\":2500,\"latestTrendWeightKg\":82,\"state\":\"holding\",\"weightTrendKgPerDay\":null,\"observedTdeeKcal\":null,\"confidence\":null,\"adaptiveUpdate\":null,\"goal\":null,\"macros\":null}",
+        "reason_codes": "[\"INSUFFICIENT_WEIGHT\",\"NO_OVERLAPPING_DATA\",\"INSUFFICIENT_TREND_POINTS\",\"INSUFFICIENT_NUTRITION\"]",
+        "prior_tdee_kcal": 2500,
+        "observed_tdee_kcal": null,
+        "proposed_tdee_kcal": null,
+        "current_targets": "{\"id\":\"97c79561-b439-445f-a5bd-783cf6cb3454\",\"calories\":2500,\"protein\":180,\"carbs\":254,\"fat\":85,\"source\":\"adaptive\",\"adaptiveCheckInId\":\"d86ca8de-02f9-4a87-a9da-dfee46b35d3d\",\"macroCalories\":2501,\"effectiveDate\":\"2026-09-01\",\"createdAt\":1788278400000,\"updatedAt\":1788278400000}",
+        "proposed_targets": null,
+        "accepted_nutrition_target_id": null,
+        "resolved_at": null,
+        "created_at": 1788796800000
+      },
+      {
+        "id": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+        "user_id": "fictional-notes-owner",
+        "program_id": "aec65b7c-efd8-4fea-b797-4c17fd5b349f",
+        "goal_id": "480b3b95-3a10-44b9-824c-3a2f35bb9eb0",
+        "goal_revision_id": "cd598f8d-7c24-4cdc-80f7-1f35d763ff36",
+        "kind": "baseline",
+        "status": "accepted",
+        "calculation_state": "baseline",
+        "local_date": "2026-09-01",
+        "analysis_start": null,
+        "analysis_end": null,
+        "include_today": 1,
+        "algorithm_version": "adaptive-tdee-v1",
+        "data_fingerprint": "06d4df6cfe1238918ceb01e87a68f98abf0da38655bacbaba5737e1b17ce0581",
+        "input_snapshot": "{\"version\":2,\"constants\":{\"algorithmVersion\":\"adaptive-tdee-v1\",\"poundsToKilograms\":0.45359237,\"activityMultipliers\":{\"sedentary\":1.2,\"low_active\":1.375,\"active\":1.55,\"very_active\":1.725},\"energyDensityKcalPerKg\":7700,\"ewmaHalfLifeDays\":7,\"analysisDays\":21,\"warmupDays\":21,\"minimumCompleteNutritionDays\":12,\"minimumActualWeights\":3,\"minimumWeightSpanDays\":14,\"maximumWeightAgeDays\":7,\"minimumTrendPoints\":14,\"suspectAdjacentMaximumDays\":3,\"suspectWeightChangeFraction\":0.05,\"suspectMedianWindowDays\":7,\"suspectReturnFraction\":0.02,\"weightFrequencyFullCount\":7,\"recencyFullDays\":2,\"recencyDecayDays\":5,\"nutritionConfidenceWeight\":0.55,\"weightFrequencyConfidenceWeight\":0.2,\"weightSpanConfidenceWeight\":0.15,\"recencyConfidenceWeight\":0.1,\"estimatedRmrMinimumFraction\":0.8,\"estimatedRmrMaximumMultiple\":3,\"manualObservedTdeeMinimumKcal\":800,\"manualObservedTdeeMaximumKcal\":8000,\"maximumAdaptiveChangeKcal\":150,\"adaptiveStepFraction\":0.35,\"minimumLossCaloriesFraction\":0.75,\"absoluteCalorieFloorKcal\":1200,\"goalToleranceAbsoluteKg\":0.23,\"goalToleranceFraction\":0.0025,\"calorieRoundingIncrement\":10,\"macroFatRoundingIncrement\":5,\"proteinCaloriesPerGram\":4,\"carbohydrateCaloriesPerGram\":4,\"fatCaloriesPerGram\":9},\"program\":{\"status\":\"active\",\"timeZone\":\"America/Detroit\",\"rmrEquation\":\"manual_tdee\",\"heightCm\":null,\"birthDate\":null,\"activityLevel\":null,\"activityMultiplier\":null,\"estimatedRmrKcal\":null,\"calculatedBaselineTdeeKcal\":null,\"manualBaselineTdeeKcal\":2500,\"baselineTdeeKcal\":2500,\"goalType\":\"maintain\",\"targetWeightKg\":null,\"goalRatePctPerWeek\":0,\"proteinGrams\":180,\"fatAllocationPct\":30,\"systemCalorieFloorKcal\":1500,\"userCalorieFloorKcal\":1500,\"algorithmVersion\":\"adaptive-tdee-v1\"},\"priorTdee\":null,\"currentTarget\":null,\"boundaries\":{\"previewDate\":\"2026-09-01\",\"analysisStart\":\"2026-08-12\",\"analysisEnd\":\"2026-09-01\",\"warmupStart\":\"2026-07-22\"},\"includeToday\":true,\"nutritionDays\":[],\"weightEntries\":[{\"id\":\"6ce22d15-020f-4894-98a5-e463a8315a8e\",\"date\":\"2026-09-01\",\"weightKg\":82,\"updatedAt\":1788278400000}],\"goal\":{\"id\":\"480b3b95-3a10-44b9-824c-3a2f35bb9eb0\",\"revisionId\":\"cd598f8d-7c24-4cdc-80f7-1f35d763ff36\",\"type\":\"maintain\",\"targetWeightKg\":null,\"maintenanceCenterKg\":82,\"goalRatePctPerWeek\":0}}",
+        "calculation_snapshot": "{\"algorithmVersion\":\"adaptive-tdee-v1\",\"inputFingerprint\":\"06d4df6cfe1238918ceb01e87a68f98abf0da38655bacbaba5737e1b17ce0581\",\"kind\":\"baseline\",\"state\":\"baseline\",\"boundaries\":{\"previewDate\":\"2026-09-01\",\"analysisStart\":\"2026-08-12\",\"analysisEnd\":\"2026-09-01\",\"warmupStart\":\"2026-07-22\"},\"reasonCodes\":[],\"suspectWeightEntryIds\":[],\"suspectWeightEntries\":[],\"excludedNutritionDates\":[],\"completeNutritionDays\":0,\"actualWeightCount\":1,\"trendPointCount\":1,\"averageDailyIntakeKcal\":null,\"weightTrendKgPerDay\":null,\"observedTdeeKcal\":null,\"confidence\":null,\"priorTdeeKcal\":2500,\"adaptiveUpdate\":null,\"latestTrendWeightKg\":82,\"goal\":{\"rawGoalCalories\":2500,\"goalCalories\":2500,\"desiredWeightChangeKgPerDay\":0,\"requestedCalorieAdjustment\":0,\"achievableGoalRatePctPerWeek\":0,\"goalReached\":false,\"reasonCodes\":[]},\"macros\":{\"calories\":2500,\"protein\":180,\"carbs\":254,\"fat\":85,\"macroCalories\":2501,\"calorieDifference\":-1}}",
+        "reason_codes": "[]",
+        "prior_tdee_kcal": 2500,
+        "observed_tdee_kcal": null,
+        "proposed_tdee_kcal": 2500,
+        "current_targets": null,
+        "proposed_targets": "{\"calories\":2500,\"protein\":180,\"carbs\":254,\"fat\":85,\"effectiveDate\":\"2026-09-01\"}",
+        "accepted_nutrition_target_id": "97c79561-b439-445f-a5bd-783cf6cb3454",
+        "resolved_at": 1788278400000,
+        "created_at": 1788278400000
+      }
+    ]
+  },
+  "api": {
+    "2026-09-03": {
+      "log": {
+        "id": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+        "userId": "fictional-notes-owner",
+        "date": "2026-09-03",
+        "notes": null,
+        "status": "complete",
+        "statusUpdatedAt": 1788796800000,
+        "createdAt": 1788818191000,
+        "updatedAt": 1788818191000
+      },
+      "meals": [
+        {
+          "meal": {
+            "id": "7328fba3-1955-461a-9c53-97e2b18aa76f",
+            "nutritionLogId": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+            "name": "Breakfast oats",
+            "summary": null,
+            "time": "08:00",
+            "notes": "Meal context remains separate.",
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "items": [
+            {
+              "id": "7a1f7636-6d8b-4f7c-8014-047247fc2231",
+              "mealId": "7328fba3-1955-461a-9c53-97e2b18aa76f",
+              "foodId": "fictional-08:00",
+              "name": "Breakfast oats",
+              "amount": 1,
+              "unit": "serving",
+              "displayQuantity": null,
+              "displayUnit": null,
+              "calories": 550,
+              "protein": 35,
+              "carbs": 70,
+              "fat": 15,
+              "fiber": null,
+              "sugar": null,
+              "createdAt": 1788818191000
+            }
+          ]
+        },
+        {
+          "meal": {
+            "id": "fe0e5227-d6c9-4df5-9fbb-f086c4a30daf",
+            "nutritionLogId": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+            "name": "Lunch grain bowl",
+            "summary": null,
+            "time": "12:30",
+            "notes": "Meal context remains separate.",
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "items": [
+            {
+              "id": "464192b4-06ee-478a-907f-10d941e5f89d",
+              "mealId": "fe0e5227-d6c9-4df5-9fbb-f086c4a30daf",
+              "foodId": "fictional-12:30",
+              "name": "Lunch grain bowl",
+              "amount": 1,
+              "unit": "serving",
+              "displayQuantity": null,
+              "displayUnit": null,
+              "calories": 800,
+              "protein": 60,
+              "carbs": 95,
+              "fat": 20,
+              "fiber": null,
+              "sugar": null,
+              "createdAt": 1788818191000
+            }
+          ]
+        },
+        {
+          "meal": {
+            "id": "a79e57d4-e212-426f-bf22-1a8991bc2dad",
+            "nutritionLogId": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+            "name": "Dinner salmon",
+            "summary": null,
+            "time": "18:30",
+            "notes": "Meal context remains separate.",
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "items": [
+            {
+              "id": "9be789ac-36f2-46ce-a1a0-0d71cf531259",
+              "mealId": "a79e57d4-e212-426f-bf22-1a8991bc2dad",
+              "foodId": "fictional-18:30",
+              "name": "Dinner salmon",
+              "amount": 1,
+              "unit": "serving",
+              "displayQuantity": null,
+              "displayUnit": null,
+              "calories": 1050,
+              "protein": 85,
+              "carbs": 90,
+              "fat": 40,
+              "fiber": null,
+              "sugar": null,
+              "createdAt": 1788818191000
+            }
+          ]
+        }
+      ]
+    },
+    "2026-09-04": null,
+    "2026-09-03/summary": {
+      "date": "2026-09-03",
+      "notes": null,
+      "meals": 3,
+      "actual": {
+        "calories": 2400,
+        "protein": 180,
+        "carbs": 255,
+        "fat": 75
+      },
+      "target": {
+        "calories": 2500,
+        "protein": 180,
+        "carbs": 254,
+        "fat": 85
+      },
+      "proteinFloor": {
+        "actualProteinGrams": 180,
+        "proteinFloorGrams": 180,
+        "remainingToFloorGrams": 0,
+        "amountAboveFloorGrams": 0,
+        "state": "floor_met",
+        "isFinal": true
+      }
+    },
+    "2026-09-04/summary": {
+      "date": "2026-09-04",
+      "notes": null,
+      "meals": 0,
+      "actual": {
+        "calories": 0,
+        "protein": 0,
+        "carbs": 0,
+        "fat": 0
+      },
+      "target": {
+        "calories": 2500,
+        "protein": 180,
+        "carbs": 254,
+        "fat": 85
+      },
+      "proteinFloor": {
+        "actualProteinGrams": null,
+        "proteinFloorGrams": 180,
+        "remainingToFloorGrams": null,
+        "amountAboveFloorGrams": null,
+        "state": "unavailable",
+        "isFinal": false
+      }
+    },
+    "2026-09-03/energy-adherence": {
+      "localDate": "2026-09-03",
+      "timeZone": "America/Detroit",
+      "todayLocalDate": "2026-09-07",
+      "completedDayCutoff": "2026-09-06",
+      "isHistorical": true,
+      "dataState": "gradeable",
+      "nutrition": {
+        "logId": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+        "status": "complete",
+        "intakeKcal": 2400,
+        "actualProteinGrams": 180,
+        "mealCount": 3,
+        "itemCount": 3
+      },
+      "target": {
+        "targetEventId": "2750f26d-5e2e-4b80-a089-6f52bc6ae4c0",
+        "targetId": "97c79561-b439-445f-a5bd-783cf6cb3454",
+        "effectiveDate": "2026-09-01",
+        "recordedAt": 1788278400000,
+        "caloriesKcal": 2500,
+        "proteinFloorGrams": 180,
+        "source": "adaptive",
+        "adaptiveCheckInId": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d"
+      },
+      "expenditure": {
+        "caloriesKcal": 2500,
+        "effectiveDate": "2026-09-01",
+        "source": "accepted_check_in",
+        "checkInId": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+        "inputFingerprint": "06d4df6cfe1238918ceb01e87a68f98abf0da38655bacbaba5737e1b17ce0581"
+      },
+      "proteinFloor": {
+        "actualProteinGrams": 180,
+        "proteinFloorGrams": 180,
+        "remainingToFloorGrams": 0,
+        "amountAboveFloorGrams": 0,
+        "state": "floor_met",
+        "isFinal": true
+      },
+      "intakeMinusTargetKcal": -100,
+      "intakeMinusExpenditureKcal": -100,
+      "innerToleranceKcal": 125,
+      "outerToleranceKcal": 250,
+      "adherence": "on_target",
+      "reasonCodes": []
+    },
+    "2026-09-04/energy-adherence": {
+      "localDate": "2026-09-04",
+      "timeZone": "America/Detroit",
+      "todayLocalDate": "2026-09-07",
+      "completedDayCutoff": "2026-09-06",
+      "isHistorical": true,
+      "dataState": "missing",
+      "nutrition": {
+        "logId": null,
+        "status": null,
+        "intakeKcal": null,
+        "actualProteinGrams": null,
+        "mealCount": 0,
+        "itemCount": 0
+      },
+      "target": {
+        "targetEventId": "2750f26d-5e2e-4b80-a089-6f52bc6ae4c0",
+        "targetId": "97c79561-b439-445f-a5bd-783cf6cb3454",
+        "effectiveDate": "2026-09-01",
+        "recordedAt": 1788278400000,
+        "caloriesKcal": 2500,
+        "proteinFloorGrams": 180,
+        "source": "adaptive",
+        "adaptiveCheckInId": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d"
+      },
+      "expenditure": {
+        "caloriesKcal": 2500,
+        "effectiveDate": "2026-09-01",
+        "source": "accepted_check_in",
+        "checkInId": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+        "inputFingerprint": "06d4df6cfe1238918ceb01e87a68f98abf0da38655bacbaba5737e1b17ce0581"
+      },
+      "proteinFloor": {
+        "actualProteinGrams": null,
+        "proteinFloorGrams": 180,
+        "remainingToFloorGrams": null,
+        "amountAboveFloorGrams": null,
+        "state": "unavailable",
+        "isFinal": false
+      },
+      "intakeMinusTargetKcal": null,
+      "intakeMinusExpenditureKcal": null,
+      "innerToleranceKcal": 125,
+      "outerToleranceKcal": 250,
+      "adherence": null,
+      "reasonCodes": [
+        "MISSING_NUTRITION_NOT_GRADED"
+      ]
+    },
+    "logging-context?date=2026-09-03": {
+      "date": "2026-09-03",
+      "query": {
+        "q": null,
+        "variants": []
+      },
+      "today": {
+        "nutrition": {
+          "log": {
+            "id": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+            "userId": "fictional-notes-owner",
+            "date": "2026-09-03",
+            "notes": null,
+            "status": "complete",
+            "statusUpdatedAt": 1788796800000,
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "meals": [
+            {
+              "meal": {
+                "id": "7328fba3-1955-461a-9c53-97e2b18aa76f",
+                "nutritionLogId": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+                "name": "Breakfast oats",
+                "summary": null,
+                "time": "08:00",
+                "notes": "Meal context remains separate.",
+                "createdAt": 1788818191000,
+                "updatedAt": 1788818191000
+              },
+              "items": [
+                {
+                  "id": "7a1f7636-6d8b-4f7c-8014-047247fc2231",
+                  "mealId": "7328fba3-1955-461a-9c53-97e2b18aa76f",
+                  "foodId": "fictional-08:00",
+                  "name": "Breakfast oats",
+                  "amount": 1,
+                  "unit": "serving",
+                  "displayQuantity": null,
+                  "displayUnit": null,
+                  "calories": 550,
+                  "protein": 35,
+                  "carbs": 70,
+                  "fat": 15,
+                  "fiber": null,
+                  "sugar": null,
+                  "createdAt": 1788818191000
+                }
+              ]
+            },
+            {
+              "meal": {
+                "id": "fe0e5227-d6c9-4df5-9fbb-f086c4a30daf",
+                "nutritionLogId": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+                "name": "Lunch grain bowl",
+                "summary": null,
+                "time": "12:30",
+                "notes": "Meal context remains separate.",
+                "createdAt": 1788818191000,
+                "updatedAt": 1788818191000
+              },
+              "items": [
+                {
+                  "id": "464192b4-06ee-478a-907f-10d941e5f89d",
+                  "mealId": "fe0e5227-d6c9-4df5-9fbb-f086c4a30daf",
+                  "foodId": "fictional-12:30",
+                  "name": "Lunch grain bowl",
+                  "amount": 1,
+                  "unit": "serving",
+                  "displayQuantity": null,
+                  "displayUnit": null,
+                  "calories": 800,
+                  "protein": 60,
+                  "carbs": 95,
+                  "fat": 20,
+                  "fiber": null,
+                  "sugar": null,
+                  "createdAt": 1788818191000
+                }
+              ]
+            },
+            {
+              "meal": {
+                "id": "a79e57d4-e212-426f-bf22-1a8991bc2dad",
+                "nutritionLogId": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+                "name": "Dinner salmon",
+                "summary": null,
+                "time": "18:30",
+                "notes": "Meal context remains separate.",
+                "createdAt": 1788818191000,
+                "updatedAt": 1788818191000
+              },
+              "items": [
+                {
+                  "id": "9be789ac-36f2-46ce-a1a0-0d71cf531259",
+                  "mealId": "a79e57d4-e212-426f-bf22-1a8991bc2dad",
+                  "foodId": "fictional-18:30",
+                  "name": "Dinner salmon",
+                  "amount": 1,
+                  "unit": "serving",
+                  "displayQuantity": null,
+                  "displayUnit": null,
+                  "calories": 1050,
+                  "protein": 85,
+                  "carbs": 90,
+                  "fat": 40,
+                  "fiber": null,
+                  "sugar": null,
+                  "createdAt": 1788818191000
+                }
+              ]
+            }
+          ]
+        },
+        "summary": {
+          "date": "2026-09-03",
+          "notes": null,
+          "meals": 3,
+          "actual": {
+            "calories": 2400,
+            "protein": 180,
+            "carbs": 255,
+            "fat": 75
+          },
+          "target": {
+            "calories": 2500,
+            "protein": 180,
+            "carbs": 254,
+            "fat": 85
+          },
+          "proteinFloor": {
+            "actualProteinGrams": 180,
+            "proteinFloorGrams": 180,
+            "remainingToFloorGrams": 0,
+            "amountAboveFloorGrams": 0,
+            "state": "floor_met",
+            "isFinal": true
+          }
+        }
+      },
+      "recentMealItems": [],
+      "savedFoodMatches": [],
+      "frequentFoods": [
+        {
+          "food": {
+            "id": "fictional-08:00",
+            "userId": "fictional-notes-owner",
+            "name": "Breakfast oats",
+            "brand": null,
+            "servingSize": null,
+            "servingGrams": null,
+            "calories": 550,
+            "protein": 35,
+            "carbs": 70,
+            "fat": 15,
+            "fiber": null,
+            "sugar": null,
+            "verified": false,
+            "source": null,
+            "notes": null,
+            "usageCount": 1,
+            "tags": [],
+            "lastUsedAt": 1788818191000,
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "score": 0.1,
+          "reason": "Frequent saved food used 1 time.",
+          "matchedVariant": null
+        },
+        {
+          "food": {
+            "id": "fictional-18:30",
+            "userId": "fictional-notes-owner",
+            "name": "Dinner salmon",
+            "brand": null,
+            "servingSize": null,
+            "servingGrams": null,
+            "calories": 1050,
+            "protein": 85,
+            "carbs": 90,
+            "fat": 40,
+            "fiber": null,
+            "sugar": null,
+            "verified": false,
+            "source": null,
+            "notes": null,
+            "usageCount": 1,
+            "tags": [],
+            "lastUsedAt": 1788818191000,
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "score": 0.1,
+          "reason": "Frequent saved food used 1 time.",
+          "matchedVariant": null
+        },
+        {
+          "food": {
+            "id": "fictional-12:30",
+            "userId": "fictional-notes-owner",
+            "name": "Lunch grain bowl",
+            "brand": null,
+            "servingSize": null,
+            "servingGrams": null,
+            "calories": 800,
+            "protein": 60,
+            "carbs": 95,
+            "fat": 20,
+            "fiber": null,
+            "sugar": null,
+            "verified": false,
+            "source": null,
+            "notes": null,
+            "usageCount": 1,
+            "tags": [],
+            "lastUsedAt": 1788818191000,
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "score": 0.1,
+          "reason": "Frequent saved food used 1 time.",
+          "matchedVariant": null
+        }
+      ],
+      "shorthandExpansions": [
+        {
+          "phrase": "standard shake",
+          "label": "Standard shake",
+          "score": 1,
+          "reason": "Known shorthand for the usual protein shake ingredients.",
+          "items": [
+            {
+              "foodName": "Orgain Chocolate Protein Powder",
+              "quantity": 0.5,
+              "unit": "serving",
+              "displayQuantity": 1,
+              "displayUnit": "scoop",
+              "reason": "0.5 saved serving is logged as 1 scoop."
+            },
+            {
+              "foodName": "Anthony's Premium Pea Protein",
+              "quantity": 1.9,
+              "unit": "serving",
+              "displayQuantity": 1.9,
+              "displayUnit": "Tbsp",
+              "reason": "Known shake ratio uses 1.9 saved servings/Tbsp."
+            }
+          ]
+        }
+      ],
+      "waterHabit": null
+    },
+    "logging-context?date=2026-09-04": {
+      "date": "2026-09-04",
+      "query": {
+        "q": null,
+        "variants": []
+      },
+      "today": {
+        "nutrition": null,
+        "summary": {
+          "date": "2026-09-04",
+          "notes": null,
+          "meals": 0,
+          "actual": {
+            "calories": 0,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 0
+          },
+          "target": {
+            "calories": 2500,
+            "protein": 180,
+            "carbs": 254,
+            "fat": 85
+          },
+          "proteinFloor": {
+            "actualProteinGrams": null,
+            "proteinFloorGrams": 180,
+            "remainingToFloorGrams": null,
+            "amountAboveFloorGrams": null,
+            "state": "unavailable",
+            "isFinal": false
+          }
+        }
+      },
+      "recentMealItems": [
+        {
+          "date": "2026-09-03",
+          "mealId": "7328fba3-1955-461a-9c53-97e2b18aa76f",
+          "mealName": "Breakfast oats",
+          "mealTime": "08:00",
+          "item": {
+            "id": "7a1f7636-6d8b-4f7c-8014-047247fc2231",
+            "mealId": "7328fba3-1955-461a-9c53-97e2b18aa76f",
+            "foodId": "fictional-08:00",
+            "name": "Breakfast oats",
+            "amount": 1,
+            "unit": "serving",
+            "displayQuantity": null,
+            "displayUnit": null,
+            "calories": 550,
+            "protein": 35,
+            "carbs": 70,
+            "fat": 15,
+            "fiber": null,
+            "sugar": null,
+            "createdAt": 1788818191000
+          }
+        },
+        {
+          "date": "2026-09-03",
+          "mealId": "fe0e5227-d6c9-4df5-9fbb-f086c4a30daf",
+          "mealName": "Lunch grain bowl",
+          "mealTime": "12:30",
+          "item": {
+            "id": "464192b4-06ee-478a-907f-10d941e5f89d",
+            "mealId": "fe0e5227-d6c9-4df5-9fbb-f086c4a30daf",
+            "foodId": "fictional-12:30",
+            "name": "Lunch grain bowl",
+            "amount": 1,
+            "unit": "serving",
+            "displayQuantity": null,
+            "displayUnit": null,
+            "calories": 800,
+            "protein": 60,
+            "carbs": 95,
+            "fat": 20,
+            "fiber": null,
+            "sugar": null,
+            "createdAt": 1788818191000
+          }
+        },
+        {
+          "date": "2026-09-03",
+          "mealId": "a79e57d4-e212-426f-bf22-1a8991bc2dad",
+          "mealName": "Dinner salmon",
+          "mealTime": "18:30",
+          "item": {
+            "id": "9be789ac-36f2-46ce-a1a0-0d71cf531259",
+            "mealId": "a79e57d4-e212-426f-bf22-1a8991bc2dad",
+            "foodId": "fictional-18:30",
+            "name": "Dinner salmon",
+            "amount": 1,
+            "unit": "serving",
+            "displayQuantity": null,
+            "displayUnit": null,
+            "calories": 1050,
+            "protein": 85,
+            "carbs": 90,
+            "fat": 40,
+            "fiber": null,
+            "sugar": null,
+            "createdAt": 1788818191000
+          }
+        }
+      ],
+      "savedFoodMatches": [],
+      "frequentFoods": [
+        {
+          "food": {
+            "id": "fictional-08:00",
+            "userId": "fictional-notes-owner",
+            "name": "Breakfast oats",
+            "brand": null,
+            "servingSize": null,
+            "servingGrams": null,
+            "calories": 550,
+            "protein": 35,
+            "carbs": 70,
+            "fat": 15,
+            "fiber": null,
+            "sugar": null,
+            "verified": false,
+            "source": null,
+            "notes": null,
+            "usageCount": 1,
+            "tags": [],
+            "lastUsedAt": 1788818191000,
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "score": 0.1,
+          "reason": "Frequent saved food used 1 time.",
+          "matchedVariant": null
+        },
+        {
+          "food": {
+            "id": "fictional-18:30",
+            "userId": "fictional-notes-owner",
+            "name": "Dinner salmon",
+            "brand": null,
+            "servingSize": null,
+            "servingGrams": null,
+            "calories": 1050,
+            "protein": 85,
+            "carbs": 90,
+            "fat": 40,
+            "fiber": null,
+            "sugar": null,
+            "verified": false,
+            "source": null,
+            "notes": null,
+            "usageCount": 1,
+            "tags": [],
+            "lastUsedAt": 1788818191000,
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "score": 0.1,
+          "reason": "Frequent saved food used 1 time.",
+          "matchedVariant": null
+        },
+        {
+          "food": {
+            "id": "fictional-12:30",
+            "userId": "fictional-notes-owner",
+            "name": "Lunch grain bowl",
+            "brand": null,
+            "servingSize": null,
+            "servingGrams": null,
+            "calories": 800,
+            "protein": 60,
+            "carbs": 95,
+            "fat": 20,
+            "fiber": null,
+            "sugar": null,
+            "verified": false,
+            "source": null,
+            "notes": null,
+            "usageCount": 1,
+            "tags": [],
+            "lastUsedAt": 1788818191000,
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "score": 0.1,
+          "reason": "Frequent saved food used 1 time.",
+          "matchedVariant": null
+        }
+      ],
+      "shorthandExpansions": [
+        {
+          "phrase": "standard shake",
+          "label": "Standard shake",
+          "score": 1,
+          "reason": "Known shorthand for the usual protein shake ingredients.",
+          "items": [
+            {
+              "foodName": "Orgain Chocolate Protein Powder",
+              "quantity": 0.5,
+              "unit": "serving",
+              "displayQuantity": 1,
+              "displayUnit": "scoop",
+              "reason": "0.5 saved serving is logged as 1 scoop."
+            },
+            {
+              "foodName": "Anthony's Premium Pea Protein",
+              "quantity": 1.9,
+              "unit": "serving",
+              "displayQuantity": 1.9,
+              "displayUnit": "Tbsp",
+              "reason": "Known shake ratio uses 1.9 saved servings/Tbsp."
+            }
+          ]
+        }
+      ],
+      "waterHabit": null
+    },
+    "week-summary?date=2026-09-03T12:00:00.000Z": [
+      {
+        "date": "2026-08-31",
+        "calories": 0,
+        "caloriesTarget": 0,
+        "protein": 0,
+        "proteinTarget": 0,
+        "mealCount": 0,
+        "hasNote": false,
+        "completeness": 0
+      },
+      {
+        "date": "2026-09-01",
+        "calories": 0,
+        "caloriesTarget": 2500,
+        "protein": 0,
+        "proteinTarget": 180,
+        "mealCount": 0,
+        "hasNote": false,
+        "completeness": 0
+      },
+      {
+        "date": "2026-09-02",
+        "calories": 0,
+        "caloriesTarget": 2500,
+        "protein": 0,
+        "proteinTarget": 180,
+        "mealCount": 0,
+        "hasNote": false,
+        "completeness": 0
+      },
+      {
+        "date": "2026-09-03",
+        "calories": 2400,
+        "caloriesTarget": 2500,
+        "protein": 180,
+        "proteinTarget": 180,
+        "mealCount": 3,
+        "hasNote": false,
+        "completeness": 0.98
+      },
+      {
+        "date": "2026-09-04",
+        "calories": 0,
+        "caloriesTarget": 2500,
+        "protein": 0,
+        "proteinTarget": 180,
+        "mealCount": 0,
+        "hasNote": false,
+        "completeness": 0
+      },
+      {
+        "date": "2026-09-05",
+        "calories": 0,
+        "caloriesTarget": 2500,
+        "protein": 0,
+        "proteinTarget": 180,
+        "mealCount": 0,
+        "hasNote": false,
+        "completeness": 0
+      },
+      {
+        "date": "2026-09-06",
+        "calories": 0,
+        "caloriesTarget": 2500,
+        "protein": 0,
+        "proteinTarget": 180,
+        "mealCount": 0,
+        "hasNote": false,
+        "completeness": 0
+      }
+    ]
+  },
+  "preview": {
+    "id": "2c944750-20d6-4cf7-966a-9a2fb6aceaf1",
+    "goalId": "480b3b95-3a10-44b9-824c-3a2f35bb9eb0",
+    "goalRevisionId": "cd598f8d-7c24-4cdc-80f7-1f35d763ff36",
+    "kind": "weekly",
+    "status": "held",
+    "calculationState": "holding",
+    "localDate": "2026-09-07",
+    "analysisStart": "2026-08-17",
+    "analysisEnd": "2026-09-06",
+    "includeToday": false,
+    "algorithmVersion": "adaptive-tdee-v1",
+    "dataFingerprint": "ab51a5f7af619cc0f64ec74b32a06fb2626d40e4593105c0e17f5478db223559",
+    "reasonCodes": [
+      "INSUFFICIENT_WEIGHT",
+      "NO_OVERLAPPING_DATA",
+      "INSUFFICIENT_TREND_POINTS",
+      "INSUFFICIENT_NUTRITION"
+    ],
+    "priorTdeeKcal": 2500,
+    "observedTdeeKcal": null,
+    "proposedTdeeKcal": null,
+    "currentTargets": {
+      "id": "97c79561-b439-445f-a5bd-783cf6cb3454",
+      "calories": 2500,
+      "protein": 180,
+      "carbs": 254,
+      "fat": 85,
+      "source": "adaptive",
+      "adaptiveCheckInId": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+      "macroCalories": 2501,
+      "effectiveDate": "2026-09-01",
+      "createdAt": 1788278400000,
+      "updatedAt": 1788278400000
+    },
+    "proposedTargets": null,
+    "acceptedNutritionTargetId": null,
+    "resolvedAt": null,
+    "createdAt": 1788796800000,
+    "inputSnapshot": {
+      "version": 2,
+      "constants": {
+        "algorithmVersion": "adaptive-tdee-v1",
+        "poundsToKilograms": 0.45359237,
+        "activityMultipliers": {
+          "sedentary": 1.2,
+          "low_active": 1.375,
+          "active": 1.55,
+          "very_active": 1.725
+        },
+        "energyDensityKcalPerKg": 7700,
+        "ewmaHalfLifeDays": 7,
+        "analysisDays": 21,
+        "warmupDays": 21,
+        "minimumCompleteNutritionDays": 12,
+        "minimumActualWeights": 3,
+        "minimumWeightSpanDays": 14,
+        "maximumWeightAgeDays": 7,
+        "minimumTrendPoints": 14,
+        "suspectAdjacentMaximumDays": 3,
+        "suspectWeightChangeFraction": 0.05,
+        "suspectMedianWindowDays": 7,
+        "suspectReturnFraction": 0.02,
+        "weightFrequencyFullCount": 7,
+        "recencyFullDays": 2,
+        "recencyDecayDays": 5,
+        "nutritionConfidenceWeight": 0.55,
+        "weightFrequencyConfidenceWeight": 0.2,
+        "weightSpanConfidenceWeight": 0.15,
+        "recencyConfidenceWeight": 0.1,
+        "estimatedRmrMinimumFraction": 0.8,
+        "estimatedRmrMaximumMultiple": 3,
+        "manualObservedTdeeMinimumKcal": 800,
+        "manualObservedTdeeMaximumKcal": 8000,
+        "maximumAdaptiveChangeKcal": 150,
+        "adaptiveStepFraction": 0.35,
+        "minimumLossCaloriesFraction": 0.75,
+        "absoluteCalorieFloorKcal": 1200,
+        "goalToleranceAbsoluteKg": 0.23,
+        "goalToleranceFraction": 0.0025,
+        "calorieRoundingIncrement": 10,
+        "macroFatRoundingIncrement": 5,
+        "proteinCaloriesPerGram": 4,
+        "carbohydrateCaloriesPerGram": 4,
+        "fatCaloriesPerGram": 9
+      },
+      "program": {
+        "status": "active",
+        "timeZone": "America/Detroit",
+        "rmrEquation": "manual_tdee",
+        "heightCm": null,
+        "birthDate": null,
+        "activityLevel": null,
+        "activityMultiplier": null,
+        "estimatedRmrKcal": null,
+        "calculatedBaselineTdeeKcal": null,
+        "manualBaselineTdeeKcal": 2500,
+        "baselineTdeeKcal": 2500,
+        "goalType": "maintain",
+        "targetWeightKg": null,
+        "goalRatePctPerWeek": 0,
+        "proteinGrams": 180,
+        "fatAllocationPct": 30,
+        "systemCalorieFloorKcal": 1500,
+        "userCalorieFloorKcal": 1500,
+        "algorithmVersion": "adaptive-tdee-v1"
+      },
+      "priorTdee": {
+        "checkInId": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+        "tdeeKcal": 2500
+      },
+      "currentTarget": {
+        "id": "97c79561-b439-445f-a5bd-783cf6cb3454",
+        "calories": 2500,
+        "protein": 180,
+        "carbs": 254,
+        "fat": 85,
+        "source": "adaptive",
+        "adaptiveCheckInId": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+        "macroCalories": 2501,
+        "effectiveDate": "2026-09-01",
+        "updatedAt": 1788278400000
+      },
+      "boundaries": {
+        "previewDate": "2026-09-07",
+        "analysisStart": "2026-08-17",
+        "analysisEnd": "2026-09-06",
+        "warmupStart": "2026-07-27"
+      },
+      "includeToday": false,
+      "nutritionDays": [
+        {
+          "id": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+          "date": "2026-09-03",
+          "status": "complete",
+          "calories": 2400,
+          "itemCount": 3,
+          "updatedAt": 1788818191000
+        }
+      ],
+      "weightEntries": [
+        {
+          "id": "6ce22d15-020f-4894-98a5-e463a8315a8e",
+          "date": "2026-09-01",
+          "weightKg": 82,
+          "updatedAt": 1788278400000
+        }
+      ],
+      "goal": {
+        "id": "480b3b95-3a10-44b9-824c-3a2f35bb9eb0",
+        "revisionId": "cd598f8d-7c24-4cdc-80f7-1f35d763ff36",
+        "type": "maintain",
+        "targetWeightKg": null,
+        "maintenanceCenterKg": 82,
+        "goalRatePctPerWeek": 0
+      }
+    },
+    "calculationSnapshot": {
+      "algorithmVersion": "adaptive-tdee-v1",
+      "inputFingerprint": "ab51a5f7af619cc0f64ec74b32a06fb2626d40e4593105c0e17f5478db223559",
+      "kind": "weekly",
+      "boundaries": {
+        "previewDate": "2026-09-07",
+        "analysisStart": "2026-08-17",
+        "analysisEnd": "2026-09-06",
+        "warmupStart": "2026-07-27"
+      },
+      "reasonCodes": [
+        "INSUFFICIENT_WEIGHT",
+        "NO_OVERLAPPING_DATA",
+        "INSUFFICIENT_TREND_POINTS",
+        "INSUFFICIENT_NUTRITION"
+      ],
+      "suspectWeightEntryIds": [],
+      "suspectWeightEntries": [],
+      "excludedNutritionDates": [],
+      "completeNutritionDays": 0,
+      "actualWeightCount": 1,
+      "trendPointCount": 1,
+      "averageDailyIntakeKcal": null,
+      "priorTdeeKcal": 2500,
+      "latestTrendWeightKg": 82,
+      "state": "holding",
+      "weightTrendKgPerDay": null,
+      "observedTdeeKcal": null,
+      "confidence": null,
+      "adaptiveUpdate": null,
+      "goal": null,
+      "macros": null
+    }
+  },
+  "state": {
+    "state": "learning",
+    "localDate": "2026-09-07",
+    "timeZone": "America/Detroit",
+    "timeZoneSource": "adaptive_program",
+    "program": {
+      "status": "active",
+      "timeZone": "America/Detroit",
+      "rmrEquation": "manual_tdee",
+      "heightCm": null,
+      "birthDate": null,
+      "activityLevel": null,
+      "activityMultiplier": null,
+      "estimatedRmrKcal": null,
+      "calculatedBaselineTdeeKcal": null,
+      "manualBaselineTdeeKcal": 2500,
+      "baselineTdeeKcal": 2500,
+      "goalType": "maintain",
+      "targetWeightKg": null,
+      "goalRatePctPerWeek": 0,
+      "proteinGrams": 180,
+      "fatAllocationPct": 30,
+      "systemCalorieFloorKcal": 1500,
+      "userCalorieFloorKcal": 1500,
+      "algorithmVersion": "adaptive-tdee-v1",
+      "id": "aec65b7c-efd8-4fea-b797-4c17fd5b349f",
+      "createdAt": 1788278400000,
+      "updatedAt": 1788278400000
+    },
+    "currentTarget": {
+      "id": "97c79561-b439-445f-a5bd-783cf6cb3454",
+      "calories": 2500,
+      "protein": 180,
+      "carbs": 254,
+      "fat": 85,
+      "source": "adaptive",
+      "adaptiveCheckInId": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+      "macroCalories": 2501,
+      "effectiveDate": "2026-09-01",
+      "createdAt": 1788278400000,
+      "updatedAt": 1788278400000
+    },
+    "latestAcceptedCheckIn": {
+      "id": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+      "goalId": "480b3b95-3a10-44b9-824c-3a2f35bb9eb0",
+      "goalRevisionId": "cd598f8d-7c24-4cdc-80f7-1f35d763ff36",
+      "kind": "baseline",
+      "status": "accepted",
+      "calculationState": "baseline",
+      "localDate": "2026-09-01",
+      "analysisStart": null,
+      "analysisEnd": null,
+      "includeToday": true,
+      "algorithmVersion": "adaptive-tdee-v1",
+      "dataFingerprint": "06d4df6cfe1238918ceb01e87a68f98abf0da38655bacbaba5737e1b17ce0581",
+      "reasonCodes": [],
+      "priorTdeeKcal": 2500,
+      "observedTdeeKcal": null,
+      "proposedTdeeKcal": 2500,
+      "currentTargets": null,
+      "proposedTargets": {
+        "calories": 2500,
+        "protein": 180,
+        "carbs": 254,
+        "fat": 85,
+        "effectiveDate": "2026-09-01"
+      },
+      "acceptedNutritionTargetId": "97c79561-b439-445f-a5bd-783cf6cb3454",
+      "resolvedAt": 1788278400000,
+      "createdAt": 1788278400000
+    },
+    "pendingCheckIn": null,
+    "checkInDue": false,
+    "nextCheckInDate": "2026-09-14",
+    "eligibility": {
+      "eligible": false,
+      "completeNutritionDaysLogged": 1,
+      "completeNutritionDaysUsable": 0,
+      "completeNutritionDaysBeforeWeightTrend": 0,
+      "completeNutritionDaysAwaitingWeightTrend": 1,
+      "completeNutritionDaysPendingCutoff": 0,
+      "weighInsLogged": 1,
+      "weighInsUsable": 1,
+      "weighInsPendingCutoff": 0,
+      "noteCodes": [
+        "COMPLETE_NUTRITION_AWAITING_WEIGHT_TREND"
+      ],
+      "requiredCompleteNutritionDays": 12,
+      "requiredWeighIns": 3,
+      "weightSpanDays": 0,
+      "requiredWeightSpanDays": 14,
+      "latestUsableWeightAgeDays": 5,
+      "analysisEndDate": "2026-09-06",
+      "pendingCutoffDate": "2026-09-07",
+      "timeZone": "America/Detroit",
+      "reasonCodes": [
+        "INSUFFICIENT_WEIGHT",
+        "NO_OVERLAPPING_DATA",
+        "INSUFFICIENT_TREND_POINTS",
+        "INSUFFICIENT_NUTRITION"
+      ]
+    },
+    "activeGoal": {
+      "targetWeightKg": null,
+      "maintenanceCenterKg": 82,
+      "goalRatePctPerWeek": 0,
+      "id": "480b3b95-3a10-44b9-824c-3a2f35bb9eb0",
+      "userId": "fictional-notes-owner",
+      "programId": "aec65b7c-efd8-4fea-b797-4c17fd5b349f",
+      "type": "maintain",
+      "status": "active",
+      "startTrendWeightKg": 82,
+      "startScaleWeightKg": 82,
+      "finalTrendWeightKg": null,
+      "startedLocalDate": "2026-09-01",
+      "endedLocalDate": null,
+      "endedReason": null,
+      "createdAt": 1788278400000,
+      "updatedAt": 1788278400000
+    },
+    "goalProgress": {
+      "kind": "maintenance",
+      "goalId": "480b3b95-3a10-44b9-824c-3a2f35bb9eb0",
+      "goalRevisionId": "cd598f8d-7c24-4cdc-80f7-1f35d763ff36",
+      "revisionSequence": 1,
+      "startedLocalDate": "2026-09-01",
+      "currentLocalDate": "2026-09-07",
+      "currentTrendWeightKg": 82,
+      "latestScaleWeightKg": 82,
+      "actualRateKgPerWeek": null,
+      "trendFreshness": "fresh",
+      "confidence": null,
+      "provenance": "valid_trend",
+      "type": "maintain",
+      "centerWeightKg": 82,
+      "signedDistanceFromCenterKg": 0,
+      "rangeRadiusKg": 0.8200000000000001,
+      "rangeLowerKg": 81.18,
+      "rangeUpperKg": 82.82,
+      "rangeStatus": "within",
+      "daysWithinRange": 1,
+      "observedDays": 1,
+      "trendDirection": "insufficient_data"
+    },
+    "pendingGoalChange": null,
+    "goalActionRequired": null
+  },
+  "analytics": {
+    "algorithmVersion": "adaptive-tdee-v1",
+    "timeZone": "America/Detroit",
+    "range": {
+      "preset": "all",
+      "startDate": "2026-09-01",
+      "endDate": "2026-09-07",
+      "aggregation": "monthly",
+      "calendarDays": 7
+    },
+    "isHistorical": false,
+    "current": {
+      "state": "holding",
+      "calculationState": "holding",
+      "adaptiveTdeeKcal": 2500,
+      "calorieTargetKcal": 2500,
+      "goalType": "maintain",
+      "confidenceLabel": null,
+      "confidenceScore": null,
+      "readiness": {
+        "eligible": false,
+        "completeNutritionDaysLogged": 1,
+        "completeNutritionDaysUsable": 0,
+        "completeNutritionDaysBeforeWeightTrend": 0,
+        "completeNutritionDaysAwaitingWeightTrend": 1,
+        "completeNutritionDaysPendingCutoff": 0,
+        "requiredCompleteNutritionDays": 12,
+        "weighInsLogged": 1,
+        "weighInsUsable": 1,
+        "weighInsPendingCutoff": 0,
+        "requiredWeighIns": 3,
+        "weightSpanDays": 0,
+        "requiredWeightSpanDays": 14,
+        "latestUsableWeightAgeDays": 5,
+        "analysisEndDate": "2026-09-06",
+        "pendingCutoffDate": "2026-09-07",
+        "timeZone": "America/Detroit",
+        "noteCodes": [
+          "COMPLETE_NUTRITION_AWAITING_WEIGHT_TREND"
+        ],
+        "reasonCodes": [
+          "INSUFFICIENT_WEIGHT",
+          "NO_OVERLAPPING_DATA",
+          "INSUFFICIENT_TREND_POINTS",
+          "INSUFFICIENT_NUTRITION"
+        ]
+      },
+      "reasonCodes": [
+        "INSUFFICIENT_WEIGHT",
+        "NO_OVERLAPPING_DATA",
+        "INSUFFICIENT_TREND_POINTS",
+        "INSUFFICIENT_NUTRITION"
+      ],
+      "expenditureSourceCheckInId": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+      "expenditureSourceInputFingerprint": "06d4df6cfe1238918ceb01e87a68f98abf0da38655bacbaba5737e1b17ce0581",
+      "stateSourceCheckInId": "2c944750-20d6-4cf7-966a-9a2fb6aceaf1",
+      "stateSourceInputFingerprint": "ab51a5f7af619cc0f64ec74b32a06fb2626d40e4593105c0e17f5478db223559"
+    },
+    "summary": {
+      "averageIntakeKcal": 2400,
+      "averageExpenditureKcal": 2500,
+      "averageTargetKcal": 2500,
+      "averageIntakeMinusTargetKcal": -100,
+      "intakeTargetComparableDays": 1,
+      "averageIntakeMinusExpenditureKcal": -100,
+      "intakeExpenditureComparableDays": 1,
+      "completeNutritionDays": 1,
+      "excludedNutritionDays": 6,
+      "coverageRatio": 0.14285714285714285,
+      "predictedWeightChangeKg": null,
+      "predictedModeledDays": 0,
+      "observedTrendWeightChangeKg": null,
+      "observedTrendStartDate": null,
+      "observedTrendEndDate": null,
+      "reconciliationComparable": false,
+      "reasonCodes": [
+        "INSUFFICIENT_TREND_DATA",
+        "INTAKE_BELOW_TARGET",
+        "INTAKE_BELOW_EXPENDITURE"
+      ]
+    },
+    "points": [
+      {
+        "periodStart": "2026-09-01",
+        "periodEnd": "2026-09-07",
+        "nutritionStatus": "mixed",
+        "sourceNutritionStatus": "complete",
+        "nutritionLogIds": [
+          "ce9f1a03-2099-4f8a-a1d5-21560678a5fb"
+        ],
+        "loggedIntakeKcal": 2400,
+        "intakeKcal": 2400,
+        "includedInBalance": true,
+        "completeNutritionDays": 1,
+        "partialNutritionDays": 0,
+        "unknownNutritionDays": 0,
+        "missingNutritionDays": 6,
+        "excludedNutritionDays": 6,
+        "targetKcal": 2500,
+        "targetIds": [
+          "97c79561-b439-445f-a5bd-783cf6cb3454"
+        ],
+        "expenditureKcal": 2500,
+        "trendWeightKg": 82,
+        "goalType": "maintain",
+        "state": "holding",
+        "calculationState": "holding",
+        "calculationReasonCodes": [
+          "INSUFFICIENT_WEIGHT",
+          "NO_OVERLAPPING_DATA",
+          "INSUFFICIENT_TREND_POINTS",
+          "INSUFFICIENT_NUTRITION"
+        ],
+        "reasonCodes": [
+          "MISSING_NUTRITION_EXCLUDED"
+        ],
+        "expenditureSourceCheckInId": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+        "expenditureSourceInputFingerprint": "06d4df6cfe1238918ceb01e87a68f98abf0da38655bacbaba5737e1b17ce0581",
+        "stateSourceCheckInId": "2c944750-20d6-4cf7-966a-9a2fb6aceaf1",
+        "stateSourceInputFingerprint": "ab51a5f7af619cc0f64ec74b32a06fb2626d40e4593105c0e17f5478db223559",
+        "sourceCheckInIds": [
+          "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+          "2c944750-20d6-4cf7-966a-9a2fb6aceaf1"
+        ],
+        "sourceInputFingerprints": [
+          "06d4df6cfe1238918ceb01e87a68f98abf0da38655bacbaba5737e1b17ce0581",
+          "ab51a5f7af619cc0f64ec74b32a06fb2626d40e4593105c0e17f5478db223559"
+        ],
+        "goalRevisionIds": [
+          "cd598f8d-7c24-4cdc-80f7-1f35d763ff36"
+        ]
+      }
+    ],
+    "markers": [
+      {
+        "id": "cd598f8d-7c24-4cdc-80f7-1f35d763ff36",
+        "date": "2026-09-01",
+        "type": "goal_revision",
+        "label": "Goal started",
+        "checkInId": null,
+        "inputFingerprint": null,
+        "goalId": "480b3b95-3a10-44b9-824c-3a2f35bb9eb0",
+        "goalRevisionId": "cd598f8d-7c24-4cdc-80f7-1f35d763ff36",
+        "state": null
+      },
+      {
+        "id": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+        "date": "2026-09-01",
+        "type": "check_in",
+        "label": "Baseline check-in",
+        "checkInId": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+        "inputFingerprint": "06d4df6cfe1238918ceb01e87a68f98abf0da38655bacbaba5737e1b17ce0581",
+        "goalId": "480b3b95-3a10-44b9-824c-3a2f35bb9eb0",
+        "goalRevisionId": "cd598f8d-7c24-4cdc-80f7-1f35d763ff36",
+        "state": "learning"
+      },
+      {
+        "id": "2c944750-20d6-4cf7-966a-9a2fb6aceaf1",
+        "date": "2026-09-07",
+        "type": "check_in",
+        "label": "Holding check-in",
+        "checkInId": "2c944750-20d6-4cf7-966a-9a2fb6aceaf1",
+        "inputFingerprint": "ab51a5f7af619cc0f64ec74b32a06fb2626d40e4593105c0e17f5478db223559",
+        "goalId": "480b3b95-3a10-44b9-824c-3a2f35bb9eb0",
+        "goalRevisionId": "cd598f8d-7c24-4cdc-80f7-1f35d763ff36",
+        "state": "holding"
+      }
+    ],
+    "explanation": {
+      "headline": "Your logged intake averaged 2400 kcal",
+      "detail": "Across matched complete days, that was 100 kcal below target and 100 kcal below expenditure. Missing days are not estimated.",
+      "reasonCodes": [
+        "HOLDING_ESTIMATE",
+        "INSUFFICIENT_TREND_DATA",
+        "INTAKE_BELOW_TARGET",
+        "INTAKE_BELOW_EXPENDITURE"
+      ]
+    }
+  },
+  "quality": {
+    "range": {
+      "startDate": "2026-09-01",
+      "endDate": "2026-09-07"
+    },
+    "today": "2026-09-07",
+    "timeZone": "America/Detroit",
+    "days": [
+      {
+        "date": "2026-09-01",
+        "isToday": false,
+        "nutrition": {
+          "qualityState": "no_records",
+          "evidenceState": "missing",
+          "logId": null,
+          "explicitStatus": null,
+          "totals": null,
+          "mealCount": null,
+          "itemCount": null,
+          "createdAt": null,
+          "statusUpdatedAt": null,
+          "updatedAt": null,
+          "provenance": {
+            "type": "not_recorded",
+            "label": "Not recorded",
+            "agentTokenId": null,
+            "limitation": "No nutrition source record exists for this date."
+          },
+          "reasonCodes": [],
+          "actions": [
+            {
+              "kind": "set_nutrition_status",
+              "label": "Review nutrition day status",
+              "href": "/nutrition?date=2026-09-01",
+              "method": "navigate"
+            },
+            {
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "href": "/data-quality?date=2026-09-01&action=context",
+              "method": "navigate"
+            }
+          ]
+        },
+        "weight": {
+          "evidenceState": "usable",
+          "entryId": "6ce22d15-020f-4894-98a5-e463a8315a8e",
+          "weight": 180.7790549915996,
+          "unit": "lbs",
+          "trendWeight": null,
+          "correctionState": "history_unavailable",
+          "suspect": false,
+          "stale": false,
+          "createdAt": 1788818191000,
+          "updatedAt": 1788278400000,
+          "provenance": {
+            "type": "not_recorded",
+            "label": "Not recorded",
+            "agentTokenId": null,
+            "limitation": "Historical creator provenance is not retained for weight measurements."
+          },
+          "reasonCodes": [],
+          "actions": [
+            {
+              "kind": "correct_weight",
+              "label": "Review weight measurement",
+              "href": "/weight/history?date=2026-09-01",
+              "method": "navigate"
+            },
+            {
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "href": "/data-quality?date=2026-09-01&action=context",
+              "method": "navigate"
+            }
+          ]
+        },
+        "workouts": [],
+        "algorithm": {
+          "state": "learning",
+          "nutritionEvidenceState": "missing",
+          "weightEvidenceState": "usable",
+          "reasonCodes": [
+            "INSUFFICIENT_WEIGHT",
+            "INSUFFICIENT_TREND_POINTS",
+            "INSUFFICIENT_NUTRITION",
+            "NO_OVERLAPPING_DATA"
+          ],
+          "events": [
+            {
+              "id": "d86ca8de-02f9-4a87-a9da-dfee46b35d3d",
+              "kind": "check_in",
+              "state": "accepted",
+              "effectiveDate": "2026-09-01",
+              "createdAt": 1788278400000,
+              "reasonCodes": [],
+              "provenance": {
+                "type": "system_derived",
+                "label": "Pulse algorithm",
+                "agentTokenId": null,
+                "limitation": null
+              },
+              "actions": [
+                {
+                  "kind": "view_check_in",
+                  "label": "Open Nutrition Coach",
+                  "href": "/nutrition?view=coach",
+                  "method": "navigate"
+                }
+              ]
+            }
+          ],
+          "omittedEventCount": 0
+        },
+        "contexts": [],
+        "omittedWorkoutCount": 0,
+        "omittedContextCount": 0
+      },
+      {
+        "date": "2026-09-02",
+        "isToday": false,
+        "nutrition": {
+          "qualityState": "no_records",
+          "evidenceState": "missing",
+          "logId": null,
+          "explicitStatus": null,
+          "totals": null,
+          "mealCount": null,
+          "itemCount": null,
+          "createdAt": null,
+          "statusUpdatedAt": null,
+          "updatedAt": null,
+          "provenance": {
+            "type": "not_recorded",
+            "label": "Not recorded",
+            "agentTokenId": null,
+            "limitation": "No nutrition source record exists for this date."
+          },
+          "reasonCodes": [],
+          "actions": [
+            {
+              "kind": "set_nutrition_status",
+              "label": "Review nutrition day status",
+              "href": "/nutrition?date=2026-09-02",
+              "method": "navigate"
+            },
+            {
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "href": "/data-quality?date=2026-09-02&action=context",
+              "method": "navigate"
+            }
+          ]
+        },
+        "weight": {
+          "evidenceState": "missing",
+          "entryId": null,
+          "weight": null,
+          "unit": null,
+          "trendWeight": null,
+          "correctionState": "not_applicable",
+          "suspect": false,
+          "stale": false,
+          "createdAt": null,
+          "updatedAt": null,
+          "provenance": {
+            "type": "not_recorded",
+            "label": "Not recorded",
+            "agentTokenId": null,
+            "limitation": "No weight source record exists for this date."
+          },
+          "reasonCodes": [],
+          "actions": [
+            {
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "href": "/data-quality?date=2026-09-02&action=context",
+              "method": "navigate"
+            }
+          ]
+        },
+        "workouts": [],
+        "algorithm": {
+          "state": "learning",
+          "nutritionEvidenceState": "missing",
+          "weightEvidenceState": "missing",
+          "reasonCodes": [
+            "INSUFFICIENT_WEIGHT",
+            "NO_OVERLAPPING_DATA",
+            "INSUFFICIENT_TREND_POINTS",
+            "INSUFFICIENT_NUTRITION"
+          ],
+          "events": [],
+          "omittedEventCount": 0
+        },
+        "contexts": [],
+        "omittedWorkoutCount": 0,
+        "omittedContextCount": 0
+      },
+      {
+        "date": "2026-09-03",
+        "isToday": false,
+        "nutrition": {
+          "qualityState": "complete",
+          "evidenceState": "logged",
+          "logId": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+          "explicitStatus": "complete",
+          "totals": {
+            "calories": 2400,
+            "protein": 180,
+            "carbs": 255,
+            "fat": 75
+          },
+          "mealCount": 3,
+          "itemCount": 3,
+          "createdAt": 1788818191000,
+          "statusUpdatedAt": 1788796800000,
+          "updatedAt": 1788818191000,
+          "provenance": {
+            "type": "not_recorded",
+            "label": "Not recorded",
+            "agentTokenId": null,
+            "limitation": "Historical creator provenance is not retained for nutrition logs."
+          },
+          "reasonCodes": [],
+          "actions": [
+            {
+              "kind": "set_nutrition_status",
+              "label": "Review nutrition day status",
+              "href": "/nutrition?date=2026-09-03",
+              "method": "navigate"
+            },
+            {
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "href": "/data-quality?date=2026-09-03&action=context",
+              "method": "navigate"
+            }
+          ]
+        },
+        "weight": {
+          "evidenceState": "missing",
+          "entryId": null,
+          "weight": null,
+          "unit": null,
+          "trendWeight": null,
+          "correctionState": "not_applicable",
+          "suspect": false,
+          "stale": false,
+          "createdAt": null,
+          "updatedAt": null,
+          "provenance": {
+            "type": "not_recorded",
+            "label": "Not recorded",
+            "agentTokenId": null,
+            "limitation": "No weight source record exists for this date."
+          },
+          "reasonCodes": [],
+          "actions": [
+            {
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "href": "/data-quality?date=2026-09-03&action=context",
+              "method": "navigate"
+            }
+          ]
+        },
+        "workouts": [],
+        "algorithm": {
+          "state": "learning",
+          "nutritionEvidenceState": "logged",
+          "weightEvidenceState": "missing",
+          "reasonCodes": [
+            "INSUFFICIENT_WEIGHT",
+            "NO_OVERLAPPING_DATA",
+            "INSUFFICIENT_TREND_POINTS",
+            "INSUFFICIENT_NUTRITION"
+          ],
+          "events": [],
+          "omittedEventCount": 0
+        },
+        "contexts": [],
+        "omittedWorkoutCount": 0,
+        "omittedContextCount": 0
+      },
+      {
+        "date": "2026-09-04",
+        "isToday": false,
+        "nutrition": {
+          "qualityState": "no_records",
+          "evidenceState": "missing",
+          "logId": null,
+          "explicitStatus": null,
+          "totals": null,
+          "mealCount": null,
+          "itemCount": null,
+          "createdAt": null,
+          "statusUpdatedAt": null,
+          "updatedAt": null,
+          "provenance": {
+            "type": "not_recorded",
+            "label": "Not recorded",
+            "agentTokenId": null,
+            "limitation": "No nutrition source record exists for this date."
+          },
+          "reasonCodes": [],
+          "actions": [
+            {
+              "kind": "set_nutrition_status",
+              "label": "Review nutrition day status",
+              "href": "/nutrition?date=2026-09-04",
+              "method": "navigate"
+            },
+            {
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "href": "/data-quality?date=2026-09-04&action=context",
+              "method": "navigate"
+            }
+          ]
+        },
+        "weight": {
+          "evidenceState": "missing",
+          "entryId": null,
+          "weight": null,
+          "unit": null,
+          "trendWeight": null,
+          "correctionState": "not_applicable",
+          "suspect": false,
+          "stale": false,
+          "createdAt": null,
+          "updatedAt": null,
+          "provenance": {
+            "type": "not_recorded",
+            "label": "Not recorded",
+            "agentTokenId": null,
+            "limitation": "No weight source record exists for this date."
+          },
+          "reasonCodes": [],
+          "actions": [
+            {
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "href": "/data-quality?date=2026-09-04&action=context",
+              "method": "navigate"
+            }
+          ]
+        },
+        "workouts": [],
+        "algorithm": {
+          "state": "learning",
+          "nutritionEvidenceState": "missing",
+          "weightEvidenceState": "missing",
+          "reasonCodes": [
+            "INSUFFICIENT_WEIGHT",
+            "NO_OVERLAPPING_DATA",
+            "INSUFFICIENT_TREND_POINTS",
+            "INSUFFICIENT_NUTRITION"
+          ],
+          "events": [],
+          "omittedEventCount": 0
+        },
+        "contexts": [],
+        "omittedWorkoutCount": 0,
+        "omittedContextCount": 0
+      },
+      {
+        "date": "2026-09-05",
+        "isToday": false,
+        "nutrition": {
+          "qualityState": "no_records",
+          "evidenceState": "missing",
+          "logId": null,
+          "explicitStatus": null,
+          "totals": null,
+          "mealCount": null,
+          "itemCount": null,
+          "createdAt": null,
+          "statusUpdatedAt": null,
+          "updatedAt": null,
+          "provenance": {
+            "type": "not_recorded",
+            "label": "Not recorded",
+            "agentTokenId": null,
+            "limitation": "No nutrition source record exists for this date."
+          },
+          "reasonCodes": [],
+          "actions": [
+            {
+              "kind": "set_nutrition_status",
+              "label": "Review nutrition day status",
+              "href": "/nutrition?date=2026-09-05",
+              "method": "navigate"
+            },
+            {
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "href": "/data-quality?date=2026-09-05&action=context",
+              "method": "navigate"
+            }
+          ]
+        },
+        "weight": {
+          "evidenceState": "missing",
+          "entryId": null,
+          "weight": null,
+          "unit": null,
+          "trendWeight": null,
+          "correctionState": "not_applicable",
+          "suspect": false,
+          "stale": false,
+          "createdAt": null,
+          "updatedAt": null,
+          "provenance": {
+            "type": "not_recorded",
+            "label": "Not recorded",
+            "agentTokenId": null,
+            "limitation": "No weight source record exists for this date."
+          },
+          "reasonCodes": [],
+          "actions": [
+            {
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "href": "/data-quality?date=2026-09-05&action=context",
+              "method": "navigate"
+            }
+          ]
+        },
+        "workouts": [],
+        "algorithm": {
+          "state": "learning",
+          "nutritionEvidenceState": "missing",
+          "weightEvidenceState": "missing",
+          "reasonCodes": [
+            "INSUFFICIENT_WEIGHT",
+            "NO_OVERLAPPING_DATA",
+            "INSUFFICIENT_TREND_POINTS",
+            "INSUFFICIENT_NUTRITION"
+          ],
+          "events": [],
+          "omittedEventCount": 0
+        },
+        "contexts": [],
+        "omittedWorkoutCount": 0,
+        "omittedContextCount": 0
+      },
+      {
+        "date": "2026-09-06",
+        "isToday": false,
+        "nutrition": {
+          "qualityState": "no_records",
+          "evidenceState": "missing",
+          "logId": null,
+          "explicitStatus": null,
+          "totals": null,
+          "mealCount": null,
+          "itemCount": null,
+          "createdAt": null,
+          "statusUpdatedAt": null,
+          "updatedAt": null,
+          "provenance": {
+            "type": "not_recorded",
+            "label": "Not recorded",
+            "agentTokenId": null,
+            "limitation": "No nutrition source record exists for this date."
+          },
+          "reasonCodes": [],
+          "actions": [
+            {
+              "kind": "set_nutrition_status",
+              "label": "Review nutrition day status",
+              "href": "/nutrition?date=2026-09-06",
+              "method": "navigate"
+            },
+            {
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "href": "/data-quality?date=2026-09-06&action=context",
+              "method": "navigate"
+            }
+          ]
+        },
+        "weight": {
+          "evidenceState": "missing",
+          "entryId": null,
+          "weight": null,
+          "unit": null,
+          "trendWeight": null,
+          "correctionState": "not_applicable",
+          "suspect": false,
+          "stale": false,
+          "createdAt": null,
+          "updatedAt": null,
+          "provenance": {
+            "type": "not_recorded",
+            "label": "Not recorded",
+            "agentTokenId": null,
+            "limitation": "No weight source record exists for this date."
+          },
+          "reasonCodes": [],
+          "actions": [
+            {
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "href": "/data-quality?date=2026-09-06&action=context",
+              "method": "navigate"
+            }
+          ]
+        },
+        "workouts": [],
+        "algorithm": {
+          "state": "learning",
+          "nutritionEvidenceState": "missing",
+          "weightEvidenceState": "missing",
+          "reasonCodes": [
+            "INSUFFICIENT_WEIGHT",
+            "NO_OVERLAPPING_DATA",
+            "INSUFFICIENT_TREND_POINTS",
+            "INSUFFICIENT_NUTRITION"
+          ],
+          "events": [],
+          "omittedEventCount": 0
+        },
+        "contexts": [],
+        "omittedWorkoutCount": 0,
+        "omittedContextCount": 0
+      },
+      {
+        "date": "2026-09-07",
+        "isToday": true,
+        "nutrition": {
+          "qualityState": "no_records",
+          "evidenceState": "missing",
+          "logId": null,
+          "explicitStatus": null,
+          "totals": null,
+          "mealCount": null,
+          "itemCount": null,
+          "createdAt": null,
+          "statusUpdatedAt": null,
+          "updatedAt": null,
+          "provenance": {
+            "type": "not_recorded",
+            "label": "Not recorded",
+            "agentTokenId": null,
+            "limitation": "No nutrition source record exists for this date."
+          },
+          "reasonCodes": [],
+          "actions": [
+            {
+              "kind": "set_nutrition_status",
+              "label": "Review nutrition day status",
+              "href": "/nutrition?date=2026-09-07",
+              "method": "navigate"
+            },
+            {
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "href": "/data-quality?date=2026-09-07&action=context",
+              "method": "navigate"
+            }
+          ]
+        },
+        "weight": {
+          "evidenceState": "missing",
+          "entryId": null,
+          "weight": null,
+          "unit": null,
+          "trendWeight": null,
+          "correctionState": "not_applicable",
+          "suspect": false,
+          "stale": false,
+          "createdAt": null,
+          "updatedAt": null,
+          "provenance": {
+            "type": "not_recorded",
+            "label": "Not recorded",
+            "agentTokenId": null,
+            "limitation": "No weight source record exists for this date."
+          },
+          "reasonCodes": [],
+          "actions": [
+            {
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "href": "/data-quality?date=2026-09-07&action=context",
+              "method": "navigate"
+            }
+          ]
+        },
+        "workouts": [],
+        "algorithm": {
+          "state": "holding",
+          "nutritionEvidenceState": "missing",
+          "weightEvidenceState": "missing",
+          "reasonCodes": [
+            "INSUFFICIENT_WEIGHT",
+            "NO_OVERLAPPING_DATA",
+            "INSUFFICIENT_TREND_POINTS",
+            "INSUFFICIENT_NUTRITION"
+          ],
+          "events": [
+            {
+              "id": "2c944750-20d6-4cf7-966a-9a2fb6aceaf1",
+              "kind": "check_in",
+              "state": "held",
+              "effectiveDate": "2026-09-07",
+              "createdAt": 1788796800000,
+              "reasonCodes": [
+                "INSUFFICIENT_WEIGHT",
+                "NO_OVERLAPPING_DATA",
+                "INSUFFICIENT_TREND_POINTS",
+                "INSUFFICIENT_NUTRITION"
+              ],
+              "provenance": {
+                "type": "system_derived",
+                "label": "Pulse algorithm",
+                "agentTokenId": null,
+                "limitation": null
+              },
+              "actions": [
+                {
+                  "kind": "view_check_in",
+                  "label": "Open Nutrition Coach",
+                  "href": "/nutrition?view=coach",
+                  "method": "navigate"
+                }
+              ]
+            }
+          ],
+          "omittedEventCount": 0
+        },
+        "contexts": [],
+        "omittedWorkoutCount": 0,
+        "omittedContextCount": 0
+      }
+    ],
+    "summary": {
+      "nutrition": {
+        "complete": 1,
+        "partial": 0,
+        "unknown": 0,
+        "missing": 6,
+        "pending": 0,
+        "excluded": 0
+      },
+      "weight": {
+        "logged": 1,
+        "missing": 6,
+        "pending": 0,
+        "excluded": 0
+      },
+      "workout": {
+        "planned": 0,
+        "active": 0,
+        "completed": 0,
+        "cancelled": 0
+      },
+      "algorithm": {
+        "learning": 6,
+        "updating": 0,
+        "holding": 1,
+        "pendingReview": 0
+      },
+      "contextDays": 0,
+      "intervalLabel": "Visible calendar grid"
+    }
+  },
+  "integrity": {
+    "quickCheck": [
+      {
+        "quick_check": "ok"
+      }
+    ],
+    "foreignKeys": []
+  }
+}

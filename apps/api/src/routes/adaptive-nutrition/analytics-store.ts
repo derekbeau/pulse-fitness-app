@@ -30,6 +30,7 @@ import {
   type EnergyBalanceState,
 } from '@pulse/shared';
 
+import { hasNutritionEvidence } from '../../db/nutrition-evidence.js';
 import * as schema from '../../db/schema/index.js';
 import {
   adaptiveNutritionCheckIns,
@@ -170,7 +171,13 @@ export const createAdaptiveAnalyticsStore = (dependencies: {
     const firstNutrition = db
       .select({ date: min(nutritionLogs.date) })
       .from(nutritionLogs)
-      .where(and(eq(nutritionLogs.userId, userId), lte(nutritionLogs.date, endDate)))
+      .where(
+        and(
+          hasNutritionEvidence,
+          eq(nutritionLogs.userId, userId),
+          lte(nutritionLogs.date, endDate),
+        ),
+      )
       .get()?.date;
     const firstWeight = db
       .select({ date: min(bodyWeight.date) })
@@ -215,6 +222,7 @@ export const createAdaptiveAnalyticsStore = (dependencies: {
       .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
       .where(
         and(
+          hasNutritionEvidence,
           eq(nutritionLogs.userId, userId),
           gte(nutritionLogs.date, historicalEvidenceStart),
           lte(nutritionLogs.date, range.endDate),
@@ -539,6 +547,7 @@ export const createAdaptiveAnalyticsStore = (dependencies: {
       .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
       .where(
         and(
+          hasNutritionEvidence,
           eq(nutritionLogs.userId, userId),
           gte(nutritionLogs.date, readinessBoundaries.analysisStart),
           lte(nutritionLogs.date, endDate),

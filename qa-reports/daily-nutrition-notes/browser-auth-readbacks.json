@@ -1,0 +1,276 @@
+[
+  {
+    "day": "2026-09-03",
+    "mode": "Bearer",
+    "readStatus": 200,
+    "omittedStatus": 200,
+    "data": {
+      "log": {
+        "id": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+        "userId": "fictional-notes-owner",
+        "date": "2026-09-03",
+        "notes": "Recovery day\nRestaurant estimates, with meal context kept separate.",
+        "status": "complete",
+        "statusUpdatedAt": 1788796800000,
+        "createdAt": 1788818191000,
+        "updatedAt": 1788818191000
+      },
+      "meals": [
+        {
+          "meal": {
+            "id": "7328fba3-1955-461a-9c53-97e2b18aa76f",
+            "nutritionLogId": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+            "name": "Breakfast oats",
+            "summary": null,
+            "time": "08:00",
+            "notes": "Meal context remains separate.",
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "items": [
+            {
+              "id": "7a1f7636-6d8b-4f7c-8014-047247fc2231",
+              "mealId": "7328fba3-1955-461a-9c53-97e2b18aa76f",
+              "foodId": "fictional-08:00",
+              "name": "Breakfast oats",
+              "amount": 1,
+              "unit": "serving",
+              "displayQuantity": null,
+              "displayUnit": null,
+              "calories": 550,
+              "protein": 35,
+              "carbs": 70,
+              "fat": 15,
+              "fiber": null,
+              "sugar": null,
+              "createdAt": 1788818191000
+            }
+          ]
+        },
+        {
+          "meal": {
+            "id": "fe0e5227-d6c9-4df5-9fbb-f086c4a30daf",
+            "nutritionLogId": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+            "name": "Lunch grain bowl",
+            "summary": null,
+            "time": "12:30",
+            "notes": "Meal context remains separate.",
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "items": [
+            {
+              "id": "464192b4-06ee-478a-907f-10d941e5f89d",
+              "mealId": "fe0e5227-d6c9-4df5-9fbb-f086c4a30daf",
+              "foodId": "fictional-12:30",
+              "name": "Lunch grain bowl",
+              "amount": 1,
+              "unit": "serving",
+              "displayQuantity": null,
+              "displayUnit": null,
+              "calories": 800,
+              "protein": 60,
+              "carbs": 95,
+              "fat": 20,
+              "fiber": null,
+              "sugar": null,
+              "createdAt": 1788818191000
+            }
+          ]
+        },
+        {
+          "meal": {
+            "id": "a79e57d4-e212-426f-bf22-1a8991bc2dad",
+            "nutritionLogId": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+            "name": "Dinner salmon",
+            "summary": null,
+            "time": "18:30",
+            "notes": "Meal context remains separate.",
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "items": [
+            {
+              "id": "9be789ac-36f2-46ce-a1a0-0d71cf531259",
+              "mealId": "a79e57d4-e212-426f-bf22-1a8991bc2dad",
+              "foodId": "fictional-18:30",
+              "name": "Dinner salmon",
+              "amount": 1,
+              "unit": "serving",
+              "displayQuantity": null,
+              "displayUnit": null,
+              "calories": 1050,
+              "protein": 85,
+              "carbs": 90,
+              "fat": 40,
+              "fiber": null,
+              "sugar": null,
+              "createdAt": 1788818191000
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "day": "2026-09-03",
+    "mode": "AgentToken",
+    "readStatus": 200,
+    "omittedStatus": 200,
+    "data": {
+      "log": {
+        "id": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+        "userId": "fictional-notes-owner",
+        "date": "2026-09-03",
+        "notes": "Recovery day\nRestaurant estimates, with meal context kept separate.",
+        "status": "complete",
+        "statusUpdatedAt": 1788796800000,
+        "createdAt": 1788818191000,
+        "updatedAt": 1788818191000
+      },
+      "meals": [
+        {
+          "meal": {
+            "id": "7328fba3-1955-461a-9c53-97e2b18aa76f",
+            "nutritionLogId": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+            "name": "Breakfast oats",
+            "summary": null,
+            "time": "08:00",
+            "notes": "Meal context remains separate.",
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "items": [
+            {
+              "id": "7a1f7636-6d8b-4f7c-8014-047247fc2231",
+              "mealId": "7328fba3-1955-461a-9c53-97e2b18aa76f",
+              "foodId": "fictional-08:00",
+              "name": "Breakfast oats",
+              "amount": 1,
+              "unit": "serving",
+              "displayQuantity": null,
+              "displayUnit": null,
+              "calories": 550,
+              "protein": 35,
+              "carbs": 70,
+              "fat": 15,
+              "fiber": null,
+              "sugar": null,
+              "createdAt": 1788818191000
+            }
+          ]
+        },
+        {
+          "meal": {
+            "id": "fe0e5227-d6c9-4df5-9fbb-f086c4a30daf",
+            "nutritionLogId": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+            "name": "Lunch grain bowl",
+            "summary": null,
+            "time": "12:30",
+            "notes": "Meal context remains separate.",
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "items": [
+            {
+              "id": "464192b4-06ee-478a-907f-10d941e5f89d",
+              "mealId": "fe0e5227-d6c9-4df5-9fbb-f086c4a30daf",
+              "foodId": "fictional-12:30",
+              "name": "Lunch grain bowl",
+              "amount": 1,
+              "unit": "serving",
+              "displayQuantity": null,
+              "displayUnit": null,
+              "calories": 800,
+              "protein": 60,
+              "carbs": 95,
+              "fat": 20,
+              "fiber": null,
+              "sugar": null,
+              "createdAt": 1788818191000
+            }
+          ]
+        },
+        {
+          "meal": {
+            "id": "a79e57d4-e212-426f-bf22-1a8991bc2dad",
+            "nutritionLogId": "ce9f1a03-2099-4f8a-a1d5-21560678a5fb",
+            "name": "Dinner salmon",
+            "summary": null,
+            "time": "18:30",
+            "notes": "Meal context remains separate.",
+            "createdAt": 1788818191000,
+            "updatedAt": 1788818191000
+          },
+          "items": [
+            {
+              "id": "9be789ac-36f2-46ce-a1a0-0d71cf531259",
+              "mealId": "a79e57d4-e212-426f-bf22-1a8991bc2dad",
+              "foodId": "fictional-18:30",
+              "name": "Dinner salmon",
+              "amount": 1,
+              "unit": "serving",
+              "displayQuantity": null,
+              "displayUnit": null,
+              "calories": 1050,
+              "protein": 85,
+              "carbs": 90,
+              "fat": 40,
+              "fiber": null,
+              "sugar": null,
+              "createdAt": 1788818191000
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "day": "2026-09-04",
+    "mode": "Bearer",
+    "readStatus": 200,
+    "omittedStatus": 200,
+    "data": {
+      "log": {
+        "id": "1828d195-bfa5-4d3e-b351-25c10bf71a7f",
+        "userId": "fictional-notes-owner",
+        "date": "2026-09-04",
+        "notes": null,
+        "status": "unknown",
+        "statusUpdatedAt": null,
+        "createdAt": 1788818425000,
+        "updatedAt": 1788818425000
+      },
+      "meals": []
+    }
+  },
+  {
+    "day": "2026-09-04",
+    "mode": "AgentToken",
+    "readStatus": 200,
+    "omittedStatus": 200,
+    "data": {
+      "log": {
+        "id": "1828d195-bfa5-4d3e-b351-25c10bf71a7f",
+        "userId": "fictional-notes-owner",
+        "date": "2026-09-04",
+        "notes": null,
+        "status": "unknown",
+        "statusUpdatedAt": null,
+        "createdAt": 1788818425000,
+        "updatedAt": 1788818425000
+      },
+      "meals": []
+    }
+  },
+  {
+    "case": "unauthenticated-write",
+    "status": 401,
+    "body": {
+      "error": {
+        "code": "UNAUTHORIZED",
+        "message": "Authentication required"
+      }
+    }
+  }
+]

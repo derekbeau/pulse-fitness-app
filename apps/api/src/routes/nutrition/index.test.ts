@@ -156,6 +156,7 @@ const patchedMealItem = {
 
 const nutritionSummary = {
   date: '2026-03-09',
+  notes: null,
   meals: 1,
   actual: {
     calories: 494,
@@ -280,6 +281,7 @@ const nutritionWeekSummary = [
     protein: 160,
     proteinTarget: 180,
     mealCount: 3,
+    hasNote: false,
     completeness: 0.88,
   },
   {
@@ -289,6 +291,7 @@ const nutritionWeekSummary = [
     protein: 0,
     proteinTarget: 180,
     mealCount: 0,
+    hasNote: false,
     completeness: 0,
   },
   {
@@ -298,6 +301,7 @@ const nutritionWeekSummary = [
     protein: 180,
     proteinTarget: 180,
     mealCount: 4,
+    hasNote: false,
     completeness: 1,
   },
   {
@@ -307,6 +311,7 @@ const nutritionWeekSummary = [
     protein: 172,
     proteinTarget: 180,
     mealCount: 3,
+    hasNote: false,
     completeness: 0.95,
   },
   {
@@ -316,6 +321,7 @@ const nutritionWeekSummary = [
     protein: 170,
     proteinTarget: 180,
     mealCount: 3,
+    hasNote: false,
     completeness: 0.93,
   },
   {
@@ -325,6 +331,7 @@ const nutritionWeekSummary = [
     protein: 150,
     proteinTarget: 180,
     mealCount: 2,
+    hasNote: false,
     completeness: 0.83,
   },
   {
@@ -334,6 +341,7 @@ const nutritionWeekSummary = [
     protein: 145,
     proteinTarget: 180,
     mealCount: 2,
+    hasNote: false,
     completeness: 0.8,
   },
 ];
@@ -1197,6 +1205,7 @@ describe('nutrition routes', () => {
       .mockResolvedValueOnce(nutritionSummary)
       .mockResolvedValueOnce({
         date: '2026-03-10',
+        notes: null,
         meals: 0,
         actual: {
           calories: 0,
@@ -1245,6 +1254,7 @@ describe('nutrition routes', () => {
       expect(emptyResponse.json()).toEqual({
         data: {
           date: '2026-03-10',
+          notes: null,
           meals: 0,
           actual: {
             calories: 0,

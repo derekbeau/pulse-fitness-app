@@ -1,0 +1,9 @@
+
+/Users/meridian/Projects/pulse-daily-nutrition-notes/apps/web/src/features/nutrition/api/daily-note.test.tsx
+  55:23  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+
+/Users/meridian/Projects/pulse-daily-nutrition-notes/apps/web/src/features/nutrition/components/daily-nutrition-note.test.tsx
+  106:22  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+
+✖ 2 problems (2 errors, 0 warnings)
+

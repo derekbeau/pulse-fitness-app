@@ -12,6 +12,7 @@ import {
   dailyNutritionSchema,
   nutritionLogSchema,
   nutritionSummarySchema,
+  patchNutritionLogInputSchema,
 } from '@pulse/shared';
 import { toast } from 'sonner';
 
@@ -276,6 +277,78 @@ export const useUpdateNutritionStatus = () => {
         queryClient.invalidateQueries({ queryKey: macroTrendQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: adaptiveNutritionQueryKey }),
         queryClient.invalidateQueries({ queryKey: dataQualityQueryKey }),
+      ]);
+    },
+  });
+};
+
+export const useUpdateNutritionNote = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['nutrition', 'update-note'],
+    mutationFn: ({ date, notes }: { date: string; notes: string | null }) =>
+      apiRequest<unknown>(`/api/v1/nutrition/${date}`, {
+        method: 'PATCH',
+        body: patchNutritionLogInputSchema.parse({ notes }),
+      }).then((value) => dailyNutritionSchema.parse(value)),
+    onMutate: async ({ date, notes }) => {
+      await queryClient.cancelQueries({ queryKey: nutritionQueryKeys.day(date) });
+      const previousDailyNutrition = queryClient.getQueryData<DailyNutrition>(
+        nutritionQueryKeys.day(date),
+      );
+      if (previousDailyNutrition) {
+        queryClient.setQueryData(nutritionQueryKeys.day(date), {
+          ...previousDailyNutrition,
+          log: { ...previousDailyNutrition.log, notes: notes?.trim() ?? null },
+        });
+      }
+      // An absent day has no log identity. The editor shows its pending note without
+      // fabricating a log/status that other nutrition controls could consume.
+      return {
+        previousDailyNutrition,
+        query: queryClient
+          .getQueryCache()
+          .find({ queryKey: nutritionQueryKeys.day(date), exact: true }),
+      };
+    },
+    onError: (_error, { date }, context) => {
+      if (
+        queryClient
+          .getQueryCache()
+          .find({ queryKey: nutritionQueryKeys.day(date), exact: true }) !== context?.query
+      )
+        return;
+      if (context?.previousDailyNutrition) {
+        const previous = context.previousDailyNutrition;
+        queryClient.setQueryData<DailyNutrition>(nutritionQueryKeys.day(date), (current) =>
+          current ? { ...current, log: { ...current.log, notes: previous.log.notes } } : previous,
+        );
+      }
+    },
+    onSuccess: (dailyNutrition, { date }, context) => {
+      // Account changes clear the query cache; an old request must not repopulate it.
+      if (
+        queryClient
+          .getQueryCache()
+          .find({ queryKey: nutritionQueryKeys.day(date), exact: true }) !== context?.query
+      )
+        return;
+      queryClient.setQueryData(nutritionQueryKeys.day(date), dailyNutrition);
+    },
+    onSettled: async (_data, _error, { date }, context) => {
+      if (
+        context?.query &&
+        queryClient
+          .getQueryCache()
+          .find({ queryKey: nutritionQueryKeys.day(date), exact: true }) !== context.query
+      )
+        return;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: nutritionQueryKeys.day(date) }),
+        queryClient.invalidateQueries({ queryKey: nutritionQueryKeys.summary(date) }),
+        queryClient.invalidateQueries({ queryKey: nutritionQueryKeys.weekSummary(date) }),
+        queryClient.invalidateQueries({ queryKey: nutritionQueryKeys.loggingContexts }),
       ]);
     },
   });

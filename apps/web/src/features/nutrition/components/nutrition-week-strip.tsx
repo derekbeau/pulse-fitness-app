@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, StickyNote } from 'lucide-react';
 import type { NutritionWeekSummary } from '@pulse/shared';
 
 import { Button } from '@/components/ui/button';
@@ -71,9 +71,9 @@ export function NutritionWeekStrip({
             return (
               <div key={day.date} role="listitem">
                 <button
-                  aria-label={`Select ${day.date}`}
+                  aria-label={`Select ${day.date}${day.hasNote ? ', has note' : ''}`}
                   className={cn(
-                    'flex w-full min-w-0 cursor-pointer flex-col items-center gap-1 rounded-xl px-2 py-2 transition-colors',
+                    'relative flex min-h-[44px] w-full min-w-0 cursor-pointer flex-col items-center gap-1 rounded-xl px-2 py-2 transition-colors',
                     isSelected
                       ? 'bg-primary/15 text-primary shadow-[0_0_12px_-2px] shadow-primary/20 ring-1 ring-primary/20'
                       : 'border border-transparent text-muted-foreground/70 hover:text-foreground',
@@ -86,6 +86,12 @@ export function NutritionWeekStrip({
                     {dayLabel}
                   </span>
                   <span className="text-sm font-semibold tabular-nums">{dateNumber}</span>
+                  {day.hasNote ? (
+                    <StickyNote
+                      aria-hidden="true"
+                      className="absolute right-0.5 top-0.5 size-2.5 text-primary"
+                    />
+                  ) : null}
                   <span
                     aria-label={`Completeness ${indicatorState} for ${day.date}`}
                     className="flex h-5 w-5 items-center justify-center"

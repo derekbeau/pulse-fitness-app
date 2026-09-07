@@ -219,6 +219,7 @@ function createNutritionApiMock(
             protein: actual.protein,
             proteinTarget,
             mealCount,
+            hasNote: Boolean(dayState.daily?.log.notes),
             completeness,
           };
         }),
@@ -247,6 +248,7 @@ function createNutritionApiMock(
 
       return createJsonResponse({
         date,
+        notes: dateState.daily?.log.notes ?? null,
         meals,
         actual,
         target: dateState.target,
@@ -358,6 +360,28 @@ function createNutritionApiMock(
           'NO_ACCEPTED_EXPENDITURE',
         ],
       });
+    }
+
+    if (method === 'PATCH' && pathParts.length === 4) {
+      const { notes } = JSON.parse(init?.body as string) as { notes: string | null };
+      if (!dateState.daily && notes !== null) {
+        dateState.daily = {
+          log: {
+            id: `note-log-${date}`,
+            userId: 'user-1',
+            date,
+            notes: null,
+            status: 'unknown',
+            statusUpdatedAt: null,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          meals: [],
+        };
+      }
+      if (dateState.daily) dateState.daily.log.notes = notes;
+      state.set(date, dateState);
+      return createJsonResponse(cloneDaily(dateState.daily));
     }
 
     if (method === 'PATCH' && pathParts.length === 5 && pathParts[4] === 'status') {
@@ -1208,6 +1232,39 @@ describe('NutritionPage', () => {
       'Accepted facts for 2026-03-04',
     );
     expect(screen.queryByText('Accepted facts for 2026-03-05')).not.toBeInTheDocument();
+  });
+
+  it('adds a day note before meals, keeps it after reload, and discovers and clears it in historical navigation', async () => {
+    const api = createNutritionApiMock({ '2026-03-05': { daily: null, target: TARGETS } });
+    vi.stubGlobal('fetch', api.fetchMock);
+    const view = renderNutritionPage();
+    await act(flushNutritionTimers);
+    fireEvent.click(screen.getByRole('button', { name: 'Select 2026-03-05' }));
+    await act(flushNutritionTimers);
+    const noteSection = screen.getByRole('region', { name: 'Day note' });
+    expect(
+      noteSection.compareDocumentPosition(screen.getByLabelText('Meals logged section')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    fireEvent.click(within(noteSection).getByRole('button', { name: 'Add day note' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Note for 2026-03-05' }), {
+      target: { value: 'Travel day\nEstimated macros' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save note' }));
+    await act(flushNutritionTimers);
+    expect(screen.getByRole('button', { name: 'Select 2026-03-05, has note' })).toBeVisible();
+    expect(screen.getByText('No meals logged for this day')).toBeVisible();
+    view.unmount();
+    renderNutritionPage('/nutrition?date=2026-03-05');
+    await act(flushNutritionTimers);
+    expect(screen.getByText(/Travel day/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear note' }));
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Clear note' }),
+    );
+    await act(flushNutritionTimers);
+    expect(screen.getByRole('button', { name: 'Select 2026-03-05' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Add day note' })).toBeVisible();
   });
 
   it('loads today from API, shows empty state, and blocks future navigation', async () => {
