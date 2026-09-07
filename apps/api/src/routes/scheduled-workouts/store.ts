@@ -1,18 +1,18 @@
 import { randomUUID } from 'node:crypto';
 
 import { and, asc, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm';
-import type {
-  CreateScheduledWorkoutInput,
-  ExerciseTrackingType,
-  ReorderScheduledWorkoutInput,
-  ScheduledWorkoutDetail,
-  ScheduledWorkout,
-  ScheduledWorkoutListItem,
-  UpdateScheduledWorkoutExercisesInput,
-  UpdateScheduledWorkoutExerciseSetsInput,
-  UpdateScheduledWorkoutInput,
+import {
+  canonicalizeWorkoutRepTarget,
+  type CreateScheduledWorkoutInput,
+  type ExerciseTrackingType,
+  type ReorderScheduledWorkoutInput,
+  type ScheduledWorkoutDetail,
+  type ScheduledWorkout,
+  type ScheduledWorkoutListItem,
+  type UpdateScheduledWorkoutExercisesInput,
+  type UpdateScheduledWorkoutExerciseSetsInput,
+  type UpdateScheduledWorkoutInput,
 } from '@pulse/shared';
-
 import {
   exercises,
   type WorkoutTemplateSectionType,
@@ -341,6 +341,12 @@ const buildSetUpdatePayload = (
     >
   > = {};
 
+  const canonicalReps = canonicalizeWorkoutRepTarget({
+    reps: input.reps !== undefined ? input.reps : current.reps,
+    repsMin: input.repsMin !== undefined ? input.repsMin : current.repsMin,
+    repsMax: input.repsMax !== undefined ? input.repsMax : current.repsMax,
+  });
+
   if (input.targetWeight !== undefined && input.targetWeight !== current.targetWeight) {
     payload.targetWeight = input.targetWeight;
   }
@@ -359,14 +365,14 @@ const buildSetUpdatePayload = (
   if (input.targetZone !== undefined && input.targetZone !== current.targetZone) {
     payload.targetZone = input.targetZone;
   }
-  if (input.repsMin !== undefined && input.repsMin !== current.repsMin) {
-    payload.repsMin = input.repsMin;
+  if (canonicalReps.repsMin !== current.repsMin) {
+    payload.repsMin = canonicalReps.repsMin ?? null;
   }
-  if (input.repsMax !== undefined && input.repsMax !== current.repsMax) {
-    payload.repsMax = input.repsMax;
+  if (canonicalReps.repsMax !== current.repsMax) {
+    payload.repsMax = canonicalReps.repsMax ?? null;
   }
-  if (input.reps !== undefined && input.reps !== current.reps) {
-    payload.reps = input.reps;
+  if (canonicalReps.reps !== current.reps) {
+    payload.reps = canonicalReps.reps ?? null;
   }
 
   return payload;
@@ -374,6 +380,7 @@ const buildSetUpdatePayload = (
 
 export const SCHEDULED_WORKOUT_REORDER_INVALID_ORDER = 'invalid-order' as const;
 export const SCHEDULED_WORKOUT_UNKNOWN_EXERCISE = 'unknown-exercise' as const;
+export const SCHEDULED_WORKOUT_INVALID_REP_TARGET = 'invalid-rep-target' as const;
 
 export type ReorderScheduledWorkoutExercisesValidationError = {
   error: typeof SCHEDULED_WORKOUT_REORDER_INVALID_ORDER;
@@ -383,7 +390,7 @@ export type ReorderScheduledWorkoutExercisesValidationError = {
 };
 
 export type UpdateScheduledWorkoutExercisesValidationError = {
-  error: typeof SCHEDULED_WORKOUT_UNKNOWN_EXERCISE;
+  error: typeof SCHEDULED_WORKOUT_UNKNOWN_EXERCISE | typeof SCHEDULED_WORKOUT_INVALID_REP_TARGET;
   exerciseId: string;
 };
 
@@ -889,119 +896,138 @@ export const updateScheduledWorkoutExerciseSets = async ({
     };
   }
 
-  db.transaction((tx) => {
-    let mutated = false;
+  try {
+    db.transaction((tx) => {
+      let mutated = false;
 
-    let persistedRows = tx
-      .select(scheduledWorkoutExerciseSetMutationSelection)
-      .from(scheduledWorkoutExerciseSets)
-      .where(eq(scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId, snapshotExercise.id))
-      .all()
-      .sort(sortSnapshotSets);
+      let persistedRows = tx
+        .select(scheduledWorkoutExerciseSetMutationSelection)
+        .from(scheduledWorkoutExerciseSets)
+        .where(eq(scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId, snapshotExercise.id))
+        .all()
+        .sort(sortSnapshotSets);
 
-    const persistedBySetNumber = new Map(persistedRows.map((row) => [row.setNumber, row]));
+      const persistedBySetNumber = new Map(persistedRows.map((row) => [row.setNumber, row]));
 
-    for (const setUpdate of sets) {
-      const existing = persistedBySetNumber.get(setUpdate.setNumber);
-      if (setUpdate.remove === true) {
-        if (!existing) {
+      for (const setUpdate of sets) {
+        const existing = persistedBySetNumber.get(setUpdate.setNumber);
+        if (setUpdate.remove === true) {
+          if (!existing) {
+            continue;
+          }
+
+          tx.delete(scheduledWorkoutExerciseSets)
+            .where(eq(scheduledWorkoutExerciseSets.id, existing.id))
+            .run();
+          persistedBySetNumber.delete(setUpdate.setNumber);
+          mutated = true;
           continue;
         }
 
-        tx.delete(scheduledWorkoutExerciseSets)
-          .where(eq(scheduledWorkoutExerciseSets.id, existing.id))
-          .run();
-        persistedBySetNumber.delete(setUpdate.setNumber);
-        mutated = true;
-        continue;
-      }
+        if (existing) {
+          const payload = buildSetUpdatePayload(existing, setUpdate);
+          if (Object.keys(payload).length === 0) {
+            continue;
+          }
 
-      if (existing) {
-        const payload = buildSetUpdatePayload(existing, setUpdate);
-        if (Object.keys(payload).length === 0) {
+          tx.update(scheduledWorkoutExerciseSets)
+            .set(payload)
+            .where(eq(scheduledWorkoutExerciseSets.id, existing.id))
+            .run();
+
+          persistedBySetNumber.set(setUpdate.setNumber, {
+            ...existing,
+            ...payload,
+          });
+          mutated = true;
           continue;
         }
 
-        tx.update(scheduledWorkoutExerciseSets)
-          .set(payload)
-          .where(eq(scheduledWorkoutExerciseSets.id, existing.id))
-          .run();
-
-        persistedBySetNumber.set(setUpdate.setNumber, {
-          ...existing,
-          ...payload,
-        });
-        mutated = true;
-        continue;
-      }
-
-      tx.insert(scheduledWorkoutExerciseSets)
-        .values({
-          id: randomUUID(),
-          scheduledWorkoutExerciseId: snapshotExercise.id,
-          setNumber: setUpdate.setNumber,
-          targetWeight: setUpdate.targetWeight ?? null,
-          targetWeightMin: setUpdate.targetWeightMin ?? null,
-          targetWeightMax: setUpdate.targetWeightMax ?? null,
-          targetSeconds: setUpdate.targetSeconds ?? null,
-          targetDistance: setUpdate.targetDistance ?? null,
-          targetZone: setUpdate.targetZone ?? null,
+        const canonicalReps = canonicalizeWorkoutRepTarget({
+          reps: setUpdate.reps ?? null,
           repsMin: setUpdate.repsMin ?? null,
           repsMax: setUpdate.repsMax ?? null,
-          reps: setUpdate.reps ?? null,
-        })
-        .run();
-      mutated = true;
-    }
+        });
 
-    persistedRows = tx
-      .select(scheduledWorkoutExerciseSetMutationSelection)
-      .from(scheduledWorkoutExerciseSets)
-      .where(eq(scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId, snapshotExercise.id))
-      .all()
-      .sort(sortSnapshotSets);
+        tx.insert(scheduledWorkoutExerciseSets)
+          .values({
+            id: randomUUID(),
+            scheduledWorkoutExerciseId: snapshotExercise.id,
+            setNumber: setUpdate.setNumber,
+            targetWeight: setUpdate.targetWeight ?? null,
+            targetWeightMin: setUpdate.targetWeightMin ?? null,
+            targetWeightMax: setUpdate.targetWeightMax ?? null,
+            targetSeconds: setUpdate.targetSeconds ?? null,
+            targetDistance: setUpdate.targetDistance ?? null,
+            targetZone: setUpdate.targetZone ?? null,
+            repsMin: canonicalReps.repsMin ?? null,
+            repsMax: canonicalReps.repsMax ?? null,
+            reps: canonicalReps.reps ?? null,
+          })
+          .run();
+        mutated = true;
+      }
 
-    const renumberUpdates = persistedRows
-      .map((row, index) => ({
-        id: row.id,
-        currentSetNumber: row.setNumber,
-        nextSetNumber: index + 1,
-      }))
-      .filter((row) => row.currentSetNumber !== row.nextSetNumber);
+      persistedRows = tx
+        .select(scheduledWorkoutExerciseSetMutationSelection)
+        .from(scheduledWorkoutExerciseSets)
+        .where(eq(scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId, snapshotExercise.id))
+        .all()
+        .sort(sortSnapshotSets);
 
-    if (renumberUpdates.length > 0) {
-      const maxPersistedSetNumber = persistedRows.reduce(
-        (maxValue, row) => Math.max(maxValue, row.setNumber),
-        0,
-      );
-      const tempOffset = maxPersistedSetNumber + persistedRows.length + 1_000;
+      const renumberUpdates = persistedRows
+        .map((row, index) => ({
+          id: row.id,
+          currentSetNumber: row.setNumber,
+          nextSetNumber: index + 1,
+        }))
+        .filter((row) => row.currentSetNumber !== row.nextSetNumber);
 
-      for (const update of renumberUpdates) {
-        tx.update(scheduledWorkoutExerciseSets)
-          .set({ setNumber: update.nextSetNumber + tempOffset })
-          .where(eq(scheduledWorkoutExerciseSets.id, update.id))
+      if (renumberUpdates.length > 0) {
+        const maxPersistedSetNumber = persistedRows.reduce(
+          (maxValue, row) => Math.max(maxValue, row.setNumber),
+          0,
+        );
+        const tempOffset = maxPersistedSetNumber + persistedRows.length + 1_000;
+
+        for (const update of renumberUpdates) {
+          tx.update(scheduledWorkoutExerciseSets)
+            .set({ setNumber: update.nextSetNumber + tempOffset })
+            .where(eq(scheduledWorkoutExerciseSets.id, update.id))
+            .run();
+        }
+
+        for (const update of renumberUpdates) {
+          tx.update(scheduledWorkoutExerciseSets)
+            .set({ setNumber: update.nextSetNumber })
+            .where(eq(scheduledWorkoutExerciseSets.id, update.id))
+            .run();
+        }
+
+        mutated = true;
+      }
+
+      if (mutated) {
+        tx.update(scheduledWorkouts)
+          .set({ updatedAt: Date.now() })
+          .where(eq(scheduledWorkouts.id, scheduledWorkoutId))
           .run();
       }
 
-      for (const update of renumberUpdates) {
-        tx.update(scheduledWorkoutExerciseSets)
-          .set({ setNumber: update.nextSetNumber })
-          .where(eq(scheduledWorkoutExerciseSets.id, update.id))
-          .run();
-      }
-
-      mutated = true;
+      return mutated;
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message === 'INVALID_REP_TARGET' || error.message === 'CONFLICTING_REP_TARGET')
+    ) {
+      return {
+        error: SCHEDULED_WORKOUT_INVALID_REP_TARGET,
+        exerciseId,
+      };
     }
-
-    if (mutated) {
-      tx.update(scheduledWorkouts)
-        .set({ updatedAt: Date.now() })
-        .where(eq(scheduledWorkouts.id, scheduledWorkoutId))
-        .run();
-    }
-
-    return mutated;
-  });
+    throw error;
+  }
 
   const detail = await buildScheduledWorkoutDetail({
     scheduledWorkoutId,

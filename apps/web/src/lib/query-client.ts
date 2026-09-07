@@ -63,8 +63,10 @@ export function createAppQueryClient(): QueryClient {
       },
     }),
     queryCache: new QueryCache({
-      onError: (error) => {
-        handleGlobalError(error);
+      onError: (error, query) => {
+        handleGlobalError(error, {
+          skipToast: query.meta?.suppressGlobalErrorToast === true,
+        });
       },
     }),
     defaultOptions: {

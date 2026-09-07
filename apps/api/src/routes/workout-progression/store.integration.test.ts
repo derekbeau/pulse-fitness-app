@@ -170,6 +170,214 @@ afterEach(async () => {
 });
 
 describe('workout progression store', () => {
+  it.each([
+    { action: 'accept', both: false },
+    { action: 'edit', both: false },
+    { action: 'accept', both: true },
+    { action: 'edit', both: true },
+  ] as const)(
+    'keeps a legacy recommendation %j after material canonicalization',
+    async ({ action, both }) => {
+      const file = prepareDatabase();
+      const sql = new Database(file);
+      sql.exec('UPDATE scheduled_workout_exercise_sets SET reps=8, reps_min=8, reps_max=8');
+      if (both) {
+        sql.exec('UPDATE session_sets SET target_reps=8, target_reps_min=8, target_reps_max=8');
+        sql.exec(
+          "UPDATE workout_progression_configurations SET revision=revision+1, snapshot=json_set(snapshot, '$.revision', 2, '$.policy.family', 'strength_load', '$.policy.loadIncreasePercent', 25)",
+        );
+      }
+      const store = await loadStore();
+      const input = { scheduledWorkoutId: 'scheduled-1', userId: 'user-1', generatedAt: 500 };
+      const preview = (await store.previewWorkoutProgression(input))?.[0];
+      if (!preview) throw new Error('Missing preview');
+      expect(preview.confidence).toBe('supported');
+      await store.applyWorkoutProgressionAction({
+        actor: { id: 'user-1', label: 'You', type: 'user' },
+        userId: 'user-1',
+        recommendationId: preview.id,
+        input: {
+          action,
+          expectedFingerprint: preview.sourceFingerprint,
+          idempotencyKey: `legacy-${action}`,
+          editedTargets:
+            action === 'edit'
+              ? preview.recommendedTargets.map((target) => ({ ...target, weight: 22.5 }))
+              : null,
+          reason: null,
+        },
+      });
+      expect(await store.getWorkoutProgressionRecommendation('user-1', preview.id)).toMatchObject({
+        state: action === 'accept' ? 'accepted' : 'edited',
+        staleAt: null,
+        evidence: preview.evidence,
+      });
+      expect((await store.previewWorkoutProgression(input))?.[0]?.id).toBe(preview.id);
+      expect(
+        sql.prepare('SELECT reps, reps_min, reps_max FROM scheduled_workout_exercise_sets').all(),
+      ).toEqual([
+        { reps: 8, reps_min: null, reps_max: null },
+        { reps: 8, reps_min: null, reps_max: null },
+      ]);
+      sql.close();
+    },
+  );
+
+  it.each(['current', 'historical'] as const)(
+    'normalizes persisted equal redundancy in %s evidence without rewriting rows',
+    async (source) => {
+      const file = prepareDatabase();
+      const sql = new Database(file);
+      if (source === 'current')
+        sql.exec('UPDATE scheduled_workout_exercise_sets SET reps=8, reps_min=8, reps_max=8');
+      else sql.exec('UPDATE session_sets SET target_reps=8, target_reps_min=8, target_reps_max=8');
+      const before = sql
+        .prepare(
+          source === 'current'
+            ? 'SELECT * FROM scheduled_workout_exercise_sets'
+            : 'SELECT * FROM session_sets',
+        )
+        .all();
+      const store = await loadStore();
+      const input = { scheduledWorkoutId: 'scheduled-1', userId: 'user-1', generatedAt: 500 };
+      const first = (await store.previewWorkoutProgression(input))?.[0];
+      if (!first) throw new Error('Missing preview');
+      expect(first.evidence.diagnostics).toHaveLength(2);
+      expect(first.evidence.diagnostics?.every((d) => d.reason === 'REDUNDANT_EXACT_REPS')).toBe(
+        true,
+      );
+      const canonical =
+        source === 'current'
+          ? first.evidence.priorTargets
+          : first.evidence.performance.map((set) => set.prescribed);
+      expect(
+        canonical.every((set) => set.reps === 8 && set.repsMin === null && set.repsMax === null),
+      ).toBe(true);
+      expect((await store.previewWorkoutProgression(input))?.[0]).toEqual(first);
+      expect(
+        sql
+          .prepare(
+            source === 'current'
+              ? 'SELECT * FROM scheduled_workout_exercise_sets'
+              : 'SELECT * FROM session_sets',
+          )
+          .all(),
+      ).toEqual(before);
+      sql.close();
+    },
+  );
+
+  it.each(['current', 'historical'] as const)(
+    'isolates conflicting %s evidence and blocks material actions',
+    async (source) => {
+      const file = prepareDatabase();
+      const sql = new Database(file);
+      sql.exec(
+        "INSERT INTO scheduled_workout_exercises (id, scheduled_workout_id, exercise_id, exercise_name_snapshot, tracking_type_snapshot, section, order_index, created_at, updated_at) VALUES ('valid-exercise', 'scheduled-1', 'exercise-1', 'Valid exercise', 'weight_reps', 'main', 1, 200, 200)",
+      );
+      sql.exec(
+        "INSERT INTO scheduled_workout_exercise_sets (id, scheduled_workout_exercise_id, set_number, reps_min, reps_max, target_weight, created_at) VALUES ('valid-set', 'valid-exercise', 1, 8, 10, 20, 200)",
+      );
+      if (source === 'current')
+        sql.exec(
+          "UPDATE scheduled_workout_exercise_sets SET reps=8, reps_min=6, reps_max=8 WHERE scheduled_workout_exercise_id='scheduled-exercise-1'",
+        );
+      else sql.exec('UPDATE session_sets SET target_reps=8, target_reps_min=6, target_reps_max=8');
+      const config = sql
+        .prepare(
+          "SELECT snapshot FROM workout_progression_configurations WHERE id='configuration-1'",
+        )
+        .get() as { snapshot: string };
+      const validConfig = {
+        ...JSON.parse(config.snapshot),
+        id: 'valid-configuration',
+        scheduledWorkoutExerciseId: 'valid-exercise',
+      };
+      sql
+        .prepare(
+          "INSERT INTO workout_progression_configurations (id,user_id,scheduled_workout_id,scheduled_workout_exercise_id,revision,snapshot,actor_type,actor_label,updated_at) VALUES ('valid-configuration','user-1','scheduled-1','valid-exercise',1,?,'user','You',450)",
+        )
+        .run(JSON.stringify(validConfig));
+      const before = sql.prepare('SELECT * FROM scheduled_workout_exercise_sets').all();
+      const store = await loadStore();
+      const results = await store.previewWorkoutProgression({
+        scheduledWorkoutId: 'scheduled-1',
+        userId: 'user-1',
+        generatedAt: 500,
+      });
+      expect(results).toHaveLength(2);
+      const invalid = results?.[0];
+      const valid = results?.[1];
+      if (!invalid || !valid) throw new Error('Missing exercise result');
+      expect(invalid).toMatchObject({
+        confidence: 'unavailable',
+        decision: 'hold',
+        reasonCodes: [
+          source === 'current' ? 'INVALID_CURRENT_TARGET' : 'INVALID_HISTORICAL_PRESCRIPTION',
+        ],
+      });
+      expect(invalid.evidence.diagnostics?.[0]?.raw).toMatchObject({
+        reps: 8,
+        repsMin: 6,
+        repsMax: 8,
+      });
+      if (source === 'current')
+        expect(valid).toMatchObject({ confidence: 'supported', decision: 'increase' });
+      for (const action of ['accept', 'edit'] as const) {
+        await expect(
+          store.applyWorkoutProgressionAction({
+            actor: { id: 'user-1', label: 'You', type: 'user' },
+            userId: 'user-1',
+            recommendationId: invalid.id,
+            input: {
+              action,
+              expectedFingerprint: invalid.sourceFingerprint,
+              idempotencyKey: `invalid-${action}`,
+              editedTargets: action === 'edit' ? valid.evidence.priorTargets : null,
+              reason: null,
+            },
+          }),
+        ).rejects.toBeInstanceOf(store.WorkoutProgressionInvalidEditError);
+      }
+      expect(sql.prepare('SELECT * FROM scheduled_workout_exercise_sets').all()).toEqual(before);
+      const held = await store.applyWorkoutProgressionAction({
+        actor: { id: 'user-1', label: 'You', type: 'user' },
+        userId: 'user-1',
+        recommendationId: invalid.id,
+        input: {
+          action: 'hold',
+          expectedFingerprint: invalid.sourceFingerprint,
+          idempotencyKey: 'invalid-hold',
+          editedTargets: null,
+          reason: 'Review source prescription',
+        },
+      });
+      expect(held.action).toBe('hold');
+      expect(sql.prepare('SELECT * FROM scheduled_workout_exercise_sets').all()).toEqual(before);
+      sql.close();
+    },
+  );
+
+  it('distinguishes no completed history from missing policy and malformed prescriptions', async () => {
+    const file = prepareDatabase();
+    const sql = new Database(file);
+    sql.exec('DELETE FROM session_sets');
+    sql.close();
+    const store = await loadStore();
+    const result = (
+      await store.previewWorkoutProgression({ scheduledWorkoutId: 'scheduled-1', userId: 'user-1' })
+    )?.[0];
+    expect(result).toMatchObject({
+      confidence: 'unavailable',
+      reasonCodes: ['NO_COMPLETED_HISTORY'],
+      evidence: {
+        policySource: { type: 'programming_config' },
+        performance: [],
+        sourceSessionId: null,
+      },
+    });
+  });
+
   it('fails closed without an explicit programming policy and blocks target application', async () => {
     const databaseUrl = prepareDatabase();
     const lifecycleDb = new Database(databaseUrl);

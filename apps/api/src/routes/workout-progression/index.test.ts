@@ -222,6 +222,47 @@ describe('workout progression routes', () => {
     }
   });
 
+  it('returns 200 partial invalid evidence with source diagnostics identically for both actors', async () => {
+    const invalid: WorkoutProgressionRecommendation = {
+      ...recommendation,
+      id: 'invalid-recommendation',
+      confidence: 'unavailable',
+      decision: 'hold',
+      reasonCodes: ['INVALID_CURRENT_TARGET'],
+      recommendedTargets: [],
+      evidence: {
+        ...recommendation.evidence,
+        scheduledWorkoutExerciseId: 'invalid-exercise',
+        priorTargets: [],
+        diagnostics: [
+          {
+            reason: 'INVALID_CURRENT_TARGET',
+            source: 'current_scheduled_target',
+            setId: 'bad-set',
+            setNumber: 1,
+            raw: { reps: 8, repsMin: 6, repsMax: 8 },
+          },
+        ],
+      },
+    };
+    vi.mocked(previewWorkoutProgression).mockResolvedValue([recommendation, invalid]);
+    const { app, jwt } = await withAuth();
+    try {
+      for (const authorization of [`Bearer ${jwt}`, 'AgentToken agent-secret']) {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/v1/workout-progression/preview',
+          headers: { authorization },
+          payload: { scheduledWorkoutId: 'scheduled-1' },
+        });
+        expect(response.statusCode).toBe(200);
+        expect(response.json().data.recommendations).toEqual([recommendation, invalid]);
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
   it('passes authenticated AgentToken provenance and idempotency input to the action store', async () => {
     vi.mocked(applyWorkoutProgressionAction).mockResolvedValue(action);
     const { app } = await withAuth();

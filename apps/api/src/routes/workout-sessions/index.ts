@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import {
   apiDataResponseSchema,
+  canonicalizeWorkoutRepTarget,
   batchUpsertSetsSchema,
   createSetSchema,
   createWorkoutSessionInputSchema,
@@ -892,6 +893,15 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         const validSnapshotSets = input.sets.every((set) => {
           const key = `${set.section ?? 'main'}::${set.exerciseId}::${set.setNumber}`;
           const facts = setSnapshotFactsByKey?.[key];
+          try {
+            canonicalizeWorkoutRepTarget({
+              reps: facts?.targetReps,
+              repsMin: facts?.targetRepsMin,
+              repsMax: facts?.targetRepsMax,
+            });
+          } catch {
+            return false;
+          }
           return sessionSetSchema.safeParse({
             ...set,
             ...facts,

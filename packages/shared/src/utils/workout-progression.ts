@@ -147,6 +147,25 @@ export function evaluateWorkoutProgression(
   evidence: WorkoutProgressionEvidence,
 ): WorkoutProgressionEvaluation {
   const { performance, policy, priorTargets } = evidence;
+  const invalid =
+    evidence.diagnostics?.filter((item) => item.reason !== 'REDUNDANT_EXACT_REPS') ?? [];
+  if (invalid.length > 0) {
+    return hold(
+      evidence,
+      'unavailable',
+      [...new Set(invalid.map((item) => item.reason))].filter(
+        (reason): reason is Exclude<typeof reason, 'REDUNDANT_EXACT_REPS'> =>
+          reason !== 'REDUNDANT_EXACT_REPS',
+      ),
+      invalid
+        .slice(0, 10)
+        .map(
+          (item) =>
+            `${item.source === 'current_scheduled_target' ? 'Current scheduled target' : 'Historical prescribed target'}, set ${item.setNumber ?? item.setId}: ${item.reason}. The plan has not changed.`,
+        ),
+    );
+  }
+
   if (policy.family === 'unsupported' || evidence.policySource.type === 'none') {
     return hold(
       evidence,

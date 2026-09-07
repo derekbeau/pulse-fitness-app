@@ -14,7 +14,7 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm';
-import { supportsRirTrackingType } from '@pulse/shared';
+import { canonicalizeWorkoutRepTarget, supportsRirTrackingType } from '@pulse/shared';
 import type {
   BatchUpsertSetsInput,
   CreateSetInput,
@@ -519,6 +519,11 @@ const buildSessionSetRows = (
   sets.map((set) => {
     const key = `${set.section ?? 'main'}::${set.exerciseId}::${set.setNumber}`;
     const fact = factsByKey[key];
+    const canonicalTarget = canonicalizeWorkoutRepTarget({
+      reps: fact?.targetReps ?? null,
+      repsMin: fact?.targetRepsMin ?? null,
+      repsMax: fact?.targetRepsMax ?? null,
+    });
     return {
       id: idsByKey[key] ?? randomUUID(),
       sessionId,
@@ -537,9 +542,9 @@ const buildSessionSetRows = (
       targetWeightMax: fact ? fact.targetWeightMax : (set.targetWeightMax ?? null),
       targetSeconds: fact ? fact.targetSeconds : (set.targetSeconds ?? null),
       targetDistance: fact ? fact.targetDistance : (set.targetDistance ?? null),
-      targetRepsMin: fact?.targetRepsMin ?? null,
-      targetRepsMax: fact?.targetRepsMax ?? null,
-      targetReps: fact?.targetReps ?? null,
+      targetRepsMin: canonicalTarget.repsMin ?? null,
+      targetRepsMax: canonicalTarget.repsMax ?? null,
+      targetReps: canonicalTarget.reps ?? null,
       targetZone: fact?.targetZone ?? null,
       sourceScheduledSetId: fact?.sourceScheduledSetId ?? null,
       exerciseIdSnapshot: fact ? fact.exerciseIdSnapshot : set.exerciseId,
