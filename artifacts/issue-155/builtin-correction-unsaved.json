@@ -1,0 +1,337 @@
+{
+  "unchanged": true,
+  "session": {
+    "id": "d92a6d04-6345-4615-a5ae-d6714279760c",
+    "userId": "83f964a9-57aa-49d9-84a1-762d394b8bf1",
+    "templateId": null,
+    "name": "Shortcut Completed Preview",
+    "date": "2026-09-07",
+    "status": "completed",
+    "startedAt": 1788786000000,
+    "completedAt": 1788789600000,
+    "duration": null,
+    "timeSegments": [],
+    "sectionDurations": {
+      "warmup": 0,
+      "main": 0,
+      "cooldown": 0,
+      "supplemental": 0
+    },
+    "feedback": null,
+    "notes": null,
+    "exercises": [
+      {
+        "exerciseId": "087f01cb-9f67-47d6-ba72-4026f6135e9f",
+        "exerciseName": "Shortcut Bench Press",
+        "deletedAt": null,
+        "supersetGroup": null,
+        "trackingType": "weight_reps",
+        "exercise": {
+          "formCues": [],
+          "coachingNotes": null,
+          "instructions": null
+        },
+        "orderIndex": 0,
+        "section": "main",
+        "programmingNotes": null,
+        "agentNotes": null,
+        "agentNotesMeta": null,
+        "sets": [
+          {
+            "id": "ba1551f5-2b7c-4bb0-b61b-eb050fc059aa",
+            "exerciseId": "087f01cb-9f67-47d6-ba72-4026f6135e9f",
+            "orderIndex": 0,
+            "setNumber": 1,
+            "weight": 135,
+            "reps": 8,
+            "rpe": 8,
+            "completed": true,
+            "skipped": false,
+            "section": "main",
+            "notes": null,
+            "createdAt": 1788821718000
+          },
+          {
+            "id": "894775bb-2e3e-45c9-9133-4d23637ec20e",
+            "exerciseId": "087f01cb-9f67-47d6-ba72-4026f6135e9f",
+            "orderIndex": 0,
+            "setNumber": 2,
+            "weight": 135,
+            "reps": 8,
+            "rir": 4,
+            "completed": true,
+            "skipped": false,
+            "section": "main",
+            "notes": null,
+            "createdAt": 1788821718000
+          }
+        ]
+      },
+      {
+        "exerciseId": "8965a3d9-b02b-4d72-a352-d75b8827c065",
+        "exerciseName": "Shortcut Push-up",
+        "deletedAt": null,
+        "supersetGroup": null,
+        "trackingType": "bodyweight_reps",
+        "exercise": {
+          "formCues": [],
+          "coachingNotes": null,
+          "instructions": null
+        },
+        "orderIndex": 1,
+        "section": "main",
+        "programmingNotes": null,
+        "agentNotes": null,
+        "agentNotesMeta": null,
+        "sets": [
+          {
+            "id": "d324e92d-0813-4d83-b290-b52198566d02",
+            "exerciseId": "8965a3d9-b02b-4d72-a352-d75b8827c065",
+            "orderIndex": 1,
+            "setNumber": 1,
+            "weight": null,
+            "reps": 8,
+            "rpe": 8,
+            "completed": true,
+            "skipped": false,
+            "section": "main",
+            "notes": null,
+            "createdAt": 1788821718000
+          },
+          {
+            "id": "b3756758-0204-482a-b37e-bd8bd795b08b",
+            "exerciseId": "8965a3d9-b02b-4d72-a352-d75b8827c065",
+            "orderIndex": 1,
+            "setNumber": 2,
+            "weight": null,
+            "reps": 8,
+            "rir": 4,
+            "completed": true,
+            "skipped": false,
+            "section": "main",
+            "notes": null,
+            "createdAt": 1788821718000
+          }
+        ]
+      },
+      {
+        "exerciseId": "69b32ebc-bd1f-4434-952f-4b00fa4826e9",
+        "exerciseName": "Shortcut Band Pull-apart",
+        "deletedAt": null,
+        "supersetGroup": null,
+        "trackingType": "reps_only",
+        "exercise": {
+          "formCues": [],
+          "coachingNotes": null,
+          "instructions": null
+        },
+        "orderIndex": 2,
+        "section": "main",
+        "programmingNotes": null,
+        "agentNotes": null,
+        "agentNotesMeta": null,
+        "sets": [
+          {
+            "id": "df091a7e-ebdc-4741-a23f-50f08ca6a107",
+            "exerciseId": "69b32ebc-bd1f-4434-952f-4b00fa4826e9",
+            "orderIndex": 2,
+            "setNumber": 1,
+            "weight": null,
+            "reps": 8,
+            "rpe": 8,
+            "completed": true,
+            "skipped": false,
+            "section": "main",
+            "notes": null,
+            "createdAt": 1788821718000
+          },
+          {
+            "id": "2dacb0b5-9902-40a3-be70-fc9be611c945",
+            "exerciseId": "69b32ebc-bd1f-4434-952f-4b00fa4826e9",
+            "orderIndex": 2,
+            "setNumber": 2,
+            "weight": null,
+            "reps": 8,
+            "rir": 4,
+            "completed": true,
+            "skipped": false,
+            "section": "main",
+            "notes": null,
+            "createdAt": 1788821718000
+          }
+        ]
+      },
+      {
+        "exerciseId": "d1bcf943-81b5-4d72-95bf-3ae34780074a",
+        "exerciseName": "Shortcut Easy Walk",
+        "deletedAt": null,
+        "supersetGroup": null,
+        "trackingType": "duration",
+        "exercise": {
+          "formCues": [],
+          "coachingNotes": null,
+          "instructions": null
+        },
+        "orderIndex": 3,
+        "section": "main",
+        "programmingNotes": null,
+        "agentNotes": null,
+        "agentNotesMeta": null,
+        "sets": [
+          {
+            "id": "342db28d-b294-4b16-8790-49dc7bf2b35b",
+            "exerciseId": "d1bcf943-81b5-4d72-95bf-3ae34780074a",
+            "orderIndex": 3,
+            "setNumber": 1,
+            "weight": null,
+            "reps": null,
+            "seconds": 1800,
+            "rpe": 3,
+            "zone": 2,
+            "completed": true,
+            "skipped": false,
+            "section": "main",
+            "notes": null,
+            "createdAt": 1788821718000
+          },
+          {
+            "id": "b2958e8e-a6e3-4673-829a-7355d83a8a9b",
+            "exerciseId": "d1bcf943-81b5-4d72-95bf-3ae34780074a",
+            "orderIndex": 3,
+            "setNumber": 2,
+            "weight": null,
+            "reps": null,
+            "seconds": 1800,
+            "rpe": 3,
+            "zone": 2,
+            "completed": true,
+            "skipped": false,
+            "section": "main",
+            "notes": null,
+            "createdAt": 1788821718000
+          }
+        ]
+      }
+    ],
+    "sets": [
+      {
+        "id": "ba1551f5-2b7c-4bb0-b61b-eb050fc059aa",
+        "exerciseId": "087f01cb-9f67-47d6-ba72-4026f6135e9f",
+        "orderIndex": 0,
+        "setNumber": 1,
+        "weight": 135,
+        "reps": 8,
+        "rpe": 8,
+        "completed": true,
+        "skipped": false,
+        "section": "main",
+        "notes": null,
+        "createdAt": 1788821718000
+      },
+      {
+        "id": "894775bb-2e3e-45c9-9133-4d23637ec20e",
+        "exerciseId": "087f01cb-9f67-47d6-ba72-4026f6135e9f",
+        "orderIndex": 0,
+        "setNumber": 2,
+        "weight": 135,
+        "reps": 8,
+        "rir": 4,
+        "completed": true,
+        "skipped": false,
+        "section": "main",
+        "notes": null,
+        "createdAt": 1788821718000
+      },
+      {
+        "id": "d324e92d-0813-4d83-b290-b52198566d02",
+        "exerciseId": "8965a3d9-b02b-4d72-a352-d75b8827c065",
+        "orderIndex": 1,
+        "setNumber": 1,
+        "weight": null,
+        "reps": 8,
+        "rpe": 8,
+        "completed": true,
+        "skipped": false,
+        "section": "main",
+        "notes": null,
+        "createdAt": 1788821718000
+      },
+      {
+        "id": "b3756758-0204-482a-b37e-bd8bd795b08b",
+        "exerciseId": "8965a3d9-b02b-4d72-a352-d75b8827c065",
+        "orderIndex": 1,
+        "setNumber": 2,
+        "weight": null,
+        "reps": 8,
+        "rir": 4,
+        "completed": true,
+        "skipped": false,
+        "section": "main",
+        "notes": null,
+        "createdAt": 1788821718000
+      },
+      {
+        "id": "df091a7e-ebdc-4741-a23f-50f08ca6a107",
+        "exerciseId": "69b32ebc-bd1f-4434-952f-4b00fa4826e9",
+        "orderIndex": 2,
+        "setNumber": 1,
+        "weight": null,
+        "reps": 8,
+        "rpe": 8,
+        "completed": true,
+        "skipped": false,
+        "section": "main",
+        "notes": null,
+        "createdAt": 1788821718000
+      },
+      {
+        "id": "2dacb0b5-9902-40a3-be70-fc9be611c945",
+        "exerciseId": "69b32ebc-bd1f-4434-952f-4b00fa4826e9",
+        "orderIndex": 2,
+        "setNumber": 2,
+        "weight": null,
+        "reps": 8,
+        "rir": 4,
+        "completed": true,
+        "skipped": false,
+        "section": "main",
+        "notes": null,
+        "createdAt": 1788821718000
+      },
+      {
+        "id": "342db28d-b294-4b16-8790-49dc7bf2b35b",
+        "exerciseId": "d1bcf943-81b5-4d72-95bf-3ae34780074a",
+        "orderIndex": 3,
+        "setNumber": 1,
+        "weight": null,
+        "reps": null,
+        "seconds": 1800,
+        "rpe": 3,
+        "zone": 2,
+        "completed": true,
+        "skipped": false,
+        "section": "main",
+        "notes": null,
+        "createdAt": 1788821718000
+      },
+      {
+        "id": "b2958e8e-a6e3-4673-829a-7355d83a8a9b",
+        "exerciseId": "d1bcf943-81b5-4d72-95bf-3ae34780074a",
+        "orderIndex": 3,
+        "setNumber": 2,
+        "weight": null,
+        "reps": null,
+        "seconds": 1800,
+        "rpe": 3,
+        "zone": 2,
+        "completed": true,
+        "skipped": false,
+        "section": "main",
+        "notes": null,
+        "createdAt": 1788821718000
+      }
+    ],
+    "createdAt": 1788821718000,
+    "updatedAt": 1788821718000
+  }
+}

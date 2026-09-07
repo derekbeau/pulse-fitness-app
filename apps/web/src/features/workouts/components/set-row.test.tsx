@@ -168,6 +168,33 @@ describe('SetRow', () => {
     expect(trigger).toHaveFocus();
   });
 
+  it.each([false, true])(
+    'updates only the RIR/RPE pair on a closed trigger (completed=%s)',
+    (completed) => {
+      const onUpdate = vi.fn();
+      render(
+        <SetRow
+          completed={completed}
+          onUpdate={onUpdate}
+          reps={8}
+          rpe={8}
+          setNumber={2}
+          showRirControl
+          weight={135}
+        />,
+      );
+      const trigger = screen.getByRole('button', { name: /RIR for set 2/u });
+      trigger.focus();
+      fireEvent.keyDown(trigger, { key: '2' });
+      act(() => vi.runAllTimers());
+      expect(onUpdate.mock.calls).toEqual([[{ rir: 2, rpe: null }]]);
+      expect(trigger).toHaveFocus();
+      expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Weight for set 2')).toHaveValue(135);
+      expect(screen.getByLabelText('Reps for set 2')).toHaveValue(8);
+    },
+  );
+
   it('supports arrow-key RIR selection and explicit clear', () => {
     const onUpdate = vi.fn();
     render(
@@ -203,6 +230,7 @@ describe('SetRow', () => {
         reps={null}
         setNumber={1}
         trackingType="duration"
+        showRirControl
       />,
     );
     expect(screen.queryByRole('button', { name: /RIR for set/u })).not.toBeInTheDocument();

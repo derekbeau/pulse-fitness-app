@@ -1,0 +1,35 @@
+
+Running 2 tests using 1 worker
+
+(node:92114) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 e2e/rir-trigger-shortcuts.spec.ts:105:5 › desktop Tab shortcuts persist once for every consumer and preserve raw set facts (1.5m)
+(node:93177) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  2 e2e/rir-trigger-shortcuts.spec.ts:267:7 › mobile touch › touch selects zero and 5+, Clear and focus return survive reload (5.4s)
+
+
+  1) e2e/rir-trigger-shortcuts.spec.ts:105:5 › desktop Tab shortcuts persist once for every consumer and preserve raw set facts 
+
+    Test timeout of 90000ms exceeded.
+
+    Error: page.waitForResponse: Test timeout of 90000ms exceeded.
+
+      127 |   async function select(closedTrigger: Locator, key: string, setId: string) {
+      128 |     const count = diagnostics.requests.length;
+    > 129 |     const saved = page.waitForResponse(
+          |                        ^
+      130 |       (response) =>
+      131 |         response.url().endsWith(`/sets/${setId}`) && response.request().method() === 'PATCH',
+      132 |     );
+        at select (/Users/meridian/Projects/pulse-rir-trigger-shortcuts/apps/web/e2e/rir-trigger-shortcuts.spec.ts:129:24)
+        at /Users/meridian/Projects/pulse-rir-trigger-shortcuts/apps/web/e2e/rir-trigger-shortcuts.spec.ts:148:11
+
+    Error Context: ../../artifacts/issue-155/playwright-results/rir-trigger-shortcuts-desk-850fe--and-preserve-raw-set-facts/error-context.md
+
+  1 failed
+    e2e/rir-trigger-shortcuts.spec.ts:105:5 › desktop Tab shortcuts persist once for every consumer and preserve raw set facts 
+  1 passed (1.6m)
+undefined
+/Users/meridian/Projects/pulse-rir-trigger-shortcuts/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config=playwright.rir-trigger.config.ts

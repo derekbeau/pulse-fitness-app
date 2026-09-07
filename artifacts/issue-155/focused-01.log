@@ -1,0 +1,65 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-rir-trigger-shortcuts/apps/web
+
+ ✓ src/features/workouts/components/session-detail.test.tsx (22 tests) 1789ms
+     ✓ renders a not-found state for unknown sessions  1081ms
+ ❯ src/features/workouts/components/set-row.test.tsx (28 tests | 2 failed) 135ms
+     ✓ renders touch-sized populated inputs in a dedicated metric row and auto-completes 25ms
+     ✓ waits for a keypad-friendly pause before saving multi-digit edits 3ms
+     ✓ applies completed styling and auto-uncompletes when a required field is cleared 3ms
+     ✓ auto-completes a set when all required fields are filled 2ms
+     ✓ renders reps-only rows without weight input 1ms
+     ✓ logs native RIR without completing the set and returns focus after selection 46ms
+     × updates only the RIR/RPE pair on a closed trigger (completed=false) 8ms
+     × updates only the RIR/RPE pair on a closed trigger (completed=true) 5ms
+     ✓ supports arrow-key RIR selection and explicit clear 15ms
+     ✓ does not expose RIR controls for unsupported tracking modes 2ms
+     ✓ auto-completes seconds-only rows when seconds are entered 2ms
+     ✓ renders duration rows as one block with effort inputs 3ms
+     ✓ uses km distance suffix for metric users 1ms
+     ✓ keeps populated 'weight_reps' metrics and units explicit 1ms
+     ✓ keeps populated 'weight_seconds' metrics and units explicit 1ms
+     ✓ keeps populated 'bodyweight_reps' metrics and units explicit 1ms
+     ✓ keeps populated 'reps_only' metrics and units explicit 1ms
+     ✓ keeps populated 'reps_seconds' metrics and units explicit 1ms
+     ✓ keeps populated 'seconds_only' metrics and units explicit 1ms
+     ✓ keeps populated 'duration' metrics and units explicit 1ms
+     ✓ keeps populated 'distance' metrics and units explicit 1ms
+     ✓ keeps populated 'cardio' metrics and units explicit 1ms
+     ✓ renders read-only target hints when prescribed targets exist 2ms
+     ✓ prefixes cardio target hints when only one dimension exists 1ms
+     ✓ renders weight ranges in target hints for weight-rep exercises 1ms
+     ✓ renders distance targets with unit suffix based on weight unit 1ms
+     ✓ renders seconds target hints for reps-seconds tracking 1ms
+     ✓ does not render a target hint when no prescribed targets exist 1ms
+ ✓ src/features/workouts/components/rir-picker.test.tsx (43 tests) 383ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/workouts/components/set-row.test.tsx > SetRow > updates only the RIR/RPE pair on a closed trigger (completed=false)
+ FAIL  src/features/workouts/components/set-row.test.tsx > SetRow > updates only the RIR/RPE pair on a closed trigger (completed=true)
+Error: expect(element).toHaveValue(135)
+
+Expected the element to have value:
+  135 (string)
+Received:
+  135 (number)
+ ❯ src/features/workouts/components/set-row.test.tsx:193:57
+    191|       expect(trigger).toHaveFocus();
+    192|       expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+    193|       expect(screen.getByLabelText('Weight for set 2')).toHaveValue('1…
+       |                                                         ^
+    194|       expect(screen.getByLabelText('Reps for set 2')).toHaveValue('8');
+    195|     },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  2 failed | 91 passed (93)
+   Start at  18:53:30
+   Duration  4.76s (transform 500ms, setup 233ms, import 1.21s, tests 2.31s, environment 675ms)
+
+undefined
+/Users/meridian/Projects/pulse-rir-trigger-shortcuts/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --maxWorkers=1 src/features/workouts/components/rir-picker.test.tsx src/features/workouts/components/set-row.test.tsx src/features/workouts/components/session-detail.test.tsx

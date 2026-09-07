@@ -1,0 +1,33 @@
+cwd: /Users/meridian/Projects/pulse-rir-trigger-shortcuts
+$ pnpm typecheck --force --concurrency=1
+started: 2026-09-07T23:03:09.858852+00:00
+
+> pulse@ typecheck /Users/meridian/Projects/pulse-rir-trigger-shortcuts
+> turbo run typecheck --force --concurrency=1
+
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running typecheck in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/shared:typecheck: cache bypass, force executing 84600bd128ba39ce
+@pulse/shared:typecheck: 
+@pulse/shared:typecheck: > @pulse/shared@0.0.0 typecheck /Users/meridian/Projects/pulse-rir-trigger-shortcuts/packages/shared
+@pulse/shared:typecheck: > tsc --noEmit -p tsconfig.json
+@pulse/shared:typecheck: 
+@pulse/web:typecheck: cache bypass, force executing fb963fac77215741
+@pulse/web:typecheck: 
+@pulse/web:typecheck: > @pulse/web@0.0.0 typecheck /Users/meridian/Projects/pulse-rir-trigger-shortcuts/apps/web
+@pulse/web:typecheck: > tsc --noEmit
+@pulse/web:typecheck: 
+@pulse/api:typecheck: cache bypass, force executing f0c1cd787d38e9e0
+@pulse/api:typecheck: 
+@pulse/api:typecheck: > @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-rir-trigger-shortcuts/apps/api
+@pulse/api:typecheck: > tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+@pulse/api:typecheck: 
+
+ Tasks:    3 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    19.799s 
+
+
+exit_code: 0

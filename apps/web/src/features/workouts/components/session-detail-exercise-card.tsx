@@ -245,6 +245,7 @@ function SessionSetEditor({
               onChange('rpe', '');
             }}
             setNumber={set.setNumber}
+            trackingType={trackingType}
             value={draft.rir.trim() === '' ? null : Number(draft.rir)}
           />
         </div>

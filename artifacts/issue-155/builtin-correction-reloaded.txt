@@ -1,0 +1,109 @@
+Browser tab: 1, Title: "Pulse", URL: "http://127.0.0.1:5255/workouts/session/d92a6d04-6345-4615-a5ae-d6714279760c".
+1 AXWebArea Pulse, URL: 127.0.0.1:5255/workouts/session/d92a6d04-6345-4615-a5ae-d6714279760c
+	2 container root
+		3 container
+			4 text Pulse
+			5 button Collapse sidebar
+			6 container Desktop navigation
+				7 link Description: Dashboard, Value: 127.0.0.1:5255/
+				8 link Description: Workouts, Value: 127.0.0.1:5255/workouts
+				9 link Description: Nutrition, Value: 127.0.0.1:5255/nutrition
+				10 link Description: Habits, Value: 127.0.0.1:5255/habits
+				11 link Description: Data Quality, Value: 127.0.0.1:5255/data-quality
+				12 link Description: Activity, Value: 127.0.0.1:5255/activity
+				13 link Description: Journal, Value: 127.0.0.1:5255/journal
+				14 link Description: Profile, Value: 127.0.0.1:5255/profile
+			15 link Description: S Shortcut Preview @rir-trigger-78a78324, Value: 127.0.0.1:5255/profile
+			16 button Log out
+		17 container
+			18 heading Workout Session, Value: 1
+				19 text Workout Session
+			20 link Description: Back to Workouts, Value: 127.0.0.1:5255/workouts?view=calendar
+			21 text WORKOUT RECEIPT
+			22 text Completed
+			23 heading Shortcut Completed Preview, Value: 1
+				24 text Shortcut Completed Preview
+			25 container
+				26 text Monday, September 7, 2026  ·  Duration not tracked  ·  Started 9:00 AM
+			27 button Edit
+			28 container
+				29 text Exercises 4
+			30 container
+				31 text Sets 8
+			32 container
+				33 text Reps 48
+			34 container
+				35 text Mixed metrics 2,160 lbs • 48 reps • 3,600 sec
+			36 heading Session comparison, Value: 2
+				37 text Session comparison
+			38 text Compare this workout against the previous session on the same template.
+			39 checkbox Description: Show comparison, Value: 0
+			40 text Show comparison
+			41 heading Section breakdown, Value: 2
+				42 text Section breakdown
+			43 text Review each phase exactly as it was logged.
+			44 container
+				45 button (expanded) Main 4 exercises logged 4 exercises, Secondary Actions: Collapse
+					46 heading Main, Value: 3
+						47 text Main
+					48 text 4 exercises logged
+					49 text 4 exercises
+				50 container workout-exercise-087f01cb-9f67-47d6-ba72-4026f6135e9f
+					51 heading Shortcut Bench Press, Value: 3
+						52 button Shortcut Bench Press
+					53 button Open Shortcut Bench Press history
+					54 text Weight × Reps Moderate
+					55 container
+						56 text Last: Sep 7, 2026 · 135x8 (2 RIR), 135x8 (4 RIR)
+						57 pop up button (collapsed) Description: Effort details: Last performance, 2026-09-07, Secondary Actions: Expand
+					58 text PRESCRIPTION
+					59 text 2 sets
+					60 button (collapsed) Show full set detail, Secondary Actions: Expand
+						61 text Show full set detail
+					62 text 2 logged sets
+					63 text Set 1: 135 lbs × 8 reps (2 RIR) Set 2: 135 lbs × 8 reps (4 RIR)
+				64 container workout-exercise-8965a3d9-b02b-4d72-a352-d75b8827c065
+					65 heading Shortcut Push-up, Value: 3
+						66 button Shortcut Push-up
+					67 button Open Shortcut Push-up history
+					68 text Bodyweight Reps Moderate
+					69 container
+						70 text Last: Sep 7, 2026 · 8 (≈ 2 RIR), 8 (4 RIR)
+						71 pop up button (collapsed) Description: Effort details: Last performance, 2026-09-07, Secondary Actions: Expand
+					72 text PRESCRIPTION
+					73 text 2 sets
+					74 button (collapsed) Show full set detail, Secondary Actions: Expand
+						75 text Show full set detail
+					76 text 2 logged sets
+					77 text Set 1: 8 reps (≈ 2 RIR) Set 2: 8 reps (4 RIR)
+				78 container workout-exercise-69b32ebc-bd1f-4434-952f-4b00fa4826e9
+					79 heading Shortcut Band Pull-apart, Value: 3
+						80 button Shortcut Band Pull-apart
+					81 button Open Shortcut Band Pull-apart history
+					82 text Reps Only Moderate
+					83 container
+						84 text Last: Sep 7, 2026 · 8 (≈ 2 RIR), 8 (4 RIR)
+						85 pop up button (collapsed) Description: Effort details: Last performance, 2026-09-07, Secondary Actions: Expand
+					86 text PRESCRIPTION
+					87 text 2 sets
+					88 button (collapsed) Show full set detail, Secondary Actions: Expand
+						89 text Show full set detail
+					90 text 2 logged sets
+					91 text Set 1: 8 reps (≈ 2 RIR) Set 2: 8 reps (4 RIR)
+				92 container workout-exercise-d1bcf943-81b5-4d72-95bf-3ae34780074a
+					93 heading Shortcut Easy Walk, Value: 3
+						94 button Shortcut Easy Walk
+					95 button Open Shortcut Easy Walk history
+					96 text Duration Moderate
+					97 text Last: Sep 7, 2026 · 1,800s (RPE 3), 1,800s (RPE 3)
+					98 text PRESCRIPTION
+					99 text Duration target not set
+					100 button (collapsed) Show full set detail, Secondary Actions: Expand
+						101 text Show full set detail
+					102 text Duration logged
+					103 text Set 1: 1,800 sec (RPE 3 / Zone 2) Set 2: 1,800 sec (RPE 3 / Zone 2)
+			104 text Feedback
+			105 text No feedback captured for this session.
+		106 container Notifications alt+T
+
+The focused UI element is 1 AXWebArea Pulse, URL: 127.0.0.1:5255/workouts/session/d92a6d04-6345-4615-a5ae-d6714279760c

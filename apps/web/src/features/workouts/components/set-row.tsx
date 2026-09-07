@@ -167,6 +167,7 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
             <RirPicker
               onChange={(nextRir) => onUpdate({ rir: nextRir, rpe: null })}
               setNumber={setNumber}
+              trackingType={trackingType}
               value={rir}
             />
           )}

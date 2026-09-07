@@ -1,0 +1,28 @@
+{
+  "status": "COMPLETE",
+  "nextAction": "parent independent review",
+  "testedImplementationCommit": "17d10c6e8e959171abd4a14738c2619e2a75911e",
+  "branch": "fix/rir-trigger-shortcuts",
+  "draftPr": "https://github.com/derekbeau/pulse-fitness-app/pull/159",
+  "launcher": {
+    "authority": "planner clarification in this task",
+    "modelObserved": "GPT-6 Astra",
+    "effortObserved": "Extra High",
+    "fastActivation": "unverified",
+    "executorUiLabelVerification": "waived",
+    "codingAcceptanceGate": false
+  },
+  "substantiveRequirements": "unchanged and complete",
+  "validation": {
+    "focusedTests": 93,
+    "fullTests": 3175,
+    "uncachedGates": ["lint", "typecheck", "test", "build"],
+    "finalBrowserTests": 2,
+    "passingSuitesRerunForSettings": false,
+    "baselineSourceAndEvidenceHashesVerified": true
+  },
+  "remainingExecutorBlockers": [],
+  "independentAcceptance": "pending parent review",
+  "merged": false,
+  "deployed": false
+}

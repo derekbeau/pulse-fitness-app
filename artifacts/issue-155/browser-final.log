@@ -1,0 +1,14 @@
+cwd: /Users/meridian/Projects/pulse-rir-trigger-shortcuts
+$ pnpm --filter @pulse/web exec playwright test --config=playwright.rir-trigger.config.ts
+started: 2026-09-07T23:09:51.063323+00:00
+
+Running 2 tests using 1 worker
+
+(node:4804) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/rir-trigger-shortcuts.spec.ts:99:5 › desktop Tab shortcuts persist once for every consumer and preserve raw set facts (6.5s)
+  ✓  2 e2e/rir-trigger-shortcuts.spec.ts:287:7 › mobile touch › touch selects zero and 5+, Clear and focus return survive reload (5.3s)
+
+  2 passed (12.8s)
+
+exit_code: 0

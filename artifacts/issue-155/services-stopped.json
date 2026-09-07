@@ -1,0 +1,14 @@
+[
+  {
+    "port": 3155,
+    "pid": 86704,
+    "cwd": "/Users/meridian/Projects/pulse-rir-trigger-shortcuts/apps/api",
+    "signal": "SIGTERM"
+  },
+  {
+    "port": 5255,
+    "pid": 86901,
+    "cwd": "/Users/meridian/Projects/pulse-rir-trigger-shortcuts/apps/web",
+    "signal": "SIGTERM"
+  }
+]

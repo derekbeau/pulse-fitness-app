@@ -1,0 +1,10 @@
+{
+  "worktree": "/Users/meridian/Projects/pulse-rir-trigger-shortcuts",
+  "branch": "fix/rir-trigger-shortcuts",
+  "startingHead": "56f7d784cde130ffc73ce857d6a1198fd4788b45",
+  "initialStatus": "clean",
+  "contractSha256": "f71bb781676f14d0ad8b85adb7aa657f603b530a9536d7af737a9e1f5701d72b",
+  "gateSlot": "user granted; no other active Pulse owner in native task inventory",
+  "launchReadback": "Native CUA getApp(Codex) blocked; requested user confirmation.",
+  "reviewToolCapabilities": "spawn_agent supports gpt-5.6-luna and medium; no Fast/service-tier parameter exposed"
+}

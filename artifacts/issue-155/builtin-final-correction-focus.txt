@@ -1,0 +1,3 @@
+Browser tab: 1, Title: "Pulse", URL: "http://127.0.0.1:5255/workouts/session/d92a6d04-6345-4615-a5ae-d6714279760c".
+There has been no change in the accessibility tree.
+The focused UI element is 73 pop up button (collapsed) Description: RIR for set 1: 2 repetitions in reserve, Secondary Actions: Expand

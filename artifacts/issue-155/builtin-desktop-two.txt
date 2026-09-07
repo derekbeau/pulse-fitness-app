@@ -1,0 +1,4 @@
+Browser tab: 1, Title: "Pulse", URL: "http://127.0.0.1:5255/workouts/active?sessionId=716ad9ab-22e7-4cc3-a17f-6db524f8c165".
+The following is a diff from the previous accessibility tree with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+~						115 pop up button (collapsed) Description: RIR for set 1: 2 repetitions in reserve, Secondary Actions: Expand
+The focused UI element is 115 pop up button (collapsed) Description: RIR for set 1: 2 repetitions in reserve, Secondary Actions: Expand

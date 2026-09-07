@@ -1,0 +1,13 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-rir-trigger-shortcuts/apps/web
+
+ ✓ src/features/workouts/components/set-row.test.tsx (28 tests) 127ms
+ ✓ src/features/workouts/components/session-detail.test.tsx (22 tests) 1698ms
+     ✓ renders a not-found state for unknown sessions  1081ms
+ ✓ src/features/workouts/components/rir-picker.test.tsx (43 tests) 329ms
+
+ Test Files  3 passed (3)
+      Tests  93 passed (93)
+   Start at  18:54:07
+   Duration  4.16s (transform 409ms, setup 185ms, import 1.00s, tests 2.15s, environment 528ms)
+
