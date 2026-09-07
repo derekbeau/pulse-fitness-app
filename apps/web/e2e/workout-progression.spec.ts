@@ -1,4 +1,5 @@
-import { mkdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
@@ -82,9 +83,26 @@ function monitorPage(page: Page) {
 }
 
 async function capture(page: Page, filename: string) {
-  const directory = resolve(process.cwd(), '../../artifacts/issue-112');
+  const directory = resolve(process.cwd(), '../../logs/progression-preview/existing-chrome');
   mkdirSync(directory, { recursive: true });
   await page.screenshot({ fullPage: true, path: resolve(directory, filename) });
+  writeFileSync(
+    resolve(directory, `${filename}.json`),
+    JSON.stringify(
+      {
+        commitSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+        branch: execFileSync('git', ['branch', '--show-current'], { encoding: 'utf8' }).trim(),
+        workingTreeDirty:
+          execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim().length > 0,
+        fixture: 'adaptive-preview progression and muscle fixtures',
+        scenario: filename,
+        viewport: page.viewportSize(),
+        phase: filename.includes('accepted') ? 'post-action' : 'pre-action',
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 async function expectNoOverflow(page: Page, width: number) {

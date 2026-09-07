@@ -68,6 +68,35 @@ function completedText(
   return parts.join(' · ') || 'No measured completion';
 }
 
+function availabilityMessage(recommendation: WorkoutProgressionRecommendation) {
+  if (recommendation.reasonCodes.includes('MISSING_POLICY')) {
+    return 'No progression policy is configured for this exercise. The current plan has not changed.';
+  }
+  if (recommendation.reasonCodes.includes('NO_COMPLETED_HISTORY')) {
+    return 'No completed matching history is available yet. The current plan has not changed.';
+  }
+  if (recommendation.confidence === 'unavailable') {
+    return 'This recommendation is unavailable because its evidence could not support a safe change. The current plan has not changed.';
+  }
+  return null;
+}
+
+function diagnosticMessage(
+  diagnostic: NonNullable<WorkoutProgressionRecommendation['evidence']['diagnostics']>[number],
+) {
+  const source =
+    diagnostic.source === 'current_scheduled_target'
+      ? 'current scheduled target'
+      : 'historical prescribed target';
+  const raw = Object.entries(diagnostic.raw)
+    .map(([key, value]) => `${key}=${value === null ? 'null' : String(value)}`)
+    .join(', ');
+  if (diagnostic.reason === 'REDUNDANT_EXACT_REPS') {
+    return `Legacy exact-reps bounds were normalized for evaluation in the ${source} (set ${diagnostic.setNumber ?? 'unknown'}).`;
+  }
+  return `Invalid ${source} at set ${diagnostic.setNumber ?? 'unknown'}: ${diagnostic.reason}. Raw values: ${raw}.`;
+}
+
 export function WorkoutProgressionReview({
   locked,
   scheduledWorkoutId,
@@ -124,17 +153,19 @@ export function WorkoutProgressionReview({
             Nothing changes until you choose an action.
           </p>
         </div>
-        <Button
-          aria-label="Recompute workout progression"
-          className="min-h-11"
-          disabled={preview.isFetching}
-          onClick={() => void preview.refetch()}
-          type="button"
-          variant="outline"
-        >
-          <RefreshCw aria-hidden="true" className="size-4" />
-          {preview.isFetching ? 'Checking…' : 'Recompute'}
-        </Button>
+        {!preview.isError ? (
+          <Button
+            aria-label="Recompute workout progression"
+            className="min-h-11"
+            disabled={preview.isFetching}
+            onClick={() => void preview.refetch()}
+            type="button"
+            variant="outline"
+          >
+            <RefreshCw aria-hidden="true" className="size-4" />
+            {preview.isFetching ? 'Checking…' : 'Recompute'}
+          </Button>
+        ) : null}
       </div>
 
       {preview.isLoading ? (
@@ -147,8 +178,13 @@ export function WorkoutProgressionReview({
         <Card className="border-destructive/40" role="alert">
           <CardContent className="space-y-3 py-6">
             <p>Progression recommendations could not be loaded. Your plan has not changed.</p>
-            <Button className="min-h-11" onClick={() => void preview.refetch()} variant="outline">
-              Retry
+            <Button
+              className="min-h-11"
+              disabled={preview.isFetching}
+              onClick={() => void preview.refetch({ cancelRefetch: false })}
+              variant="outline"
+            >
+              {preview.isFetching ? 'Retrying…' : 'Retry'}
             </Button>
           </CardContent>
         </Card>
@@ -159,7 +195,7 @@ export function WorkoutProgressionReview({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid min-w-0 gap-3 xl:grid-cols-2">
+        <div className="grid min-w-0 gap-3">
           {preview.data?.recommendations.map((recommendation) => {
             const meta = decisionMeta[recommendation.decision];
             const Icon = meta.icon;
@@ -169,6 +205,9 @@ export function WorkoutProgressionReview({
               ...new Set([
                 ...recommendation.evidence.priorTargets.map((target) => target.setNumber),
                 ...recommendation.evidence.performance.map((set) => set.setNumber),
+                ...(recommendation.evidence.diagnostics ?? []).flatMap((item) =>
+                  item.setNumber !== null ? [item.setNumber] : [],
+                ),
               ]),
             ].sort((left, right) => left - right);
             return (
@@ -208,7 +247,39 @@ export function WorkoutProgressionReview({
                     </p>
                   ) : null}
 
-                  <div className="overflow-x-auto rounded-xl border border-border/70">
+                  {availabilityMessage(recommendation) ? (
+                    <p
+                      className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm"
+                      role="status"
+                    >
+                      {availabilityMessage(recommendation)}
+                    </p>
+                  ) : null}
+
+                  {recommendation.evidence.diagnostics?.length ? (
+                    <div
+                      aria-label={`${recommendation.evidence.exerciseName} evidence diagnostics`}
+                      className="rounded-xl border border-border/70 bg-secondary/30 p-3 text-sm"
+                    >
+                      <p className="font-medium">Evidence compatibility</p>
+                      <ul className="mt-2 list-disc space-y-1 break-words pl-5 text-muted-foreground">
+                        {recommendation.evidence.diagnostics.map((diagnostic, index) => (
+                          <li
+                            key={`${diagnostic.reason}-${diagnostic.source}-${diagnostic.setId}-${index}`}
+                          >
+                            {diagnosticMessage(diagnostic)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  <div
+                    className="overflow-x-auto rounded-xl border border-border/70"
+                    role="region"
+                    aria-label={`${recommendation.evidence.exerciseName} comparison scroll area`}
+                    tabIndex={0}
+                  >
                     <table
                       aria-label={`${recommendation.evidence.exerciseName} exact progression comparison`}
                       className="w-full min-w-[42rem] text-left text-sm"
@@ -240,6 +311,18 @@ export function WorkoutProgressionReview({
                           const performance = recommendation.evidence.performance.find(
                             (set) => set.setNumber === setNumber,
                           );
+                          const currentDiagnostic = recommendation.evidence.diagnostics?.find(
+                            (item) =>
+                              item.source === 'current_scheduled_target' &&
+                              item.setNumber === setNumber &&
+                              item.reason !== 'REDUNDANT_EXACT_REPS',
+                          );
+                          const historicalDiagnostic = recommendation.evidence.diagnostics?.find(
+                            (item) =>
+                              item.source === 'historical_prescribed_target' &&
+                              item.setNumber === setNumber &&
+                              item.reason !== 'REDUNDANT_EXACT_REPS',
+                          );
                           const proposed = current
                             ? recommendation.recommendedTargets.find(
                                 (target) => target.setId === current.setId,
@@ -256,13 +339,36 @@ export function WorkoutProgressionReview({
                               <td className="px-3 py-3 text-muted-foreground">
                                 {performance
                                   ? targetText(performance.prescribed, weightUnit)
-                                  : 'No matching source set'}
+                                  : historicalDiagnostic
+                                    ? diagnosticMessage(historicalDiagnostic)
+                                    : 'No matching source set'}
+                                {performance ? (
+                                  <span className="mt-1 block break-all text-xs">
+                                    Source session set: {performance.setId}; scheduled source:{' '}
+                                    {performance.sourceScheduledSetId ?? 'unavailable'}
+                                  </span>
+                                ) : null}
                               </td>
                               <td className="px-3 py-3 text-muted-foreground">
-                                {completedText(performance, weightUnit)}
+                                {performance
+                                  ? completedText(performance, weightUnit)
+                                  : historicalDiagnostic?.observed
+                                    ? Object.entries(historicalDiagnostic.observed)
+                                        .map(([key, value]) => `${key}=${value ?? 'null'}`)
+                                        .join(' · ')
+                                    : 'Not recorded'}
                               </td>
                               <td className="px-3 py-3">
-                                {current ? targetText(current, weightUnit) : 'No current set'}
+                                {current
+                                  ? targetText(current, weightUnit)
+                                  : currentDiagnostic
+                                    ? diagnosticMessage(currentDiagnostic)
+                                    : 'No current set'}
+                                {current ? (
+                                  <span className="mt-1 block break-all text-xs">
+                                    Current scheduled set: {current.setId}
+                                  </span>
+                                ) : null}
                               </td>
                               <td className="px-3 py-3 font-medium">
                                 {proposed ? targetText(proposed, weightUnit) : 'Not available'}

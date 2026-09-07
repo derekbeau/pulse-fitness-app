@@ -57,6 +57,16 @@ describe('query-client', () => {
     expect(toastErrorMock).toHaveBeenCalledWith('Network error. Check your connection.');
   });
 
+  it('skips the global query toast for feature-scoped errors', () => {
+    const queryOnError = createAppQueryClient().getQueryCache().config.onError;
+
+    queryOnError?.(new ApiError(500, 'Preview failed', 'INTERNAL_ERROR'), {
+      meta: { suppressGlobalErrorToast: true },
+    } as never);
+
+    expect(toastErrorMock).not.toHaveBeenCalled();
+  });
+
   it('skips the global mutation toast when the mutation handles its own error feedback', () => {
     const mutationOnError = createAppQueryClient().getMutationCache().config.onError;
 

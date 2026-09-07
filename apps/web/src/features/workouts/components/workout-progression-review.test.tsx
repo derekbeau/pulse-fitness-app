@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { WorkoutProgressionRecommendation } from '@pulse/shared';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -160,7 +160,7 @@ describe('WorkoutProgressionReview', () => {
       within(comparison).getByRole('columnheader', { name: 'Proposed target' }),
     ).toBeInTheDocument();
     expect(within(comparison).getByRole('row', { name: /Set 1/ })).toHaveTextContent(
-      'Set 120 lbs · 8–10 reps20 lbs · 10 reps · RPE 820 lbs · 8–10 reps25 lbs · 8–10 reps',
+      'Set 120 lbs · 8–10 repsSource session set: source-set-1; scheduled source: source-scheduled-set-120 lbs · 10 reps · RPE 820 lbs · 8–10 repsCurrent scheduled set: scheduled-set-125 lbs · 8–10 reps',
     );
     expect(screen.getByText('Every required set reached 10 reps.')).toBeInTheDocument();
     expect(screen.getByText(/completed session 2026-08-20/)).toBeInTheDocument();
@@ -168,6 +168,28 @@ describe('WorkoutProgressionReview', () => {
       'You · revision 1 · priority exercise',
     );
     expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('shows compatibility provenance and raw values for legacy evidence', () => {
+    setup({
+      ...recommendation,
+      evidence: {
+        ...recommendation.evidence,
+        diagnostics: [
+          {
+            reason: 'REDUNDANT_EXACT_REPS',
+            raw: { reps: 8, repsMin: 8, repsMax: 8 },
+            setId: 'scheduled-set-1',
+            setNumber: 1,
+            source: 'current_scheduled_target',
+          },
+        ],
+      },
+    });
+
+    expect(screen.getByLabelText('Incline press evidence diagnostics')).toHaveTextContent(
+      'Legacy exact-reps bounds were normalized for evaluation in the current scheduled target (set 1).',
+    );
   });
 
   it('requires an explicit accept and preserves the server fingerprint', async () => {
@@ -259,6 +281,129 @@ describe('WorkoutProgressionReview', () => {
     expect(screen.getByRole('button', { name: 'Edit' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Keep current' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Hold with reason' })).toBeEnabled();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'No progression policy is configured for this exercise. The current plan has not changed.',
+    );
+  });
+
+  it('shows no-history and server failures inline without a global retry loop', () => {
+    vi.mocked(useWorkoutProgressionPreview).mockReturnValue({
+      data: {
+        recommendations: [
+          {
+            ...recommendation,
+            confidence: 'unavailable',
+            decision: 'hold',
+            reasonCodes: ['NO_COMPLETED_HISTORY'],
+            facts: ['No completed performance exists for this exercise.'],
+          },
+        ],
+      },
+      isError: false,
+      isFetching: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useWorkoutProgressionPreview>);
+    vi.mocked(useApplyWorkoutProgressionAction).mockReturnValue({
+      error: null,
+      isError: false,
+      isPending: false,
+      mutateAsync: vi.fn(),
+    } as unknown as ReturnType<typeof useApplyWorkoutProgressionAction>);
+    const { unmount } = render(
+      <WorkoutProgressionReview locked={false} scheduledWorkoutId="scheduled-1" />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'No completed matching history is available yet. The current plan has not changed.',
+    );
+    unmount();
+
+    const retry = vi.fn();
+    vi.mocked(useWorkoutProgressionPreview).mockReturnValue({
+      data: undefined,
+      isError: true,
+      isFetching: false,
+      isLoading: false,
+      refetch: retry,
+    } as unknown as ReturnType<typeof useWorkoutProgressionPreview>);
+    render(<WorkoutProgressionReview locked={false} scheduledWorkoutId="scheduled-1" />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Your plan has not changed.');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it('retains invalid historical prescription and completed observations in the comparison', () => {
+    setup();
+    cleanup();
+    vi.mocked(useWorkoutProgressionPreview).mockReturnValue({
+      data: {
+        recommendations: [
+          {
+            ...recommendation,
+            confidence: 'unavailable',
+            decision: 'hold',
+            reasonCodes: ['INVALID_HISTORICAL_PRESCRIPTION'],
+            evidence: {
+              ...recommendation.evidence,
+              performance: [],
+              diagnostics: [
+                {
+                  reason: 'INVALID_HISTORICAL_PRESCRIPTION',
+                  source: 'historical_prescribed_target',
+                  setId: 'source-set-1',
+                  setNumber: 1,
+                  raw: { reps: 8, repsMin: 6, repsMax: 8 },
+                  observed: { weight: 20, reps: 10, completed: 'true' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+      isError: false,
+      isFetching: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useWorkoutProgressionPreview>);
+    render(<WorkoutProgressionReview locked={false} scheduledWorkoutId="scheduled-1" />);
+    const table = screen.getByRole('table');
+    expect(within(table).getByText(/Invalid historical prescribed target/)).toHaveTextContent(
+      'repsMin=6',
+    );
+    expect(within(table).getByText(/weight=20/)).toHaveTextContent('reps=10');
+    expect(screen.getByRole('button', { name: 'Accept targets' })).toBeDisabled();
+  });
+
+  it('shows exactly one disabled retry while a retry is pending', () => {
+    setup();
+    cleanup();
+    const refetch = vi.fn();
+    vi.mocked(useWorkoutProgressionPreview).mockReturnValue({
+      data: undefined,
+      isError: true,
+      isFetching: true,
+      isLoading: false,
+      refetch,
+    } as unknown as ReturnType<typeof useWorkoutProgressionPreview>);
+    render(<WorkoutProgressionReview locked={false} scheduledWorkoutId="scheduled-1" />);
+    expect(
+      screen.queryByRole('button', { name: 'Recompute workout progression' }),
+    ).not.toBeInTheDocument();
+    const button = screen.getByRole('button', { name: 'Retrying…' });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(refetch).not.toHaveBeenCalled();
+  });
+
+  it('preserves previous and current source identities in same-number comparisons', () => {
+    setup();
+    expect(
+      screen.getByText(
+        'Source session set: source-set-1; scheduled source: source-scheduled-set-1',
+      ),
+    ).toBeVisible();
+    expect(screen.getByText('Current scheduled set: scheduled-set-1')).toBeVisible();
   });
 
   it('submits bounded edited targets while retaining the immutable recommendation', async () => {

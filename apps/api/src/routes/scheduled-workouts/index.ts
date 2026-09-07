@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import {
   apiDataResponseSchema,
+  canonicalizeWorkoutRepTarget,
   createScheduledWorkoutInputSchema,
   reorderScheduledWorkoutInputSchema,
   scheduledWorkoutDetailSchema,
@@ -66,6 +67,7 @@ import {
   updateScheduledWorkoutExerciseSets,
   updateScheduledWorkoutExercises,
   updateScheduledWorkout,
+  SCHEDULED_WORKOUT_INVALID_REP_TARGET,
 } from './store.js';
 
 const SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE = {
@@ -162,14 +164,6 @@ const shouldMarkAgentNoteStale = ({
   newDate: string;
 }) => Math.abs(toUtcDay(newDate) - toUtcDay(scheduledDateAtGeneration)) > 2;
 
-const toExactReps = (repsMin: number | null, repsMax: number | null): number | null => {
-  if (repsMin === null || repsMax === null) {
-    return null;
-  }
-
-  return repsMin === repsMax ? repsMin : null;
-};
-
 const toSnapshotSetDrafts = ({
   sets,
   repsMin,
@@ -184,14 +178,18 @@ const toSnapshotSetDrafts = ({
   const sortedTargets = [...(setTargets ?? [])].sort(
     (left, right) => left.setNumber - right.setNumber,
   );
-  const reps = toExactReps(repsMin, repsMax);
+  const canonicalReps = canonicalizeWorkoutRepTarget({
+    reps: repsMin !== null && repsMin === repsMax ? repsMin : null,
+    repsMin,
+    repsMax,
+  });
 
   if (sortedTargets.length > 0) {
     return sortedTargets.map((target) => ({
       setNumber: target.setNumber,
-      repsMin,
-      repsMax,
-      reps,
+      repsMin: canonicalReps.repsMin ?? null,
+      repsMax: canonicalReps.repsMax ?? null,
+      reps: canonicalReps.reps ?? null,
       targetWeight: target.targetWeight ?? null,
       targetWeightMin: target.targetWeightMin ?? null,
       targetWeightMax: target.targetWeightMax ?? null,
@@ -203,9 +201,9 @@ const toSnapshotSetDrafts = ({
   const setCount = Math.max(1, sets ?? 1);
   return Array.from({ length: setCount }, (_, index) => ({
     setNumber: index + 1,
-    repsMin,
-    repsMax,
-    reps,
+    repsMin: canonicalReps.repsMin ?? null,
+    repsMax: canonicalReps.repsMax ?? null,
+    reps: canonicalReps.reps ?? null,
     targetWeight: null,
     targetWeightMin: null,
     targetWeightMax: null,
@@ -992,6 +990,14 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
       }
 
       if ('error' in updated) {
+        if (updated.error === SCHEDULED_WORKOUT_INVALID_REP_TARGET) {
+          return sendError(
+            reply,
+            400,
+            'INVALID_REP_TARGET',
+            'Rep targets must use an exact value or a valid range without conflicting fields',
+          );
+        }
         return sendError(
           reply,
           400,

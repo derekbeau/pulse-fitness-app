@@ -893,8 +893,8 @@ describe('scheduled workout routes', () => {
             sets: [
               {
                 setNumber: 1,
-                repsMin: 5,
-                repsMax: 5,
+                repsMin: null,
+                repsMax: null,
                 reps: 5,
                 targetWeight: 95,
                 targetWeightMin: null,
@@ -905,8 +905,8 @@ describe('scheduled workout routes', () => {
               },
               {
                 setNumber: 2,
-                repsMin: 5,
-                repsMax: 5,
+                repsMin: null,
+                repsMax: null,
                 reps: 5,
                 targetWeight: 105,
                 targetWeightMin: null,
@@ -2333,6 +2333,49 @@ describe('scheduled workout routes', () => {
       },
     });
     expect(noAuthResponse.statusCode).toBe(401);
+  });
+
+  it('canonicalizes equivalent exact rep redundancy and rejects conflicting writes', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedStructuralSnapshotTemplate();
+    const scheduledWorkoutId = await createScheduledWorkoutFromTemplate({ authToken });
+
+    const equivalentResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercise-sets`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        exerciseId: STRUCTURAL_EXERCISE_IDS.first,
+        sets: [{ setNumber: 1, reps: 8, repsMin: 8, repsMax: 8 }],
+      },
+    });
+    expect(equivalentResponse.statusCode).toBe(200);
+    const equivalentSet = equivalentResponse
+      .json()
+      .data.exercises.find(
+        (exercise: { exerciseId: string }) => exercise.exerciseId === STRUCTURAL_EXERCISE_IDS.first,
+      )?.sets[0];
+    expect(equivalentSet).toMatchObject({ reps: 8, repsMin: null, repsMax: null });
+
+    const conflictResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercise-sets`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        exerciseId: STRUCTURAL_EXERCISE_IDS.first,
+        sets: [{ setNumber: 1, reps: 8, repsMin: 7 }],
+      },
+    });
+    expect(conflictResponse.statusCode).toBe(400);
+    expect(conflictResponse.json()).toEqual({
+      error: {
+        code: 'INVALID_REP_TARGET',
+        message: 'Rep targets must use an exact value or a valid range without conflicting fields',
+      },
+    });
   });
 
   it('returns validation and unknown-exercise errors for scheduled-workout exercise-set updates', async () => {

@@ -31,6 +31,14 @@ export function useWorkoutProgressionPreview(scheduledWorkoutId: string, enabled
         }),
       ),
     queryKey: workoutProgressionQueryKeys.preview(scheduledWorkoutId),
+    meta: { suppressGlobalErrorToast: true },
+    refetchOnMount: false,
+    retryOnMount: false,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+    retry: false,
+    staleTime: Infinity,
+    gcTime: Infinity,
   });
 }
 
@@ -60,6 +68,7 @@ export function useApplyWorkoutProgressionAction(scheduledWorkoutId: string) {
         }),
       ]);
     },
+    meta: { suppressGlobalErrorToast: true },
   });
 }
 

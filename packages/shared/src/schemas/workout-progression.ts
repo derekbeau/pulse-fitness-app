@@ -34,6 +34,9 @@ export const workoutProgressionStateSchema = z.enum([
 ]);
 
 export const workoutProgressionReasonCodeSchema = z.enum([
+  'INVALID_CURRENT_TARGET',
+  'INVALID_HISTORICAL_PRESCRIPTION',
+  'MALFORMED_SET_IDENTITY',
   'ALL_SETS_AT_RANGE_TOP',
   'ALL_TARGETS_COMPLETED',
   'BELOW_RANGE_TOP',
@@ -129,6 +132,88 @@ export const workoutProgressionTargetSchema = z
     message: 'Exact reps cannot be combined with a rep range',
     path: ['reps'],
   });
+
+/** Canonicalize only lossless redundant legacy rep bounds. Never chooses a conflicting field. */
+export function canonicalizeWorkoutRepTarget<
+  T extends { reps?: number | null; repsMin?: number | null; repsMax?: number | null },
+>(value: T): T {
+  for (const metric of [value.reps, value.repsMin, value.repsMax]) {
+    if (metric != null && (!Number.isInteger(metric) || metric <= 0 || metric > 1000)) {
+      throw new Error('INVALID_REP_TARGET');
+    }
+  }
+  if (value.repsMin != null && value.repsMax != null && value.repsMin > value.repsMax) {
+    throw new Error('INVALID_REP_TARGET');
+  }
+  if (value.reps == null) return { ...value };
+  if ([value.repsMin, value.repsMax].some((bound) => bound != null && bound !== value.reps)) {
+    throw new Error('CONFLICTING_REP_TARGET');
+  }
+  return {
+    ...value,
+    ...(value.repsMin != null ? { repsMin: null } : {}),
+    ...(value.repsMax != null ? { repsMax: null } : {}),
+  };
+}
+
+export const workoutProgressionDiagnosticSchema = z
+  .object({
+    reason: z.enum([
+      'REDUNDANT_EXACT_REPS',
+      'INVALID_CURRENT_TARGET',
+      'INVALID_HISTORICAL_PRESCRIPTION',
+      'MALFORMED_SET_IDENTITY',
+    ]),
+    source: z.enum(['current_scheduled_target', 'historical_prescribed_target']),
+    setId: z.string(),
+    setNumber: z.number().finite().nullable(),
+    raw: z.record(z.string(), z.union([z.string(), z.number().finite(), z.null()])),
+    observed: z.record(z.string(), z.union([z.string(), z.number().finite(), z.null()])).optional(),
+  })
+  .strict();
+export type WorkoutProgressionDiagnostic = z.infer<typeof workoutProgressionDiagnosticSchema>;
+
+export function validateWorkoutProgressionTarget(
+  raw: WorkoutProgressionTarget,
+  source: WorkoutProgressionDiagnostic['source'],
+): { target: WorkoutProgressionTarget | null; diagnostic: WorkoutProgressionDiagnostic | null } {
+  let canonical = raw;
+  try {
+    canonical = canonicalizeWorkoutRepTarget(raw);
+  } catch {
+    /* Strict parsing below still rejects conflicts; invalid metrics also fail. */
+  }
+  const parsed = workoutProgressionTargetSchema.safeParse(canonical);
+  const invalidIdentity =
+    !idSchema.safeParse(raw.setId).success ||
+    !z.number().int().positive().safeParse(raw.setNumber).success;
+  const normalized =
+    raw.reps != null && (raw.repsMin != null || raw.repsMax != null) && parsed.success;
+  return {
+    target: parsed.success ? parsed.data : null,
+    diagnostic:
+      !parsed.success || normalized
+        ? {
+            reason: !parsed.success
+              ? invalidIdentity
+                ? 'MALFORMED_SET_IDENTITY'
+                : source === 'current_scheduled_target'
+                  ? 'INVALID_CURRENT_TARGET'
+                  : 'INVALID_HISTORICAL_PRESCRIPTION'
+              : 'REDUNDANT_EXACT_REPS',
+            source,
+            setId: String(raw.setId),
+            setNumber: Number.isFinite(raw.setNumber) ? raw.setNumber : null,
+            raw: Object.fromEntries(
+              Object.entries(raw).map(([key, value]) => [
+                key,
+                typeof value === 'number' && !Number.isFinite(value) ? String(value) : value,
+              ]),
+            ),
+          }
+        : null,
+  };
+}
 
 export const workoutProgressionPerformanceSetSchema = z
   .object({
@@ -279,14 +364,27 @@ export const workoutProgressionEvidenceSchema = z
     trackingType: exerciseTrackingTypeSchema,
     sourceSessionId: idSchema.nullable(),
     sourceSessionDate: dateSchema.nullable(),
-    priorTargets: z.array(workoutProgressionTargetSchema).min(1).max(100),
+    priorTargets: z.array(workoutProgressionTargetSchema).max(100),
+    diagnostics: z.array(workoutProgressionDiagnosticSchema).optional(),
     performance: z.array(workoutProgressionPerformanceSetSchema).max(100),
     policy: workoutProgressionPolicySchema,
     policySource: workoutProgressionPolicySourceSchema,
     priority: z.boolean().nullable(),
     context: workoutProgressionContextSchema,
   })
-  .strict();
+  .strict()
+  .refine(
+    (value) =>
+      value.priorTargets.length > 0 ||
+      value.diagnostics?.some(
+        (item) =>
+          item.source === 'current_scheduled_target' && item.reason !== 'REDUNDANT_EXACT_REPS',
+      ),
+    {
+      message: 'Current targets are required unless invalid current evidence is recorded',
+      path: ['priorTargets'],
+    },
+  );
 
 export const workoutProgressionRecommendationSchema = z
   .object({
@@ -298,7 +396,7 @@ export const workoutProgressionRecommendationSchema = z
     decision: workoutProgressionDecisionSchema,
     confidence: workoutProgressionConfidenceSchema,
     reasonCodes: z.array(workoutProgressionReasonCodeSchema).min(1),
-    recommendedTargets: z.array(workoutProgressionTargetSchema).min(1).max(100),
+    recommendedTargets: z.array(workoutProgressionTargetSchema).max(100),
     facts: z.array(z.string().trim().min(1).max(500)).min(1).max(12),
     generatedAt: z.number().int().positive(),
     effectiveDate: dateSchema,
@@ -306,6 +404,19 @@ export const workoutProgressionRecommendationSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
+    const invalid = value.evidence.diagnostics?.some(
+      (item) => item.reason !== 'REDUNDANT_EXACT_REPS',
+    );
+    if (
+      (!invalid && value.evidence.priorTargets.length === 0) ||
+      (invalid && (value.confidence !== 'unavailable' || value.decision !== 'hold'))
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Invalid evidence must be unavailable; valid evidence requires targets',
+        path: ['evidence'],
+      });
+    }
     if (value.recommendedTargets.length !== value.evidence.priorTargets.length) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -367,14 +478,19 @@ export const workoutProgressionActionSchema = z
     recommendationId: idSchema,
     sequence: z.number().int().positive(),
     action: workoutProgressionActionTypeSchema,
-    appliedTargets: z.array(workoutProgressionTargetSchema).min(1).max(100),
+    appliedTargets: z.array(workoutProgressionTargetSchema).max(100),
     reason: z.string().trim().min(1).max(1000).nullable(),
     actorType: z.enum(['user', 'agent']),
     actorId: idSchema,
     idempotencyKey: z.string().trim().min(8).max(255),
     createdAt: z.number().int().positive(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (value) =>
+      value.appliedTargets.length > 0 || value.action === 'keep' || value.action === 'hold',
+    { message: 'Material actions require targets', path: ['appliedTargets'] },
+  );
 
 export const workoutProgressionPreviewResponseSchema = z
   .object({ recommendations: z.array(workoutProgressionRecommendationSchema).max(200) })

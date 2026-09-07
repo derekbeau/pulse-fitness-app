@@ -231,6 +231,8 @@ describe('scheduled workout snapshot store', () => {
       expect(readResult.exercises[1]?.sets[0]).toMatchObject({
         targetWeight: 55,
         reps: 8,
+        repsMin: null,
+        repsMax: null,
       });
       expect(readResult.exercises[1]?.sets[1]).toMatchObject({
         targetWeight: 62.5,

@@ -5,6 +5,10 @@ import {
   configureWorkoutProgressionInputSchema,
   evaluateWorkoutProgression,
   sha256Hex,
+  validateWorkoutProgressionTarget,
+  workoutProgressionPerformanceSetSchema,
+  type WorkoutProgressionDiagnostic,
+  type WorkoutProgressionPerformanceSet,
   workoutProgressionActionSchema,
   workoutProgressionEvidenceSchema,
   workoutProgressionConfigurationSchema,
@@ -268,10 +272,10 @@ function buildEvidenceForScheduledWorkout(
   const evidence: WorkoutProgressionEvidence[] = [];
   for (const exerciseRow of exerciseRows) {
     if (exerciseRow.exerciseName === null || exerciseRow.trackingType === null) continue;
-    const priorTargets = orderedTargets(
+    const rawPriorTargets = orderedTargets(
       targetsByScheduledExercise.get(exerciseRow.scheduledWorkoutExerciseId) ?? [],
     );
-    if (priorTargets.length === 0) {
+    if (rawPriorTargets.length === 0) {
       continue;
     }
 
@@ -300,7 +304,7 @@ function buildEvidenceForScheduledWorkout(
       .limit(1)
       .get();
 
-    const performance = latestSession
+    const rawPerformance = latestSession
       ? client
           .select({
             completed: sessionSets.completed,
@@ -365,6 +369,66 @@ function buildEvidenceForScheduledWorkout(
           }))
       : [];
 
+    const diagnostics: WorkoutProgressionDiagnostic[] = [];
+    const priorTargets: WorkoutProgressionTarget[] = [];
+    for (const raw of rawPriorTargets) {
+      const result = validateWorkoutProgressionTarget(raw, 'current_scheduled_target');
+      if (result.diagnostic) diagnostics.push(result.diagnostic);
+      if (result.target) priorTargets.push(result.target);
+    }
+    const performance: WorkoutProgressionPerformanceSet[] = [];
+    for (const raw of rawPerformance) {
+      const result = validateWorkoutProgressionTarget(
+        raw.prescribed,
+        'historical_prescribed_target',
+      );
+      if (result.diagnostic)
+        diagnostics.push({
+          ...result.diagnostic,
+          ...(!result.target
+            ? {
+                observed: Object.fromEntries(
+                  Object.entries(raw)
+                    .filter(([key]) => key !== 'prescribed')
+                    .map(([key, value]) => [
+                      key,
+                      typeof value === 'number' && Number.isFinite(value)
+                        ? value
+                        : value === null
+                          ? null
+                          : String(value),
+                    ]),
+                ),
+              }
+            : {}),
+        });
+      if (!result.target) continue;
+      const parsed = workoutProgressionPerformanceSetSchema.safeParse({
+        ...raw,
+        prescribed: result.target,
+      });
+      if (parsed.success) performance.push(parsed.data);
+      else
+        diagnostics.push({
+          reason: 'INVALID_HISTORICAL_PRESCRIPTION',
+          source: 'historical_prescribed_target',
+          setId: raw.setId,
+          setNumber: Number.isFinite(raw.setNumber) ? raw.setNumber : null,
+          raw: Object.fromEntries(
+            Object.entries(raw)
+              .filter(([key]) => key !== 'prescribed')
+              .map(([key, value]) => [
+                key,
+                typeof value === 'number' && Number.isFinite(value)
+                  ? value
+                  : value === null
+                    ? null
+                    : String(value),
+              ]),
+          ),
+        });
+    }
+
     const configurationRow = client
       .select({ snapshot: workoutProgressionConfigurations.snapshot })
       .from(workoutProgressionConfigurations)
@@ -409,6 +473,7 @@ function buildEvidenceForScheduledWorkout(
 
     evidence.push(
       workoutProgressionEvidenceSchema.parse({
+        ...(diagnostics.length ? { diagnostics } : {}),
         exerciseId: exerciseRow.exerciseId,
         exerciseName: exerciseRow.exerciseName,
         performance,
@@ -598,6 +663,18 @@ function evidenceMatchesDecision(
     current.trackingType === snapshot.evidence.trackingType &&
     current.sourceSessionId === snapshot.evidence.sourceSessionId &&
     current.sourceSessionDate === snapshot.evidence.sourceSessionDate &&
+    stableJson(
+      (current.diagnostics ?? []).filter(
+        (item) =>
+          !(item.source === 'current_scheduled_target' && item.reason === 'REDUNDANT_EXACT_REPS'),
+      ),
+    ) ===
+      stableJson(
+        (snapshot.evidence.diagnostics ?? []).filter(
+          (item) =>
+            !(item.source === 'current_scheduled_target' && item.reason === 'REDUNDANT_EXACT_REPS'),
+        ),
+      ) &&
     stableJson(current.performance) === stableJson(snapshot.evidence.performance) &&
     stableJson(current.priorTargets) === stableJson(expectedTargets) &&
     stableJson(current.context) === stableJson(snapshot.evidence.context) &&

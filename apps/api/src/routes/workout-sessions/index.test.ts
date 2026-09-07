@@ -4353,26 +4353,67 @@ describe('workout session routes', () => {
     ).toBeNull();
   });
 
-  it('rejects invalid stored snapshot targets before creating or linking any session', async () => {
+  it('copies redundant legacy scheduled reps canonically while retaining source identity and source rows', async () => {
     seedProvenanceFixture();
     context.db
       .update(scheduledWorkoutExerciseSets)
-      .set({ targetSeconds: 2147483647 })
+      .set({ reps: 8, repsMin: 8, repsMax: 8 })
       .where(eq(scheduledWorkoutExerciseSets.id, 'proof-set-0-0'))
       .run();
     const response = await proofStart();
-    expect(response.statusCode).toBe(400);
-    expect(response.json().error.code).toBe('INVALID_SCHEDULED_SNAPSHOT');
-    expect(context.db.select().from(workoutSessions).all()).toHaveLength(0);
-    expect(context.db.select().from(sessionSets).all()).toHaveLength(0);
+    expect(response.statusCode, response.body).toBe(201);
     expect(
       context.db
         .select()
-        .from(scheduledWorkouts)
-        .where(eq(scheduledWorkouts.id, 'proof-schedule'))
-        .get()?.sessionId,
-    ).toBeNull();
+        .from(sessionSets)
+        .where(eq(sessionSets.sourceScheduledSetId, 'proof-set-0-0'))
+        .get(),
+    ).toMatchObject({
+      targetReps: 8,
+      targetRepsMin: null,
+      targetRepsMax: null,
+      sourceScheduledSetId: 'proof-set-0-0',
+    });
+    expect(
+      context.db
+        .select()
+        .from(scheduledWorkoutExerciseSets)
+        .where(eq(scheduledWorkoutExerciseSets.id, 'proof-set-0-0'))
+        .get(),
+    ).toMatchObject({ reps: 8, repsMin: 8, repsMax: 8 });
   });
+
+  it.each([
+    { targetSeconds: 2147483647 },
+    { reps: 8, repsMin: 6, repsMax: 8 },
+    { reps: 8, repsMin: 8, repsMax: 10 },
+    { reps: null, repsMin: 10, repsMax: 6 },
+  ])(
+    'rejects invalid stored snapshot targets %j before creating or linking any session',
+    async (targets) => {
+      seedProvenanceFixture();
+      // Test-only corruption fixture: exercise the legacy read boundary, beyond new-write CHECKs.
+      context.sqlite.pragma('ignore_check_constraints = ON');
+      context.db
+        .update(scheduledWorkoutExerciseSets)
+        .set(targets)
+        .where(eq(scheduledWorkoutExerciseSets.id, 'proof-set-0-0'))
+        .run();
+      context.sqlite.pragma('ignore_check_constraints = OFF');
+      const response = await proofStart();
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error.code).toBe('INVALID_SCHEDULED_SNAPSHOT');
+      expect(context.db.select().from(workoutSessions).all()).toHaveLength(0);
+      expect(context.db.select().from(sessionSets).all()).toHaveLength(0);
+      expect(
+        context.db
+          .select()
+          .from(scheduledWorkouts)
+          .where(eq(scheduledWorkouts.id, 'proof-schedule'))
+          .get()?.sessionId,
+      ).toBeNull();
+    },
+  );
 
   it('allows exactly one concurrent scheduled start and leaves no orphan session or sets', async () => {
     seedProvenanceFixture();
