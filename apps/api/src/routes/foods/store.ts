@@ -1,3 +1,4 @@
+import { exactReusableFood, normalizeFoodIdentity } from './reuse-policy.js';
 import { and, asc, count, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 import { reconcileFoodUsageInputSchema, reconcileFoodUsageResponseSchema } from '@pulse/shared';
 import type {
@@ -262,75 +263,38 @@ export const searchFoodsByName = async (
     .all();
 };
 
+export const listOwnedFoodsForReuse = async (userId: string): Promise<FoodRecord[]> => {
+  const { db } = await import('../../db/index.js');
+  return db
+    .select()
+    .from(foods)
+    .where(and(eq(foods.userId, userId), isNull(foods.deletedAt)))
+    .all();
+};
+
+export type ReusableFood = Pick<
+  FoodRecord,
+  'id' | 'name' | 'brand' | 'servingSize' | 'calories' | 'protein' | 'carbs' | 'fat'
+> & { fiber?: number | null; sugar?: number | null };
 export const findFoodByName = async (
   userId: string,
   foodName: string,
-): Promise<
-  | {
-      id: string;
-      name: string;
-      brand: string | null;
-      servingSize: string | null;
-      calories: number;
-      protein: number;
-      carbs: number;
-      fat: number;
-    }
-  | undefined
-> => {
-  const { db } = await import('../../db/index.js');
-  const nameLower = foodName.trim().toLowerCase();
-
-  const exact = db
-    .select({
-      id: foods.id,
-      name: foods.name,
-      brand: foods.brand,
-      servingSize: foods.servingSize,
-      calories: foods.calories,
-      protein: foods.protein,
-      carbs: foods.carbs,
-      fat: foods.fat,
-    })
-    .from(foods)
-    .where(
-      and(
-        eq(foods.userId, userId),
-        isNull(foods.deletedAt),
-        sql`lower(${foods.name}) = ${nameLower}`,
+  brand?: string | null,
+): Promise<ReusableFood | undefined> => {
+  const owned = await listOwnedFoodsForReuse(userId);
+  const match = exactReusableFood(owned, foodName, brand);
+  if (
+    !match &&
+    owned.some((food) => normalizeFoodIdentity(food.name) === normalizeFoodIdentity(foodName))
+  ) {
+    throw Object.assign(
+      new Error(
+        'Food identity or brand is ambiguous; specify an owned foodId or explicit ad hoc item',
       ),
-    )
-    .orderBy(buildFoodSort('recently-updated'))
-    .limit(1)
-    .get();
-
-  if (exact) {
-    return exact;
+      { statusCode: 422, code: 'UNRESOLVED_FOODS' },
+    );
   }
-
-  const pattern = `%${escapeLikePattern(nameLower)}%`;
-  return db
-    .select({
-      id: foods.id,
-      name: foods.name,
-      brand: foods.brand,
-      servingSize: foods.servingSize,
-      calories: foods.calories,
-      protein: foods.protein,
-      carbs: foods.carbs,
-      fat: foods.fat,
-    })
-    .from(foods)
-    .where(
-      and(
-        eq(foods.userId, userId),
-        isNull(foods.deletedAt),
-        sql`lower(${foods.name}) like ${pattern} escape '\\'`,
-      ),
-    )
-    .orderBy(buildFoodSort('recently-updated'))
-    .limit(1)
-    .get();
+  return match;
 };
 
 export const updateFood = async (

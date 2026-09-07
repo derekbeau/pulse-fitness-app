@@ -1,0 +1,17 @@
+
+/Users/meridian/Projects/pulse-food-reuse/apps/api/src/routes/foods/reuse-policy.test.ts
+   97:19  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+  163:23  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+
+/Users/meridian/Projects/pulse-food-reuse/apps/api/src/routes/foods/reuse-policy.ts
+   58:16  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+  178:22  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+
+/Users/meridian/Projects/pulse-food-reuse/apps/api/src/routes/nutrition/ranked-food-reuse.integration.test.ts
+   58:15  error  Forbidden non-null assertion                   @typescript-eslint/no-non-null-assertion
+  268:23  error  Forbidden non-null assertion                   @typescript-eslint/no-non-null-assertion
+  461:24  error  '_notes' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  461:44  error  '_updated' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+✖ 8 problems (8 errors, 0 warnings)
+

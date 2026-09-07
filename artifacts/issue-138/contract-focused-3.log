@@ -1,0 +1,22 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/api
+
+ ✓ src/routes/nutrition/index.test.ts (15 tests) 551ms
+     ✓ updates nutrition status for JWT and AgentToken callers  307ms
+ ✓ src/routes/meals/index.test.ts (15 tests) 377ms
+ ✓ src/routes/nutrition/store.food-usage.test.ts (11 tests) 19994ms
+     ✓ preserves exact links through append, metadata, all corrections, delete and retry  3659ms
+     ✓ rolls back create, append, correction and delete when usage persistence fails  5018ms
+     ✓ derives merge from links despite stale counters, with atomic restore and ownership failures  5833ms
+     ✓ keeps trashed food exact through linked-item edits, deletes, reconciliation and restore  1131ms
+     ✓ rejects unprefixed agent tokens and rolls back date route create failures  1163ms
+     ✓ falls back to the newest surviving timestamp and refuses foreign or partial purges  2465ms
+ ✓ src/routes/nutrition/ranked-food-reuse.integration.test.ts (19 tests) 872ms
+ ✓ src/routes/nutrition/daily-notes.integration.test.ts (26 tests) 680ms
+ ✓ src/routes/foods/reuse-policy.test.ts (23 tests) 6ms
+
+ Test Files  6 passed (6)
+      Tests  109 passed (109)
+   Start at  19:21:44
+   Duration  27.23s (transform 1.18s, setup 0ms, import 3.88s, tests 22.48s, environment 0ms)
+

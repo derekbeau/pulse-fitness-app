@@ -195,3 +195,97 @@ Timestamps are Unix epoch in milliseconds. `lastUsedAt` is updated separately wh
 - **Zod schemas:** `packages/shared/src/schemas/foods.ts`
 - **DB schema:** `apps/api/src/db/schema/foods.ts`
 - **Tests:** `apps/api/src/routes/foods/index.test.ts`, `store.test.ts`
+
+## Ranked reuse and intentional promotion (v1)
+
+Start a logging write with `GET /api/v1/nutrition/logging-context?date=YYYY-MM-DD&q=...`.
+This database-only read supports JWT and AgentToken with the same response schema and
+owner scope. It preserves `today`, `recentMealItems`, `savedFoodMatches`, `frequentFoods`,
+`shorthandExpansions`, `query`, and `waterHabit`, and adds `promotionCandidates`.
+
+Saved matches expose `reason` and `evidence` categories: `exact_normalized`, `alias_exact`,
+`brand_or_tag`, `token_order`, `recent_name`, and `partial_name`. Evidence identifies the
+matched field and literal value; recent evidence also identifies the owned meal item.
+`ambiguity: multiple_candidates` means multiple foods share that evidence tier, computed
+before `limitFoods`. Ranking orders these categories in the listed order, then usage count
+descending, normalized name, brand, and food ID in ascending code-point order. The retained
+legacy `score` is only `1 / rank` for saved matches; frequent-food scores retain their
+existing usage representation. Neither value is confidence. Never show them as confidence,
+use a numeric binding threshold, or treat a first-ranked result as permission to link.
+
+Names normalize to lowercase, remove straight/curly apostrophes, and replace remaining
+punctuation/whitespace with spaces while preserving Unicode letters and numbers. A bare
+`foodName` resolves only when exactly one active owned food has that normalized name.
+When a brand is supplied it must also normalize exactly to that definition's brand.
+Duplicate exact names remain unresolved even if the supplied brand distinguishes one.
+Identity/brand ambiguity returns `422 UNRESOLVED_FOODS`. Alias, reordered-token, partial,
+or recent-name evidence alone never resolves a bare name. Inspect the evidence and supply
+an intentional owned `foodId`, or use explicit ad hoc input with complete macros.
+
+Aliases are server-owned `FOOD_ALIASES`, version `1` in `reuse-policy.ts`. The literal
+reviewed groups are `tj / Trader Joe / Trader Joe's`; `jam / preserves / jelly / raspberry`;
+`bread / toast / sourdough / slice`; and `standard shake / protein shake / Orgain /
+Orgain Chocolate Protein Powder / Anthony's / Anthony's Premium Pea Protein / pea protein /
+protein powder`. They preserve the existing advisory expansions, including broad related
+terms; `alias_exact` records the literal expansion that matched, not equivalent nutrition.
+Changing a group requires review, a version bump, and the literal alias test. There is no
+alias migration, user-managed endpoint, or UI.
+
+Promotion candidates use only owned unlinked snapshots from `[date - 30 days, date)`;
+these are nutrition-log calendar dates, not UTC timestamp buckets. At least two distinct
+dates are required, regardless of the number of same-day occurrences. The `days` and
+`limitRecentItems` display controls never truncate promotion evidence. Each candidate
+returns normalized/display name, counts, latest date, all deterministic newest-first
+`snapshots`, `stability`, `stabilityReason`, `likelySavedFoodMatch`, and `reason`:
+
+- `REPEATED_ADHOC`: recurrence with no saved candidate.
+- `EXACT_SAVED_MATCH`: one adequate exact saved definition; prefer intentional reuse.
+- `POSSIBLE_SAVED_MATCH`: inspect advisory matches before creating a duplicate.
+
+`stable_exact` requires identical complete core macros, amount, exact unit, display
+quantity/unit identity, fiber, and sugar across every snapshot. No conversions, tolerance,
+variance cutoff, or nutritional equivalence is inferred. Differing snapshots or incomplete
+serving evidence remain `review_only`, with every occurrence retained. Restaurant, travel,
+hotel, and composite/home-cooked names are never approved or excluded by a heuristic.
+The agent decides whether the concrete current entry suits reuse. Recurrence is evidence,
+never automatic promotion.
+
+### Current meal writes
+
+The preferred `POST /api/v1/meals`, date-scoped `POST /api/v1/nutrition/:date/meals`, and
+append `POST /api/v1/meals/:id/items` share input and middleware rules:
+
+- `adhoc: true` or `saveToFoods: false` requires complete inline calories, protein, carbs,
+  and fat and produces `foodId: null`, including when an exact saved definition exists.
+- Non-null `foodId` with either ad-hoc choice fails schema validation with
+  `400 VALIDATION_ERROR` and issue message `ADHOC_FOOD_ID_CONFLICT`. `adhoc: true` with
+  `saveToFoods: true` also fails validation. Explicit links must belong to the caller.
+- AgentToken reuse resolves the owned food's per-serving core macros, fiber, and sugar,
+  multiplied by `amount` (or `quantity`), into the current item snapshot, overriding
+  submitted macros. JWT callers retain existing canonical inline-snapshot semantics.
+- A current AgentToken `foodName` write with complete inline per-serving macros can create
+  a missing definition after exact reuse has been checked. `saveToFoods: true` explicitly
+  expresses that intent. Unknown names without complete macros fail unresolved. Creation
+  retains `brand`, `source`, `notes`, `fiber`, `sugar`, `servingSize`, `servingGrams`,
+  `verified`, and `tags` using the food schema's validation. Inline macros for explicit
+  ad hoc items remain totals for the submitted item under the existing convention.
+- Agent mutation responses add typed `agent.itemOutcomes: [{ itemId, foodId, outcome }]`,
+  where `outcome` is `reused`, `created`, or `adhoc`. Append returns all current items:
+  old linked items are `reused`, unlinked items are `adhoc`, and items linked to a definition
+  created by this request are `created`. JWT responses have no agent enrichment.
+- On both create routes, `returnSummary: true` embeds `data.summary` and suppresses hints
+  and actions asking to fetch/review that same summary again. Without it, existing summary
+  guidance remains. Append does not support `returnSummary`.
+
+Promotion is an intentional current write using trustworthy prior evidence. Reading
+candidates or creating/reusing a definition never relinks past unlinked items, backfills
+history, updates a prior food definition, or changes historical macro, amount, or display
+snapshots. Later food edits leave every historical snapshot unchanged. Existing explicit
+meal-item correction and food-merge routes retain their separately documented semantics.
+Food usage remains the #143 owner-scoped count/maximum-createdAt projection, and note-only
+activity retains the #133 invariants.
+
+Food definitions planned by AgentToken meal writes are created inside the same transaction as
+the current meal/items and usage projection. Exact reuse is rechecked inside that transaction
+so concurrent current writes reuse the first committed definition; any persistence failure
+rolls back the new definition together with the meal. No history is relinked.

@@ -1,0 +1,16 @@
+/Users/meridian/Projects/pulse-food-reuse
+/Users/meridian/Projects/pulse-food-reuse
+feat/ranked-food-reuse
+a28730f701457a06ca7dfa1069044d4aaff96b21
+worktree /Users/meridian/Projects/pulse-fitness-app
+HEAD 49bc640d03a4f9b4be6b1e8be7b500525aa64683
+branch refs/heads/main
+
+worktree /Users/meridian/Projects/pulse-food-reuse
+HEAD a28730f701457a06ca7dfa1069044d4aaff96b21
+branch refs/heads/feat/ranked-food-reuse
+
+worktree /Users/meridian/Projects/pulse-rir-trigger-shortcuts
+HEAD 17d10c6e8e959171abd4a14738c2619e2a75911e
+branch refs/heads/fix/rir-trigger-shortcuts
+

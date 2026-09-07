@@ -1,0 +1,139 @@
+{
+  "checks": [
+    {
+      "name": "promotion-final",
+      "command": [
+        "pnpm",
+        "--filter",
+        "@pulse/api",
+        "exec",
+        "vitest",
+        "run",
+        "src/routes/nutrition/ranked-food-reuse.integration.test.ts",
+        "--maxWorkers=1"
+      ],
+      "cwd": "/Users/meridian/Projects/pulse-food-reuse",
+      "exitCode": 0,
+      "log": "promotion-final.log"
+    },
+    {
+      "name": "final-source-eslint",
+      "command": [
+        "pnpm",
+        "exec",
+        "eslint",
+        "apps/api/src/middleware/agent-enrichment.test.ts",
+        "apps/api/src/middleware/agent-enrichment.ts",
+        "apps/api/src/middleware/agent-transforms.ts",
+        "apps/api/src/routes/foods/reuse-policy.test.ts",
+        "apps/api/src/routes/foods/reuse-policy.ts",
+        "apps/api/src/routes/foods/store.ts",
+        "apps/api/src/routes/meals/food-plans.ts",
+        "apps/api/src/routes/meals/index.test.ts",
+        "apps/api/src/routes/meals/index.ts",
+        "apps/api/src/routes/nutrition/index.test.ts",
+        "apps/api/src/routes/nutrition/index.ts",
+        "apps/api/src/routes/nutrition/ranked-food-reuse.integration.test.ts",
+        "apps/api/src/routes/nutrition/store.ts",
+        "packages/shared/src/schemas/common.ts",
+        "packages/shared/src/schemas/foods.ts",
+        "packages/shared/src/schemas/nutrition.test.ts",
+        "packages/shared/src/schemas/nutrition.ts"
+      ],
+      "cwd": "/Users/meridian/Projects/pulse-food-reuse",
+      "exitCode": 0,
+      "log": "final-source-eslint.log"
+    },
+    {
+      "name": "final-source-format",
+      "command": [
+        "pnpm",
+        "exec",
+        "prettier",
+        "--check",
+        "apps/api/src/middleware/agent-enrichment.test.ts",
+        "apps/api/src/middleware/agent-enrichment.ts",
+        "apps/api/src/middleware/agent-transforms.ts",
+        "apps/api/src/routes/foods/reuse-policy.test.ts",
+        "apps/api/src/routes/foods/reuse-policy.ts",
+        "apps/api/src/routes/foods/store.ts",
+        "apps/api/src/routes/meals/food-plans.ts",
+        "apps/api/src/routes/meals/index.test.ts",
+        "apps/api/src/routes/meals/index.ts",
+        "apps/api/src/routes/nutrition/index.test.ts",
+        "apps/api/src/routes/nutrition/index.ts",
+        "apps/api/src/routes/nutrition/ranked-food-reuse.integration.test.ts",
+        "apps/api/src/routes/nutrition/store.ts",
+        "docs/agents/foods-api.md",
+        "docs/conventions/agent-integration.md",
+        "packages/shared/src/schemas/common.ts",
+        "packages/shared/src/schemas/foods.ts",
+        "packages/shared/src/schemas/nutrition.test.ts",
+        "packages/shared/src/schemas/nutrition.ts"
+      ],
+      "cwd": "/Users/meridian/Projects/pulse-food-reuse",
+      "exitCode": 0,
+      "log": "final-source-format.log"
+    },
+    {
+      "name": "final-diff-check",
+      "command": ["git", "diff", "--check"],
+      "cwd": "/Users/meridian/Projects/pulse-food-reuse",
+      "exitCode": 0,
+      "log": "final-diff-check.log"
+    },
+    {
+      "name": "frozen-contracts",
+      "command": [
+        "git",
+        "diff",
+        "--exit-code",
+        "a28730f701457a06ca7dfa1069044d4aaff96b21",
+        "--",
+        "docs/implementation/ranked-food-reuse-goal.md",
+        "docs/implementation/food-usage-integrity-goal.md",
+        "docs/implementation/daily-nutrition-notes-goal.md",
+        "apps/api/src/routes/nutrition/store.food-usage.test.ts",
+        "apps/api/src/routes/nutrition/daily-notes.integration.test.ts"
+      ],
+      "cwd": "/Users/meridian/Projects/pulse-food-reuse",
+      "exitCode": 0,
+      "log": "frozen-contracts.log"
+    }
+  ],
+  "sourceSha256": {
+    "apps/api/src/middleware/agent-enrichment.test.ts": "c50275fe0a48161968a16ea25cde6b711b32f8a8a7a4d7ca57a490bd8c07d8de",
+    "apps/api/src/middleware/agent-enrichment.ts": "8513390850066c34b4e0065dc4243532f9be54587fdf40e17cdcaa3f5f2f05e6",
+    "apps/api/src/middleware/agent-transforms.ts": "520078b73be7f1b4a2e28c367b7ddf7802f5246f9aec218d34cb396374a75f4a",
+    "apps/api/src/routes/foods/reuse-policy.test.ts": "e29cd850c4ce52179e56c668c44e8a3f6cdd311a3a881e1c3ed94300943d6124",
+    "apps/api/src/routes/foods/reuse-policy.ts": "c7506398db31e24079de05cf5fc9807353e2751d24a25429073756f59da8fb6c",
+    "apps/api/src/routes/foods/store.ts": "601324ac39c79d2bd4492c2f2aa13022d362aaeedf2afbc643547df5c32fe1ed",
+    "apps/api/src/routes/meals/food-plans.ts": "bf9134a7ad6ecc85017e9c160dc32d72d527d2651337bd93b65d503e0aed7395",
+    "apps/api/src/routes/meals/index.test.ts": "3ecb4b47a633876d75e55136eee669ff7c1f32dc128f7517adb2893dce2148ae",
+    "apps/api/src/routes/meals/index.ts": "c997e1ef54fdd0a84b640513c325385d323886d79188ce6b8e80ba374779da32",
+    "apps/api/src/routes/nutrition/index.test.ts": "9c20280b94a4a5916db0cb6b3ae32c45638747c24e272052a7bd565f169cb4e4",
+    "apps/api/src/routes/nutrition/index.ts": "5f0e7f25da19bfcc8189bf1709aa9214dff6be86118fd5e2fdf99f2c6acbb151",
+    "apps/api/src/routes/nutrition/ranked-food-reuse.integration.test.ts": "4223e925f52f9a6fb55ad8a93de3f1bc36bc4b8319e311c331ad99846cdac2b9",
+    "apps/api/src/routes/nutrition/store.ts": "beb83a561d5601b04d3c5c2eb1506cd38eb448f308dfcec160282905aba7fc1a",
+    "docs/agents/foods-api.md": "7d7f928b06de76f4314297c404a4fad48e5fb6c759a28429346b491680e64c14",
+    "docs/conventions/agent-integration.md": "03d9066888391e6d88daf79f45c9be3626a25c11566c9505dbc49e86be245825",
+    "packages/shared/src/schemas/common.ts": "137d4c222fc8234440efcd183e88aa4bc5811498507738ea5f077c7b4f15aa92",
+    "packages/shared/src/schemas/foods.ts": "3b8c415066d02af1ab40928f3a8fb956db670eec69cadba105e8afc009739c34",
+    "packages/shared/src/schemas/nutrition.test.ts": "2535b93e158fad3bbac77c191188a06e07df9c13451f5780f02ee988d4088b7f",
+    "packages/shared/src/schemas/nutrition.ts": "201e67a3f46cf89c2c3f2aa16e5e01e1a79accf85a352c63e7cb9112bdda9ed8"
+  },
+  "finalMetadataCheck": {
+    "command": [
+      "git",
+      "diff",
+      "--check",
+      "a28730f701457a06ca7dfa1069044d4aaff96b21",
+      "--",
+      ".",
+      ":!artifacts/issue-138/*.log",
+      ":!artifacts/issue-138/preflight.txt"
+    ],
+    "exitCode": 0,
+    "rawOutputsExcluded": ["artifacts/issue-138/*.log", "artifacts/issue-138/preflight.txt"]
+  }
+}

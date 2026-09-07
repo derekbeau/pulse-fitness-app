@@ -1,3 +1,6 @@
+import { FoodReuseConflictError } from '../meals/food-plans.js';
+import { agentRequestTransform } from '../../middleware/agent-transforms.js';
+import { normalizeMealItemForCreate } from '../meals/index.js';
 import {
   apiDataResponseSchema,
   createMealResponseSchema,
@@ -61,6 +64,8 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
   app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof FoodReuseConflictError)
+      return sendError(reply, 422, 'UNRESOLVED_FOODS', error.message);
     if (error instanceof Error && error.name === 'MealFoodOwnershipError') {
       return sendError(
         reply,
@@ -222,12 +227,14 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
   typedApp.post(
     '/:date/meals',
     {
+      preHandler: agentRequestTransform,
       onSend: agentEnrichmentOnSend,
       schema: {
         params: dateParamsSchema,
         body: createMealInputSchema,
         response: {
           201: apiDataResponseSchema(createMealResponseSchema),
+          422: apiErrorResponseSchema,
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
         },
@@ -238,7 +245,27 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request, reply) => {
       const { returnSummary = false, ...mealInput } = request.body;
-      const created = await createMealForDate(request.userId, request.params.date, mealInput);
+      const normalized = await Promise.all(
+        mealInput.items.map((item) => normalizeMealItemForCreate(item, request.userId)),
+      );
+      if (normalized.some((result) => !result.ok))
+        return sendError(reply, 422, 'UNRESOLVED_FOODS', 'Could not resolve foods');
+      let created: Awaited<ReturnType<typeof createMealForDate>>;
+      try {
+        created = await createMealForDate(request.userId, request.params.date, {
+          ...mealInput,
+          items: normalized.flatMap((result) => (result.ok ? [result.item] : [])),
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name === 'MealFoodOwnershipError')
+          return sendError(
+            reply,
+            422,
+            'INVALID_MEAL_ITEMS',
+            'One or more meal items reference unavailable foods',
+          );
+        throw error;
+      }
 
       const mealMacros = created.items.reduce(
         (totals, item) => ({

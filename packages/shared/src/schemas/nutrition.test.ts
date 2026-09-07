@@ -365,6 +365,7 @@ describe('nutritionLoggingContext schemas', () => {
       },
       recentMealItems: [],
       savedFoodMatches: [],
+      promotionCandidates: [],
       frequentFoods: [],
       shorthandExpansions: [],
       waterHabit: null,
