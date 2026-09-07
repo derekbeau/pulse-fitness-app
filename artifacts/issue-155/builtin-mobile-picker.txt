@@ -1,0 +1,106 @@
+Browser tab: 1, Title: "Pulse", URL: "http://127.0.0.1:5255/workouts/active?sessionId=716ad9ab-22e7-4cc3-a17f-6db524f8c165".
+1 AXWebArea Pulse, URL: 127.0.0.1:5255/workouts/active?sessionId=716ad9ab-22e7-4cc3-a17f-6db524f8c165
+	2 container
+		3 container root
+			4 container
+				5 text Set progress 4 / 8
+				6 progress indicator Description: Workout progress, Value: 4
+				7 text ACTIVE SESSION
+				8 heading Shortcut Active Preview, Value: 1
+					9 text Shortcut Active Preview
+				10 text Exercise 1 of 4 ~11 min total estimate TOTAL TIME 00:00 EXERCISES 1/4 SETS DONE 4/8 ESTIMATED ~3 min START TIME
+				11 button 9:00 AM
+				12 pop up button (collapsed) Description: Workout session options, ID: radix-_r_0_, Secondary Actions: Expand
+				13 container Session context
+					14 button (collapsed) Session Context Training context and readiness notes, Secondary Actions: Expand
+						15 heading Session Context, Value: 2
+							16 text Session Context
+						17 text Training context and readiness notes
+				18 button (expanded) Main 9-13 min Main elapsed time 0/4, Secondary Actions: Collapse
+					19 heading Main 9-13 min, Value: 2
+						20 text Main 9-13 min
+					21 container Main elapsed time
+						22 text 00:00
+					23 text 0/4
+				24 button Start
+				25 container section-panel-main
+					26 button (expanded) Secondary Actions: Collapse, In-progress exercise Shortcut Bench Press 1/2 sets· 1-5 min #1 Exercise actions for Shortcut Bench Press
+						27 container In-progress exercise
+						28 heading Shortcut Bench Press, Value: 3
+							29 text Shortcut Bench Press
+						30 container
+							31 text 1/2 sets · 1-5 min
+						32 text #1
+						33 pop up button (collapsed) Description: Exercise actions for Shortcut Bench Press, ID: radix-_r_2_, Secondary Actions: Expand
+					34 container exercise-panel-087f01cb-9f67-47d6-ba72-4026f6135e9f
+						35 text 2 sets × reps
+						36 text Compound Tempo: 2-1-1-1 Rest: 60s
+						37 text HISTORY
+						38 button View all
+						39 text Sep 7 · 135x8 (≈ 2 RIR), 135x8 (4 RIR)
+						40 pop up button (collapsed) Description: Effort details: History, 2026-09-07, Secondary Actions: Expand
+						41 text Set 1
+						42 stepper (settable, integer) Description: Weight for set 1, Value: 135
+						43 text LBS
+						44 stepper (settable) Reps for set 1
+						45 text REPS
+						46 container
+							47 pop up button (expanded) Description: RIR for set 1: 5 or more repetitions in reserve, Secondary Actions: Collapse
+							48 text Type 0–5 to set RIR; 5 means 5 or more.
+						49 text Set 2
+						50 stepper (settable, integer) Description: Weight for set 2, Value: 135
+						51 text LBS
+						52 stepper (settable, integer) Description: Reps for set 2, Value: 8
+						53 text REPS
+						54 container
+							55 pop up button (collapsed) Description: RIR for set 2: 4 repetitions in reserve, Secondary Actions: Expand
+							56 text Type 0–5 to set RIR; 5 means 5 or more.
+						57 button (collapsed) SESSION NOTES, Secondary Actions: Expand
+							58 text SESSION NOTES
+					59 button (collapsed) In-progress exercise Shortcut Push-up 1/2 sets· 1-5 min #2 Exercise actions for Shortcut Push-up, Secondary Actions: Expand
+						60 container In-progress exercise
+						61 heading Shortcut Push-up, Value: 3
+							62 text Shortcut Push-up
+						63 container
+							64 text 1/2 sets · 1-5 min
+						65 text #2
+						66 pop up button (collapsed) Description: Exercise actions for Shortcut Push-up, ID: radix-_r_4_, Secondary Actions: Expand
+					67 button (collapsed) Secondary Actions: Expand, In-progress exercise Shortcut Band Pull-apart 1/2 sets· 1-5 min #3 Exercise actions for Shortcut Band Pull-apart
+						68 container In-progress exercise
+						69 heading Shortcut Band Pull-apart, Value: 3
+							70 text Shortcut Band Pull-apart
+						71 container
+							72 text 1/2 sets · 1-5 min
+						73 text #3
+						74 pop up button (collapsed) Description: Exercise actions for Shortcut Band Pull-apart, ID: radix-_r_6_, Secondary Actions: Expand
+					75 button (collapsed) Secondary Actions: Expand, In-progress exercise Shortcut Easy Walk Duration pending· 1-5 min #4 Exercise actions for Shortcut Easy Walk
+						76 container In-progress exercise
+						77 heading Shortcut Easy Walk, Value: 3
+							78 text Shortcut Easy Walk
+						79 container
+							80 text Duration pending · 1-5 min
+						81 text #4
+						82 pop up button (collapsed) Description: Exercise actions for Shortcut Easy Walk, ID: radix-_r_8_, Secondary Actions: Expand
+				83 button Complete Workout
+				84 text 4/8 sets completed
+			85 container Mobile navigation
+				86 link Description: Dashboard, Value: 127.0.0.1:5255/
+				87 link Description: Workouts, Value: 127.0.0.1:5255/workouts
+				88 link Description: Nutrition, Value: 127.0.0.1:5255/nutrition
+				89 link Description: Habits, Value: 127.0.0.1:5255/habits
+				90 pop up button (collapsed) More, Secondary Actions: Expand
+			91 container Notifications alt+T
+		92 container Repetitions in reserve · Set 1, ID: radix-_r_o_
+			93 heading Repetitions in reserve · Set 1, Value: 2
+				94 text Repetitions in reserve · Set 1
+			95 text 0 = no reps left · 5+ = five or more reps left
+			96 RIR selection for set 1
+				97 radio button Description: Clear repetitions in reserve, Value: 0
+				98 radio button Description: 0 repetitions in reserve, Value: 0
+				99 radio button Description: 1 repetitions in reserve, Value: 0
+				100 radio button Description: 2 repetitions in reserve, Value: 0
+				101 radio button Description: 3 repetitions in reserve, Value: 0
+				102 radio button Description: 4 repetitions in reserve, Value: 0
+				103 radio button Description: 5 or more repetitions in reserve, Value: 1
+
+The focused UI element is 103 radio button Description: 5 or more repetitions in reserve, Value: 1

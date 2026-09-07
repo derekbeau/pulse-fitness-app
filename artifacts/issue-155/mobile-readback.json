@@ -1,0 +1,892 @@
+{
+  "errors": [],
+  "requests": [
+    {
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe/sets/a532a47b-c0f0-4760-8cda-dc9606b07c48",
+      "body": {
+        "weight": 135,
+        "reps": null,
+        "seconds": null,
+        "distance": null,
+        "rpe": null,
+        "rir": 0,
+        "completed": false
+      }
+    },
+    {
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe/sets/a532a47b-c0f0-4760-8cda-dc9606b07c48",
+      "body": {
+        "weight": 135,
+        "reps": null,
+        "seconds": null,
+        "distance": null,
+        "rpe": null,
+        "rir": 5,
+        "completed": false
+      }
+    },
+    {
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe/sets/a532a47b-c0f0-4760-8cda-dc9606b07c48",
+      "body": {
+        "weight": 135,
+        "reps": null,
+        "seconds": null,
+        "distance": null,
+        "rpe": null,
+        "rir": null,
+        "completed": false
+      }
+    },
+    {
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe/sets/a532a47b-c0f0-4760-8cda-dc9606b07c48",
+      "body": {
+        "weight": 135,
+        "reps": null,
+        "seconds": null,
+        "distance": null,
+        "rpe": null,
+        "rir": 5,
+        "completed": false
+      }
+    }
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "path": "/src/features/weight/api/weight.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/habits/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/nutrition/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/foods/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/weight/api/weight.ts",
+      "status": 304
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/habits/api/keys.ts",
+      "status": 304
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/nutrition/api/keys.ts",
+      "status": 304
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/foods/api/keys.ts",
+      "status": 304
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/users/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/workouts/api/workouts.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/workouts/api/progression.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/adaptive-nutrition/api/adaptive-nutrition.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/nutrition/api/nutrition.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/adaptive-nutrition/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/exercises/550de07b-d577-4270-91e9-4c37417c5474/history",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/exercises/a8ed1edc-cc14-4c46-810f-914221fb21d6/history",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/exercises/2d24f0f5-39e6-4e41-aa9f-ce63cd5af8e8/history",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/exercises/7efa8e4a-5b63-41e8-b5ee-35079ae7d6fe/history",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/exercises/550de07b-d577-4270-91e9-4c37417c5474/last-performance",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe/sets/a532a47b-c0f0-4760-8cda-dc9606b07c48",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe/sets/a532a47b-c0f0-4760-8cda-dc9606b07c48",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe/sets/a532a47b-c0f0-4760-8cda-dc9606b07c48",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe/sets/a532a47b-c0f0-4760-8cda-dc9606b07c48",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/weight/api/weight.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/habits/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/nutrition/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/foods/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/users/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/workouts/api/workouts.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/workouts/api/progression.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/adaptive-nutrition/api/adaptive-nutrition.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/nutrition/api/nutrition.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/src/features/adaptive-nutrition/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions/87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/workout-sessions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/exercises/550de07b-d577-4270-91e9-4c37417c5474/history",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/exercises/550de07b-d577-4270-91e9-4c37417c5474/last-performance",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/exercises/a8ed1edc-cc14-4c46-810f-914221fb21d6/history",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/exercises/2d24f0f5-39e6-4e41-aa9f-ce63cd5af8e8/history",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/exercises/7efa8e4a-5b63-41e8-b5ee-35079ae7d6fe/history",
+      "status": 200
+    }
+  ],
+  "before": [
+    {
+      "id": "0565a5da-36f1-4cac-8637-372858bdd063",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "550de07b-d577-4270-91e9-4c37417c5474",
+      "order_index": 0,
+      "set_number": 2,
+      "weight": 135,
+      "reps": 8,
+      "seconds": null,
+      "distance": null,
+      "rpe": null,
+      "rir": 4,
+      "zone": null,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "550de07b-d577-4270-91e9-4c37417c5474",
+      "exercise_name_snapshot": "Shortcut Bench Press",
+      "tracking_type_snapshot": "weight_reps",
+      "superset_group": null,
+      "completed": 1,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    },
+    {
+      "id": "2c9dd75c-175a-4e55-880d-9d99eeffd3f3",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "7efa8e4a-5b63-41e8-b5ee-35079ae7d6fe",
+      "order_index": 3,
+      "set_number": 2,
+      "weight": null,
+      "reps": null,
+      "seconds": 1800,
+      "distance": null,
+      "rpe": 3,
+      "rir": null,
+      "zone": 2,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "7efa8e4a-5b63-41e8-b5ee-35079ae7d6fe",
+      "exercise_name_snapshot": "Shortcut Easy Walk",
+      "tracking_type_snapshot": "duration",
+      "superset_group": null,
+      "completed": 1,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    },
+    {
+      "id": "388aac60-fae0-4d6d-b0b2-1a60dd1aa1a7",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "7efa8e4a-5b63-41e8-b5ee-35079ae7d6fe",
+      "order_index": 3,
+      "set_number": 1,
+      "weight": null,
+      "reps": null,
+      "seconds": 1800,
+      "distance": null,
+      "rpe": 3,
+      "rir": null,
+      "zone": 2,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "7efa8e4a-5b63-41e8-b5ee-35079ae7d6fe",
+      "exercise_name_snapshot": "Shortcut Easy Walk",
+      "tracking_type_snapshot": "duration",
+      "superset_group": null,
+      "completed": 0,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    },
+    {
+      "id": "3b6e16b8-ac19-4b59-a48f-3fac633e21a5",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "2d24f0f5-39e6-4e41-aa9f-ce63cd5af8e8",
+      "order_index": 2,
+      "set_number": 2,
+      "weight": null,
+      "reps": 8,
+      "seconds": null,
+      "distance": null,
+      "rpe": null,
+      "rir": 4,
+      "zone": null,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "2d24f0f5-39e6-4e41-aa9f-ce63cd5af8e8",
+      "exercise_name_snapshot": "Shortcut Band Pull-apart",
+      "tracking_type_snapshot": "reps_only",
+      "superset_group": null,
+      "completed": 1,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    },
+    {
+      "id": "9d739c88-b793-4968-8246-2f27d0618a31",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "a8ed1edc-cc14-4c46-810f-914221fb21d6",
+      "order_index": 1,
+      "set_number": 2,
+      "weight": null,
+      "reps": 8,
+      "seconds": null,
+      "distance": null,
+      "rpe": null,
+      "rir": 4,
+      "zone": null,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "a8ed1edc-cc14-4c46-810f-914221fb21d6",
+      "exercise_name_snapshot": "Shortcut Push-up",
+      "tracking_type_snapshot": "bodyweight_reps",
+      "superset_group": null,
+      "completed": 1,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    },
+    {
+      "id": "a532a47b-c0f0-4760-8cda-dc9606b07c48",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "550de07b-d577-4270-91e9-4c37417c5474",
+      "order_index": 0,
+      "set_number": 1,
+      "weight": 135,
+      "reps": null,
+      "seconds": null,
+      "distance": null,
+      "rpe": 8,
+      "rir": null,
+      "zone": null,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "550de07b-d577-4270-91e9-4c37417c5474",
+      "exercise_name_snapshot": "Shortcut Bench Press",
+      "tracking_type_snapshot": "weight_reps",
+      "superset_group": null,
+      "completed": 0,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    },
+    {
+      "id": "bf3c76d1-a0f1-4636-acf6-ae2f7c998f6e",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "a8ed1edc-cc14-4c46-810f-914221fb21d6",
+      "order_index": 1,
+      "set_number": 1,
+      "weight": null,
+      "reps": null,
+      "seconds": null,
+      "distance": null,
+      "rpe": 8,
+      "rir": null,
+      "zone": null,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "a8ed1edc-cc14-4c46-810f-914221fb21d6",
+      "exercise_name_snapshot": "Shortcut Push-up",
+      "tracking_type_snapshot": "bodyweight_reps",
+      "superset_group": null,
+      "completed": 0,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    },
+    {
+      "id": "cbd4a86f-a0f9-48f4-8cd8-e054d02edda3",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "2d24f0f5-39e6-4e41-aa9f-ce63cd5af8e8",
+      "order_index": 2,
+      "set_number": 1,
+      "weight": null,
+      "reps": null,
+      "seconds": null,
+      "distance": null,
+      "rpe": 8,
+      "rir": null,
+      "zone": null,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "2d24f0f5-39e6-4e41-aa9f-ce63cd5af8e8",
+      "exercise_name_snapshot": "Shortcut Band Pull-apart",
+      "tracking_type_snapshot": "reps_only",
+      "superset_group": null,
+      "completed": 0,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    }
+  ],
+  "after": [
+    {
+      "id": "0565a5da-36f1-4cac-8637-372858bdd063",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "550de07b-d577-4270-91e9-4c37417c5474",
+      "order_index": 0,
+      "set_number": 2,
+      "weight": 135,
+      "reps": 8,
+      "seconds": null,
+      "distance": null,
+      "rpe": null,
+      "rir": 4,
+      "zone": null,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "550de07b-d577-4270-91e9-4c37417c5474",
+      "exercise_name_snapshot": "Shortcut Bench Press",
+      "tracking_type_snapshot": "weight_reps",
+      "superset_group": null,
+      "completed": 1,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    },
+    {
+      "id": "2c9dd75c-175a-4e55-880d-9d99eeffd3f3",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "7efa8e4a-5b63-41e8-b5ee-35079ae7d6fe",
+      "order_index": 3,
+      "set_number": 2,
+      "weight": null,
+      "reps": null,
+      "seconds": 1800,
+      "distance": null,
+      "rpe": 3,
+      "rir": null,
+      "zone": 2,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "7efa8e4a-5b63-41e8-b5ee-35079ae7d6fe",
+      "exercise_name_snapshot": "Shortcut Easy Walk",
+      "tracking_type_snapshot": "duration",
+      "superset_group": null,
+      "completed": 1,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    },
+    {
+      "id": "388aac60-fae0-4d6d-b0b2-1a60dd1aa1a7",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "7efa8e4a-5b63-41e8-b5ee-35079ae7d6fe",
+      "order_index": 3,
+      "set_number": 1,
+      "weight": null,
+      "reps": null,
+      "seconds": 1800,
+      "distance": null,
+      "rpe": 3,
+      "rir": null,
+      "zone": 2,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "7efa8e4a-5b63-41e8-b5ee-35079ae7d6fe",
+      "exercise_name_snapshot": "Shortcut Easy Walk",
+      "tracking_type_snapshot": "duration",
+      "superset_group": null,
+      "completed": 0,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    },
+    {
+      "id": "3b6e16b8-ac19-4b59-a48f-3fac633e21a5",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "2d24f0f5-39e6-4e41-aa9f-ce63cd5af8e8",
+      "order_index": 2,
+      "set_number": 2,
+      "weight": null,
+      "reps": 8,
+      "seconds": null,
+      "distance": null,
+      "rpe": null,
+      "rir": 4,
+      "zone": null,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "2d24f0f5-39e6-4e41-aa9f-ce63cd5af8e8",
+      "exercise_name_snapshot": "Shortcut Band Pull-apart",
+      "tracking_type_snapshot": "reps_only",
+      "superset_group": null,
+      "completed": 1,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    },
+    {
+      "id": "9d739c88-b793-4968-8246-2f27d0618a31",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "a8ed1edc-cc14-4c46-810f-914221fb21d6",
+      "order_index": 1,
+      "set_number": 2,
+      "weight": null,
+      "reps": 8,
+      "seconds": null,
+      "distance": null,
+      "rpe": null,
+      "rir": 4,
+      "zone": null,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "a8ed1edc-cc14-4c46-810f-914221fb21d6",
+      "exercise_name_snapshot": "Shortcut Push-up",
+      "tracking_type_snapshot": "bodyweight_reps",
+      "superset_group": null,
+      "completed": 1,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    },
+    {
+      "id": "a532a47b-c0f0-4760-8cda-dc9606b07c48",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "550de07b-d577-4270-91e9-4c37417c5474",
+      "order_index": 0,
+      "set_number": 1,
+      "weight": 135,
+      "reps": null,
+      "seconds": null,
+      "distance": null,
+      "rpe": null,
+      "rir": 5,
+      "zone": null,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "550de07b-d577-4270-91e9-4c37417c5474",
+      "exercise_name_snapshot": "Shortcut Bench Press",
+      "tracking_type_snapshot": "weight_reps",
+      "superset_group": null,
+      "completed": 0,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    },
+    {
+      "id": "bf3c76d1-a0f1-4636-acf6-ae2f7c998f6e",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "a8ed1edc-cc14-4c46-810f-914221fb21d6",
+      "order_index": 1,
+      "set_number": 1,
+      "weight": null,
+      "reps": null,
+      "seconds": null,
+      "distance": null,
+      "rpe": 8,
+      "rir": null,
+      "zone": null,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "a8ed1edc-cc14-4c46-810f-914221fb21d6",
+      "exercise_name_snapshot": "Shortcut Push-up",
+      "tracking_type_snapshot": "bodyweight_reps",
+      "superset_group": null,
+      "completed": 0,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    },
+    {
+      "id": "cbd4a86f-a0f9-48f4-8cd8-e054d02edda3",
+      "session_id": "87268eb5-1b78-4410-852b-6bb8bcd1b3fe",
+      "exercise_id": "2d24f0f5-39e6-4e41-aa9f-ce63cd5af8e8",
+      "order_index": 2,
+      "set_number": 1,
+      "weight": null,
+      "reps": null,
+      "seconds": null,
+      "distance": null,
+      "rpe": 8,
+      "rir": null,
+      "zone": null,
+      "target_weight": null,
+      "target_weight_min": null,
+      "target_weight_max": null,
+      "target_reps_min": null,
+      "target_reps_max": null,
+      "target_reps": null,
+      "target_seconds": null,
+      "target_distance": null,
+      "target_zone": null,
+      "source_scheduled_set_id": null,
+      "exercise_id_snapshot": "2d24f0f5-39e6-4e41-aa9f-ce63cd5af8e8",
+      "exercise_name_snapshot": "Shortcut Band Pull-apart",
+      "tracking_type_snapshot": "reps_only",
+      "superset_group": null,
+      "completed": 0,
+      "skipped": 0,
+      "section": "main",
+      "notes": null,
+      "created_at": 1788822599000
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { supportsRirTrackingType, type ExerciseTrackingType } from '@pulse/shared';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -22,25 +23,30 @@ export function RirPicker({
   disabled = false,
   onChange,
   setNumber,
+  trackingType = 'weight_reps',
   value,
 }: {
   disabled?: boolean;
   onChange: (value: number | null) => void;
   setNumber: number;
+  trackingType?: ExerciseTrackingType;
   value: number | null;
 }) {
   const [open, setOpen] = useState(false);
   const descriptionId = useId();
+  const shortcutHintId = useId();
+  const supported = supportsRirTrackingType(trackingType);
   const titleId = useId();
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   const choose = (nextValue: number | null, close = true) => {
+    if (disabled || !supported) return;
     onChange(nextValue);
     if (close) setOpen(false);
   };
 
-  const handleGroupKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const selectDigit = (event: KeyboardEvent<HTMLElement>) => {
     const isModified =
       event.shiftKey ||
       event.ctrlKey ||
@@ -48,6 +54,9 @@ export function RirPicker({
       event.metaKey ||
       event.getModifierState('AltGraph');
     if (
+      !disabled &&
+      supported &&
+      !event.defaultPrevented &&
       /^[0-5]$/u.test(event.key) &&
       !isModified &&
       !event.repeat &&
@@ -56,8 +65,13 @@ export function RirPicker({
       event.preventDefault();
       event.stopPropagation();
       choose(Number(event.key));
-      return;
+      return true;
     }
+    return false;
+  };
+
+  const handleGroupKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (disabled || !supported || selectDigit(event)) return;
 
     const currentIndex = RIR_OPTIONS.findIndex((option) => option === value);
     let nextIndex: number | null = null;
@@ -83,20 +97,37 @@ export function RirPicker({
         ? '5 or more repetitions in reserve'
         : `${value} repetitions in reserve`;
 
+  if (!supported) return null;
+
   return (
     <Popover onOpenChange={setOpen} open={open}>
-      <PopoverTrigger asChild>
-        <Button
-          aria-label={`RIR for set ${setNumber}: ${stateText}`}
-          className="h-11 min-w-[4.75rem] rounded-lg px-2.5 text-xs font-semibold"
-          disabled={disabled}
-          ref={triggerRef}
-          type="button"
-          variant="outline"
+      <span className="relative inline-flex">
+        <PopoverTrigger asChild>
+          <Button
+            aria-describedby={shortcutHintId}
+            aria-label={`RIR for set ${setNumber}: ${stateText}`}
+            className="peer h-11 min-w-[4.75rem] rounded-lg px-2.5 text-xs font-semibold focus-visible:pb-5"
+            disabled={disabled}
+            onKeyDown={(event) => {
+              if (!open) selectDigit(event);
+            }}
+            ref={triggerRef}
+            type="button"
+            variant="outline"
+          >
+            {formatRir(value)}
+          </Button>
+        </PopoverTrigger>
+        <span className="sr-only" id={shortcutHintId}>
+          Type 0–5 to set RIR; 5 means 5 or more.
+        </span>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-1 hidden text-center text-[9px] leading-none text-muted-foreground peer-focus-visible:block"
         >
-          {formatRir(value)}
-        </Button>
-      </PopoverTrigger>
+          Keys 0–5
+        </span>
+      </span>
       <PopoverContent
         align="end"
         aria-describedby={descriptionId}
@@ -138,6 +169,7 @@ export function RirPicker({
                     ? 'border-[var(--color-accent-mint)] bg-[var(--color-accent-mint)] text-[var(--color-on-accent)]'
                     : 'border-border bg-background text-foreground hover:bg-secondary',
                 )}
+                disabled={disabled}
                 key={option ?? 'clear'}
                 onClick={() => choose(option)}
                 ref={(element) => {
