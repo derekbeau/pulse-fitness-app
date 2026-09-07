@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   addCalendarDays,
+  adaptiveModelAcceptanceSchema,
   type AdaptiveReviewActionInput,
   type AdaptiveReviewTargetProposal,
   type AdaptiveWeeklyReview,
@@ -234,8 +235,9 @@ export function WeeklyDecisionBrief({
               Your decision
             </p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Nothing changes by opening this review. Accept is the only action that applies a
-              nutrition plan.
+              {recommendation.outcome === 'keep'
+                ? 'Accept the expenditure estimate; nutrition targets stay unchanged. Opening this review changes nothing.'
+                : 'Nothing changes by opening this review. Accept is the only action that applies a nutrition plan.'}
             </p>
           </div>
           <ReviewActions
@@ -364,9 +366,12 @@ function ReviewActions({
   };
   const can = (type: AdaptiveWeeklyReview['availableActions'][number]) =>
     review.availableActions.includes(type);
+  const recommendation = review.snapshot.modules.find((module) => module.kind === 'recommendation');
   const acceptLabel = review.effectiveProposal
     ? 'Accept and apply targets'
-    : 'Accept and keep current plan';
+    : recommendation?.outcome === 'keep'
+      ? 'Accept estimate; keep targets'
+      : 'Accept and keep current plan';
 
   return (
     <div className="grid gap-2" aria-label="Weekly review actions">
@@ -1305,6 +1310,7 @@ function ActionDetail({ action }: { action: AdaptiveWeeklyReview['actions'][numb
         ? (payload.appliedProposal as Record<string, unknown>)
         : null;
   const acceptedKeep = action.type === 'accept' && payload.appliedProposal === null;
+  const modelAcceptance = adaptiveModelAcceptanceSchema.safeParse(payload.modelAcceptance);
   return detail || condition || proposal || acceptedKeep ? (
     <div className="mt-2 space-y-1 text-xs leading-5 text-muted-foreground">
       {detail ? <p>{detail}</p> : null}
@@ -1327,7 +1333,11 @@ function ActionDetail({ action }: { action: AdaptiveWeeklyReview['actions'][numb
         </p>
       ) : null}
       {acceptedKeep ? (
-        <p>Accepted the recommendation to keep the current plan; no target was applied.</p>
+        <p>
+          {modelAcceptance.success
+            ? `Accepted expenditure estimate: ${formatAdaptiveCalories(modelAcceptance.data.proposedTdeeKcal)}; targets unchanged.`
+            : 'Accepted the recommendation to keep the current plan; no target was applied.'}
+        </p>
       ) : null}
     </div>
   ) : null;

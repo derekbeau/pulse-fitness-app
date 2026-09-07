@@ -120,6 +120,38 @@ describe('WeeklyDecisionBrief', () => {
     expect(within(article).getByText(/-100/)).toBeInTheDocument();
   });
 
+  it('explains accepting expenditure while keeping targets and handles an absent target honestly', () => {
+    const keep: AdaptiveWeeklyReview = {
+      ...review,
+      effectiveProposal: null,
+      snapshot: {
+        ...review.snapshot,
+        modules: [
+          outcomeModule,
+          {
+            ...recommendationModule,
+            outcome: 'keep',
+            headline: 'Keep the current targets',
+            currentTarget: null,
+            proposedTarget: null,
+          },
+        ],
+      },
+    };
+    render(
+      <MemoryRouter>
+        <WeeklyDecisionBrief isPending={false} onAction={vi.fn()} review={keep} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('button', { name: 'Accept estimate; keep targets' })).toBeEnabled();
+    expect(
+      screen.getByText(/Accept the expenditure estimate; nutrition targets stay unchanged/),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: 'Accept and apply targets' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('records accept only after explicit activation', async () => {
     const onAction = vi.fn().mockResolvedValue(undefined);
     render(
@@ -339,6 +371,51 @@ describe('WeeklyDecisionBrief', () => {
 });
 
 describe('WeeklyReviewEvidence', () => {
+  it.each([true, false])(
+    'distinguishes model-only acceptance from historical keep audit (%s)',
+    (modelOnly) => {
+      const accepted: AdaptiveWeeklyReview = {
+        ...review,
+        state: 'accepted',
+        availableActions: [],
+        actions: [
+          {
+            id: 'keep-action',
+            sequence: 1,
+            type: 'accept',
+            payload: {
+              appliedProposal: null,
+              ...(modelOnly
+                ? {
+                    modelAcceptance: {
+                      kind: 'model_only',
+                      checkInId: review.checkInId,
+                      proposedTdeeKcal: 2520,
+                      targetUnchanged: true,
+                    },
+                  }
+                : {}),
+            },
+            actor: { type: 'user', label: 'You', agentTokenId: null },
+            createdAt: review.createdAt,
+          },
+        ],
+      };
+      render(
+        <MemoryRouter>
+          <WeeklyReviewEvidence review={accepted} />
+        </MemoryRouter>,
+      );
+      expect(
+        screen.getByText(
+          modelOnly
+            ? /Accepted expenditure estimate:.*2,520.*targets unchanged/
+            : /Accepted the recommendation to keep the current plan; no target was applied/,
+        ),
+      ).toBeVisible();
+    },
+  );
+
   it('renders non-empty decision history in the review program time zone', () => {
     const withHistory: AdaptiveWeeklyReview = {
       ...review,

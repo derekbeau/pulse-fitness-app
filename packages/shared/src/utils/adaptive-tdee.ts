@@ -26,6 +26,12 @@ import { convertWeightFromKg, convertWeightToKg, POUNDS_TO_KILOGRAMS } from './w
 
 export { convertWeightFromKg, convertWeightToKg };
 
+/** Product dead-band on canonical rounded target calories, independent of model learning. */
+export const ADAPTIVE_TARGET_MATERIALITY_KCAL = 25;
+
+export const isAdaptiveTargetChangeMaterial = (currentCalories: number, proposedCalories: number) =>
+  Math.abs(proposedCalories - currentCalories) >= ADAPTIVE_TARGET_MATERIALITY_KCAL;
+
 const DAY_MS = 86_400_000;
 const ROUNDING_EPSILON = 1e-9;
 

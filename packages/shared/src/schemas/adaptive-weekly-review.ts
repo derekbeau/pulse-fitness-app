@@ -490,12 +490,33 @@ export const adaptiveReviewActionInputSchema = z
     }
   }) as z.ZodType<AdaptiveReviewActionInput>;
 
+/** Optional forward-only audit payload; absent on historical accepted keep actions. */
+export const adaptiveModelAcceptanceSchema = z
+  .object({
+    kind: z.literal('model_only'),
+    checkInId: idSchema,
+    proposedTdeeKcal: z.number().finite().positive(),
+    targetUnchanged: z.literal(true),
+  })
+  .strict();
+
 export const adaptiveReviewActionSchema = z
   .object({
     id: idSchema,
     sequence: z.number().int().positive(),
     type: z.enum(['accept', 'edit', 'defer', 'decline', 'ask_agent', 'answer', 'supersede']),
-    payload: z.record(z.string(), z.unknown()),
+    payload: z.record(z.string(), z.unknown()).superRefine((payload, context) => {
+      if (
+        'modelAcceptance' in payload &&
+        !adaptiveModelAcceptanceSchema.safeParse(payload.modelAcceptance).success
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Invalid model acceptance audit',
+          path: ['modelAcceptance'],
+        });
+      }
+    }),
     actor: adaptiveReviewActorSchema,
     createdAt: z.number().int().nonnegative(),
   })

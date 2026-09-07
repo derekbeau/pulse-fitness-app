@@ -2518,3 +2518,21 @@ or changes a nutrition log, target, program, check-in, goal, or review.
 [12] https://help.macrofactorapp.com/en/articles/204-does-my-data-reset-if-i-change-goals-or-create-a-new-program — MacroFactor: Goal and Program Changes Do Not Reset Data
 [13] https://help.macrofactorapp.com/en/articles/22-get-to-know-your-dashboard — MacroFactor: Dashboard Goal Progress and Maintenance Views
 [14] https://help.macrofactorapp.com/dashboard/weight_trend — MacroFactor: Trend Weight as the Meaningful Progress Signal
+
+## Forward keep-review learning (issue 137)
+
+An eligible weekly/manual `updating` review may accept the calculated expenditure estimate
+without applying an immaterial target proposal. The product dead-band is the shared
+`ADAPTIVE_TARGET_MATERIALITY_KCAL` (25 kcal) on canonical rounded target calories, independent
+of TDEE rounding: signed 20/24 kcal targets remain unchanged, while signed 25/30 kcal changes
+use explicit target acceptance. Nonzero ±10/±20 learned expenditure and floor-bound learning
+therefore accumulate as accepted model state without target churn. An eligible recalculation
+that rounds to the same estimate can be acknowledged without inventing movement.
+
+Model-only acceptance records an accepted check-in, null accepted target ID, resolution time,
+and explicit model-only/target-unchanged review audit. It never changes immutable snapshots,
+accepted targets, baseline check-ins, or historical accepted keep reviews with declined sources.
+Holding/learning and absent/ineligible proposals cannot become accepted model learning.
+The next prior and analytics use accepted expenditure independently from current target calories.
+New model-only analytics becomes effective on its acceptance date; historical snapshots retain
+existing date semantics. Existing JWT-only decision authorization remains unchanged.

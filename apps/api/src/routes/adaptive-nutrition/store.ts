@@ -594,6 +594,7 @@ export const createAdaptiveNutritionStore = (options: {
       .orderBy(
         desc(adaptiveNutritionCheckIns.resolvedAt),
         desc(adaptiveNutritionCheckIns.createdAt),
+        desc(adaptiveNutritionCheckIns.id),
       )
       .limit(1)
       .get();
@@ -1889,6 +1890,52 @@ export const createAdaptiveNutritionStore = (options: {
     });
   };
 
+  // Called by review acceptance inside its transaction; never materializes a target.
+  const acceptModelOnlyCheckIn = (userId: string, checkInId: string): AdaptiveCheckInDetail =>
+    immediate(() => {
+      const checkIn = findCheckInDetail(userId, checkInId);
+      if (!checkIn) throw new AdaptiveCheckInNotFoundError();
+      if (
+        !['weekly', 'manual'].includes(checkIn.kind) ||
+        checkIn.calculationState !== 'updating' ||
+        checkIn.calculationSnapshot.state !== 'updating' ||
+        checkIn.proposedTdeeKcal === null ||
+        checkIn.calculationSnapshot.adaptiveUpdate?.proposedTdeeKcal !== checkIn.proposedTdeeKcal ||
+        !checkIn.proposedTargets ||
+        checkIn.acceptedNutritionTargetId !== null
+      )
+        throw new AdaptiveCheckInNotAcceptableError();
+      if (checkIn.status === 'accepted') return checkIn;
+      if (checkIn.status !== 'pending') throw new AdaptiveCheckInNotAcceptableError();
+      const program = findProgram(userId);
+      if (!program) throw new AdaptiveCheckInNotFoundError();
+      if (program.algorithmVersion !== checkIn.algorithmVersion) {
+        throw new AdaptiveAlgorithmVersionMismatchError();
+      }
+      const rebuilt = rebuildForAcceptance(userId, program, checkIn);
+      if (rebuilt.recommendation.inputFingerprint !== checkIn.dataFingerprint) {
+        throw new AdaptiveCheckInStaleError();
+      }
+      if (
+        rebuilt.recommendation.state !== 'updating' ||
+        rebuilt.recommendation.adaptiveUpdate?.proposedTdeeKcal !== checkIn.proposedTdeeKcal
+      )
+        throw new AdaptiveCheckInNotAcceptableError();
+      db.update(adaptiveNutritionCheckIns)
+        .set({ status: 'accepted', resolvedAt: now().getTime() })
+        .where(
+          and(
+            eq(adaptiveNutritionCheckIns.id, checkIn.id),
+            eq(adaptiveNutritionCheckIns.userId, userId),
+            eq(adaptiveNutritionCheckIns.status, 'pending'),
+          ),
+        )
+        .run();
+      const accepted = findCheckInDetail(userId, checkIn.id);
+      if (!accepted) throw new Error('Failed to reload model-only accepted check-in');
+      return accepted;
+    });
+
   const acceptCheckIn = (
     userId: string,
     checkInId: string,
@@ -2166,6 +2213,7 @@ export const createAdaptiveNutritionStore = (options: {
 
   return {
     acceptCheckIn,
+    acceptModelOnlyCheckIn,
     cancelGoal,
     completeGoal,
     declineCheckIn,
