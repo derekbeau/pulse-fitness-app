@@ -19,6 +19,7 @@ import type Database from 'better-sqlite3';
 import { and, asc, desc, eq, gte, inArray, isNull, lte, max, or, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
+import { hasNutritionEvidence } from '../../db/nutrition-evidence.js';
 import * as schema from '../../db/schema/index.js';
 import {
   adaptiveNutritionCheckIns,
@@ -365,6 +366,7 @@ export const createDataQualityCalendarStore = (dependencies: {
       .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
       .where(
         and(
+          hasNutritionEvidence,
           eq(nutritionLogs.userId, userId),
           gte(nutritionLogs.date, evidenceStart),
           lte(nutritionLogs.date, query.end),

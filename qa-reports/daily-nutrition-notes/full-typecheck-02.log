@@ -1,0 +1,27 @@
+COMMAND: pnpm exec turbo run typecheck --force --concurrency=1
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running typecheck in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/web:typecheck: cache bypass, force executing babd738777c6bc61
+@pulse/web:typecheck: 
+@pulse/web:typecheck: > @pulse/web@0.0.0 typecheck /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/web
+@pulse/web:typecheck: > tsc --noEmit
+@pulse/web:typecheck: 
+@pulse/api:typecheck: cache bypass, force executing e42435121cef6187
+@pulse/api:typecheck: 
+@pulse/api:typecheck: > @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api
+@pulse/api:typecheck: > tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+@pulse/api:typecheck: 
+@pulse/shared:typecheck: cache bypass, force executing b21cab99a976cf80
+@pulse/shared:typecheck: 
+@pulse/shared:typecheck: > @pulse/shared@0.0.0 typecheck /Users/meridian/Projects/pulse-daily-nutrition-notes/packages/shared
+@pulse/shared:typecheck: > tsc --noEmit -p tsconfig.json
+@pulse/shared:typecheck: 
+
+ Tasks:    3 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    17.245s 
+
+
+EXIT_CODE: 0

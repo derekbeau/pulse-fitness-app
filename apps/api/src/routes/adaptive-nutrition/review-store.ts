@@ -32,6 +32,7 @@ import {
   type AdaptiveWeeklyReviewPreviewInput,
 } from '@pulse/shared';
 
+import { hasNutritionEvidence } from '../../db/nutrition-evidence.js';
 import * as schema from '../../db/schema/index.js';
 import {
   adaptiveNutritionCheckIns,
@@ -615,6 +616,7 @@ export const createAdaptiveWeeklyReviewStore = (options: {
       .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
       .where(
         and(
+          hasNutritionEvidence,
           eq(nutritionLogs.userId, userId),
           gte(nutritionLogs.date, startDate),
           lte(nutritionLogs.date, endDate),

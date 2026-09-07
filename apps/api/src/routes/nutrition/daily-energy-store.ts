@@ -11,6 +11,7 @@ import {
   type DailyEnergyAdherence,
 } from '@pulse/shared';
 
+import { hasNutritionEvidence } from '../../db/nutrition-evidence.js';
 import * as schema from '../../db/schema/index.js';
 import {
   adaptiveNutritionCheckIns,
@@ -206,7 +207,13 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
       .from(nutritionLogs)
       .leftJoin(meals, eq(meals.nutritionLogId, nutritionLogs.id))
       .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
-      .where(and(eq(nutritionLogs.userId, userId), eq(nutritionLogs.date, localDate)))
+      .where(
+        and(
+          hasNutritionEvidence,
+          eq(nutritionLogs.userId, userId),
+          eq(nutritionLogs.date, localDate),
+        ),
+      )
       .groupBy(nutritionLogs.id)
       .limit(1)
       .get();

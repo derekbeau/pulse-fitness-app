@@ -1,0 +1,38 @@
+COMMAND: pnpm test:repo-scripts
+
+> pulse@ test:repo-scripts /Users/meridian/Projects/pulse-daily-nutrition-notes
+> node --test scripts/dev-gate0-isolated.test.mjs scripts/api-container-entrypoint.test.mjs scripts/runtime-secrets-isolation.test.mjs scripts/init-worktree.test.mjs
+
+▶ API container migration-map preflight
+  ✔ starts fresh, legacy-empty, and already-canonical databases without a map (59.874375ms)
+  ✔ fails closed for non-empty legacy data without a secure map (181.468542ms)
+  ✔ accepts a regular mode-0600 map for non-empty legacy data (86.025083ms)
+✔ API container migration-map preflight (328.051083ms)
+▶ Gate 0 isolated development startup
+  ✔ enforces the isolated database and all three fixed port values (2.68075ms)
+  ✔ allows only loopback or an exact Tailscale IPv4 preview host (0.251958ms)
+  ✔ advertises the reachable Tailscale-hosted web origin to Swagger (0.739417ms)
+  ✔ rejects default, production, snapshot, and arbitrary database paths (0.663541ms)
+  ✔ rejects a missing, read-only, or symlinked isolated database (3.489ms)
+✔ Gate 0 isolated development startup (8.437083ms)
+▶ worktree initializer
+  ✔ derives a deterministic sibling path from a slash-delimited branch (1.129833ms)
+  ✔ parses defaults and explicit overrides (0.353125ms)
+  ✔ rejects unknown options and unsafe port values (0.277791ms)
+  ✔ reads worktree paths and reserves generated environment ports (1.847541ms)
+  ✔ renders a localhost-only environment with an absolute database path (0.2355ms)
+  ✔ recognizes both normal and signal-based child process exits (0.091375ms)
+✔ worktree initializer (4.79125ms)
+▶ runtime migration-map isolation
+  ✔ keeps the host-only map out of Git and the Docker build context (1339.746084ms)
+✔ runtime migration-map isolation (1340.282584ms)
+ℹ tests 15
+ℹ suites 4
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1421.876083
+
+EXIT_CODE: 0

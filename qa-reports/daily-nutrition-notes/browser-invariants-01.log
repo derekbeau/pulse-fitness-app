@@ -1,0 +1,11 @@
+browser-readback-00.json PASS: meals/items/food usage/targets/weights/status/timestamps/energy/quality/analytics/preview identity and note-reader parity
+browser-readback-01.json PASS: meals/items/food usage/targets/weights/status/timestamps/energy/quality/analytics/preview identity and note-reader parity
+browser-readback-02.json PASS: meals/items/food usage/targets/weights/status/timestamps/energy/quality/analytics/preview identity and note-reader parity
+browser-readback-03.json PASS: meals/items/food usage/targets/weights/status/timestamps/energy/quality/analytics/preview identity and note-reader parity
+browser-readback-04.json PASS: meals/items/food usage/targets/weights/status/timestamps/energy/quality/analytics/preview identity and note-reader parity
+browser-readback-05.json PASS: meals/items/food usage/targets/weights/status/timestamps/energy/quality/analytics/preview identity and note-reader parity
+Traceback (most recent call last):
+  File "/Users/meridian/Projects/pulse-daily-nutrition-notes/qa-reports/daily-nutrition-notes/verify-browser-readbacks.py", line 47, in <module>
+    assert baseline['api']['2026-09-04/energy-adherence']['state'] == 'missing'
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+KeyError: 'state'

@@ -1,0 +1,32 @@
+[
+  {
+    "gate": "lint",
+    "command": [
+      "pnpm",
+      "exec",
+      "turbo",
+      "run",
+      "lint",
+      "--force",
+      "--concurrency=1"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 17.75,
+    "log": "qa-reports/daily-nutrition-notes/full-lint-01.log"
+  },
+  {
+    "gate": "typecheck",
+    "command": [
+      "pnpm",
+      "exec",
+      "turbo",
+      "run",
+      "typecheck",
+      "--force",
+      "--concurrency=1"
+    ],
+    "exitCode": 2,
+    "elapsedSeconds": 18.36,
+    "log": "qa-reports/daily-nutrition-notes/full-typecheck-01.log"
+  }
+]

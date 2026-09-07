@@ -1,0 +1,34 @@
+{
+  "launchSha": "089b0719b9fd29cffcf3eb5122b2d3c3eff315ca",
+  "sourceFiles": {
+    "apps/api/src/__tests__/foods-nutrition.test.ts": "daa6baa303870169d63da5584773fbf75a34cbfc1b1f5222f03335af615adeed",
+    "apps/api/src/db/nutrition-evidence.ts": "50ab70a55a0c15961c2ac4bd408fbdd0b5ed8bfaba99afe4dd551409956f82db",
+    "apps/api/src/routes/adaptive-nutrition/analytics-store.ts": "2d9aca6ccdca1f3b5347f976451f12a5980a7d94359898e25395060c45dcec0b",
+    "apps/api/src/routes/adaptive-nutrition/review-store.ts": "48c148e4911c185c9c74e11647cb83018d0bc912c06d462657e3fbdc571a1845",
+    "apps/api/src/routes/adaptive-nutrition/store.ts": "801aadf1a28c76839d40009db02af8f0859a7fe74b082c339467409015e238ab",
+    "apps/api/src/routes/data-quality/store.ts": "a1d40dd966a40fced97363ea8152492bfd117b6d634d4e4cd70f7f1050902ad9",
+    "apps/api/src/routes/nutrition/daily-energy-store.ts": "15e58c790fd455d615511eecf995df2d4b720144ddc3370546975518809e7b60",
+    "apps/api/src/routes/nutrition/daily-notes.integration.test.ts": "efe43b99c3a381a5f3e666ae8c0272d8b412e4b80653ce9f29f715f2b5b96d7b",
+    "apps/api/src/routes/nutrition/index.test.ts": "4baef351de206516c146480c788ca331b5a58cc9cee575e80e8aae5e78873447",
+    "apps/api/src/routes/nutrition/index.ts": "9e0ef423c5b5d85f761ac6e878af198b590727e48b6884b4a13a805ffded2bf5",
+    "apps/api/src/routes/nutrition/store.test.ts": "5ddb7d96e6a23c5df0caea9881c62756b2f93bd56f2ec3876c87397a62dd841f",
+    "apps/api/src/routes/nutrition/store.ts": "7f63400cb4a8286537ba833a033fb65d793f54e9726e885644c8c475b4c7bf29",
+    "apps/web/src/features/nutrition/api/daily-note.test.tsx": "0550900369cb2adfc7478fcffb98da052df3dd03a935cce68aa194d5d6332e82",
+    "apps/web/src/features/nutrition/api/keys.ts": "038ae2f8c2f51a8e7ba99e94849ec2356874577662a5a22020f6bb35e1333331",
+    "apps/web/src/features/nutrition/api/nutrition.test.tsx": "1d42fcdb81fddf7f7effe4a2bfec0085810043d6364aa52e10398f12251f472e",
+    "apps/web/src/features/nutrition/api/nutrition.ts": "6044a1e392cd2c010227030df70198e83b184d657d35cab36a8d3b71d389371d",
+    "apps/web/src/features/nutrition/components/daily-nutrition-note.test.tsx": "cbecbe04182f5756c3aca5dde2e16d3f292594222e0d316f5306288520fd3d1a",
+    "apps/web/src/features/nutrition/components/daily-nutrition-note.tsx": "b39f38497291098f10da5f17ced1a2c2c975b87f90022f66fbc2afb0d2b5f689",
+    "apps/web/src/features/nutrition/components/nutrition-week-strip.test.tsx": "6f92f9dfd33cd0a0f9ffcf6ee1c50eb28d184c40f68e8fea510f311f5ad167e6",
+    "apps/web/src/features/nutrition/components/nutrition-week-strip.tsx": "45daf8f776d0fbba5b5691d8285e7d756a698b9b0ef135de50df57699dd42c20",
+    "apps/web/src/features/nutrition/index.ts": "fe6dee1aee025143a4b2d9eae620d34a35093defa72f7677cf1ee2ab5f079db9",
+    "apps/web/src/pages/nutrition.test.tsx": "cad0a277a841a106ca24d68c196de9e74663246c8ebaecca1ff7d0100a62f1ab",
+    "apps/web/src/pages/nutrition.tsx": "aec9faf7aceeef9c28aa6ec31ef1237fa1c0c89c0b8cd59ec37a341884fbec56",
+    "packages/shared/src/schemas/nutrition.test.ts": "2d74f7946f65366fe67bf6ecdaf6293d04ff20a132d00eae4eed612d22743a30",
+    "packages/shared/src/schemas/nutrition.ts": "5cac140e750df45b468a561a730fbdab44f019b72d871b5da304fb3a2a26b24f"
+  },
+  "frozenFiles": {
+    "docs/implementation/daily-nutrition-notes-goal.md": "86693d48797537a3f678bddbcdc888f35ebab605a1a485fea9c47048b6a1d640",
+    "qa-reports/pulse-parallel-launch/133/manifest.md": "f6c18dfd809a81ea84c01fbdae5c6f94ffd212f19e9cc59c68045494200a4635"
+  }
+}

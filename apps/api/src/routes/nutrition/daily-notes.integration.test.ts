@@ -8,7 +8,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { agentTokens, foods, users } from '../../db/schema/index.js';
+import { agentTokens, foods, meals, nutritionLogs, users } from '../../db/schema/index.js';
 import { createAdaptiveAnalyticsStore } from '../adaptive-nutrition/analytics-store.js';
 import { createDataQualityCalendarStore } from '../data-quality/store.js';
 import { createAdaptiveNutritionStore } from '../adaptive-nutrition/store.js';
@@ -372,8 +372,115 @@ describe.each(['Bearer', 'AgentToken'] as const)('%s note-only preservation boun
     expect
       .soft(afterPreview.inputSnapshot.nutritionDays)
       .toEqual(preview.inputSnapshot.nutritionDays);
-    expect.soft(afterPreview.inputFingerprint).toEqual(preview.inputFingerprint);
+    expect(preview.dataFingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect.soft(afterPreview.dataFingerprint).toEqual(preview.dataFingerprint);
     expect.soft(afterPreview.calculationSnapshot).toEqual(preview.calculationSnapshot);
     expect.soft(afterPreview.id).toBe(preview.id);
+  });
+});
+
+describe.each(['Bearer', 'AgentToken'] as const)('%s nutrition evidence selection', (mode) => {
+  it.each([
+    { status: 'unknown' as const, statusUpdatedAt: null, withMeal: false, expected: 'missing' },
+    { status: 'unknown' as const, statusUpdatedAt: 1, withMeal: false, expected: 'unknown' },
+    { status: 'partial' as const, statusUpdatedAt: null, withMeal: false, expected: 'partial' },
+    { status: 'complete' as const, statusUpdatedAt: 1, withMeal: false, expected: 'unavailable' },
+    { status: 'unknown' as const, statusUpdatedAt: null, withMeal: true, expected: 'unknown' },
+  ])(
+    'preserves existing $status empty-day meaning (explicit=$statusUpdatedAt, meal=$withMeal)',
+    async ({ status, statusUpdatedAt, withMeal, expected }) => {
+      const logId = `preexisting-${owner}`;
+      database.db
+        .insert(nutritionLogs)
+        .values({
+          id: logId,
+          userId: owner,
+          date,
+          status,
+          statusUpdatedAt,
+          createdAt: 1,
+          updatedAt: 1,
+        })
+        .run();
+      if (withMeal)
+        database.db
+          .insert(meals)
+          .values({
+            id: `empty-meal-${owner}`,
+            nutritionLogId: logId,
+            name: 'Existing meal placeholder',
+          })
+          .run();
+      const energy = await get(`${date}/energy-adherence`);
+      expect(energy.dataState).toBe(expected);
+      expect(energy.nutrition.logId).toBe(expected === 'missing' ? null : logId);
+      expect(energy.nutrition.intakeKcal).toBe(expected === 'missing' ? null : 0);
+      const facts = persistentFacts();
+      const daily = await get(date);
+      for (const notes of ['Context only', null]) {
+        expect((await patch({ notes }, headers[mode])).statusCode).toBe(200);
+        expect(await get(`${date}/energy-adherence`)).toEqual(energy);
+        const after = await get(date);
+        expect({ ...after, log: { ...after.log, notes: daily.log.notes } }).toEqual(daily);
+        expect(persistentFacts()).toEqual(facts);
+      }
+    },
+  );
+
+  it('uses the same log when meals are added after a note and keeps meal notes distinct', async () => {
+    const note = (await patch({ notes: 'Day context' }, headers[mode])).json().data;
+    const foodId = `before-meal-food-${owner}`;
+    database.db
+      .insert(foods)
+      .values({
+        id: foodId,
+        userId: owner,
+        name: 'Fictional oats',
+        calories: 300,
+        protein: 15,
+        carbs: 40,
+        fat: 10,
+      })
+      .run();
+    await createMealForDate(owner, date, {
+      name: 'Fictional breakfast',
+      notes: 'Meal context',
+      items: [
+        {
+          foodId,
+          name: 'Fictional oats',
+          amount: 1,
+          unit: 'bowl',
+          calories: 300,
+          protein: 15,
+          carbs: 40,
+          fat: 10,
+        },
+      ],
+    });
+    const populated = await get(date);
+    expect(populated.log.id).toBe(note.log.id);
+    expect(populated.log.notes).toBe('Day context');
+    expect(populated.meals).toHaveLength(1);
+    expect(populated.meals[0].meal.notes).toBe('Meal context');
+    const food = database.sqlite
+      .prepare('SELECT usage_count, last_used_at FROM foods WHERE id = ?')
+      .get(foodId);
+    expect(food).toMatchObject({ usage_count: 1, last_used_at: expect.any(Number) });
+    const energy = await get(`${date}/energy-adherence`);
+    expect(energy.nutrition).toMatchObject({
+      logId: note.log.id,
+      mealCount: 1,
+      itemCount: 1,
+      intakeKcal: 300,
+    });
+    await patch({ notes: null }, headers[mode]);
+    expect((await get(date)).meals).toEqual(populated.meals);
+    expect(await get(`${date}/energy-adherence`)).toEqual(energy);
+    expect(
+      database.sqlite
+        .prepare('SELECT usage_count, last_used_at FROM foods WHERE id = ?')
+        .get(foodId),
+    ).toEqual(food);
   });
 });

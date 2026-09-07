@@ -1,0 +1,3 @@
+COMMAND: node --check qa-reports/daily-nutrition-notes/browser-fixture.mjs
+
+EXIT_CODE: 0

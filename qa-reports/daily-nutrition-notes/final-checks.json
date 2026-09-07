@@ -1,0 +1,35 @@
+[
+  {
+    "name": "browser-invariants-02",
+    "command": [
+      "python3",
+      "qa-reports/daily-nutrition-notes/verify-browser-readbacks.py"
+    ],
+    "exitCode": 0,
+    "seconds": 0.03
+  },
+  {
+    "name": "fixture-syntax",
+    "command": [
+      "node",
+      "--check",
+      "qa-reports/daily-nutrition-notes/browser-fixture.mjs"
+    ],
+    "exitCode": 0,
+    "seconds": 0.06
+  },
+  {
+    "name": "full-lint-02",
+    "command": [
+      "pnpm",
+      "exec",
+      "turbo",
+      "run",
+      "lint",
+      "--force",
+      "--concurrency=1"
+    ],
+    "exitCode": 0,
+    "seconds": 26.05
+  }
+]

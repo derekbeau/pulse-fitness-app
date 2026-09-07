@@ -68,6 +68,7 @@ import {
   type NutritionTarget,
 } from '@pulse/shared';
 
+import { hasNutritionEvidence } from '../../db/nutrition-evidence.js';
 import * as schema from '../../db/schema/index.js';
 import { insertAdaptiveProgramRevisionProjection } from '../../db/adaptive-program-revision-projection.js';
 import { getApplicationNow } from '../../lib/clock.js';
@@ -651,6 +652,7 @@ export const createAdaptiveNutritionStore = (options: {
       .leftJoin(mealItems, eq(mealItems.mealId, meals.id))
       .where(
         and(
+          hasNutritionEvidence,
           eq(nutritionLogs.userId, userId),
           gte(nutritionLogs.date, analysisStart),
           lte(nutritionLogs.date, analysisEnd),

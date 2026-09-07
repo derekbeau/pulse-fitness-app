@@ -1,0 +1,31 @@
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running typecheck in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/shared:typecheck: cache bypass, force executing b21cab99a976cf80
+@pulse/shared:typecheck: 
+@pulse/shared:typecheck: > @pulse/shared@0.0.0 typecheck /Users/meridian/Projects/pulse-daily-nutrition-notes/packages/shared
+@pulse/shared:typecheck: > tsc --noEmit -p tsconfig.json
+@pulse/shared:typecheck: 
+@pulse/web:typecheck: cache bypass, force executing babd738777c6bc61
+@pulse/web:typecheck: 
+@pulse/web:typecheck: > @pulse/web@0.0.0 typecheck /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/web
+@pulse/web:typecheck: > tsc --noEmit
+@pulse/web:typecheck: 
+@pulse/api:typecheck: cache bypass, force executing 2f26ac9f15116a5f
+@pulse/api:typecheck: 
+@pulse/api:typecheck: > @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api
+@pulse/api:typecheck: > tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+@pulse/api:typecheck: 
+@pulse/api:typecheck: src/routes/nutrition/daily-notes.integration.test.ts(375,30): error TS2339: Property 'inputFingerprint' does not exist on type '{ status: "pending" | "accepted" | "declined" | "superseded" | "held"; id: string; createdAt: number; algorithmVersion: "adaptive-tdee-v1"; analysisStart: string | null; analysisEnd: string | null; ... 16 more ...; calculationSnapshot: { ...; } | ... 2 more ... | { ...; }; }'.
+@pulse/api:typecheck: src/routes/nutrition/daily-notes.integration.test.ts(375,64): error TS2339: Property 'inputFingerprint' does not exist on type '{ status: "pending" | "accepted" | "declined" | "superseded" | "held"; id: string; createdAt: number; algorithmVersion: "adaptive-tdee-v1"; analysisStart: string | null; analysisEnd: string | null; ... 16 more ...; calculationSnapshot: { ...; } | ... 2 more ... | { ...; }; }'.
+@pulse/api:typecheck:  ELIFECYCLE  Command failed with exit code 2.
+@pulse/api:typecheck: ERROR: command finished with error: command (/Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run typecheck exited (2)
+@pulse/api#typecheck: command (/Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run typecheck exited (2)
+
+ Tasks:    2 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    17.867s 
+Failed:    @pulse/api#typecheck
+
+ ERROR  run failed: command  exited (2)
