@@ -1,3 +1,4 @@
+import { refreshFoodUsage } from '../foods/store.js';
 import {
   apiDataResponseSchema,
   trashListResponseSchema,
@@ -206,15 +207,15 @@ export const restoreTrashItem = async ({
     }
 
     case 'foods': {
-      const result = db
-        .update(foods)
-        .set({
-          deletedAt: null,
-        })
-        .where(and(eq(foods.id, id), eq(foods.userId, userId), isNotNull(foods.deletedAt)))
-        .run();
-
-      return result.changes === 1;
+      return db.transaction((tx) => {
+        const result = tx
+          .update(foods)
+          .set({ deletedAt: null })
+          .where(and(eq(foods.id, id), eq(foods.userId, userId), isNotNull(foods.deletedAt)))
+          .run();
+        if (result.changes === 1) refreshFoodUsage(tx, userId, [id]);
+        return result.changes === 1;
+      });
     }
 
     case 'workout-sessions': {
@@ -338,12 +339,27 @@ const purgeTrashItem = async ({
 
     case 'foods':
       return db.transaction((tx) => {
+        const target = tx
+          .select({ id: foods.id })
+          .from(foods)
+          .where(and(eq(foods.id, id), eq(foods.userId, userId), isNotNull(foods.deletedAt)))
+          .get();
+        if (!target) return false;
+        const foreignLink = tx
+          .select({ id: mealItems.id })
+          .from(mealItems)
+          .innerJoin(meals, eq(meals.id, mealItems.mealId))
+          .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
+          .where(and(eq(mealItems.foodId, id), sql`${nutritionLogs.userId} <> ${userId}`))
+          .limit(1)
+          .get();
+        if (foreignLink) throw new Error('Food link ownership mismatch');
         const linkedMeals = tx
           .select({ mealId: mealItems.mealId, nutritionLogId: nutritionLogs.id })
           .from(mealItems)
           .innerJoin(meals, eq(meals.id, mealItems.mealId))
           .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
-          .where(eq(mealItems.foodId, id))
+          .where(and(eq(mealItems.foodId, id), eq(nutritionLogs.userId, userId)))
           .all();
 
         if (linkedMeals.length > 0) {
@@ -377,7 +393,8 @@ const purgeTrashItem = async ({
           .where(and(eq(foods.id, id), eq(foods.userId, userId), isNotNull(foods.deletedAt)))
           .run();
 
-        return deletedFood.changes === 1;
+        if (deletedFood.changes !== 1) throw new Error('Failed to purge food');
+        return true;
       });
 
     case 'workout-sessions':

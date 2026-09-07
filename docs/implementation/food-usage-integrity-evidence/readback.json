@@ -1,0 +1,58 @@
+{
+  "result": "PASS",
+  "fixture": "temporary fictional SQLite",
+  "receipts": [
+    {
+      "method": "POST",
+      "url": "/api/v1/meals",
+      "status": 201,
+      "linkedItems": 2
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/nutrition/2026-03-20/meals",
+      "status": 201,
+      "linkedItems": 2
+    }
+  ],
+  "trashStatus": 200,
+  "dryRun": {
+    "userId": "fixture-owner",
+    "mode": "dry-run",
+    "reconciled": 1,
+    "changed": 0,
+    "updated": 0,
+    "rows": [
+      {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "before": {
+          "usageCount": 4,
+          "lastUsedAt": 1788811163000
+        },
+        "projected": {
+          "usageCount": 4,
+          "lastUsedAt": 1788811163000
+        }
+      }
+    ]
+  },
+  "dryRunDatabaseSha256": "129c9586a474f85b3a88d7c787650c40e02e519c0ec60771dcac4cdfa2dc1e7f",
+  "dryRunByteIdentical": true,
+  "invariantSql": "SELECT f.id,f.deleted_at,f.usage_count,f.last_used_at,\n (SELECT COUNT(*) FROM meal_items i JOIN meals m ON m.id=i.meal_id JOIN nutrition_logs n ON n.id=m.nutrition_log_id WHERE i.food_id=f.id AND n.user_id=f.user_id) expected_count,\n (SELECT MAX(i.created_at) FROM meal_items i JOIN meals m ON m.id=i.meal_id JOIN nutrition_logs n ON n.id=m.nutrition_log_id WHERE i.food_id=f.id AND n.user_id=f.user_id) expected_time\n FROM foods f WHERE f.user_id='fixture-owner' ORDER BY f.id",
+  "invariantRows": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "deleted_at": "2026-09-07T19:59:23.137Z",
+      "usage_count": 4,
+      "last_used_at": 1788811163000,
+      "expected_count": 4,
+      "expected_time": 1788811163000
+    }
+  ],
+  "quickCheck": [
+    {
+      "quick_check": "ok"
+    }
+  ],
+  "foreignKeyCheck": []
+}

@@ -25,7 +25,6 @@ import {
   agentEnrichmentOnSend,
   setAgentEnrichmentContext,
 } from '../../middleware/agent-enrichment.js';
-import { trackFoodUsage } from '../foods/store.js';
 import {
   apiErrorResponseSchema,
   authSecurity,
@@ -55,13 +54,21 @@ import {
   updateNutritionLogStatus,
 } from './status-store.js';
 
-const isNonEmptyString = (value: string | null): value is string =>
-  typeof value === 'string' && value.length > 0;
-
 export const nutritionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
+  app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof Error && error.name === 'MealFoodOwnershipError') {
+      return sendError(
+        reply,
+        400,
+        'INVALID_FOOD_REFERENCE',
+        'One or more food references are unavailable',
+      );
+    }
+    throw error;
+  });
 
   typedApp.get(
     '/week-summary',
@@ -202,21 +209,6 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const { returnSummary = false, ...mealInput } = request.body;
       const created = await createMealForDate(request.userId, request.params.date, mealInput);
-
-      const foodIds = [
-        ...new Set(created.items.map((item) => item.foodId).filter(isNonEmptyString)),
-      ];
-      const usageTrackingResults = await Promise.allSettled(
-        foodIds.map((foodId) => trackFoodUsage(foodId, request.userId)),
-      );
-      usageTrackingResults.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          request.log.warn(
-            { err: result.reason, foodId: foodIds[index], userId: request.userId },
-            'Failed to track food usage after meal creation',
-          );
-        }
-      });
 
       const mealMacros = created.items.reduce(
         (totals, item) => ({

@@ -1,4 +1,5 @@
-import { and, count, eq, isNull, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
+import { reconcileFoodUsageInputSchema, reconcileFoodUsageResponseSchema } from '@pulse/shared';
 import type {
   CreateFoodInput,
   Food,
@@ -8,7 +9,7 @@ import type {
   UpdateFoodInput,
 } from '@pulse/shared';
 
-import { foods, mealItems, meals, nutritionLogs } from '../../db/schema/index.js';
+import { foods, mealItems, meals, nutritionLogs, users } from '../../db/schema/index.js';
 
 export type FoodRecord = Food;
 
@@ -414,27 +415,15 @@ export const updateFood = async (
 export const deleteFood = async (id: string, userId: string): Promise<boolean> => {
   const { db } = await import('../../db/index.js');
 
-  const result = db
-    .update(foods)
-    .set({
-      deletedAt: new Date().toISOString(),
-    })
-    .where(and(eq(foods.id, id), eq(foods.userId, userId), isNull(foods.deletedAt)))
-    .run();
-
-  return result.changes === 1;
-};
-
-const mergeLastUsedAt = (winnerLastUsedAt: number | null, loserLastUsedAt: number | null) => {
-  if (winnerLastUsedAt === null) {
-    return loserLastUsedAt;
-  }
-
-  if (loserLastUsedAt === null) {
-    return winnerLastUsedAt;
-  }
-
-  return Math.max(winnerLastUsedAt, loserLastUsedAt);
+  return db.transaction((tx) => {
+    const result = tx
+      .update(foods)
+      .set({ deletedAt: new Date().toISOString() })
+      .where(and(eq(foods.id, id), eq(foods.userId, userId), isNull(foods.deletedAt)))
+      .run();
+    if (result.changes === 1) refreshFoodUsage(tx, userId, [id]);
+    return result.changes === 1;
+  });
 };
 
 export const mergeFoods = async (
@@ -510,22 +499,7 @@ export const mergeFoods = async (
       )
       .run();
 
-    const updatedWinnerUsageCount = winner.usageCount + loser.usageCount;
-    const updatedWinnerLastUsedAt = mergeLastUsedAt(winner.lastUsedAt, loser.lastUsedAt);
-
-    const winnerUpdateResult = tx
-      .update(foods)
-      .set({
-        usageCount: updatedWinnerUsageCount,
-        lastUsedAt: updatedWinnerLastUsedAt,
-        updatedAt: now,
-      })
-      .where(and(eq(foods.id, winnerId), eq(foods.userId, userId), isNull(foods.deletedAt)))
-      .run();
-
-    if (winnerUpdateResult.changes !== 1) {
-      throw new Error('Failed to update winner food during merge');
-    }
+    refreshFoodUsage(tx, userId, [winnerId, loserId]);
 
     const loserDeleteResult = tx
       .update(foods)
@@ -555,111 +529,108 @@ export const mergeFoods = async (
   });
 };
 
-export const trackFoodUsage = async (
-  foodId: string,
+type UsageTransaction = Parameters<
+  Parameters<(typeof import('../../db/index.js'))['db']['transaction']>[0]
+>[0];
+
+export class FoodUsageScopeError extends Error {}
+
+// Single canonical projection. Call inside the same synchronous transaction as link mutations.
+// A supplied target is internal-only; the public endpoint never accepts food or user selectors.
+export const reconcileFoodUsage = (
+  tx: UsageTransaction,
   userId: string,
-  lastUsedAt = Date.now(),
-): Promise<void> => {
-  const { db } = await import('../../db/index.js');
-
-  const result = db
-    .update(foods)
-    .set({
-      lastUsedAt,
-      usageCount: sql`usage_count + 1`,
-    })
-    .where(and(eq(foods.id, foodId), eq(foods.userId, userId), isNull(foods.deletedAt)))
-    .run();
-
-  if (result.changes !== 1) {
-    throw new Error('Failed to track food usage metrics');
+  input: unknown = {},
+  targetId?: string,
+) => {
+  const { mode, limit } = reconcileFoodUsageInputSchema.parse(input);
+  if (
+    typeof userId !== 'string' ||
+    !userId.trim() ||
+    !tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).get()
+  ) {
+    throw new FoodUsageScopeError('Valid user scope required');
   }
-};
-
-export const decrementFoodUsage = async (foodId: string, userId: string): Promise<void> => {
-  const { db } = await import('../../db/index.js');
-
-  db.update(foods)
-    .set({
-      usageCount: sql`case when usage_count > 0 then usage_count - 1 else 0 end`,
-    })
-    .where(and(eq(foods.id, foodId), eq(foods.userId, userId)))
-    .run();
-};
-
-export const reconcileFoodUsage = async (
-  userId: string,
-): Promise<{ reconciled: number; updated: number }> => {
-  const { db } = await import('../../db/index.js');
-
-  return db.transaction((tx) => {
-    const foodsForUser = tx
-      .select({
-        id: foods.id,
-        usageCount: foods.usageCount,
-        lastUsedAt: foods.lastUsedAt,
-      })
-      .from(foods)
-      .where(and(eq(foods.userId, userId), isNull(foods.deletedAt)))
-      .all();
-
-    if (foodsForUser.length === 0) {
-      return { reconciled: 0, updated: 0 };
-    }
-
-    const usageRows = tx
-      .select({
-        foodId: mealItems.foodId,
-        usageCount: sql<number>`cast(count(*) as integer)`,
-        lastUsedAt: sql<number | null>`max(${mealItems.createdAt})`,
-      })
-      .from(mealItems)
-      .innerJoin(foods, eq(foods.id, mealItems.foodId))
-      .where(and(eq(foods.userId, userId), isNull(foods.deletedAt)))
-      .groupBy(mealItems.foodId)
-      .all();
-
-    const usageByFoodId = new Map<string, { usageCount: number; lastUsedAt: number | null }>();
-    for (const row of usageRows) {
-      if (typeof row.foodId !== 'string') {
-        continue;
+  const targets = tx
+    .select({ id: foods.id, usageCount: foods.usageCount, lastUsedAt: foods.lastUsedAt })
+    .from(foods)
+    .where(
+      and(eq(foods.userId, userId), targetId === undefined ? undefined : eq(foods.id, targetId)),
+    )
+    .orderBy(asc(foods.id))
+    .limit(limit + 1)
+    .all();
+  if (targets.length > limit)
+    throw new FoodUsageScopeError('Food scope exceeds limit; no changes applied');
+  if (targetId !== undefined && targets.length !== 1)
+    throw new FoodUsageScopeError('Food scope mismatch');
+  const ids = targets.map((food) => food.id);
+  const usageRows =
+    ids.length === 0
+      ? []
+      : tx
+          .select({
+            foodId: mealItems.foodId,
+            usageCount: sql<number>`cast(count(*) as integer)`,
+            lastUsedAt: sql<number | null>`max(${mealItems.createdAt})`,
+          })
+          .from(mealItems)
+          .innerJoin(meals, eq(meals.id, mealItems.mealId))
+          .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
+          .innerJoin(foods, eq(foods.id, mealItems.foodId))
+          .where(
+            and(eq(nutritionLogs.userId, userId), eq(foods.userId, userId), inArray(foods.id, ids)),
+          )
+          .groupBy(mealItems.foodId)
+          .all();
+  const usage = new Map(
+    usageRows.map((row) => [
+      row.foodId,
+      { usageCount: Number(row.usageCount), lastUsedAt: row.lastUsedAt },
+    ]),
+  );
+  let changed = 0;
+  let updated = 0;
+  const rows = targets.map((food) => {
+    const projected = usage.get(food.id) ?? { usageCount: 0, lastUsedAt: null };
+    const before = { usageCount: food.usageCount, lastUsedAt: food.lastUsedAt };
+    if (before.usageCount !== projected.usageCount || before.lastUsedAt !== projected.lastUsedAt) {
+      changed++;
+      if (mode === 'apply') {
+        const result = tx
+          .update(foods)
+          .set({ ...projected, updatedAt: sql`${foods.updatedAt}` })
+          .where(and(eq(foods.id, food.id), eq(foods.userId, userId)))
+          .run();
+        if (result.changes !== 1) throw new FoodUsageScopeError('Incomplete food usage update');
+        updated++;
       }
-
-      usageByFoodId.set(row.foodId, {
-        usageCount: Number(row.usageCount ?? 0),
-        lastUsedAt: row.lastUsedAt === null ? null : Number(row.lastUsedAt),
-      });
     }
-
-    let updated = 0;
-    const now = Date.now();
-
-    for (const food of foodsForUser) {
-      const nextUsage = usageByFoodId.get(food.id) ?? { usageCount: 0, lastUsedAt: null };
-      const usageChanged = food.usageCount !== nextUsage.usageCount;
-      const lastUsedAtChanged = food.lastUsedAt !== nextUsage.lastUsedAt;
-
-      if (!usageChanged && !lastUsedAtChanged) {
-        continue;
-      }
-
-      if (usageChanged || lastUsedAtChanged) {
-        updated += 1;
-      }
-
-      tx.update(foods)
-        .set({
-          usageCount: nextUsage.usageCount,
-          lastUsedAt: nextUsage.lastUsedAt,
-          updatedAt: now,
-        })
-        .where(and(eq(foods.id, food.id), eq(foods.userId, userId), isNull(foods.deletedAt)))
-        .run();
-    }
-
-    return {
-      reconciled: foodsForUser.length,
-      updated,
-    };
+    return { id: food.id, before, projected };
   });
+  // Validate the response while the caller transaction can still roll back.
+  return reconcileFoodUsageResponseSchema.parse({
+    userId,
+    mode,
+    reconciled: targets.length,
+    changed,
+    updated,
+    rows,
+  });
+};
+
+export const refreshFoodUsage = (
+  tx: UsageTransaction,
+  userId: string,
+  foodIds: (string | null)[],
+) => {
+  for (const id of [...new Set(foodIds.filter((id): id is string => id !== null))].sort()) {
+    // Existing hostile links are never foreign write targets; trashed owner foods still count.
+    const target = tx
+      .select({ id: foods.id })
+      .from(foods)
+      .where(and(eq(foods.id, id), eq(foods.userId, userId)))
+      .get();
+    if (target) reconcileFoodUsage(tx, userId, { mode: 'apply', limit: 1 }, id);
+  }
 };

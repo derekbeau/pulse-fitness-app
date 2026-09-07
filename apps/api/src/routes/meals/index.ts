@@ -25,7 +25,7 @@ import {
   authSecurity,
   badRequestResponseSchema,
   idParamsSchema,
-  mealItemParamsSchema,
+  opaqueIdParamSchema,
 } from '../../openapi.js';
 import { findFoodById } from '../foods/store.js';
 import {
@@ -34,7 +34,6 @@ import {
   findMealById,
   findMealItemById,
   getDailyNutritionSummaryForDate,
-  MealFoodOwnershipError,
   patchMealById,
   patchMealItemById,
 } from '../nutrition/store.js';
@@ -169,6 +168,17 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
+  app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof Error && error.name === 'MealFoodOwnershipError') {
+      return sendError(
+        reply,
+        400,
+        'INVALID_FOOD_REFERENCE',
+        'One or more food references are unavailable',
+      );
+    }
+    throw error;
+  });
 
   typedApp.post(
     '/',
@@ -230,7 +240,7 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
           items: resolvedItems,
         });
       } catch (error) {
-        if (error instanceof MealFoodOwnershipError) {
+        if (error instanceof Error && error.name === 'MealFoodOwnershipError') {
           return sendError(reply, 422, 'INVALID_MEAL_ITEMS', INVALID_MEAL_ITEMS_MESSAGE);
         }
 
@@ -305,7 +315,7 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
       try {
         updatedMeal = await addItemsToMeal(request.userId, request.params.id, resolvedItems);
       } catch (error) {
-        if (error instanceof MealFoodOwnershipError) {
+        if (error instanceof Error && error.name === 'MealFoodOwnershipError') {
           return sendError(reply, 422, 'INVALID_MEAL_ITEMS', INVALID_MEAL_ITEMS_MESSAGE);
         }
 
@@ -378,7 +388,7 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
       preHandler: agentRequestTransform,
       onSend: agentEnrichmentOnSend,
       schema: {
-        params: mealItemParamsSchema,
+        params: idParamsSchema.extend({ itemId: opaqueIdParamSchema }),
         body: patchMealItemInputSchema,
         response: {
           200: apiDataResponseSchema(nutritionMealItemSchema),
@@ -394,7 +404,7 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const existingMealItem = await findMealItemById(
         request.userId,
-        request.params.mealId,
+        request.params.id,
         request.params.itemId,
       );
       if (!existingMealItem) {
@@ -403,7 +413,7 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
 
       const updatedMealItem = await patchMealItemById(
         request.userId,
-        request.params.mealId,
+        request.params.id,
         request.params.itemId,
         request.body,
       );
