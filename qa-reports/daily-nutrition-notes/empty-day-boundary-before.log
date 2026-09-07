@@ -1,0 +1,757 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts (14 tests | 2 failed | 12 skipped) 603ms
+     ↓ creates an empty historical day, trims only edges, replaces, omits, and clears idempotently
+     ↓ has consistent detail, summary, logging context, and compact week notes with user isolation
+     ↓ rejects malformed bodies and dates, counts UTF-16 units after trim, and allows valid future notes
+     ↓ preserves all meal, food, target, energy, and adaptive facts on a populated complete day
+     ↓ rolls back failed insert and update triggers without partial notes or any integrity side effects
+     ↓ creates an empty historical day, trims only edges, replaces, omits, and clears idempotently
+     ↓ has consistent detail, summary, logging context, and compact week notes with user isolation
+     ↓ rejects malformed bodies and dates, counts UTF-16 units after trim, and allows valid future notes
+     ↓ preserves all meal, food, target, energy, and adaptive facts on a populated complete day
+     ↓ rolls back failed insert and update triggers without partial notes or any integrity side effects
+   ↓ rejects missing/invalid authentication without creating a log
+   ↓ publishes unified generated OpenAPI schemas and an explicit nullable daily response
+     × keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear 90ms
+     × keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear 49ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+AssertionError: expected { localDate: '2026-08-20', …(15) } to deeply equal { localDate: '2026-08-20', …(15) }
+
+- Expected
++ Received
+
+@@ -1,34 +1,34 @@
+  {
+    "adherence": null,
+    "completedDayCutoff": "2026-09-06",
+-   "dataState": "missing",
++   "dataState": "unknown",
+    "expenditure": null,
+    "innerToleranceKcal": null,
+    "intakeMinusExpenditureKcal": null,
+    "intakeMinusTargetKcal": null,
+    "isHistorical": true,
+    "localDate": "2026-08-20",
+    "nutrition": {
+-     "actualProteinGrams": null,
+-     "intakeKcal": null,
++     "actualProteinGrams": 0,
++     "intakeKcal": 0,
+      "itemCount": 0,
+-     "logId": null,
++     "logId": "6b6c7c65-1aa2-4132-9993-26842de49616",
+      "mealCount": 0,
+-     "status": null,
++     "status": "unknown",
+    },
+    "outerToleranceKcal": null,
+    "proteinFloor": {
+-     "actualProteinGrams": null,
++     "actualProteinGrams": 0,
+      "amountAboveFloorGrams": null,
+      "isFinal": false,
+      "proteinFloorGrams": null,
+      "remainingToFloorGrams": null,
+      "state": "unavailable",
+    },
+    "reasonCodes": [
+-     "MISSING_NUTRITION_NOT_GRADED",
++     "UNKNOWN_NUTRITION_NOT_GRADED",
+      "NO_ACCEPTED_TARGET",
+      "NO_ACCEPTED_EXPENDITURE",
+    ],
+    "target": null,
+    "timeZone": "America/Detroit",
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:355:58
+    353|       expect(response.statusCode).toBe(200);
+    354|       expect(response.json().data.log.notes).toBe(notes);
+    355|       expect.soft(await get(`${date}/energy-adherence`)).toEqual(energ…
+       |                                                          ^
+    356|       expect.soft({ ...(await get(`${date}/summary`)), notes: summary.…
+    357|       expect.soft(store.getState(owner)).toEqual(state);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/22]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > AgentToken note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > AgentToken note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+AssertionError: expected { date: '2026-08-20', …(5) } to deeply equal { date: '2026-08-20', …(5) }
+
+- Expected
++ Received
+
+@@ -7,11 +7,11 @@
+    },
+    "date": "2026-08-20",
+    "meals": 0,
+    "notes": null,
+    "proteinFloor": {
+-     "actualProteinGrams": null,
++     "actualProteinGrams": 0,
+      "amountAboveFloorGrams": null,
+      "isFinal": false,
+      "proteinFloorGrams": null,
+      "remainingToFloorGrams": null,
+      "state": "unavailable",
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:356:80
+    354|       expect(response.json().data.log.notes).toBe(notes);
+    355|       expect.soft(await get(`${date}/energy-adherence`)).toEqual(energ…
+    356|       expect.soft({ ...(await get(`${date}/summary`)), notes: summary.…
+       |                                                                                ^
+    357|       expect.soft(store.getState(owner)).toEqual(state);
+    358|       expect.soft(qualityStore.getCalendar(owner, { start: date, end: …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/22]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+AssertionError: expected { range: { …(2) }, …(4) } to deeply equal { range: { …(2) }, …(4) }
+
+- Expected
++ Received
+
+@@ -25,28 +25,33 @@
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "method": "navigate",
+            },
+          ],
+-         "createdAt": null,
+-         "evidenceState": "missing",
+-         "explicitStatus": null,
+-         "itemCount": null,
+-         "logId": null,
+-         "mealCount": null,
++         "createdAt": 1788814697000,
++         "evidenceState": "logged",
++         "explicitStatus": "unknown",
++         "itemCount": 0,
++         "logId": "6b6c7c65-1aa2-4132-9993-26842de49616",
++         "mealCount": 0,
+          "provenance": {
+            "agentTokenId": null,
+            "label": "Not recorded",
+-           "limitation": "No nutrition source record exists for this date.",
++           "limitation": "Historical creator provenance is not retained for nutrition logs.",
+            "type": "not_recorded",
+          },
+-         "qualityState": "no_records",
++         "qualityState": "unknown",
+          "reasonCodes": [],
+          "statusUpdatedAt": null,
+-         "totals": null,
+-         "updatedAt": null,
++         "totals": {
++           "calories": 0,
++           "carbs": 0,
++           "fat": 0,
++           "protein": 0,
+          },
++         "updatedAt": 1788814697000,
++       },
+        "omittedContextCount": 0,
+        "omittedWorkoutCount": 0,
+        "weight": {
+          "actions": [
+            {
+@@ -91,14 +96,14 @@
+      "contextDays": 0,
+      "intervalLabel": "Visible calendar grid",
+      "nutrition": {
+        "complete": 0,
+        "excluded": 0,
+-       "missing": 1,
++       "missing": 0,
+        "partial": 0,
+        "pending": 0,
+-       "unknown": 0,
++       "unknown": 1,
+      },
+      "weight": {
+        "excluded": 0,
+        "logged": 0,
+        "missing": 1,
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:358:80
+    356|       expect.soft({ ...(await get(`${date}/summary`)), notes: summary.…
+    357|       expect.soft(store.getState(owner)).toEqual(state);
+    358|       expect.soft(qualityStore.getCalendar(owner, { start: date, end: …
+       |                                                                                ^
+    359|       expect
+    360|         .soft(analyticsStore.getAnalytics(owner, { range: 'all', aggre…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/22]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+AssertionError: expected { …(9) } to deeply equal { …(9) }
+
+- Expected
++ Received
+
+@@ -94,36 +94,72 @@
+        "type": "goal_revision",
+      },
+    ],
+    "points": [
+      {
++       "calculationReasonCodes": [],
++       "calculationState": "baseline",
++       "completeNutritionDays": 0,
++       "excludedNutritionDays": 12,
++       "expenditureKcal": null,
++       "expenditureSourceCheckInId": null,
++       "expenditureSourceInputFingerprint": null,
++       "goalRevisionIds": [],
++       "goalType": null,
++       "includedInBalance": false,
++       "intakeKcal": null,
++       "loggedIntakeKcal": 0,
++       "missingNutritionDays": 11,
++       "nutritionLogIds": [
++         "6b6c7c65-1aa2-4132-9993-26842de49616",
++       ],
++       "nutritionStatus": "mixed",
++       "partialNutritionDays": 0,
++       "periodEnd": "2026-08-31",
++       "periodStart": "2026-08-20",
++       "reasonCodes": [
++         "UNKNOWN_NUTRITION_EXCLUDED",
++         "MISSING_NUTRITION_EXCLUDED",
++       ],
++       "sourceCheckInIds": [],
++       "sourceInputFingerprints": [],
++       "sourceNutritionStatus": "unknown",
++       "state": "learning",
++       "stateSourceCheckInId": null,
++       "stateSourceInputFingerprint": null,
++       "targetIds": [],
++       "targetKcal": null,
++       "trendWeightKg": null,
++       "unknownNutritionDays": 1,
++     },
++     {
+        "calculationReasonCodes": [
+          "INSUFFICIENT_WEIGHT",
+          "INSUFFICIENT_TREND_POINTS",
+          "INSUFFICIENT_NUTRITION",
+          "NO_OVERLAPPING_DATA",
+          "NO_CURRENT_WEIGHT",
+        ],
+        "calculationState": "holding",
+        "completeNutritionDays": 0,
+-       "excludedNutritionDays": 1,
++       "excludedNutritionDays": 7,
+        "expenditureKcal": 2500,
+        "expenditureSourceCheckInId": null,
+        "expenditureSourceInputFingerprint": null,
+        "goalRevisionIds": [
+          "898b6a53-7c35-44df-9dbe-05050d5be371",
+        ],
+        "goalType": "maintain",
+        "includedInBalance": false,
+        "intakeKcal": null,
+        "loggedIntakeKcal": null,
+-       "missingNutritionDays": 1,
++       "missingNutritionDays": 7,
+        "nutritionLogIds": [],
+        "nutritionStatus": "missing",
+        "partialNutritionDays": 0,
+        "periodEnd": "2026-09-07",
+-       "periodStart": "2026-09-07",
++       "periodStart": "2026-09-01",
+        "reasonCodes": [
+          "MISSING_NUTRITION_EXCLUDED",
+        ],
+        "sourceCheckInIds": [
+          "639ca703-7060-417f-bc9c-fec24f81798b",
+@@ -141,24 +177,24 @@
+        "unknownNutritionDays": 0,
+      },
+    ],
+    "range": {
+      "aggregation": "monthly",
+-     "calendarDays": 1,
++     "calendarDays": 19,
+      "endDate": "2026-09-07",
+      "preset": "all",
+-     "startDate": "2026-09-07",
++     "startDate": "2026-08-20",
+    },
+    "summary": {
+      "averageExpenditureKcal": 2500,
+      "averageIntakeKcal": null,
+      "averageIntakeMinusExpenditureKcal": null,
+      "averageIntakeMinusTargetKcal": null,
+      "averageTargetKcal": null,
+      "completeNutritionDays": 0,
+      "coverageRatio": 0,
+-     "excludedNutritionDays": 1,
++     "excludedNutritionDays": 19,
+      "intakeExpenditureComparableDays": 0,
+      "intakeTargetComparableDays": 0,
+      "observedTrendEndDate": null,
+      "observedTrendStartDate": null,
+      "observedTrendWeightChangeKg": null,
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:361:10
+    359|       expect
+    360|         .soft(analyticsStore.getAnalytics(owner, { range: 'all', aggre…
+    361|         .toEqual(analytics);
+       |          ^
+    362|       expect.soft(persistentFacts()).toEqual(beforeFacts);
+    363|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/22]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+AssertionError: expected [ { …(6) } ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "calories": 0,
++     "date": "2026-08-20",
++     "id": "6b6c7c65-1aa2-4132-9993-26842de49616",
++     "itemCount": 0,
++     "status": "unknown",
++     "updatedAt": 1788814697000,
++   },
++ ]
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:367:8
+    365|     expect
+    366|       .soft(afterPreview.inputSnapshot.nutritionDays)
+    367|       .toEqual(preview.inputSnapshot.nutritionDays);
+       |        ^
+    368|     expect.soft(afterPreview.inputFingerprint).toEqual(preview.inputFi…
+    369|     expect.soft(afterPreview.calculationSnapshot).toEqual(preview.calc…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/22]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+AssertionError: expected { …(21) } to deeply equal { …(21) }
+
+- Expected
++ Received
+
+@@ -11,11 +11,11 @@
+    },
+    "completeNutritionDays": 0,
+    "confidence": null,
+    "excludedNutritionDates": [],
+    "goal": null,
+-   "inputFingerprint": "80af91a3671538928443c8f56aec5db0c6d40c1048ffc1de1aa2c2f568d12600",
++   "inputFingerprint": "356ae51e4d3196300037a2206f8847364ad53408b83a2f52e487800e7fc350a4",
+    "kind": "weekly",
+    "latestTrendWeightKg": null,
+    "macros": null,
+    "observedTdeeKcal": null,
+    "priorTdeeKcal": 2500,
+@@ -23,10 +23,11 @@
+      "INSUFFICIENT_WEIGHT",
+      "INSUFFICIENT_TREND_POINTS",
+      "INSUFFICIENT_NUTRITION",
+      "NO_OVERLAPPING_DATA",
+      "NO_CURRENT_WEIGHT",
++     "EXCLUDED_INCOMPLETE_DAYS",
+    ],
+    "state": "learning",
+    "suspectWeightEntries": [],
+    "suspectWeightEntryIds": [],
+    "trendPointCount": 0,
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:369:51
+    367|       .toEqual(preview.inputSnapshot.nutritionDays);
+    368|     expect.soft(afterPreview.inputFingerprint).toEqual(preview.inputFi…
+    369|     expect.soft(afterPreview.calculationSnapshot).toEqual(preview.calc…
+       |                                                   ^
+    370|     expect.soft(afterPreview.id).toBe(preview.id);
+    371|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/22]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > Bearer note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+AssertionError: expected 'f54eb4b0-e7dc-4d32-b5c8-ae2600d01b2e' to be '639ca703-7060-417f-bc9c-fec24f81798b' // Object.is equality
+
+Expected: "639ca703-7060-417f-bc9c-fec24f81798b"
+Received: "f54eb4b0-e7dc-4d32-b5c8-ae2600d01b2e"
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:370:34
+    368|     expect.soft(afterPreview.inputFingerprint).toEqual(preview.inputFi…
+    369|     expect.soft(afterPreview.calculationSnapshot).toEqual(preview.calc…
+    370|     expect.soft(afterPreview.id).toBe(preview.id);
+       |                                  ^
+    371|   });
+    372| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/22]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > AgentToken note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > AgentToken note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+AssertionError: expected { localDate: '2026-08-20', …(15) } to deeply equal { localDate: '2026-08-20', …(15) }
+
+- Expected
++ Received
+
+@@ -1,34 +1,34 @@
+  {
+    "adherence": null,
+    "completedDayCutoff": "2026-09-06",
+-   "dataState": "missing",
++   "dataState": "unknown",
+    "expenditure": null,
+    "innerToleranceKcal": null,
+    "intakeMinusExpenditureKcal": null,
+    "intakeMinusTargetKcal": null,
+    "isHistorical": true,
+    "localDate": "2026-08-20",
+    "nutrition": {
+-     "actualProteinGrams": null,
+-     "intakeKcal": null,
++     "actualProteinGrams": 0,
++     "intakeKcal": 0,
+      "itemCount": 0,
+-     "logId": null,
++     "logId": "973a4d80-f8f2-46b6-a5c0-1433a07bca44",
+      "mealCount": 0,
+-     "status": null,
++     "status": "unknown",
+    },
+    "outerToleranceKcal": null,
+    "proteinFloor": {
+-     "actualProteinGrams": null,
++     "actualProteinGrams": 0,
+      "amountAboveFloorGrams": null,
+      "isFinal": false,
+      "proteinFloorGrams": null,
+      "remainingToFloorGrams": null,
+      "state": "unavailable",
+    },
+    "reasonCodes": [
+-     "MISSING_NUTRITION_NOT_GRADED",
++     "UNKNOWN_NUTRITION_NOT_GRADED",
+      "NO_ACCEPTED_TARGET",
+      "NO_ACCEPTED_EXPENDITURE",
+    ],
+    "target": null,
+    "timeZone": "America/Detroit",
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:355:58
+    353|       expect(response.statusCode).toBe(200);
+    354|       expect(response.json().data.log.notes).toBe(notes);
+    355|       expect.soft(await get(`${date}/energy-adherence`)).toEqual(energ…
+       |                                                          ^
+    356|       expect.soft({ ...(await get(`${date}/summary`)), notes: summary.…
+    357|       expect.soft(store.getState(owner)).toEqual(state);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/22]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > AgentToken note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > AgentToken note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+AssertionError: expected { range: { …(2) }, …(4) } to deeply equal { range: { …(2) }, …(4) }
+
+- Expected
++ Received
+
+@@ -25,28 +25,33 @@
+              "kind": "add_context",
+              "label": "Add bounded context",
+              "method": "navigate",
+            },
+          ],
+-         "createdAt": null,
+-         "evidenceState": "missing",
+-         "explicitStatus": null,
+-         "itemCount": null,
+-         "logId": null,
+-         "mealCount": null,
++         "createdAt": 1788814697000,
++         "evidenceState": "logged",
++         "explicitStatus": "unknown",
++         "itemCount": 0,
++         "logId": "973a4d80-f8f2-46b6-a5c0-1433a07bca44",
++         "mealCount": 0,
+          "provenance": {
+            "agentTokenId": null,
+            "label": "Not recorded",
+-           "limitation": "No nutrition source record exists for this date.",
++           "limitation": "Historical creator provenance is not retained for nutrition logs.",
+            "type": "not_recorded",
+          },
+-         "qualityState": "no_records",
++         "qualityState": "unknown",
+          "reasonCodes": [],
+          "statusUpdatedAt": null,
+-         "totals": null,
+-         "updatedAt": null,
++         "totals": {
++           "calories": 0,
++           "carbs": 0,
++           "fat": 0,
++           "protein": 0,
+          },
++         "updatedAt": 1788814697000,
++       },
+        "omittedContextCount": 0,
+        "omittedWorkoutCount": 0,
+        "weight": {
+          "actions": [
+            {
+@@ -91,14 +96,14 @@
+      "contextDays": 0,
+      "intervalLabel": "Visible calendar grid",
+      "nutrition": {
+        "complete": 0,
+        "excluded": 0,
+-       "missing": 1,
++       "missing": 0,
+        "partial": 0,
+        "pending": 0,
+-       "unknown": 0,
++       "unknown": 1,
+      },
+      "weight": {
+        "excluded": 0,
+        "logged": 0,
+        "missing": 1,
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:358:80
+    356|       expect.soft({ ...(await get(`${date}/summary`)), notes: summary.…
+    357|       expect.soft(store.getState(owner)).toEqual(state);
+    358|       expect.soft(qualityStore.getCalendar(owner, { start: date, end: …
+       |                                                                                ^
+    359|       expect
+    360|         .soft(analyticsStore.getAnalytics(owner, { range: 'all', aggre…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/22]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > AgentToken note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > AgentToken note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+AssertionError: expected { …(9) } to deeply equal { …(9) }
+
+- Expected
++ Received
+
+@@ -94,36 +94,72 @@
+        "type": "check_in",
+      },
+    ],
+    "points": [
+      {
++       "calculationReasonCodes": [],
++       "calculationState": "baseline",
++       "completeNutritionDays": 0,
++       "excludedNutritionDays": 12,
++       "expenditureKcal": null,
++       "expenditureSourceCheckInId": null,
++       "expenditureSourceInputFingerprint": null,
++       "goalRevisionIds": [],
++       "goalType": null,
++       "includedInBalance": false,
++       "intakeKcal": null,
++       "loggedIntakeKcal": 0,
++       "missingNutritionDays": 11,
++       "nutritionLogIds": [
++         "973a4d80-f8f2-46b6-a5c0-1433a07bca44",
++       ],
++       "nutritionStatus": "mixed",
++       "partialNutritionDays": 0,
++       "periodEnd": "2026-08-31",
++       "periodStart": "2026-08-20",
++       "reasonCodes": [
++         "UNKNOWN_NUTRITION_EXCLUDED",
++         "MISSING_NUTRITION_EXCLUDED",
++       ],
++       "sourceCheckInIds": [],
++       "sourceInputFingerprints": [],
++       "sourceNutritionStatus": "unknown",
++       "state": "learning",
++       "stateSourceCheckInId": null,
++       "stateSourceInputFingerprint": null,
++       "targetIds": [],
++       "targetKcal": null,
++       "trendWeightKg": null,
++       "unknownNutritionDays": 1,
++     },
++     {
+        "calculationReasonCodes": [
+          "INSUFFICIENT_WEIGHT",
+          "INSUFFICIENT_TREND_POINTS",
+          "INSUFFICIENT_NUTRITION",
+          "NO_OVERLAPPING_DATA",
+          "NO_CURRENT_WEIGHT",
+        ],
+        "calculationState": "holding",
+        "completeNutritionDays": 0,
+-       "excludedNutritionDays": 1,
++       "excludedNutritionDays": 7,
+        "expenditureKcal": 2500,
+        "expenditureSourceCheckInId": null,
+        "expenditureSourceInputFingerprint": null,
+        "goalRevisionIds": [
+          "433cacb4-a2fd-42b4-b27b-38f87508f620",
+        ],
+        "goalType": "maintain",
+        "includedInBalance": false,
+        "intakeKcal": null,
+        "loggedIntakeKcal": null,
+-       "missingNutritionDays": 1,
++       "missingNutritionDays": 7,
+        "nutritionLogIds": [],
+        "nutritionStatus": "missing",
+        "partialNutritionDays": 0,
+        "periodEnd": "2026-09-07",
+-       "periodStart": "2026-09-07",
++       "periodStart": "2026-09-01",
+        "reasonCodes": [
+          "MISSING_NUTRITION_EXCLUDED",
+        ],
+        "sourceCheckInIds": [
+          "a07f3e0d-760b-4e7b-aa5f-db0a830c2a5f",
+@@ -141,24 +177,24 @@
+        "unknownNutritionDays": 0,
+      },
+    ],
+    "range": {
+      "aggregation": "monthly",
+-     "calendarDays": 1,
++     "calendarDays": 19,
+      "endDate": "2026-09-07",
+      "preset": "all",
+-     "startDate": "2026-09-07",
++     "startDate": "2026-08-20",
+    },
+    "summary": {
+      "averageExpenditureKcal": 2500,
+      "averageIntakeKcal": null,
+      "averageIntakeMinusExpenditureKcal": null,
+      "averageIntakeMinusTargetKcal": null,
+      "averageTargetKcal": null,
+      "completeNutritionDays": 0,
+      "coverageRatio": 0,
+-     "excludedNutritionDays": 1,
++     "excludedNutritionDays": 19,
+      "intakeExpenditureComparableDays": 0,
+      "intakeTargetComparableDays": 0,
+      "observedTrendEndDate": null,
+      "observedTrendStartDate": null,
+      "observedTrendWeightChangeKg": null,
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:361:10
+    359|       expect
+    360|         .soft(analyticsStore.getAnalytics(owner, { range: 'all', aggre…
+    361|         .toEqual(analytics);
+       |          ^
+    362|       expect.soft(persistentFacts()).toEqual(beforeFacts);
+    363|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/22]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > AgentToken note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+AssertionError: expected [ { …(6) } ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "calories": 0,
++     "date": "2026-08-20",
++     "id": "973a4d80-f8f2-46b6-a5c0-1433a07bca44",
++     "itemCount": 0,
++     "status": "unknown",
++     "updatedAt": 1788814697000,
++   },
++ ]
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:367:8
+    365|     expect
+    366|       .soft(afterPreview.inputSnapshot.nutritionDays)
+    367|       .toEqual(preview.inputSnapshot.nutritionDays);
+       |        ^
+    368|     expect.soft(afterPreview.inputFingerprint).toEqual(preview.inputFi…
+    369|     expect.soft(afterPreview.calculationSnapshot).toEqual(preview.calc…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/22]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > AgentToken note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+AssertionError: expected { …(21) } to deeply equal { …(21) }
+
+- Expected
++ Received
+
+@@ -11,11 +11,11 @@
+    },
+    "completeNutritionDays": 0,
+    "confidence": null,
+    "excludedNutritionDates": [],
+    "goal": null,
+-   "inputFingerprint": "475f83c698dd6199aad502a15df2d9de4a63433eec39438636b437c2ab709007",
++   "inputFingerprint": "3ef3ffd4c7c7ec9907c2c01a320e78e238fcee54e5d082771ff55d1cf67e9009",
+    "kind": "weekly",
+    "latestTrendWeightKg": null,
+    "macros": null,
+    "observedTdeeKcal": null,
+    "priorTdeeKcal": 2500,
+@@ -23,10 +23,11 @@
+      "INSUFFICIENT_WEIGHT",
+      "INSUFFICIENT_TREND_POINTS",
+      "INSUFFICIENT_NUTRITION",
+      "NO_OVERLAPPING_DATA",
+      "NO_CURRENT_WEIGHT",
++     "EXCLUDED_INCOMPLETE_DAYS",
+    ],
+    "state": "learning",
+    "suspectWeightEntries": [],
+    "suspectWeightEntryIds": [],
+    "trendPointCount": 0,
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:369:51
+    367|       .toEqual(preview.inputSnapshot.nutritionDays);
+    368|     expect.soft(afterPreview.inputFingerprint).toEqual(preview.inputFi…
+    369|     expect.soft(afterPreview.calculationSnapshot).toEqual(preview.calc…
+       |                                                   ^
+    370|     expect.soft(afterPreview.id).toBe(preview.id);
+    371|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/22]⎯
+
+ FAIL  src/routes/nutrition/daily-notes.integration.test.ts > AgentToken note-only preservation boundary > keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear
+AssertionError: expected 'e91c743a-d654-4910-800c-4f08fd2dac82' to be 'a07f3e0d-760b-4e7b-aa5f-db0a830c2a5f' // Object.is equality
+
+Expected: "a07f3e0d-760b-4e7b-aa5f-db0a830c2a5f"
+Received: "e91c743a-d654-4910-800c-4f08fd2dac82"
+
+ ❯ src/routes/nutrition/daily-notes.integration.test.ts:370:34
+    368|     expect.soft(afterPreview.inputFingerprint).toEqual(preview.inputFi…
+    369|     expect.soft(afterPreview.calculationSnapshot).toEqual(preview.calc…
+    370|     expect.soft(afterPreview.id).toBe(preview.id);
+       |                                  ^
+    371|   });
+    372| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/22]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 12 skipped (14)
+   Start at  16:58:15
+   Duration  1.33s (transform 567ms, setup 0ms, import 620ms, tests 603ms, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-daily-nutrition-notes/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/nutrition/daily-notes.integration.test.ts -t note-only preservation boundary --maxWorkers=1

@@ -476,6 +476,7 @@ vi.mock('../routes/nutrition/store.js', () => ({
     if (!log) {
       return {
         date,
+        notes: null,
         meals: 0,
         actual: {
           calories: 0,
@@ -503,6 +504,7 @@ vi.mock('../routes/nutrition/store.js', () => ({
 
     return {
       date,
+      notes: null,
       meals: dayMeals.length,
       actual: {
         calories: items.reduce((total, item) => total + item.calories, 0),
@@ -973,6 +975,7 @@ describe('foods and nutrition integration', () => {
       expect(summaryResponse.statusCode).toBe(200);
       expect(parseData(summaryResponse)).toEqual({
         date,
+        notes: null,
         meals: 2,
         actual: {
           calories: 1_075,
@@ -1000,6 +1003,7 @@ describe('foods and nutrition integration', () => {
       expect(emptySummaryResponse.statusCode).toBe(200);
       expect(parseData(emptySummaryResponse)).toEqual({
         date: '2026-03-12',
+        notes: null,
         meals: 0,
         actual: {
           calories: 0,

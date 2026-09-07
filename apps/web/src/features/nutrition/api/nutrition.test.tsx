@@ -100,6 +100,7 @@ describe('nutrition api hooks', () => {
     mockFetch.mockResolvedValueOnce(
       createJsonResponse({
         date: '2026-03-09',
+        notes: null,
         meals: 3,
         actual: {
           calories: 1984,
@@ -248,6 +249,7 @@ describe('nutrition api hooks', () => {
       .mockResolvedValueOnce(
         createJsonResponse({
           date: '2026-03-09',
+          notes: null,
           meals: 0,
           actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
           target: null,

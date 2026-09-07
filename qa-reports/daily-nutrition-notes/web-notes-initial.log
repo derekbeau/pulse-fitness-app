@@ -1,0 +1,63 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-daily-nutrition-notes/apps/web
+
+ ✓ src/features/nutrition/components/daily-nutrition-note.test.tsx (7 tests) 274ms
+ ❯ src/features/nutrition/api/daily-note.test.tsx (3 tests | 1 failed) 281ms
+     ✓ cancels day reads and invalidates just note consumers (failure=false) 118ms
+     × cancels day reads and invalidates just note consumers (failure=true) 108ms
+     ✓ does not fabricate a log or status when an absent-day save fails 54ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/nutrition/api/daily-note.test.tsx > day-note query lifecycle > cancels day reads and invalidates just note consumers (failure=true)
+AssertionError: expected [ [ 'nutrition', 'day', …(1) ], …(7) ] to deeply equal [ [ 'nutrition', 'day', …(1) ], …(3) ]
+
+- Expected
++ Received
+
+@@ -16,6 +16,25 @@
+    ],
+    [
+      "nutrition",
+      "logging-context",
+    ],
++   [
++     "nutrition",
++     "day",
++     "2026-03-05",
++   ],
++   [
++     "nutrition",
++     "summary",
++     "2026-03-05",
++   ],
++   [
++     "nutrition",
++     "week-summary",
++     "2026-03-02",
++   ],
++   [
++     "nutrition",
++     "logging-context",
++   ],
+  ]
+
+ ❯ src/features/nutrition/api/daily-note.test.tsx:73:67
+     71|       expect(data?.log.notes).toBe(fail ? 'Original' : 'New note');
+     72|       if (fail) expect(data?.log.status).toBe('partial');
+     73|       expect(invalidate.mock.calls.map(([arg]) => arg?.queryKey)).toEq…
+       |                                                                   ^
+     74|         nutritionQueryKeys.day(date),
+     75|         nutritionQueryKeys.summary(date),
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 9 passed (10)
+   Start at  16:52:29
+   Duration  1.99s (transform 251ms, setup 193ms, import 579ms, tests 555ms, environment 455ms)
+
+undefined
+/Users/meridian/Projects/pulse-daily-nutrition-notes/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/features/nutrition/components/daily-nutrition-note.test.tsx src/features/nutrition/api/daily-note.test.tsx --maxWorkers=1

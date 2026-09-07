@@ -13,6 +13,7 @@ const weekSummary: NutritionWeekSummary = [
     protein: 0,
     proteinTarget: 180,
     mealCount: 0,
+    hasNote: false,
     completeness: 0,
   },
   {
@@ -22,6 +23,7 @@ const weekSummary: NutritionWeekSummary = [
     protein: 140,
     proteinTarget: 180,
     mealCount: 2,
+    hasNote: false,
     completeness: 0.79,
   },
   {
@@ -31,6 +33,7 @@ const weekSummary: NutritionWeekSummary = [
     protein: 180,
     proteinTarget: 180,
     mealCount: 3,
+    hasNote: false,
     completeness: 1,
   },
   {
@@ -40,6 +43,7 @@ const weekSummary: NutritionWeekSummary = [
     protein: 172,
     proteinTarget: 180,
     mealCount: 3,
+    hasNote: false,
     completeness: 0.95,
   },
   {
@@ -49,6 +53,7 @@ const weekSummary: NutritionWeekSummary = [
     protein: 160,
     proteinTarget: 180,
     mealCount: 3,
+    hasNote: false,
     completeness: 0.9,
   },
   {
@@ -58,6 +63,7 @@ const weekSummary: NutritionWeekSummary = [
     protein: 135,
     proteinTarget: 180,
     mealCount: 2,
+    hasNote: false,
     completeness: 0.76,
   },
   {
@@ -67,6 +73,7 @@ const weekSummary: NutritionWeekSummary = [
     protein: 120,
     proteinTarget: 180,
     mealCount: 2,
+    hasNote: false,
     completeness: 0.67,
   },
 ];
@@ -142,4 +149,26 @@ describe('NutritionWeekStrip', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Go to next week' }));
     expect(onNextWeek).not.toHaveBeenCalled();
   });
+});
+
+it('exposes a note on an empty historical day without changing its completeness or selection', () => {
+  const select = vi.fn();
+  render(
+    <NutritionWeekStrip
+      days={weekSummary.map((day, index) => ({ ...day, hasNote: index === 0 }))}
+      selectedDate="2026-03-05"
+      onSelectDate={select}
+      onPreviousWeek={vi.fn()}
+      onNextWeek={vi.fn()}
+    />,
+  );
+  const button = screen.getByRole('button', { name: 'Select 2026-03-02, has note' });
+  expect(screen.getByLabelText('Completeness empty for 2026-03-02')).toHaveAttribute(
+    'data-state',
+    'empty',
+  );
+  button.focus();
+  expect(button).toHaveFocus();
+  fireEvent.click(button);
+  expect(select).toHaveBeenCalledWith('2026-03-02');
 });

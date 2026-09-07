@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-daily-nutrition-notes/packages/shared
+
+ ✓ src/schemas/nutrition.test.ts (44 tests) 8ms
+
+ Test Files  1 passed (1)
+      Tests  44 passed (44)
+   Start at  16:54:46
+   Duration  170ms (transform 46ms, setup 0ms, import 62ms, tests 8ms, environment 0ms)
+

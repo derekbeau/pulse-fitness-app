@@ -11,6 +11,7 @@ const toWeekStartDateKey = (date: string): string => {
 
 export const nutritionKeys = {
   all: ['nutrition'] as const,
+  loggingContexts: ['nutrition', 'logging-context'] as const,
   day: (date: string) => ['nutrition', 'day', date] as const,
   daily: (date: string) => ['nutrition', 'day', date] as const,
   summary: (date: string) => ['nutrition', 'summary', date] as const,

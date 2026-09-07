@@ -27,6 +27,7 @@ import {
 import { NutritionTrends } from '@/features/nutrition/components/nutrition-trends';
 import {
   DailyEnergyAdherenceCard,
+  DailyNutritionNote,
   MealCard,
   NutritionMacroRings,
   NutritionWeekStrip,
@@ -598,6 +599,15 @@ export function NutritionLogTab({
           ) : (
             <NutritionTargetsPlaceholder proteinFloor={selectedDailyEnergy?.proteinFloor} />
           )}
+
+          {!isLoadingDay ? (
+            <DailyNutritionNote
+              key={dateKey}
+              date={dateKey}
+              notes={dailyNutritionQuery.data?.log.notes ?? null}
+              disabled={dateAuthorityLocked}
+            />
+          ) : null}
 
           {deleteErrorMessage ? (
             <p className="text-sm text-destructive" role="alert">

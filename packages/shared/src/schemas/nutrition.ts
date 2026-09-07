@@ -33,6 +33,20 @@ export const updateNutritionLogStatusInputSchema = z.object({
   status: nutritionLogStatusSchema,
 });
 
+export const nutritionDayNoteSchema = z
+  .string()
+  .trim()
+  .min(1, 'Enter a day note')
+  .max(2_000, 'Use 2,000 characters or fewer');
+
+export const patchNutritionLogInputSchema = z
+  .object({
+    notes: nutritionDayNoteSchema.nullable().optional(),
+  })
+  .strict();
+
+export type PatchNutritionLogInput = z.infer<typeof patchNutritionLogInputSchema>;
+
 export const nutritionMealSchema = z.object({
   id: z.string(),
   nutritionLogId: z.string(),
@@ -77,6 +91,7 @@ export const dailyNutritionSchema = z
 export const nutritionSummarySchema = z
   .object({
     date: dateSchema,
+    notes: z.string().nullable(),
     meals: z.number().int().nonnegative(),
     actual: nutritionMacroTotalsSchema,
     target: nutritionMacroTotalsSchema.nullable(),
@@ -193,6 +208,7 @@ export const nutritionWeekDaySummarySchema = z.object({
   protein: nonnegativeNumber,
   proteinTarget: nonnegativeNumber,
   mealCount: z.number().int().nonnegative(),
+  hasNote: z.boolean(),
   completeness: z.number().min(0).max(1),
 });
 
