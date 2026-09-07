@@ -84,18 +84,27 @@ Working-tree logs/screenshots are explicitly pre-commit evidence, not final-HEAD
 Mobile and desktop PNGs were inspected visually, including the horizontally scrollable comparison.
 Final verification regenerates screenshots on the clean committed implementation.
 
-## Execution metadata limitation
+## Launcher-owned execution evidence
 
-The contract requests the exact visible model/effort UI label. The Computer Use attempt to read
-Codex was refused: `Computer Use is not allowed to use the app 'com.openai.codex' for safety reasons.`
-No label-to-effort mapping or visible label is asserted. User clarification was requested while
-implementation continued. This restriction does not affect repository or browser verification.
+The launcher verified the exact UI label **GPT-6 Astra Light**. This is launcher-owned evidence,
+not an executor observation or a label-to-effort mapping. The user explicitly waived executor
+verification of the model/effort UI and confirmed that it is not a coding acceptance gate.
+The earlier Computer Use refusal is therefore no longer a blocker.
 
-## Prohibited actions
+## Publication authorization and boundaries
 
-No merge, push, deployment, production access/repair, migration creation/execution against canonical
-data, external message, or changes to the original dirty checkout. Disposable fixture migrations
-are test setup only. No known in-scope implementation finding is left unresolved.
+The user subsequently authorized committing, pushing this branch, and publishing a draft PR.
+No merge, deployment, production access/repair, migration creation/execution against canonical
+data, or changes to the original dirty checkout are authorized or performed. Disposable fixture
+migrations are test setup only. No known in-scope implementation finding is left unresolved.
+
+## Completed implementation-head verification
+
+The clean implementation commit `e1afd10551ea53c21c31f472bdbc8ca9c8c76f9e` passed all four
+uncached repository gates (each exit 0), 3,017 tests including repository scripts, and both
+installed-Chrome suites (5 existing flows and 7 compatibility flows, each exit 0). All 44
+artifacts in its exact-SHA manifest were hash-verified. The only subsequent tracked change is
+this evidence clarification; the final publication HEAD is verified again using the same harness.
 
 ## Literal pre-commit receipts
 
