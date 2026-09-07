@@ -1,8 +1,9 @@
+import { refreshFoodUsage } from '../routes/foods/store.js';
 import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { basename, join, relative, resolve } from 'node:path';
 
-import { and, eq, isNull, lt, max, or } from 'drizzle-orm';
+import { and, eq, isNull, or } from 'drizzle-orm';
 
 import { convertWeightToKg } from '@pulse/shared';
 
@@ -2284,41 +2285,7 @@ export const migrateFoodsDatabase = async ({
     summary.inserted += 1;
   }
 
-  // Backfill lastUsedAt from existing meal_items usage (name match)
-  const usageRows = db
-    .select({
-      name: mealItems.name,
-      latestDate: max(nutritionLogs.date),
-    })
-    .from(mealItems)
-    .innerJoin(meals, eq(meals.id, mealItems.mealId))
-    .innerJoin(nutritionLogs, eq(nutritionLogs.id, meals.nutritionLogId))
-    .where(eq(nutritionLogs.userId, userId))
-    .groupBy(mealItems.name)
-    .all();
-
-  for (const usage of usageRows) {
-    if (!usage.latestDate) {
-      continue;
-    }
-
-    const usageTimestamp = new Date(`${usage.latestDate}T00:00:00.000Z`).getTime();
-    const updated = db
-      .update(foods)
-      .set({ lastUsedAt: usageTimestamp })
-      .where(
-        and(
-          eq(foods.userId, userId),
-          eq(foods.name, usage.name),
-          or(isNull(foods.lastUsedAt), lt(foods.lastUsedAt, usageTimestamp)),
-        ),
-      )
-      .run();
-
-    if (updated.changes > 0) {
-      summary.lastUsedAtUpdated += updated.changes;
-    }
-  }
+  // Usage comes only from surviving saved-food links, never name matches.
 
   logger.info(
     `Foods migration summary: inserted ${summary.inserted}, skipped ${summary.skipped}, lastUsedAt updated ${summary.lastUsedAtUpdated}.`,
@@ -2419,6 +2386,14 @@ export const migrateDailyLogsAndBodyWeight = async ({
             throw new Error(`Failed to load nutrition log for ${date}`);
           }
 
+          const previousFoodIds = tx
+            .select({ foodId: mealItems.foodId })
+            .from(mealItems)
+            .innerJoin(meals, eq(meals.id, mealItems.mealId))
+            .where(eq(meals.nutritionLogId, nutritionLog.id))
+            .all()
+            .map((item) => item.foodId);
+          const affectedFoodIds = [...previousFoodIds];
           tx.delete(meals).where(eq(meals.nutritionLogId, nutritionLog.id)).run();
 
           for (const meal of dayRecord.meals) {
@@ -2448,6 +2423,7 @@ export const migrateDailyLogsAndBodyWeight = async ({
                 );
               }
 
+              affectedFoodIds.push(foodId);
               tx.insert(mealItems)
                 .values({
                   mealId: insertedMeal.id,
@@ -2466,6 +2442,7 @@ export const migrateDailyLogsAndBodyWeight = async ({
             }
           }
 
+          refreshFoodUsage(tx, userId, affectedFoodIds);
           downgradeCompleteNutritionLogs(tx, [nutritionLog.id]);
         }
 

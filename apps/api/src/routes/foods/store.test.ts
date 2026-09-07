@@ -434,8 +434,8 @@ describe('foods store', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('soft-deletes foods by scope and updates usage counters safely', async () => {
-    const { decrementFoodUsage, deleteFood, trackFoodUsage } = await import('./store.js');
+  it('soft-deletes foods by scope', async () => {
+    const { deleteFood } = await import('./store.js');
 
     await expect(deleteFood('food-1', 'user-1')).resolves.toBe(true);
     expect(dbState.updateSets[0]).toEqual({
@@ -445,129 +445,9 @@ describe('foods store', () => {
     dbState.updateRunResult = { changes: 0 };
     await expect(deleteFood('food-1', 'user-2')).resolves.toBe(false);
     dbState.updateRunResult = { changes: 1 };
-
-    await trackFoodUsage('food-1', 'user-1', 1_700_000_300_000);
-
-    expect(dbState.updateSets.at(-1)).toMatchObject({
-      lastUsedAt: 1_700_000_300_000,
-    });
-    expect(dbState.updateSets.at(-1)).toHaveProperty('usageCount');
-    const updateWhereText = flattenSql(dbState.updateWhereCalls.at(-1));
-    expect(updateWhereText).toContain('id = food-1');
-    expect(updateWhereText).toContain('user_id = user-1');
-
-    await decrementFoodUsage('food-1', 'user-1');
-
-    expect(dbState.updateSets.at(-1)).toEqual({
-      usageCount: expect.anything(),
-    });
-    expect(dbState.updateSets.at(-1)).not.toHaveProperty('lastUsedAt');
-    expect(flattenSql((dbState.updateSets.at(-1) as { usageCount: unknown }).usageCount)).toContain(
-      'case when usage_count > 0 then usage_count - 1 else 0 end',
-    );
   });
 
-  it('merges foods transactionally by relinking meal items, combining usage stats, and soft-deleting the loser', async () => {
-    const winnerId = '11111111-1111-4111-8111-111111111111';
-    const loserId = '22222222-2222-4222-8222-222222222222';
-    dbState.selectResults.push(
-      {
-        get: buildStoredFood({
-          id: winnerId,
-          usageCount: 4,
-          lastUsedAt: 1_700_000_100_000,
-        }),
-      },
-      {
-        get: buildStoredFood({
-          id: loserId,
-          name: 'Skyr',
-          usageCount: 7,
-          lastUsedAt: 1_700_000_400_000,
-        }),
-      },
-      {
-        get: buildStoredFood({
-          id: winnerId,
-          usageCount: 11,
-          lastUsedAt: 1_700_000_400_000,
-        }),
-      },
-    );
-
-    const { mergeFoods } = await import('./store.js');
-    const mergedWinner = await mergeFoods('user-1', winnerId, loserId);
-
-    expect(dbState.transaction).toHaveBeenCalledOnce();
-    expect(mergedWinner).toEqual(
-      expect.objectContaining({
-        id: winnerId,
-        usageCount: 11,
-        lastUsedAt: 1_700_000_400_000,
-      }),
-    );
-    expect(dbState.updateSets).toHaveLength(4);
-    expect(dbState.updateSets[0]).toMatchObject({ status: 'partial' });
-    expect(dbState.updateSets[1]).toEqual({
-      foodId: winnerId,
-    });
-    expect(dbState.updateSets[2]).toMatchObject({
-      usageCount: 11,
-      lastUsedAt: 1_700_000_400_000,
-      updatedAt: expect.any(Number),
-    });
-    expect(dbState.updateSets[3]).toMatchObject({
-      deletedAt: expect.any(String),
-      updatedAt: expect.any(Number),
-    });
-
-    const relinkWhereText = flattenSql(dbState.updateWhereCalls[1]);
-    expect(relinkWhereText).toContain(`food_id = ${loserId}`);
-    expect(relinkWhereText).toContain('exists');
-    expect(relinkWhereText).toContain('user_id = user-1');
-    const winnerWhereText = flattenSql(dbState.updateWhereCalls[2]);
-    expect(winnerWhereText).toContain(`id = ${winnerId}`);
-    expect(winnerWhereText).toContain('user_id = user-1');
-    const loserWhereText = flattenSql(dbState.updateWhereCalls[3]);
-    expect(loserWhereText).toContain(`id = ${loserId}`);
-    expect(loserWhereText).toContain('user_id = user-1');
-  });
-
-  it('uses the max available lastUsedAt when merging nullable timestamps', async () => {
-    const winnerId = '11111111-1111-4111-8111-111111111111';
-    const loserId = '22222222-2222-4222-8222-222222222222';
-    dbState.selectResults.push(
-      {
-        get: buildStoredFood({
-          id: winnerId,
-          usageCount: 2,
-          lastUsedAt: null,
-        }),
-      },
-      {
-        get: buildStoredFood({
-          id: loserId,
-          usageCount: 3,
-          lastUsedAt: 1_700_000_500_000,
-        }),
-      },
-      {
-        get: buildStoredFood({
-          id: winnerId,
-          usageCount: 5,
-          lastUsedAt: 1_700_000_500_000,
-        }),
-      },
-    );
-
-    const { mergeFoods } = await import('./store.js');
-    await mergeFoods('user-1', winnerId, loserId);
-
-    expect(dbState.updateSets[2]).toMatchObject({
-      lastUsedAt: 1_700_000_500_000,
-    });
-  });
-
+  // Exact merge projections are covered with real SQLite in store.food-usage.test.ts.
   it('rejects invalid merge combinations and missing scoped foods', async () => {
     const winnerId = '11111111-1111-4111-8111-111111111111';
     const loserId = '22222222-2222-4222-8222-222222222222';

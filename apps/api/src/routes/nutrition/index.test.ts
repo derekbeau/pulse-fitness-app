@@ -6,7 +6,6 @@ import {
   findUserAuthById,
   updateAgentTokenLastUsedAt,
 } from '../../middleware/store.js';
-import { trackFoodUsage } from '../foods/store.js';
 import { getDailyEnergyAdherenceForDate } from './daily-energy-store.js';
 
 import {
@@ -51,10 +50,6 @@ vi.mock('./status-store.js', async (importOriginal) => {
     updateNutritionLogStatus: vi.fn(),
   };
 });
-
-vi.mock('../foods/store.js', () => ({
-  trackFoodUsage: vi.fn(),
-}));
 
 vi.mock('../../middleware/store.js', () => ({
   findAgentTokenByHash: vi.fn(),
@@ -356,12 +351,10 @@ describe('nutrition routes', () => {
     vi.mocked(updateNutritionLogStatus).mockReset();
     vi.mocked(patchMealById).mockReset();
     vi.mocked(patchMealItemById).mockReset();
-    vi.mocked(trackFoodUsage).mockReset();
     vi.mocked(findAgentTokenByHash).mockReset();
     vi.mocked(findUserAuthById).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockReset();
     vi.mocked(getDailyEnergyAdherenceForDate).mockReset();
-    vi.mocked(trackFoodUsage).mockResolvedValue(undefined);
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-nutrition-routes-secret';
   });
@@ -555,8 +548,6 @@ describe('nutrition routes', () => {
           },
         ],
       });
-      expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledTimes(1);
-      expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledWith('food-1', 'user-1');
     } finally {
       await app.close();
     }
@@ -683,55 +674,6 @@ describe('nutrition routes', () => {
         limitRecentItems: 50,
       });
       expect(vi.mocked(updateAgentTokenLastUsedAt)).toHaveBeenCalledWith('agent-token-1');
-    } finally {
-      await app.close();
-    }
-  });
-
-  it('does not fail meal creation when recency updates fail', async () => {
-    vi.mocked(createMealForDate).mockResolvedValue({
-      meal,
-      items: mealItems,
-    });
-    vi.mocked(trackFoodUsage).mockRejectedValueOnce(new Error('transient update failure'));
-
-    const app = buildServer();
-
-    try {
-      await app.ready();
-      const authToken = app.jwt.sign(
-        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
-        { expiresIn: '7d' },
-      );
-      const response = await app.inject({
-        method: 'POST',
-        url: '/api/v1/nutrition/2026-03-09/meals',
-        headers: createAuthorizationHeader(authToken),
-        payload: {
-          name: 'Lunch',
-          items: [
-            {
-              foodId: 'food-1',
-              name: 'Chicken Breast',
-              amount: 8,
-              unit: 'oz',
-              calories: 374,
-              protein: 70,
-              carbs: 0,
-              fat: 8,
-            },
-          ],
-        },
-      });
-
-      expect(response.statusCode).toBe(201);
-      expect(response.json()).toEqual({
-        data: {
-          meal,
-          items: mealItems,
-        },
-      });
-      expect(vi.mocked(trackFoodUsage)).toHaveBeenCalledWith('food-1', 'user-1');
     } finally {
       await app.close();
     }

@@ -760,7 +760,7 @@ describe('migrate-static script', () => {
     expect(secondPassCounts).toEqual(firstPassCounts);
   });
 
-  it('migrates foods from foods.json, skipping duplicates and backfilling lastUsedAt', async () => {
+  it('migrates foods from foods.json, skipping duplicates without inventing usage', async () => {
     const captured = buildLogger();
 
     const summary = await scriptModule.migrateFoodsDatabase({
@@ -814,42 +814,47 @@ describe('migrate-static script', () => {
     expect(captured.warnMessages.some((m) => m.includes('not found or unreadable'))).toBe(true);
   });
 
-  it('backfills lastUsedAt from meal_items after daily logs are migrated', async () => {
-    // First migrate foods (new: Greek Yogurt, Oat Bran; seeded: Large Eggs, Chicken Breast)
+  it('derives food usage from imported links and preserves exact usage on reimport', async () => {
     await scriptModule.migrateFoodsDatabase({ userId: 'user-1', dataRoot });
-
-    // Then migrate daily logs (which inserts meal_items referencing "Large Eggs")
-    await scriptModule.migrateDailyLogsAndBodyWeight({ userId: 'user-1', dataRoot });
-
-    // Seed a stale timestamp to verify backfill moves it forward when newer usage exists.
-    dbModule.db
-      .update(foods)
-      .set({ lastUsedAt: new Date('2026-03-01T00:00:00.000Z').getTime() })
-      .where(and(eq(foods.userId, 'user-1'), eq(foods.name, 'Large Eggs')))
-      .run();
-
-    // Re-run foods migration to trigger lastUsedAt backfill
-    const captured = buildLogger();
-    const summary2 = await scriptModule.migrateFoodsDatabase({
-      userId: 'user-1',
-      dataRoot,
-      logger: captured.logger,
-    });
-
-    // All foods skipped on second run (already exist)
-    expect(summary2.inserted).toBe(0);
-    expect(summary2.skipped).toBe(3);
-    expect(summary2.lastUsedAtUpdated).toBeGreaterThanOrEqual(2);
-
-    // lastUsedAt should be moved to latest usage date for Large Eggs (used in daily logs)
-    const eggs = dbModule.db
-      .select({ lastUsedAt: foods.lastUsedAt })
-      .from(foods)
-      .where(and(eq(foods.userId, 'user-1'), eq(foods.name, 'Large Eggs')))
-      .limit(1)
-      .get();
-
-    expect(eggs?.lastUsedAt).toBe(new Date('2026-03-06T00:00:00.000Z').getTime());
+    let linkedBeforeTrash = 0;
+    for (let run = 0; run < 2; run++) {
+      await scriptModule.migrateDailyLogsAndBodyWeight({ userId: 'user-1', dataRoot });
+      const linked = dbModule.sqlite
+        .prepare("SELECT COUNT(*) AS count FROM meal_items WHERE food_id='food-eggs'")
+        .get() as { count: number };
+      expect(linked.count).toBeGreaterThan(0);
+      if (run === 0) {
+        linkedBeforeTrash = linked.count;
+        const { deleteFood } = await import('../routes/foods/store.js');
+        await deleteFood('food-eggs', 'user-1');
+      } else {
+        expect(linked.count).toBe(linkedBeforeTrash);
+        expect(
+          dbModule.sqlite.prepare("SELECT deleted_at FROM foods WHERE id='food-eggs'").get(),
+        ).toMatchObject({ deleted_at: expect.any(String) });
+      }
+      const rows = dbModule.sqlite
+        .prepare(
+          `SELECT f.usage_count, f.last_used_at,
+        (SELECT COUNT(*) FROM meal_items i JOIN meals m ON m.id=i.meal_id JOIN nutrition_logs n ON n.id=m.nutrition_log_id WHERE i.food_id=f.id AND n.user_id=f.user_id) AS expected_count,
+        (SELECT MAX(i.created_at) FROM meal_items i JOIN meals m ON m.id=i.meal_id JOIN nutrition_logs n ON n.id=m.nutrition_log_id WHERE i.food_id=f.id AND n.user_id=f.user_id) AS expected_time
+        FROM foods f WHERE f.user_id='user-1' `,
+        )
+        .all();
+      for (const row of rows as {
+        usage_count: number;
+        last_used_at: number | null;
+        expected_count: number;
+        expected_time: number | null;
+      }[]) {
+        expect(row.usage_count).toBe(row.expected_count);
+        expect(row.last_used_at).toBe(row.expected_time);
+      }
+    }
+    const before = dbModule.sqlite.serialize();
+    const summary = await scriptModule.migrateFoodsDatabase({ userId: 'user-1', dataRoot });
+    expect(summary.lastUsedAtUpdated).toBe(0);
+    expect(dbModule.sqlite.serialize()).toEqual(before);
   });
 
   it('is idempotent for foods migration when re-run', async () => {

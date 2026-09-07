@@ -1,0 +1,18 @@
+{
+  "apps/api/src/__tests__/food-usage-reconciliation.test.ts": "95392f417182ae28fbc5c1863143f6aa637544f39dc29b6ca0dc9bc5d39f5eaf",
+  "apps/api/src/__tests__/foods-nutrition.test.ts": "991ffc31d41c49749279bc336b585b718b117844be52db86769f79cf7c96826a",
+  "apps/api/src/routes/foods/store.test.ts": "3d9e4bf4974477205dc91f895258d92dc9e3f3118c7e7ef87d832ae02682f4d7",
+  "apps/api/src/routes/foods/store.ts": "4a986afb67c5d2851c4cf85297da45aaf725b0fdd17ac0ce75bda9c8f5358709",
+  "apps/api/src/routes/meals/index.ts": "e153f6d486e8f38c5e80c5f3d4b92a58aa4954a5f8adfae40b55407e4695952f",
+  "apps/api/src/routes/nutrition/index.test.ts": "ad79933785541d2093829aa0878ed1e81cce9c3132d12c30855d6316e64f7b9b",
+  "apps/api/src/routes/nutrition/index.ts": "6ec97d50e414a31a47884fb33b9d09feca3858df5ad8fde95e01c21d88f6c0c5",
+  "apps/api/src/routes/nutrition/store.food-usage.test.ts": "1a4f0557f6754195604f11dcf94a42ae685b4259dbf06f2fbec34ac4c96df9a0",
+  "apps/api/src/routes/nutrition/store.ts": "be080b391a7e711d6736c44c3673d11058dec22fe9984deaa514402dafc49972",
+  "apps/api/src/routes/trash/index.ts": "a29eb6c2eb27a18195fc69d9db8f04b6ce57cec16ba40ca70c957bc7450b2f7d",
+  "apps/api/src/routes/v1/index.ts": "e86c956ee0d4a19a75072aa5423a826a00929ed3cbe5960b375ca8376455b8ef",
+  "apps/api/src/scripts/migrate-static.test.ts": "12e61b76c27bb2b4ef6c0762024195cb346a928df0f9bc5b4824cd8fbc1114d8",
+  "apps/api/src/scripts/migrate-static.ts": "d56f05e986f599208a86598bdea8a1b7b515bbf1663b26dfbe1517b265650de6",
+  "apps/api/src/scripts/verify-food-usage-integrity.ts": "15270710ef5b9716940acc61d67aadde21c82a1e763c7e48ce5a6c998a13d9fe",
+  "packages/shared/src/index.ts": "2011e07366c85cc64d709e6e5b2bb12005f090f47fbd5eddcc1a5fda4a3ed610",
+  "packages/shared/src/schemas/food-usage.ts": "3432884c84bc4e1894de76711de7f3c7ed39b211a9d21f0907002447d5d1b011"
+}

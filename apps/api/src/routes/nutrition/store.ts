@@ -1,3 +1,4 @@
+import { refreshFoodUsage } from '../foods/store.js';
 import { and, asc, between, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 
 import { type ProteinFloorProgress } from '@pulse/shared';
@@ -97,15 +98,6 @@ export type NutritionSummaryRecord = {
 };
 
 const WEEK_DAYS = 7;
-type FoodUsageTrackingEffect =
-  | {
-      action: 'increment';
-      foodId: string;
-    }
-  | {
-      action: 'decrement';
-      foodId: string;
-    };
 type MealInputItemWithMacros = CreateMealInput['items'][number] & {
   calories: number;
   protein: number;
@@ -199,55 +191,6 @@ const getWeekStartMonday = (date: Date) => {
   const day = date.getUTCDay();
   const offset = day === 0 ? -6 : 1 - day;
   return addUtcDays(date, offset);
-};
-
-const logFoodUsageTrackingFailure = (
-  userId: string,
-  effect: FoodUsageTrackingEffect,
-  reason: unknown,
-  context: string,
-) => {
-  console.warn(`Failed to ${effect.action} food usage in meal store during ${context}`, {
-    err: reason,
-    foodId: effect.foodId,
-    userId,
-  });
-};
-
-const applyFoodUsageTrackingEffects = async (
-  userId: string,
-  effects: FoodUsageTrackingEffect[],
-  context: string,
-) => {
-  if (effects.length === 0) {
-    return;
-  }
-
-  try {
-    const { decrementFoodUsage, trackFoodUsage } = await import('../foods/store.js');
-    const results = await Promise.allSettled(
-      effects.map((effect) =>
-        effect.action === 'increment'
-          ? trackFoodUsage(effect.foodId, userId)
-          : decrementFoodUsage(effect.foodId, userId),
-      ),
-    );
-
-    results.forEach((result, index) => {
-      const effect = effects[index];
-      if (result.status === 'rejected') {
-        if (!effect) {
-          return;
-        }
-
-        logFoodUsageTrackingFailure(userId, effect, result.reason, context);
-      }
-    });
-  } catch (error) {
-    effects.forEach((effect) => {
-      logFoodUsageTrackingFailure(userId, effect, error, context);
-    });
-  }
 };
 
 const normalizeSearchText = (value: string) =>
@@ -725,23 +668,13 @@ export const createMealForDate = async (
 
     downgradeCompleteNutritionLogs(tx, [nutritionLog.id]);
 
+    refreshFoodUsage(
+      tx,
+      userId,
+      items.map((item) => item.foodId),
+    );
     return { meal, items };
   });
-
-  await applyFoodUsageTrackingEffects(
-    userId,
-    created.items.flatMap((item) =>
-      isTrackedFoodId(item.foodId)
-        ? [
-            {
-              action: 'increment' as const,
-              foodId: item.foodId,
-            },
-          ]
-        : [],
-    ),
-    'meal creation',
-  );
 
   return created;
 };
@@ -1032,10 +965,14 @@ export const deleteMealForDate = async (
     tx.delete(mealItems).where(eq(mealItems.mealId, mealId)).run();
     const result = tx.delete(meals).where(eq(meals.id, mealId)).run();
 
-    if (result.changes === 1) {
-      downgradeCompleteNutritionLogs(tx, [scopedMeal.nutritionLogId]);
-    }
+    if (result.changes !== 1) throw new Error('Failed to delete meal');
+    downgradeCompleteNutritionLogs(tx, [scopedMeal.nutritionLogId]);
 
+    refreshFoodUsage(
+      tx,
+      userId,
+      existingItems.map((item) => item.foodId),
+    );
     return {
       deleted: result.changes === 1,
       foodIds: existingItems.map((item) => item.foodId).filter(isTrackedFoodId),
@@ -1045,15 +982,6 @@ export const deleteMealForDate = async (
   if (!deleteResult.deleted) {
     return false;
   }
-
-  await applyFoodUsageTrackingEffects(
-    userId,
-    deleteResult.foodIds.map((foodId) => ({
-      action: 'decrement' as const,
-      foodId,
-    })),
-    'meal deletion',
-  );
 
   return true;
 };
@@ -1103,7 +1031,7 @@ export const addItemsToMeal = async (
     | {
         meal: MealRecord;
         items: MealItemRecord[];
-        // Carry newly inserted items outside the transaction for usage tracking side effects.
+        // Newly inserted items are used for the transactional projection.
         insertedItems: MealItemRecord[];
       }
     | undefined;
@@ -1182,6 +1110,11 @@ export const addItemsToMeal = async (
       .orderBy(asc(mealItems.createdAt))
       .all();
 
+    refreshFoodUsage(
+      tx,
+      userId,
+      insertedItems.map((item) => item.foodId),
+    );
     return {
       meal: updatedMeal,
       items: allItems,
@@ -1192,21 +1125,6 @@ export const addItemsToMeal = async (
   if (!updated) {
     return undefined;
   }
-
-  await applyFoodUsageTrackingEffects(
-    userId,
-    updated.insertedItems.flatMap((item) =>
-      isTrackedFoodId(item.foodId)
-        ? [
-            {
-              action: 'increment' as const,
-              foodId: item.foodId,
-            },
-          ]
-        : [],
-    ),
-    'meal item append',
-  );
 
   return {
     meal: updated.meal,
@@ -1376,11 +1294,11 @@ export const patchMealItemById = async (
         const ownedFoods = tx
           .select({ id: foods.id })
           .from(foods)
-          .where(and(eq(foods.id, nextFoodId), eq(foods.userId, userId)))
+          .where(and(eq(foods.id, nextFoodId), eq(foods.userId, userId), isNull(foods.deletedAt)))
           .all();
 
         if (ownedFoods.length !== 1) {
-          throw new Error('One or more foodIds do not belong to this user');
+          throw new MealFoodOwnershipError();
         }
       }
       itemUpdate.foodId = nextFoodId;
@@ -1399,6 +1317,7 @@ export const patchMealItemById = async (
 
     downgradeCompleteNutritionLogs(tx, [existingItem.nutritionLogId]);
 
+    refreshFoodUsage(tx, userId, [existingItem.foodId, updatedItem.foodId]);
     return {
       previousFoodId: existingItem.foodId,
       updatedItem,
@@ -1408,24 +1327,6 @@ export const patchMealItemById = async (
   if (!updated) {
     return undefined;
   }
-
-  const effects: FoodUsageTrackingEffect[] = [];
-  if (updated.previousFoodId !== updated.updatedItem.foodId) {
-    if (isTrackedFoodId(updated.previousFoodId)) {
-      effects.push({
-        action: 'decrement',
-        foodId: updated.previousFoodId,
-      });
-    }
-    if (isTrackedFoodId(updated.updatedItem.foodId)) {
-      effects.push({
-        action: 'increment',
-        foodId: updated.updatedItem.foodId,
-      });
-    }
-  }
-
-  await applyFoodUsageTrackingEffects(userId, effects, 'meal item update');
 
   return updated.updatedItem;
 };

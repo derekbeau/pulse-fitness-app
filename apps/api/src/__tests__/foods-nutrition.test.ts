@@ -441,6 +441,9 @@ vi.mock('../routes/nutrition/store.js', () => ({
           createdAt,
         };
         testState.mealItems.set(createdItem.id, createdItem);
+        // The store owns usage tracking; date routes do not add another effect.
+        if (createdItem.foodId)
+          incrementFoodUsageInState(createdItem.foodId, userId, createdItem.createdAt);
         return createdItem;
       });
 
