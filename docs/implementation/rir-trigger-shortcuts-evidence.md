@@ -95,8 +95,17 @@ One read-only internal reviewer was explicitly launched as **GPT-5.6 Luna / medi
 
 The delegation tool exposes model and reasoning effort but no Fast/service-tier parameter, so Fast support could not be enabled or visibly verified through that surface. No flags were invented.
 
-The frozen primary launch UI readback remains unverified: `cua.getApp('Codex')` returned `Computer Use is not allowed to use the app 'com.openai.codex' for safety reasons.` User confirmation of Astra / Extra High / Fast ON was requested. This is a launch-evidence limitation, not a claimed verified setting.
+The planner clarified that model/effort/Fast UI verification is launcher-owned and never a coding acceptance gate. The launcher observed **GPT-6 Astra / Extra High**. **Fast activation remains unverified**; no independent confirmation is claimed. The executor is released from inspecting native UI or proving these settings. This clarification waives only executor UI-label verification; every substantive product, test, and evidence requirement remains in force. The original blocked inspection receipt is preserved in `preflight.json`.
 
 Implementation, internal review, focused/full checks, and browser acceptance are complete. The temporary native tab was closed, both executor-owned preview services were stopped, and both ports were verified free. Shutdown receipt: `services-stopped.json`. The final manifest hashes the implementation and retained evidence; fixture credentials and database remain ignored.
 
-The native final report supplies the exact commit, branch, draft PR URL, and clean Git status after commit/push. Remaining implementation/test/browser gate work: **none**. The sole outstanding frozen-contract evidence is visible primary launch settings readback. No merge or deployment was performed.
+## Completion and exact source lineage
+
+**COMPLETE — ready for parent independent review.** There are no remaining executor acceptance blockers. Independent acceptance belongs to the parent reviewer; no merge or deployment was performed.
+
+- Verified implementation and substantive evidence commit: `17d10c6e8e959171abd4a14738c2619e2a75911e`.
+- Delivery branch: `fix/rir-trigger-shortcuts`.
+- Draft PR: [#159](https://github.com/derekbeau/pulse-fitness-app/pull/159).
+- The completion follow-up changes only this report, `artifacts/issue-155/completion.json`, and its manifest. All implementation/test files and retained raw evidence remain byte-identical to the verified commit above.
+- Passing suites were not rerun for launcher settings. Completion validation checks the source/evidence hashes, frozen-contract hash, metadata formatting, exact PR/remote/local head agreement, and clean worktree status.
+- The final delivery SHA is recorded in the native final report, PR description, and ignored `logs/issue-155/delivery.json`. `completion.json` records the tested implementation SHA and planner clarification without a circular self-commit reference.

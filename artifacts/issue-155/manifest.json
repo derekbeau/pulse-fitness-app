@@ -10,7 +10,7 @@
     "apps/web/e2e/rir-trigger-fixture.ts": "48837b96879acb0bc940ad16882cd43f270d82a8a611659fb03a9f0e950a578b",
     "apps/web/e2e/rir-trigger-shortcuts.spec.ts": "dddeb0e9e07f1fc925e1436b23a77eba95a5e83305ebaaca6f9cdb34ca8f3cc7",
     "apps/web/playwright.rir-trigger.config.ts": "9f6297ee31e8a789feb2ffed9435e34358e73780eaff4d5a0e93e9d46829ec74",
-    "docs/implementation/rir-trigger-shortcuts-evidence.md": "86695a83bae60dcb1a1b7a36b3aa0cb20f12d9603fe29d46fe84625f62d84059"
+    "docs/implementation/rir-trigger-shortcuts-evidence.md": "7fbdce3b483b969c8bcbe5a6ff9beabb8938415f1e30a1d1dead542bccebd55b"
   },
   "evidence": {
     "artifacts/issue-155/api.log": "e8fd8e2a7e62e284ef38f4e3fad5b0c4c37a2bfa43f739da6d7979e661e42617",
@@ -62,6 +62,9 @@
     "artifacts/issue-155/playwright-results/.last-run.json": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903",
     "artifacts/issue-155/preflight.json": "c5f545c55d9f3da79d673f84c53a52947a366fadc8be7ad0f8cc99f35abd6b69",
     "artifacts/issue-155/services-stopped.json": "898eeb481d8c8534a859d5df3357ca4cbc2bbac1a91b6d5367682602070032f1",
-    "artifacts/issue-155/vite.log": "06103b50a4c6b142b784dd4eaf6f56d87dde861a9480b8883faab85fcf93170b"
-  }
+    "artifacts/issue-155/vite.log": "06103b50a4c6b142b784dd4eaf6f56d87dde861a9480b8883faab85fcf93170b",
+    "artifacts/issue-155/completion.json": "b3c709b04358f889698b90c0fbb16f49add298c1253d23f7efefe911a18666b4"
+  },
+  "testedImplementationCommit": "17d10c6e8e959171abd4a14738c2619e2a75911e",
+  "completionStatus": "COMPLETE"
 }
