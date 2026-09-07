@@ -1,3 +1,7 @@
+import {
+  ADAPTIVE_TARGET_MATERIALITY_KCAL,
+  isAdaptiveTargetChangeMaterial,
+} from './adaptive-tdee.js';
 import { describe, expect, it } from 'vitest';
 
 import type {
@@ -1188,4 +1192,14 @@ describe('deterministic fingerprint and recommendation output', () => {
     expect(result.reasonCodes).toContain('PROGRAM_PAUSED');
     expect(result.adaptiveUpdate).toBeNull();
   });
+});
+
+describe('target materiality independent of expenditure rounding', () => {
+  it.each([-30, -25, -24, -20, 20, 24, 25, 30])(
+    'classifies canonical rounded delta %i',
+    (delta) => {
+      expect(ADAPTIVE_TARGET_MATERIALITY_KCAL).toBe(25);
+      expect(isAdaptiveTargetChangeMaterial(2500 - delta, 2500)).toBe(Math.abs(delta) >= 25);
+    },
+  );
 });

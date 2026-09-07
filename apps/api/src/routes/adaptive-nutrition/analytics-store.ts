@@ -4,6 +4,7 @@ import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   ADAPTIVE_TDEE_CONSTANTS,
   adaptiveEligibilityProgressSchema,
+  adaptiveModelAcceptanceSchema,
   adaptiveCheckInDetailSchema,
   adaptiveProgramCalculationSchema,
   calculateAdaptiveDateBoundaries,
@@ -32,6 +33,8 @@ import {
 import * as schema from '../../db/schema/index.js';
 import {
   adaptiveNutritionCheckIns,
+  adaptiveNutritionReviewActions,
+  adaptiveNutritionReviews,
   adaptiveNutritionGoalRevisions,
   adaptiveNutritionGoals,
   adaptiveNutritionProgramRevisions,
@@ -78,8 +81,10 @@ const datesBetween = (startDate: string, endDate: string) => {
 
 const unique = <T>(values: readonly T[]): T[] => [...new Set(values)];
 
-const acceptedExpenditureEffectiveDate = (checkIn: AdaptiveCheckInDetail) =>
-  checkIn.proposedTargets?.effectiveDate ?? checkIn.localDate;
+const acceptedExpenditureEffectiveDate = (checkIn: AdaptiveCheckInDetail, modelOnly: boolean) =>
+  modelOnly && checkIn.acceptedNutritionTargetId === null && checkIn.resolvedAt !== null
+    ? getDateKeyInTimeZone(new Date(checkIn.resolvedAt), checkIn.inputSnapshot.program.timeZone)
+    : (checkIn.proposedTargets?.effectiveDate ?? checkIn.localDate);
 
 export const adaptiveAnalyticsStateForCheckIn = (
   checkIn: Pick<AdaptiveCheckInDetail, 'status' | 'calculationState'>,
@@ -318,12 +323,51 @@ export const createAdaptiveAnalyticsStore = (dependencies: {
       calculateAdaptiveTrendPoints(weights).map((point) => [point.date, point.trendWeightKg]),
     );
 
+    // Only explicit forward audit changes effective-date semantics. Legacy snapshots,
+    // including accepted rows without a materialized target, keep their original dates.
+    const modelOnlyCheckInIds = new Set(
+      db
+        .select({
+          checkInId: adaptiveNutritionReviews.checkInId,
+          payload: adaptiveNutritionReviewActions.payload,
+        })
+        .from(adaptiveNutritionReviewActions)
+        .innerJoin(
+          adaptiveNutritionReviews,
+          and(
+            eq(adaptiveNutritionReviews.id, adaptiveNutritionReviewActions.reviewId),
+            eq(adaptiveNutritionReviews.userId, adaptiveNutritionReviewActions.userId),
+          ),
+        )
+        .where(
+          and(
+            eq(adaptiveNutritionReviewActions.userId, userId),
+            eq(adaptiveNutritionReviewActions.type, 'accept'),
+            eq(adaptiveNutritionReviews.programId, program.id),
+          ),
+        )
+        .all()
+        .flatMap(({ checkInId, payload }) => {
+          const audit = adaptiveModelAcceptanceSchema.safeParse(
+            'modelAcceptance' in payload ? payload.modelAcceptance : undefined,
+          );
+          return audit.success && audit.data.checkInId === checkInId ? [checkInId] : [];
+        }),
+    );
     const acceptedExpenditureEvents = checkIns
       .filter((checkIn) => checkIn.status === 'accepted' && checkIn.proposedTdeeKcal !== null)
-      .map((checkIn) => ({ checkIn, effectiveDate: acceptedExpenditureEffectiveDate(checkIn) }))
+      .map((checkIn) => ({
+        checkIn,
+        effectiveDate: acceptedExpenditureEffectiveDate(
+          checkIn,
+          modelOnlyCheckInIds.has(checkIn.id),
+        ),
+      }))
       .sort(
         (left, right) =>
           left.effectiveDate.localeCompare(right.effectiveDate) ||
+          (left.checkIn.resolvedAt ?? left.checkIn.createdAt) -
+            (right.checkIn.resolvedAt ?? right.checkIn.createdAt) ||
           left.checkIn.createdAt - right.checkIn.createdAt ||
           left.checkIn.id.localeCompare(right.checkIn.id),
       );

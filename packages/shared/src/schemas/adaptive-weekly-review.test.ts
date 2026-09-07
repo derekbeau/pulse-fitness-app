@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   adaptiveReviewActionInputSchema,
+  adaptiveReviewActionSchema,
   adaptiveReviewContextCreateInputSchema,
   adaptiveReviewContextSchema,
   adaptiveReviewTargetProposalSchema,
@@ -239,5 +240,44 @@ describe('adaptive weekly review schemas', () => {
         calories: 1200,
       }),
     ).toThrow();
+  });
+});
+
+describe('forward-only model acceptance audit', () => {
+  const action = {
+    id: 'action-1',
+    sequence: 1,
+    type: 'accept',
+    payload: { appliedProposal: null },
+    actor: { type: 'user', label: 'You', agentTokenId: null },
+    createdAt: 1,
+  };
+  it('parses historical payloads unchanged and validates the optional strict audit', () => {
+    expect(adaptiveReviewActionSchema.parse(action)).toEqual(action);
+    const modelAcceptance = {
+      kind: 'model_only',
+      checkInId: 'check-in-1',
+      proposedTdeeKcal: 2520,
+      targetUnchanged: true,
+    };
+    expect(
+      adaptiveReviewActionSchema.safeParse({
+        ...action,
+        payload: { ...action.payload, modelAcceptance },
+      }).success,
+    ).toBe(true);
+    for (const invalid of [
+      null,
+      { ...modelAcceptance, targetUnchanged: false },
+      { ...modelAcceptance, proposedTdeeKcal: null },
+      { ...modelAcceptance, extra: true },
+    ]) {
+      expect(
+        adaptiveReviewActionSchema.safeParse({
+          ...action,
+          payload: { ...action.payload, modelAcceptance: invalid },
+        }).success,
+      ).toBe(false);
+    }
   });
 });

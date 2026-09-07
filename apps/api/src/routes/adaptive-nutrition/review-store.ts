@@ -18,6 +18,7 @@ import {
   addCalendarDays,
   calendarDaysBetween,
   evaluateEligibility,
+  isAdaptiveTargetChangeMaterial,
   summarizeAdaptiveReadinessEvidence,
   type AdaptiveCheckInDetail,
   type AdaptiveReviewAction,
@@ -1114,7 +1115,9 @@ export const createAdaptiveWeeklyReviewStore = (options: {
         ? 'goal_review'
         : calculation.state === 'holding' || calculation.state === 'learning'
           ? 'defer'
-          : proposedTarget && Math.abs(calorieDelta) >= 25
+          : proposedTarget &&
+              currentTarget &&
+              isAdaptiveTargetChangeMaterial(currentTarget.calories, proposedTarget.calories)
             ? 'adjust'
             : trainingRelevant && !proposedTarget
               ? 'training_review'
@@ -1240,7 +1243,7 @@ export const createAdaptiveWeeklyReviewStore = (options: {
         recommendationOutcome === 'adjust'
           ? 'The deterministic Adaptive TDEE calculation supports a bounded target change. Nothing changes until you accept.'
           : recommendationOutcome === 'keep'
-            ? 'The available evidence does not support a material target change this week.'
+            ? 'Accept the calculated expenditure estimate while keeping the current targets unchanged.'
             : 'Pulse will preserve the current plan until the stated question or evidence condition is resolved.',
       currentTarget,
       proposedTarget: recommendationOutcome === 'adjust' ? proposedTarget : null,
@@ -1816,7 +1819,7 @@ export const createAdaptiveWeeklyReviewStore = (options: {
           (module) => module.kind === 'recommendation',
         );
         if (recommendation?.kind === 'recommendation' && recommendation.outcome === 'keep') {
-          adaptiveStore.declineCheckIn(userId, checkIn.id);
+          adaptiveStore.acceptModelOnlyCheckIn(userId, checkIn.id);
         } else {
           if (!proposal) throw new AdaptiveCheckInNotAcceptableError();
           adaptiveStore.acceptCheckIn(
@@ -1828,6 +1831,16 @@ export const createAdaptiveWeeklyReviewStore = (options: {
         }
         appendAction(row, input, actor, current, {
           ...input,
+          ...(recommendation?.kind === 'recommendation' && recommendation.outcome === 'keep'
+            ? {
+                modelAcceptance: {
+                  kind: 'model_only',
+                  checkInId: checkIn.id,
+                  proposedTdeeKcal: checkIn.proposedTdeeKcal,
+                  targetUnchanged: true,
+                },
+              }
+            : {}),
           appliedProposal:
             recommendation?.kind === 'recommendation' && recommendation.outcome === 'keep'
               ? null

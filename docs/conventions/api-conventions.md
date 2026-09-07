@@ -338,3 +338,26 @@ Guidelines:
 - Keep route plugins thin: validation, auth, and envelope formatting in the route; query details in a store or service module.
 - Use shared schemas from `@pulse/shared` as the single source of truth for API contracts.
 - Do not introduce new legacy agent-only routes. Agent-specific behavior belongs on the unified `/api/v1/*` surface.
+
+### Model-only weekly review acceptance (issue 137)
+
+A JWT acceptance of an eligible `updating` keep review resolves its weekly/manual check-in as
+`accepted`, with `acceptedNutritionTargetId: null`. It writes no target or target event. The
+existing response shapes and immutable input/calculation/review snapshots remain unchanged.
+The accept action's optional strict `modelAcceptance` payload contains `kind: model_only`,
+`checkInId`, positive `proposedTdeeKcal`, and `targetUnchanged: true`; `appliedProposal` is null.
+Absence of this payload preserves historical accepted-keep/declined-source behavior on reads
+and retries. No rewrite or backfill is performed.
+
+The review classification uses `ADAPTIVE_TARGET_MATERIALITY_KCAL = 25` after canonical target
+rounding. Signed 20/24 deltas keep targets; signed 25/30 deltas adjust them. The current manual
+calorie target need not be a multiple of ten; the review's existing integer target projection
+remains canonical. TDEE's separate 10-kcal rounding and floor logic are unchanged.
+
+Model-only resolution and one accept action share an immediate transaction. Fingerprint,
+algorithm, active goal, source eligibility and action sequence guards remain fail-closed.
+Newest accepted expenditure seeds the next preview. Explicitly audited model-only analytics
+starts on the program-local acceptance date, ordered by resolution time within that date;
+legacy target-linked or unaudited snapshots keep their existing effective dates. Targets and
+their provenance remain independent. Shared reads retain JWT/AgentToken parity and user scoping;
+AgentToken accept/edit/defer/decline requests remain 403 under the existing decision policy.

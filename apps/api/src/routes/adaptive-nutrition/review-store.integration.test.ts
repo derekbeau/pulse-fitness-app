@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,7 +10,13 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import type { AdaptiveProgramMutation, AdaptiveReviewContext } from '@pulse/shared';
+import {
+  adaptiveWeeklyReviewSchema,
+  adaptiveCheckInDetailSchema,
+  type AdaptiveProgramMutation,
+  type AdaptiveReviewContext,
+} from '@pulse/shared';
+import { createAdaptiveAnalyticsStore } from './analytics-store.js';
 
 import * as schema from '../../db/schema/index.js';
 import {
@@ -41,6 +48,11 @@ import {
 import { AdaptiveSameDateTargetExistsError } from './store.js';
 
 type TestDatabase = ReturnType<typeof drizzle<typeof schema>>;
+
+const requireFixture = <T>(value: T | null | undefined): T => {
+  if (value == null) throw new Error('Required test fixture is missing');
+  return value;
+};
 
 let tempDir = '';
 let sqlite: Database.Database;
@@ -1024,6 +1036,21 @@ describe('adaptive weekly review store', () => {
     const review = store.preview('user-1', { kind: 'weekly' });
     const quality = review.snapshot.modules.find((module) => module.kind === 'data_quality');
     expect(lifecycle.findCheckInDetail('user-1', review.checkInId)?.status).toBe('held');
+    const heldBefore = lifecycle.findCheckInDetail('user-1', review.checkInId);
+    expect(() => lifecycle.acceptModelOnlyCheckIn('user-1', review.checkInId)).toThrow();
+    expect(() =>
+      store.act(
+        'user-1',
+        review.id,
+        {
+          type: 'accept',
+          expectedFingerprint: review.sourceFingerprint,
+          expectedActionSequence: 0,
+        },
+        { type: 'user', label: 'You' },
+      ),
+    ).toThrow();
+    expect(lifecycle.findCheckInDetail('user-1', review.checkInId)).toEqual(heldBefore);
     expect(review.state).toBe('pending');
     expect(review.availableActions).toEqual(['ask_agent']);
     expect(store.getPending('user-1')).toMatchObject({ id: review.id, state: 'pending' });
@@ -1185,8 +1212,443 @@ describe('adaptive weekly review store', () => {
         .from(adaptiveNutritionCheckIns)
         .where(eq(adaptiveNutritionCheckIns.id, review.checkInId))
         .get()?.status,
-    ).toBe('declined');
+    ).toBe('accepted');
     expect(db.select({ value: count() }).from(adaptiveNutritionReviewActions).get()?.value).toBe(1);
+  });
+
+  it.each([-20, -10, 10, 20])(
+    'persists %i kcal learning with target continuity and next-prior provenance',
+    (movement) => {
+      const lifecycle = seedEligibleProgram();
+      db.update(mealItems)
+        .set({ calories: 2500 + movement / 0.31 })
+        .run();
+      const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+      const review = store.preview('user-1', { kind: 'weekly' });
+      const source = requireFixture(lifecycle.findCheckInDetail('user-1', review.checkInId));
+      expect(source.proposedTdeeKcal).toBe(2500 + movement);
+      expect(
+        requireFixture(source.proposedTargets).calories -
+          requireFixture(source.currentTargets).calories,
+      ).toBe(movement);
+      expect(review.snapshot.modules.at(-1)).toMatchObject({ outcome: 'keep' });
+      const beforeTargets = db.select().from(nutritionTargets).all();
+      const beforeEvents = db.select().from(nutritionTargetEvents).all();
+      const baseline = lifecycle.getState('user-1').latestAcceptedCheckIn;
+      const input = {
+        type: 'accept' as const,
+        expectedFingerprint: review.sourceFingerprint,
+        expectedActionSequence: 0,
+      };
+      const accepted = store.act('user-1', review.id, input, { type: 'user', label: 'You' });
+      expect(store.act('user-1', review.id, input, { type: 'user', label: 'You' })).toEqual(
+        accepted,
+      );
+      expect(adaptiveWeeklyReviewSchema.parse(accepted)).toEqual(accepted);
+      expect(accepted.actions[0]?.payload).toMatchObject({
+        appliedProposal: null,
+        modelAcceptance: {
+          kind: 'model_only',
+          checkInId: source.id,
+          proposedTdeeKcal: 2500 + movement,
+          targetUnchanged: true,
+        },
+      });
+      const resolved = requireFixture(lifecycle.findCheckInDetail('user-1', source.id));
+      expect(adaptiveCheckInDetailSchema.parse(resolved)).toEqual(resolved);
+      expect(resolved).toMatchObject({
+        status: 'accepted',
+        acceptedNutritionTargetId: null,
+        resolvedAt: nowMs,
+        inputSnapshot: source.inputSnapshot,
+        calculationSnapshot: source.calculationSnapshot,
+      });
+      expect(lifecycle.findCheckInDetail('user-1', requireFixture(baseline).id)).toMatchObject(
+        requireFixture(baseline),
+      );
+      expect(db.select().from(nutritionTargets).all()).toEqual(beforeTargets);
+      expect(db.select().from(nutritionTargetEvents).all()).toEqual(beforeEvents);
+      const analytics = createAdaptiveAnalyticsStore({
+        db,
+        now: () => new Date(nowMs),
+      }).getAnalytics('user-1', { range: '1m', aggregation: 'daily', end: '2026-08-19' });
+      expect(analytics.current).toMatchObject({
+        adaptiveTdeeKcal: 2500 + movement,
+        expenditureSourceCheckInId: source.id,
+        expenditureSourceInputFingerprint: source.dataFingerprint,
+      });
+      expect(analytics.current).toMatchObject({ calorieTargetKcal: 2500 });
+      nowMs += 86_400_000;
+      const next = lifecycle.previewCheckIn('user-1', { kind: 'manual', includeToday: false });
+      expect(next.priorTdeeKcal).toBe(2500 + movement);
+      expect(next.inputSnapshot.priorTdee).toEqual({
+        checkInId: source.id,
+        tdeeKcal: 2500 + movement,
+      });
+      expect(db.select().from(nutritionTargets).all()).toEqual(beforeTargets);
+      expect(db.select().from(nutritionTargetEvents).all()).toEqual(beforeEvents);
+    },
+  );
+
+  it.each([-30, -25, -24, -20, 20, 24, 25, 30])(
+    'classifies exact rounded target delta %i without changing rounding',
+    (delta) => {
+      seedEligibleProgram();
+      // Canonical proposal is 2500; manual historical targets need not be multiples of ten.
+      db.update(nutritionTargets)
+        .set({ calories: 2500 - delta, protein: 0, fat: 0, carbs: (2500 - delta) / 4 })
+        .run();
+      const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+      const review = store.preview('user-1', { kind: 'weekly' });
+      expect(review.snapshot.modules.at(-1)).toMatchObject({
+        outcome: Math.abs(delta) >= 25 ? 'adjust' : 'keep',
+      });
+      const targetCount = db.select().from(nutritionTargets).all().length;
+      const eventCount = db.select().from(nutritionTargetEvents).all().length;
+      store.act(
+        'user-1',
+        review.id,
+        {
+          type: 'accept',
+          expectedFingerprint: review.sourceFingerprint,
+          expectedActionSequence: 0,
+        },
+        { type: 'user', label: 'You' },
+      );
+      expect(db.select().from(nutritionTargets).all()).toHaveLength(
+        targetCount + (Math.abs(delta) >= 25 ? 1 : 0),
+      );
+      expect(db.select().from(nutritionTargetEvents).all()).toHaveLength(
+        eventCount + (Math.abs(delta) >= 25 ? 1 : 0),
+      );
+    },
+  );
+
+  it('starts delayed model-only expenditure on acceptance day while preserving historical target provenance', () => {
+    const lifecycle = seedEligibleProgram();
+    db.update(mealItems).set({ calories: 2560 }).run();
+    const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+    const review = store.preview('user-1', { kind: 'weekly' });
+    const analytics = createAdaptiveAnalyticsStore({ db, now: () => new Date(nowMs) });
+    const before = analytics.getAnalytics('user-1', {
+      range: '1m',
+      aggregation: 'daily',
+      end: '2026-08-19',
+    });
+    nowMs += 86_400_000;
+    store.act(
+      'user-1',
+      review.id,
+      { type: 'accept', expectedFingerprint: review.sourceFingerprint, expectedActionSequence: 0 },
+      { type: 'user', label: 'You' },
+    );
+    const historical = analytics.getAnalytics('user-1', {
+      range: '1m',
+      aggregation: 'daily',
+      end: '2026-08-19',
+    });
+    expect(historical.current.expenditureSourceCheckInId).toBe(
+      before.current.expenditureSourceCheckInId,
+    );
+    const current = analytics.getAnalytics('user-1', {
+      range: '1m',
+      aggregation: 'daily',
+      end: '2026-08-20',
+    });
+    expect(current.current).toMatchObject({
+      adaptiveTdeeKcal: 2520,
+      expenditureSourceCheckInId: review.checkInId,
+      calorieTargetKcal: 2500,
+    });
+    expect(current.points.at(-1)?.targetIds).toEqual(before.points.at(-1)?.targetIds);
+    expect(
+      lifecycle.previewCheckIn('user-1', { kind: 'manual', includeToday: false }).inputSnapshot
+        .priorTdee?.checkInId,
+    ).toBe(review.checkInId);
+  });
+
+  it('accepts nonzero learning when a loss target is pinned to its floor', () => {
+    const lifecycle = seedEligibleProgram('user-1', {
+      goalType: 'lose',
+      targetWeightKg: 70,
+      goalRatePctPerWeek: -1,
+      userCalorieFloorKcal: 2400,
+    });
+    db.update(mealItems).set({ calories: 2400 }).run();
+    const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+    const review = store.preview('user-1', { kind: 'weekly' });
+    const source = requireFixture(lifecycle.findCheckInDetail('user-1', review.checkInId));
+    expect(source.proposedTdeeKcal).toBeLessThan(requireFixture(source.priorTdeeKcal));
+    expect(requireFixture(source.proposedTargets).calories).toBe(
+      requireFixture(source.currentTargets).calories,
+    );
+    expect(source.reasonCodes).toContain('CALORIE_FLOOR_APPLIED');
+    const targets = db.select().from(nutritionTargets).all();
+    const events = db.select().from(nutritionTargetEvents).all();
+    const accepted = store.act(
+      'user-1',
+      review.id,
+      { type: 'accept', expectedFingerprint: review.sourceFingerprint, expectedActionSequence: 0 },
+      { type: 'user', label: 'You' },
+    );
+    expect(accepted.state).toBe('accepted');
+    expect(lifecycle.getState('user-1').latestAcceptedCheckIn?.proposedTdeeKcal).toBe(
+      source.proposedTdeeKcal,
+    );
+    expect(db.select().from(nutritionTargets).all()).toEqual(targets);
+    expect(db.select().from(nutritionTargetEvents).all()).toEqual(events);
+  });
+
+  it('serializes simultaneous accepts in separate processes into one transition', async () => {
+    seedEligibleProgram();
+    db.update(mealItems).set({ calories: 2530 }).run();
+    const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+    const review = store.preview('user-1', { kind: 'weekly' });
+    const input = {
+      type: 'accept' as const,
+      expectedFingerprint: review.sourceFingerprint,
+      expectedActionSequence: 0,
+    };
+    const targets = db.select().from(nutritionTargets).all();
+    const events = db.select().from(nutritionTargetEvents).all();
+    const source = String.raw`
+      import Database from 'better-sqlite3';
+      import { drizzle } from 'drizzle-orm/better-sqlite3';
+      import { createAdaptiveWeeklyReviewStore } from ${JSON.stringify(new URL('./review-store.ts', import.meta.url).href)};
+      import * as schema from ${JSON.stringify(new URL('../../db/schema/index.ts', import.meta.url).href)};
+      const sqlite = new Database(${JSON.stringify(join(tempDir, 'test.db'))});
+      sqlite.pragma('foreign_keys = ON');
+      const store = createAdaptiveWeeklyReviewStore({ db: drizzle(sqlite, { schema }), sqlite, now: () => new Date(${nowMs}) });
+      process.stdout.write('ready\n');
+      await new Promise(resolve => process.stdin.once('data', resolve));
+      const result = store.act('user-1', ${JSON.stringify(review.id)}, ${JSON.stringify(input)}, { type: 'user', label: 'You' });
+      process.stdout.write(JSON.stringify(result));
+      sqlite.close();
+      process.stdin.destroy();
+    `;
+    const children = [0, 1].map(() => {
+      const child = spawn(
+        process.execPath,
+        ['--import', 'tsx', '--input-type=module', '-e', source],
+        {
+          cwd: fileURLToPath(new URL('../../../', import.meta.url)),
+          stdio: ['pipe', 'pipe', 'pipe'],
+        },
+      );
+      let output = '';
+      let errors = '';
+      let readyResolve: () => void;
+      const ready = new Promise<void>((resolve) => {
+        readyResolve = resolve;
+      });
+      child.stdout.on('data', (chunk: Buffer) => {
+        output += chunk.toString();
+        if (output.startsWith('ready\n')) readyResolve();
+      });
+      child.stderr.on('data', (chunk: Buffer) => {
+        errors += chunk.toString();
+      });
+      const done = new Promise<unknown>((resolve, reject) => {
+        child.on('error', reject);
+        child.on('exit', (code) => {
+          readyResolve();
+          if (code !== 0) reject(new Error(errors));
+          else resolve(JSON.parse(output.slice('ready\n'.length)));
+        });
+      });
+      void done.catch(() => undefined);
+      return { child, ready, done };
+    });
+    try {
+      await Promise.all(children.map((child) => child.ready));
+      children.forEach(({ child }) => child.stdin.write('accept'));
+      const results = await Promise.all(children.map((child) => child.done));
+      expect(results[0]).toEqual(results[1]);
+      expect(store.get('user-1', review.id)).toMatchObject({
+        state: 'accepted',
+        actionSequence: 1,
+      });
+      expect(db.select().from(adaptiveNutritionReviewActions).all()).toHaveLength(1);
+    } finally {
+      children.forEach(({ child }) => child.kill());
+    }
+    expect(db.select().from(nutritionTargets).all()).toEqual(targets);
+    expect(db.select().from(nutritionTargetEvents).all()).toEqual(events);
+  });
+
+  it.each(['fingerprint', 'sequence', 'source', 'algorithm', 'program', 'goal', 'owner'] as const)(
+    'rejects model-only acceptance after %s mismatch with no writes',
+    (mismatch) => {
+      seedEligibleProgram();
+      db.update(mealItems).set({ calories: 2530 }).run();
+      const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+      const review = store.preview('user-1', { kind: 'weekly' });
+      if (mismatch === 'source') db.update(mealItems).set({ calories: 2600 }).run();
+      if (mismatch === 'algorithm')
+        sqlite
+          .prepare(
+            "UPDATE adaptive_nutrition_programs SET algorithm_version = 'unsupported-version' WHERE user_id = ?",
+          )
+          .run('user-1');
+      if (mismatch === 'program')
+        db.update(schema.adaptiveNutritionPrograms).set({ status: 'paused' }).run();
+      if (mismatch === 'goal') {
+        const lifecycle = createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) });
+        const goal = lifecycle.getCurrentGoal('user-1');
+        lifecycle.editGoal('user-1', goal.goal.id, {
+          type: 'maintain',
+          targetWeightKg: null,
+          maintenanceCenterKg: 81,
+          goalRatePctPerWeek: 0,
+          expectedRevisionId: goal.latestRevision.id,
+          supersedePendingRecommendation: true,
+        });
+      }
+      const before = db.select().from(adaptiveNutritionCheckIns).all();
+      const targets = db.select().from(nutritionTargets).all();
+      const events = db.select().from(nutritionTargetEvents).all();
+      expect(() =>
+        store.act(
+          mismatch === 'owner' ? 'user-2' : 'user-1',
+          review.id,
+          {
+            type: 'accept',
+            expectedFingerprint:
+              mismatch === 'fingerprint' ? 'a'.repeat(64) : review.sourceFingerprint,
+            expectedActionSequence: mismatch === 'sequence' ? 4 : 0,
+          },
+          { type: 'user', label: 'You' },
+        ),
+      ).toThrow();
+      expect(db.select().from(adaptiveNutritionCheckIns).all()).toEqual(before);
+      expect(db.select().from(nutritionTargets).all()).toEqual(targets);
+      expect(db.select().from(nutritionTargetEvents).all()).toEqual(events);
+      expect(db.select().from(adaptiveNutritionReviewActions).all()).toEqual([]);
+    },
+  );
+
+  it('cannot accept held, learning, baseline or missing proposals as model updates', () => {
+    const lifecycle = createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) });
+    lifecycle.upsertProgram('user-1', programInput());
+    const baseline = requireFixture(lifecycle.getState('user-1').pendingCheckIn);
+    expect(() => lifecycle.acceptModelOnlyCheckIn('user-1', baseline.id)).toThrow();
+    lifecycle.declineCheckIn('user-1', baseline.id);
+    const learning = lifecycle.previewCheckIn('user-1', { kind: 'manual', includeToday: false });
+    expect(learning.calculationState).toBe('learning');
+    expect(learning.proposedTdeeKcal).toBeNull();
+    expect(() => lifecycle.acceptModelOnlyCheckIn('user-1', learning.id)).toThrow();
+    expect(lifecycle.findCheckInDetail('user-1', learning.id)).toEqual(learning);
+  });
+
+  it.each(['null_tdee', 'missing_targets', 'missing_update', 'ineligible'] as const)(
+    'rejects a malformed updating fixture with %s without fabricating learning',
+    (fault) => {
+      const lifecycle = seedEligibleProgram();
+      db.update(mealItems).set({ calories: 2560 }).run();
+      const source = lifecycle.previewCheckIn('user-1', { kind: 'manual', includeToday: false });
+      const row = db
+        .select()
+        .from(adaptiveNutritionCheckIns)
+        .where(eq(adaptiveNutritionCheckIns.id, source.id))
+        .get();
+      if (!row) throw new Error('Required check-in fixture missing');
+      lifecycle.declineCheckIn('user-1', source.id);
+      // Insert a separate fictional malformed legacy row; never rewrite a source snapshot.
+      const malformed = {
+        ...row,
+        id: `malformed-${fault}`,
+        proposedTdeeKcal: fault === 'null_tdee' ? null : row.proposedTdeeKcal,
+        proposedTargets: fault === 'missing_targets' ? null : row.proposedTargets,
+        calculationSnapshot: {
+          ...row.calculationSnapshot,
+          ...(fault === 'missing_update' ? { adaptiveUpdate: null } : {}),
+          ...(fault === 'ineligible' ? { state: 'holding' as const } : {}),
+        },
+      };
+      db.insert(adaptiveNutritionCheckIns).values(malformed).run();
+      const before = db.select().from(adaptiveNutritionCheckIns).all();
+      const targets = db.select().from(nutritionTargets).all();
+      const events = db.select().from(nutritionTargetEvents).all();
+      expect(() => lifecycle.acceptModelOnlyCheckIn('user-1', malformed.id)).toThrow();
+      expect(db.select().from(adaptiveNutritionCheckIns).all()).toEqual(before);
+      expect(db.select().from(nutritionTargets).all()).toEqual(targets);
+      expect(db.select().from(nutritionTargetEvents).all()).toEqual(events);
+    },
+  );
+
+  it('rolls model acceptance back if action persistence fails', () => {
+    seedEligibleProgram();
+    db.update(mealItems).set({ calories: 2530 }).run();
+    const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+    const review = store.preview('user-1', { kind: 'weekly' });
+    const before = db.select().from(adaptiveNutritionCheckIns).all();
+    const targets = db.select().from(nutritionTargets).all();
+    const events = db.select().from(nutritionTargetEvents).all();
+    sqlite.exec(
+      "CREATE TEMP TRIGGER reject_model_action BEFORE INSERT ON adaptive_nutrition_review_actions BEGIN SELECT RAISE(ABORT, 'injected action failure'); END",
+    );
+    try {
+      expect(() =>
+        store.act(
+          'user-1',
+          review.id,
+          {
+            type: 'accept',
+            expectedFingerprint: review.sourceFingerprint,
+            expectedActionSequence: 0,
+          },
+          { type: 'user', label: 'You' },
+        ),
+      ).toThrow('injected action failure');
+    } finally {
+      sqlite.exec('DROP TRIGGER reject_model_action');
+    }
+    expect(db.select().from(adaptiveNutritionCheckIns).all()).toEqual(before);
+    expect(db.select().from(nutritionTargets).all()).toEqual(targets);
+    expect(db.select().from(nutritionTargetEvents).all()).toEqual(events);
+    expect(store.get('user-1', review.id).actions).toEqual([]);
+  });
+
+  it('preserves historical accepted keep reviews with declined sources on read and retry', () => {
+    const lifecycle = seedEligibleProgram();
+    const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+    const review = store.preview('user-1', { kind: 'weekly' });
+    lifecycle.declineCheckIn('user-1', review.checkInId);
+    db.insert(adaptiveNutritionReviewActions)
+      .values({
+        id: 'historical-accept',
+        reviewId: review.id,
+        userId: 'user-1',
+        sequence: 1,
+        type: 'accept',
+        payload: {
+          type: 'accept',
+          expectedFingerprint: review.sourceFingerprint,
+          expectedActionSequence: 0,
+          appliedProposal: null,
+        },
+        actorType: 'user',
+        actorLabel: 'You',
+        createdAt: nowMs,
+      })
+      .run();
+    const before = db.select().from(adaptiveNutritionCheckIns).all();
+    const historical = store.get('user-1', review.id);
+    expect(historical.state).toBe('accepted');
+    expect(
+      store.act(
+        'user-1',
+        review.id,
+        {
+          type: 'accept',
+          expectedFingerprint: review.sourceFingerprint,
+          expectedActionSequence: 0,
+        },
+        { type: 'user', label: 'You' },
+      ),
+    ).toEqual(historical);
+    expect(db.select().from(adaptiveNutritionCheckIns).all()).toEqual(before);
+    expect(historical.actions[0]?.payload.modelAcceptance).toBeUndefined();
   });
 
   it('keeps an edited adjustment review-only until a later explicit accept', () => {
