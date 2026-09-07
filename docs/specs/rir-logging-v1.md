@@ -30,8 +30,23 @@ populated pre-migration upgrade test plus integrity and foreign-key checks.
 
 The API returns raw `rpe` and `rir` facts through active sessions, completed history,
 last-performance facts, correction responses, and AgentToken/JWT responses. The UI formats native
-RIR as `0 RIR` through `4 RIR` or `5+ RIR`; it never displays a converted RPE value as though the
-user logged it. Historical RPE remains labeled `RPE N`.
+RIR as `0 RIR` through `4 RIR` or `5+ RIR`; `5+` is a lower-bound bucket, never exact five.
+For resistance history (`weight_reps`, `bodyweight_reps`, `reps_only`), native RIR takes display
+precedence, including zero. Legacy RPE-only integer values `1..10` use the approximate relationship
+`RIR ≈ 10 − RPE`: RPE `10..6` displays `≈ 0 RIR` through `≈ 4 RIR`, and RPE `5..1` displays
+`≈ 5+ RIR`. These are derived presentations, never native observations. Missing effort stays missing.
+Unsupported raw values are labeled as unsupported without inventing a conversion.
+
+The centralized web presentation model in `features/workouts/lib/effort.ts` retains the preferred
+text, raw RIR, raw RPE, native/derived/missing (or unsupported) provenance, and lower-bound flag.
+Completed detail, compact/exercise history, comparisons, last-performance chips, and progression
+review all consume it. Focusable, touch-accessible effort disclosures expose the original scale/value
+and explain approximate derivation and the bucket. Inconsistent dual-field responses prefer native
+RIR for display and disclose both raw facts unchanged. A tooltip is not required to read provenance.
+
+Duration/cardio and other non-resistance tracking types retain their stored effort scale, and
+whole-session RPE is unchanged. Presentation does not modify API fields, persistence, progression
+calculations, evidence, fingerprints, or correction payloads.
 
 Resistance set rows expose an optional RIR picker with `RIR —`, buckets `0`–`5+`, and Clear. The
 picker uses an accessible radiogroup, 44 px choices, persistent selected state, explanatory copy,

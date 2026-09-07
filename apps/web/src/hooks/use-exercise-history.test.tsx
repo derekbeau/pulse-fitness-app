@@ -60,6 +60,26 @@ describe('use-exercise-history hook', () => {
     );
   });
 
+  it('retains native, legacy, and missing raw effort through the history adapter', async () => {
+    const sets = [
+      { setNumber: 1, weight: 135, reps: 10, rir: 0, rpe: null },
+      { setNumber: 2, weight: 135, reps: 10, rir: 4, rpe: null },
+      { setNumber: 3, weight: 135, reps: 10, rir: 5, rpe: null },
+      { setNumber: 4, weight: 135, reps: 10, rir: null, rpe: 8 },
+      { setNumber: 5, weight: 135, reps: 10, rir: null, rpe: 1 },
+      { setNumber: 6, weight: 135, reps: 10, rir: null, rpe: null },
+    ];
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse([{ sessionId: 'mixed-session', date: '2026-09-04', notes: null, sets }]),
+    );
+    const { wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(() => useExerciseHistory('history-bench'), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data?.[0].sets).toStrictEqual(sets);
+  });
+
   it('returns an empty history list for not-found exercises', async () => {
     mockFetch.mockResolvedValueOnce(
       new Response(

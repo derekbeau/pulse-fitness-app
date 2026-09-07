@@ -242,7 +242,7 @@ test.describe.serial('Workout progression and muscle analytics', () => {
     await expect(comparison.getByRole('columnheader', { name: 'Proposed target' })).toBeVisible();
     const firstSet = comparison.getByRole('row', { name: /^Set 1 /u });
     await expect(firstSet).toContainText('40 lbs · 8–10 reps');
-    await expect(firstSet).toContainText('40 lbs · 10 reps · RPE 8');
+    await expect(firstSet).toContainText('40 lbs · 10 reps≈ 2 RIR');
     await expect(firstSet).toContainText('45 lbs · 8–10 reps');
     await expect(page.getByText(/Policy source: Preview user · revision 1/u)).toBeVisible();
 
@@ -380,8 +380,10 @@ test.describe.serial('Workout progression and muscle analytics', () => {
     );
     await expect(page.getByText('Hold', { exact: true })).toBeVisible();
     await expect(
-      page.getByRole('cell', { name: '40 lbs · 7 reps · 5+ RIR', exact: true }),
-    ).toBeVisible();
+      page
+        .getByRole('cell')
+        .filter({ has: page.getByRole('button', { name: 'Effort details: Completed set 1' }) }),
+    ).toContainText('40 lbs · 7 reps5+ RIR');
     await expect(page.getByText(progression.recommendations[0]?.facts[0] ?? '')).toBeVisible();
     await expectNoOverflow(page, 320);
     await capture(page, 'progression-stale-320.png');

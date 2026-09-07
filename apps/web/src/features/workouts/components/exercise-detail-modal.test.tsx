@@ -293,3 +293,30 @@ describe('ExerciseDetailModal', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });
+
+it('exposes approximate history and original RPE inside the exercise dialog', () => {
+  setup();
+  useExerciseHistoryMock.mockReturnValue({
+    data: [
+      {
+        date: '2026-09-04',
+        sessionId: 'legacy',
+        sets: [{ weight: 70, reps: 10, rpe: 8, rir: null, setNumber: 1 }],
+      },
+    ],
+    isPending: false,
+  } as unknown as ReturnType<typeof useExerciseHistory>);
+  renderModal({
+    context: 'session',
+    exerciseId: 'incline-dumbbell-press',
+    onOpenChange: vi.fn(),
+    open: true,
+  });
+  expect(screen.getByText('Sep 4, 2026 · 70x10 (≈ 2 RIR)')).toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Effort details: Session history, 2026-09-04' }),
+  );
+  expect(screen.getByRole('dialog', { name: 'Effort details' })).toHaveTextContent(
+    'Derived approximately from stored RPE 8',
+  );
+});
