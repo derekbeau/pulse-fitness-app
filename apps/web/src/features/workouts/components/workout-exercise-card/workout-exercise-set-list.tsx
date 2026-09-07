@@ -3,6 +3,8 @@ import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
 import { cn } from '@/lib/utils';
 
 import { SetRow } from '../set-row';
+import { EffortValue } from '../effort-display';
+import { formatEffort, isResistanceEffort } from '../../lib/effort';
 
 import type { WorkoutExerciseCardMode, WorkoutExerciseSetListItem } from './types';
 
@@ -36,6 +38,14 @@ export function WorkoutExerciseSetList({
         >
           <SetRow
             completed={mode === 'readonly-completed' ? (setItem.completed ?? true) : false}
+            effortSlot={
+              mode === 'readonly-completed' && isResistanceEffort(trackingType) ? (
+                <EffortValue
+                  effort={formatEffort(setItem, trackingType)}
+                  label={`Set ${setItem.setNumber}`}
+                />
+              ) : undefined
+            }
             distance={setItem.distance ?? null}
             label={trackingType === 'duration' ? 'Duration' : undefined}
             onUpdate={() => undefined}

@@ -910,7 +910,7 @@ test.describe('First-class RIR logging', () => {
     await authenticate(page, 'midnight');
     await page.goto(`/workouts/session/${completedSessionId}`, { waitUntil: 'networkidle' });
     await expectTheme(page, 'midnight');
-    await expect(page.getByText(/Set 1: 155 lbs × 8 reps \(RPE 8\)/u)).toBeVisible();
+    await expect(page.getByText(/Set 1: 155 lbs × 8 reps \(≈ 2 RIR\)/u)).toBeVisible();
     await expect(page.getByText(/Set 2: 155 lbs × 8 reps \(5\+ RIR\)/u)).toBeVisible();
     const initialCompletedResponse = await api.get(
       `/api/v1/workout-sessions/${completedSessionId}`,

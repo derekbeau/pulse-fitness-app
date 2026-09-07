@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { useLastPerformance } from '@/hooks/use-last-performance';
 
 import { formatCompactSets } from '../../lib/tracking';
+import { HistoryEffortDetails } from '../effort-display';
 
 const historyDateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -74,6 +75,16 @@ export function LastPerformanceChip({
   );
 
   return (
-    <Badge variant="outline">{`Last: ${historyDateFormatter.format(new Date(`${lastEntry.date}T12:00:00`))} · ${setSummary}`}</Badge>
+    <span className="inline-flex max-w-full flex-wrap items-center gap-x-1">
+      <Badge
+        className="max-w-full whitespace-normal text-left"
+        variant="outline"
+      >{`Last: ${historyDateFormatter.format(new Date(`${lastEntry.date}T12:00:00`))} · ${setSummary}`}</Badge>
+      <HistoryEffortDetails
+        sets={lastEntry.sets}
+        trackingType={trackingType}
+        label={`Last performance, ${lastEntry.date}`}
+      />
+    </span>
   );
 }

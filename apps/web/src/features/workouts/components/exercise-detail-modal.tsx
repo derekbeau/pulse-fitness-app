@@ -20,6 +20,7 @@ import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { useExercise } from '../api/workouts';
 import { getWorkoutExerciseCardElementId } from './workout-exercise-card';
 import { formatCompactSets } from '../lib/tracking';
+import { HistoryEffortDetails } from './effort-display';
 import type { ActiveWorkoutPerformanceHistorySession } from '../types';
 import { ExerciseTrendChart } from './exercise-trend-chart';
 
@@ -279,6 +280,11 @@ export function ExerciseDetailModal({
                         </Link>
                       </div>
                     </div>
+                    <HistoryEffortDetails
+                      sets={session.sets}
+                      trackingType={trackingType}
+                      label={`Session history, ${session.date}`}
+                    />
                   </div>
                 );
               })}

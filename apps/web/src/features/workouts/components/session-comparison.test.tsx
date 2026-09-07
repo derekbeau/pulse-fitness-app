@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { WorkoutSession } from '@pulse/shared';
 
@@ -84,7 +84,7 @@ describe('SessionExerciseComparison', () => {
     expect(screen.queryByText('Reps +3')).not.toBeInTheDocument();
   });
 
-  it('shows native mixed RIR and RPE for each compared set', () => {
+  it('distinguishes native and derived effort for each compared set', () => {
     const previousSession = createSession({
       id: 'previous-effort-session',
       startedAt: Date.parse('2026-02-20T18:00:00Z'),
@@ -104,7 +104,12 @@ describe('SessionExerciseComparison', () => {
       />,
     );
 
-    expect(screen.getByText('Current 2 RIR · Previous RPE 8')).toBeInTheDocument();
+    expect(screen.getByText('2 RIR')).toBeInTheDocument();
+    expect(screen.getByText('≈ 2 RIR')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Effort details: Previous set 1' }));
+    expect(screen.getByRole('dialog')).toHaveTextContent('Derived approximately from stored RPE 8');
+    expect(previousSession.sets[0].rpe).toBe(8);
+    expect(currentSession.sets[0].rir).toBe(2);
   });
 });
 

@@ -1879,19 +1879,19 @@ describe('SessionExerciseList', () => {
               date: '2026-03-20',
               notes: 'Strong top set.',
               sessionId: 'session-4',
-              sets: [{ completed: true, reps: 6, setNumber: 1, weight: 75 }],
+              sets: [{ completed: true, reps: 6, rpe: 8, rir: null, setNumber: 1, weight: 75 }],
             },
             historyEntries: [
               {
                 date: '2026-03-20',
                 notes: 'Strong top set.',
                 sessionId: 'session-4',
-                sets: [{ completed: true, reps: 6, setNumber: 1, weight: 75 }],
+                sets: [{ completed: true, reps: 6, rpe: 8, rir: null, setNumber: 1, weight: 75 }],
               },
               {
                 date: '2026-03-18',
                 sessionId: 'session-3',
-                sets: [{ completed: true, reps: 8, setNumber: 1, weight: 70 }],
+                sets: [{ completed: true, reps: 8, rir: 4, rpe: null, setNumber: 1, weight: 70 }],
               },
               {
                 date: '2026-03-15',
@@ -1949,6 +1949,16 @@ describe('SessionExerciseList', () => {
     ).toBeInTheDocument();
     expect(within(card as HTMLElement).queryByText(/Mar 10 · 60x12/)).not.toBeInTheDocument();
 
+    expect(within(card as HTMLElement).getByText(/Mar 20 · 75x6 \(≈ 2 RIR\)/)).toBeInTheDocument();
+    expect(within(card as HTMLElement).getByText(/Mar 18 · 70x8 \(4 RIR\)/)).toBeInTheDocument();
+    fireEvent.click(
+      within(card as HTMLElement).getByRole('button', {
+        name: 'Effort details: History, 2026-03-20',
+      }),
+    );
+    expect(screen.getByRole('dialog', { name: 'Effort details' })).toHaveTextContent(
+      'Derived approximately from stored RPE 8',
+    );
     useLastPerformanceSpy.mockRestore();
   });
 

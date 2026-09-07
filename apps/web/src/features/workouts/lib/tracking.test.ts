@@ -72,7 +72,7 @@ describe('tracking format helpers', () => {
     ).toBe('1,800 sec (RPE 3 / Zone 2)');
   });
 
-  it('formats native RIR and legacy RPE without implying a conversion', () => {
+  it('distinguishes native RIR from approximate legacy RPE presentation', () => {
     expect(
       formatSetSummary({ reps: 10, rir: 2, setNumber: 1, weight: 155 }, 'weight_reps', {
         includeSetNumber: true,
@@ -82,7 +82,7 @@ describe('tracking format helpers', () => {
       '160 lbs × 8 reps (5+ RIR)',
     );
     expect(formatSetSummary({ reps: 8, rpe: 8, weight: 160 }, 'weight_reps')).toBe(
-      '160 lbs × 8 reps (RPE 8)',
+      '160 lbs × 8 reps (≈ 2 RIR)',
     );
   });
 
@@ -140,7 +140,7 @@ describe('tracking format helpers', () => {
     ).toBe('60x12, 60x8');
   });
 
-  it('keeps native RIR and legacy RPE labels in compact history', () => {
+  it('distinguishes native and derived effort in compact history', () => {
     expect(
       formatCompactSets(
         [
@@ -150,7 +150,7 @@ describe('tracking format helpers', () => {
         ],
         'weight_reps',
       ),
-    ).toBe('60x10 (2 RIR), 60x8 (5+ RIR), 60x6 (RPE 8)');
+    ).toBe('60x10 (2 RIR), 60x8 (5+ RIR), 60x6 (≈ 2 RIR)');
   });
 
   it('formats compact reps-only sets as rep counts', () => {

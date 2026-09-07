@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type {
+  ExerciseTrackingType,
   WorkoutProgressionActionType,
   WorkoutProgressionRecommendation,
   WorkoutProgressionTarget,
@@ -20,6 +21,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
+
+import { formatEffort, isResistanceEffort } from '../lib/effort';
+import { EffortValue } from './effort-display';
 
 import { useApplyWorkoutProgressionAction, useWorkoutProgressionPreview } from '../api/progression';
 
@@ -53,6 +57,7 @@ function targetText(target: WorkoutProgressionTarget, weightUnit: string) {
 function completedText(
   performance: WorkoutProgressionRecommendation['evidence']['performance'][number] | undefined,
   weightUnit: string,
+  trackingType: ExerciseTrackingType,
 ) {
   if (!performance) return 'Not recorded';
   const parts: string[] = [];
@@ -61,11 +66,18 @@ function completedText(
   if (performance.seconds !== null) parts.push(`${performance.seconds} sec`);
   if (performance.distance !== null) parts.push(`${performance.distance} distance`);
   if (performance.zone !== null) parts.push(`Zone ${performance.zone}`);
-  if (performance.rir !== null) parts.push(`${performance.rir === 5 ? '5+' : performance.rir} RIR`);
-  if (performance.rpe !== null) parts.push(`RPE ${performance.rpe}`);
+  const effort = formatEffort(performance, trackingType);
+  if (!isResistanceEffort(trackingType) && effort.displayText) parts.push(effort.displayText);
   if (performance.skipped) parts.push('Skipped');
   else if (!performance.completed) parts.push('Not completed');
-  return parts.join(' · ') || 'No measured completion';
+  return (
+    <>
+      {parts.join(' · ') || 'No measured completion'}
+      {isResistanceEffort(trackingType) ? (
+        <EffortValue effort={effort} label={`Completed set ${performance.setNumber}`} />
+      ) : null}
+    </>
+  );
 }
 
 function availabilityMessage(recommendation: WorkoutProgressionRecommendation) {
@@ -351,7 +363,11 @@ export function WorkoutProgressionReview({
                               </td>
                               <td className="px-3 py-3 text-muted-foreground">
                                 {performance
-                                  ? completedText(performance, weightUnit)
+                                  ? completedText(
+                                      performance,
+                                      weightUnit,
+                                      recommendation.evidence.trackingType,
+                                    )
                                   : historicalDiagnostic?.observed
                                     ? Object.entries(historicalDiagnostic.observed)
                                         .map(([key, value]) => `${key}=${value ?? 'null'}`)

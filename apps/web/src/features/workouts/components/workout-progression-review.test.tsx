@@ -160,7 +160,7 @@ describe('WorkoutProgressionReview', () => {
       within(comparison).getByRole('columnheader', { name: 'Proposed target' }),
     ).toBeInTheDocument();
     expect(within(comparison).getByRole('row', { name: /Set 1/ })).toHaveTextContent(
-      'Set 120 lbs · 8–10 repsSource session set: source-set-1; scheduled source: source-scheduled-set-120 lbs · 10 reps · RPE 820 lbs · 8–10 repsCurrent scheduled set: scheduled-set-125 lbs · 8–10 reps',
+      'Set 120 lbs · 8–10 repsSource session set: source-set-1; scheduled source: source-scheduled-set-120 lbs · 10 reps≈ 2 RIR20 lbs · 8–10 repsCurrent scheduled set: scheduled-set-125 lbs · 8–10 reps',
     );
     expect(screen.getByText('Every required set reached 10 reps.')).toBeInTheDocument();
     expect(screen.getByText(/completed session 2026-08-20/)).toBeInTheDocument();
@@ -420,4 +420,33 @@ describe('WorkoutProgressionReview', () => {
       },
     });
   });
+});
+
+it('preserves raw progression evidence, policy, and fingerprint while exposing derived effort', () => {
+  const original = structuredClone(recommendation);
+  Object.freeze(original.evidence.performance[0]);
+  const before = JSON.stringify(original);
+  const mutate = setup(original);
+  fireEvent.click(screen.getByRole('button', { name: 'Effort details: Completed set 1' }));
+  expect(screen.getByRole('dialog', { name: 'Effort details' })).toHaveTextContent(
+    'Derived approximately from stored RPE 8',
+  );
+  expect(JSON.stringify(original)).toBe(before);
+  expect(original.evidence.performance[0].effortSource).toBe('native_rpe');
+  expect(mutate).not.toHaveBeenCalled();
+});
+
+it('leaves duration progression effort in RPE with its zone', () => {
+  const duration = structuredClone(recommendation);
+  duration.evidence.trackingType = 'duration';
+  Object.assign(duration.evidence.performance[0], {
+    seconds: 1800,
+    reps: null,
+    weight: null,
+    rpe: 3,
+    zone: 2,
+  });
+  setup(duration);
+  expect(screen.getByText('1800 sec · Zone 2 · RPE 3')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Effort details/ })).not.toBeInTheDocument();
 });

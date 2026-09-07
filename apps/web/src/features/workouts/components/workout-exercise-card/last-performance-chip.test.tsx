@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useLastPerformance } from '@/hooks/use-last-performance';
@@ -86,4 +86,27 @@ describe('LastPerformanceChip', () => {
 
     expect(screen.getByText(/Last: Apr 15, 2026 · 135x8 \(2 RIR\)/i)).toBeInTheDocument();
   });
+});
+
+it('keeps legacy last-performance raw effort discoverable', () => {
+  useLastPerformanceMock.mockReturnValue(
+    asQueryResult({
+      data: {
+        historyEntries: [
+          {
+            date: '2026-09-04',
+            sessionId: 'legacy',
+            sets: [{ completed: true, reps: 8, rir: null, rpe: 1, setNumber: 1, weight: 135 }],
+          },
+        ],
+      },
+      isPending: false,
+    }),
+  );
+  render(<LastPerformanceChip exerciseId="bench" trackingType="weight_reps" weightUnit="lbs" />);
+  expect(screen.getByText(/135x8 \(≈ 5\+ RIR\)/)).toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Effort details: Last performance, 2026-09-04' }),
+  );
+  expect(screen.getByRole('dialog')).toHaveTextContent('Derived approximately from stored RPE 1');
 });

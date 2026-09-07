@@ -1,4 +1,4 @@
-import { forwardRef, useId, useState } from 'react';
+import { forwardRef, useId, useState, type ReactNode } from 'react';
 import type { ExerciseTrackingType, WeightUnit } from '@pulse/shared';
 
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ type SetRowUpdate = {
 };
 
 type SetRowProps = {
+  effortSlot?: ReactNode;
   completed: boolean;
   distance?: number | null;
   label?: string;
@@ -61,6 +62,7 @@ const SET_VALUE_UPDATE_DEBOUNCE_MS = 700;
 export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
   {
     completed,
+    effortSlot,
     distance = null,
     label,
     onUpdate,
@@ -159,13 +161,15 @@ export const SetRow = forwardRef<HTMLInputElement, SetRowProps>(function SetRow(
         ))}
       </div>
 
-      {showRirControl ? (
+      {effortSlot != null || showRirControl ? (
         <div className="col-start-2 row-start-1 justify-self-end lg:col-start-3">
-          <RirPicker
-            onChange={(nextRir) => onUpdate({ rir: nextRir, rpe: null })}
-            setNumber={setNumber}
-            value={rir}
-          />
+          {effortSlot ?? (
+            <RirPicker
+              onChange={(nextRir) => onUpdate({ rir: nextRir, rpe: null })}
+              setNumber={setNumber}
+              value={rir}
+            />
+          )}
         </div>
       ) : null}
     </div>

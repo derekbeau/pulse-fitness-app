@@ -30,6 +30,8 @@ async function getExerciseHistory(
       sets: session.sets.map((set) => ({
         ...(set.distance != null ? { distance: set.distance } : {}),
         reps: set.reps,
+        rpe: set.rpe,
+        rir: set.rir,
         ...(set.seconds != null ? { seconds: set.seconds } : {}),
         setNumber: set.setNumber,
         weight: set.weight,

@@ -92,6 +92,7 @@ import {
 } from '../lib/time-estimates';
 import { getSupersetAccentClass } from '../lib/superset-utils';
 import { formatCompactSets, getDistanceUnit } from '../lib/tracking';
+import { HistoryEffortDetails } from './effort-display';
 import { FormCueChips } from './form-cue-chips';
 import { ExerciseDetailModal } from './exercise-detail-modal';
 import { RenameExerciseDialog } from './rename-exercise-dialog';
@@ -1090,8 +1091,9 @@ function ExerciseCardItem({
                   return (
                     <div className="space-y-1">
                       {previewEntries.map((entry) => (
-                        <div className="flex items-center gap-1.5" key={entry.key}>
+                        <div className="flex flex-wrap items-center gap-1.5" key={entry.key}>
                           <p className="text-sm text-foreground">{entry.text}</p>
+                          {entry.effortDetails}
                           {entry.notes?.trim() ? (
                             <NotesIndicator className="h-6 w-6" notes={entry.notes} />
                           ) : null}
@@ -1163,8 +1165,9 @@ function ExerciseCardItem({
                         return (
                           <div className="mt-1 space-y-1">
                             {previewEntries.map((entry) => (
-                              <div className="flex items-center gap-1.5" key={entry.key}>
+                              <div className="flex flex-wrap items-center gap-1.5" key={entry.key}>
                                 <p className="text-sm text-foreground">{entry.text}</p>
+                                {entry.effortDetails}
                                 {entry.notes?.trim() ? (
                                   <NotesIndicator className="h-6 w-6" notes={entry.notes} />
                                 ) : null}
@@ -1501,6 +1504,13 @@ function formatHistoryPreviewEntries({
     );
 
     return {
+      effortDetails: (
+        <HistoryEffortDetails
+          sets={history.sets}
+          trackingType={trackingType}
+          label={`History, ${history.date}`}
+        />
+      ),
       key: history.sessionId,
       notes: history.notes ?? null,
       text: `${historyDateFormatter.format(new Date(`${history.date}T12:00:00`))} · ${setSummary}`,
