@@ -2,7 +2,7 @@
 
 ## Status and execution context
 
-**Preparation commit only. Implementation is blocked on the explicit product decisions in [Decision gate](#decision-gate). Do not launch Codex or edit source until the parent resolves that gate.**
+**Frozen policy approved. This document authorizes the scoped executor launch below; source implementation remains owned by the assigned Codex executor.**
 
 - Issue: [#138 Reduce food-logging web lookups with ranked reuse and ad-hoc promotion](https://github.com/derekbeau/pulse-fitness-app/issues/138)
 - Repository/worktree: `/Users/meridian/Projects/pulse-food-reuse`
@@ -48,9 +48,9 @@ Add `promotionCandidates` to logging context, based only on the authenticated us
 
 - Window: the preceding 30 calendar days relative to the requested context date; do not include the selected date.
 - Recurrence floor: the same final normalized identity occurring on at least **two distinct local nutrition-log dates**. Occurrences on one date never satisfy it.
-- Return deterministic normalized and display name, occurrence count, distinct-day count, most recent date, recent serving/unit and macro snapshots, macro-variance indicator, likely saved-food match when one exists, and a machine-readable reason. At minimum support `REPEATED_ADHOC`, `EXACT_SAVED_MATCH`, and `POSSIBLE_SAVED_MATCH`.
+- Return deterministic normalized and display name, occurrence count, distinct-day count, most recent date, recent serving/unit and macro snapshots, an explicit stability/evidence category, likely saved-food match when one exists, and a machine-readable reason. At minimum support `REPEATED_ADHOC`, `EXACT_SAVED_MATCH`, and `POSSIBLE_SAVED_MATCH`. Evidence must not be silently discarded when snapshots differ or cannot be compared losslessly: retain recurrence evidence and mark it review-only.
 - Existing adequate saved-food matches take precedence over creating a duplicate. A candidate that has a match stays advisory and must not cause automatic relinking, duplicate creation, historical backfill, or a food-definition rewrite.
-- Restaurant, travel, and variable composite/home-cooked dishes remain eligible to be logged as explicit ad hoc items and must not be auto-promoted solely from recurrence. The final exclusion classifier is gated below.
+- Restaurant, travel, and variable composite/home-cooked dishes remain eligible to be logged as explicit ad hoc items. Their suitability for an intentional current promotion is an explicit agent decision based on the concrete entry and evidence, not a name-based heuristic or deny-list; recurrence alone never auto-promotes them.
 - Promotion is an explicit current-write action. Historical unlinked entries remain untouched; no backfill or relink is permitted.
 
 ### Agent meal persistence
@@ -72,12 +72,12 @@ Apply the same semantics to the date-scoped create route, preferred create route
 - Preserve #143 food usage counts/recency and #133 note-only behavior; add tests that prove the #138 changes do not change their existing evidence/invariants.
 - Use only temporary/isolated SQLite fixtures and fictional users. No production data, browser tab, or reconciliation command.
 
-## Required implementation/test matrix after decision gate
+## Required implementation/test matrix
 
 1. Exact normalization, punctuation, possessives, abbreviations/aliases, brand, tag, token-order, recent-name, deterministic ties, low-confidence, and materially ambiguous ranked candidates.
 2. No automatic selection from fuzzy, alias, recent-item, or materially ambiguous candidates; explicit `foodId` ownership validation remains fail-closed.
 3. Promotion window boundaries, two-distinct-day floor, deterministic display/macro snapshots, saved-match reasons, user isolation, and no foreign rows.
-4. Stable allowed examples and variable restaurant/travel/composite exclusion cases using the final approved stability/classifier policy.
+4. Stable exact examples; review-only macro/serving uncertainty examples that retain recurrence evidence; and restaurant/travel/composite examples proving explicit agent suitability decision rather than a heuristic deny-list.
 5. Intentional current promotion/create with no historical backfill or relink; saved-match reuse before create.
 6. `adhoc + foodId` rejection, `adhoc + saveToFoods` rejection, and reused/created/adhoc response classification across create and append surfaces.
 7. Auto-create provenance preservation and full historical macro snapshot invariance before/after food-definition updates.
@@ -85,27 +85,24 @@ Apply the same semantics to the date-scoped create route, preferred create route
 9. JWT and AgentToken route behavior, authentic ownership isolation, generated OpenAPI/schema checks, and no #143 count/#133 note regressions.
 10. Focused checks during implementation. After parent grants the full-gate/browser slot: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, plus built-in-browser/API/SQLite readbacks against an isolated fixture.
 
-## Decision gate
+## Approved v1 policy decisions
 
-The repository has no established macro-variance threshold, confidence/ambiguity threshold, serving-normalization policy for promotion, persisted alias governance, or restaurant/composite classifier. The issue leaves these consequential choices qualitative. **Do not silently invent numeric thresholds or launch until the parent selects the following.**
+The parent approved the following conservative v1 policy. These decisions remove the product-launch blocker; the executor must implement them literally and must not substitute unapproved numeric thresholds or heuristics.
 
-### Recommended choices, grounded in current code
+1. **No fuzzy auto-binding.** Ranked candidates are advisory only. A bare `foodName` may resolve only to one unique exact normalized owned-food identity. Any fuzzy, alias, recent-item, tied, or otherwise ambiguous candidate must fail closed to unresolved/explicit ad hoc handling; never silently bind it.
+2. **Evidence categories, not numeric confidence.** Expose categorical evidence such as `exact_normalized`, `alias_exact`, `brand_or_tag`, `token_order`, and `recent_name`, plus explicit ambiguity where applicable. Search ranking values are not calibrated confidence and must not be surfaced or used as an auto-binding threshold.
+3. **Stable recurrence is exact and lossless.** A recurrence candidate is stable only when qualifying snapshots have identical complete core macros and a losslessly matching serving identity, including amount/unit identity. Any difference or uncertainty is review-only, not promotable automatically. It must still retain and return its recurrence evidence rather than silently dropping the candidate or its occurrences.
+4. **Restaurant/composite suitability is explicit.** Do not use a restaurant/travel/hotel/homemade/composite name heuristic or deny-list to approve or exclude promotion. The agent makes an explicit current-write suitability decision; explicit ad hoc logging remains available and must be preserved.
+5. **Aliases are small, reviewed, versioned, and advisory.** Use only server-owned code aliases/constants with literal tests and documented versioning. There is no user-managed alias schema, migration, endpoint, or UI in v1. Alias evidence never authorizes auto-binding.
+6. **Adequate reusable saved-food match is narrow and fail-closed.** It requires a unique exact normalized owned-food identity and, when the input supplies a brand, an exact normalized brand match. Any identity or brand ambiguity fails closed; preserve the caller's explicit ad hoc choice. Non-exact candidates are never automatically adequate.
+7. **No automatic promotion or history mutation.** No candidate, including stable recurrence or exact saved match, may auto-promote, auto-create, historically relink, backfill, or rewrite a prior meal-item snapshot. Promotion/create is only an explicit current write under the shared persistence rules.
 
-1. **Auto-binding rule — recommend: no ranked-match auto-binding.** Keep the current exact owned `foodId` intent and improve context ranking as advisory. Resolve a bare `foodName` automatically only for a unique exact normalized saved-food identity; otherwise return candidates/unresolved behavior. Rationale: current fuzzy-like query scores (`1`, `.86`, `.74`) are search-ranking values, not validated safety confidence, and today's transform only exact-name resolves.
-2. **Confidence — recommend: categorical evidence, not a numeric cutoff.** Expose `exact_normalized`, `alias_exact`, `brand_or_tag`, `token_order`, and `recent_name` evidence categories, plus `ambiguous: boolean`. Treat more than one materially different `exact_normalized` candidate as ambiguous. Rationale: no current calibrated confidence model exists, so a decimal cutoff would be invented.
-3. **Promotion stability — recommend: strict structural equality for v1.** A candidate is stable only if all qualifying snapshots have the same normalized serving identity and exactly equal complete calorie/protein/carbohydrate/fat values; fiber/sugar are compared when both are present. If units or amounts cannot be normalized losslessly, mark `macroVariance: 'unknown'` and do not make it promotable. Rationale: `meal_items` stores raw amount/unit snapshots and no unit-conversion or macro-tolerance policy exists. This avoids an arbitrary percent/gram threshold while permitting a later approved tolerant policy.
-4. **Variable-item exclusion — parent choice required.** Recommended v1 is a conservative explicit opt-out/classification input (`adhoc: true` / `saveToFoods: false`) plus a documented deny-list only if Derek approves its terms. Name-only heuristics for “restaurant,” “hotel,” “travel,” or “homemade” are not reliable enough to silently exclude/promote. Need approval whether a fixed deny-list is desired and its vocabulary/ownership.
-5. **Alias governance — parent choice required.** Recommended v1 is a small versioned server-owned alias table/constants with literal tests and no user mutation endpoint. Existing expansions are hard-coded domain rules (`tj`, jam/preserves, standard shake, bread/toast), not a general alias system. Need approval whether aliases are server-owned only or require user-managed per-food aliases (the latter needs schema/migration/API/UI scope).
-6. **Adequate saved match — recommend: exact normalized name plus equal normalized brand when the candidate supplies a brand; otherwise never call a non-exact candidate adequate automatically.** Rationale: current `findFoodByName` performs exact case-insensitive name matching and food search includes name/brand only. “Adequate” needs this narrow definition to avoid unsafe reuse.
-
-Until these decisions are approved, this document is frozen only for the non-ambiguous scope and is not a Codex launch authorization.
-
-## Executor operating boundaries after gate
+## Executor operating boundaries
 
 Before typing anything into Codex, verify a fresh empty Pulse NEW composer in the same fresh snapshot that shows: Pulse project identity, new-chat state, full prompt, Send control, actual selected model/reasoning, and Fast state if supported. Do not reuse stale AX selectors/coordinates, wander among threads, use Sites/browser ChatGPT/Foundry, or type into a pre-existing chat. If that exact state cannot be verified, stop and report the concrete UI blocker before typing.
 
-The launcher must point Codex at this contract, require reading `AGENTS.md` and issue #138, and require it to record literal preflight, decisions, focused evidence, Luna review findings/dispositions, commit/push/draft-PR state, and the required wait for the parent full-gate slot. Do not claim the primary/reviewer model or Fast state without launcher readback.
+The launcher must point Codex at this contract, require reading `AGENTS.md` and issue #138, and require it to record literal preflight (actual worktree, branch, and HEAD SHA), approved-policy implementation, focused evidence, Luna review findings/dispositions, commit/push/draft-PR state, and the required wait for the parent full-gate slot. Do not claim the primary/reviewer model or Fast state without launcher readback.
 
 ## Prohibited actions
 
-No source implementation from this preparation lane; no #155 edits; no heavy suite/browser use; no merge, deployment, environment mutation, production/canonical-data access, production reconciliation/backfill, history repair, or automatic historical linking. The executor may not proceed past the decision gate without explicit parent approval.
+No source implementation from this preparation lane; no #155 edits; no heavy suite/browser use; no merge, deployment, environment mutation, production/canonical-data access, production reconciliation/backfill, history repair, or automatic historical linking. The executor may use focused isolated checks only and must wait for explicit parent approval before the serialized full gate/browser verification.
