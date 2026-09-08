@@ -767,6 +767,153 @@ function readSetEvidence(sqlite: Database.Database, userId: string, sessionIds: 
   };
 }
 
+type ComparableExposureSet = {
+  section: string;
+  setNumber: number;
+  weight: number | null;
+  reps: number | null;
+  seconds: number | null;
+  distance: number | null;
+};
+
+function readComparableExposure(
+  database: FeedbackDatabase,
+  userId: string,
+  sessionId: string,
+  exerciseId: string,
+): ComparableExposureSet[] {
+  return database
+    .select({
+      section: sessionSets.section,
+      setNumber: sessionSets.setNumber,
+      weight: sessionSets.weight,
+      reps: sessionSets.reps,
+      seconds: sessionSets.seconds,
+      distance: sessionSets.distance,
+    })
+    .from(sessionSets)
+    .innerJoin(workoutSessions, eq(workoutSessions.id, sessionSets.sessionId))
+    .where(
+      and(
+        eq(sessionSets.sessionId, sessionId),
+        eq(sessionSets.exerciseId, exerciseId),
+        eq(sessionSets.completed, true),
+        eq(sessionSets.skipped, false),
+        eq(workoutSessions.userId, userId),
+        eq(workoutSessions.status, 'completed'),
+        isNull(workoutSessions.deletedAt),
+      ),
+    )
+    .orderBy(asc(sessionSets.section), asc(sessionSets.setNumber), asc(sessionSets.id))
+    .all();
+}
+
+function isLaterSession(
+  candidate: { date: string; startedAt: number; id: string },
+  baseline: FeedbackPlanningEvidence['session'],
+) {
+  if (candidate.date !== baseline.date) return candidate.date > baseline.date;
+  if (candidate.startedAt !== baseline.startedAt) return candidate.startedAt > baseline.startedAt;
+  return candidate.id > baseline.id;
+}
+
+function isComparableExposureAnswer(evidence: FeedbackPlanningEvidence) {
+  if (
+    evidence.question.timing !== 'next_check_in' ||
+    evidence.answer.state !== 'answered' ||
+    evidence.context.exerciseId === null ||
+    evidence.source.availability !== 'available'
+  ) {
+    return false;
+  }
+  const nativeValue = evidence.answer.nativeValue;
+  return !(
+    nativeValue === 'Not tested' ||
+    (Array.isArray(nativeValue) && nativeValue.includes('Not tested'))
+  );
+}
+
+function changedExposureComparison(
+  database: FeedbackDatabase,
+  userId: string,
+  evidence: FeedbackPlanningEvidence[],
+): { changed: boolean; dependencies: FeedbackPlanningDependency[] } {
+  const baseline = evidence.find(isComparableExposureAnswer);
+  const exerciseId = baseline?.context.exerciseId;
+  if (!baseline || !exerciseId) return { changed: false, dependencies: [] };
+  const baselineExposure = readComparableExposure(
+    database,
+    userId,
+    baseline.session.id,
+    exerciseId,
+  );
+  if (baselineExposure.length === 0) return { changed: false, dependencies: [] };
+  const candidates = database
+    .select({
+      id: workoutSessions.id,
+      date: workoutSessions.date,
+      startedAt: workoutSessions.startedAt,
+      completedAt: workoutSessions.completedAt,
+      updatedAt: workoutSessions.updatedAt,
+      deletedAt: workoutSessions.deletedAt,
+    })
+    .from(workoutSessions)
+    .innerJoin(
+      sessionSets,
+      and(
+        eq(sessionSets.sessionId, workoutSessions.id),
+        eq(sessionSets.exerciseId, exerciseId),
+        eq(sessionSets.completed, true),
+        eq(sessionSets.skipped, false),
+      ),
+    )
+    .where(
+      and(
+        eq(workoutSessions.userId, userId),
+        eq(workoutSessions.status, 'completed'),
+        isNull(workoutSessions.deletedAt),
+      ),
+    )
+    .groupBy(workoutSessions.id)
+    .orderBy(desc(workoutSessions.date), desc(workoutSessions.startedAt), desc(workoutSessions.id))
+    .limit(50)
+    .all();
+  const latest = candidates.find((candidate) => isLaterSession(candidate, baseline.session));
+  if (!latest) return { changed: false, dependencies: [] };
+  const latestExposure = readComparableExposure(database, userId, latest.id, exerciseId);
+  if (latestExposure.length === 0) return { changed: false, dependencies: [] };
+  const baselineFingerprint = fingerprint(baselineExposure);
+  const latestFingerprint = fingerprint(latestExposure);
+  if (baselineFingerprint === latestFingerprint) return { changed: false, dependencies: [] };
+  return {
+    changed: true,
+    dependencies: [
+      ...baseline.dependencies,
+      {
+        kind: 'session_sets',
+        id: `${baseline.session.id}:${exerciseId}`,
+        version: baselineFingerprint,
+      },
+      {
+        kind: 'session',
+        id: latest.id,
+        version: stableJson({
+          date: latest.date,
+          startedAt: latest.startedAt,
+          completedAt: latest.completedAt,
+          updatedAt: latest.updatedAt,
+          deletedAt: latest.deletedAt,
+        }),
+      },
+      {
+        kind: 'session_sets',
+        id: `${latest.id}:${exerciseId}`,
+        version: latestFingerprint,
+      },
+    ],
+  };
+}
+
 function readOpenConcerns(
   database: FeedbackDatabase,
   sqlite: Database.Database,
@@ -825,9 +972,16 @@ function readOpenConcerns(
       .get();
     const decision = decisionRow ? staleDecision(database, decisionRow) : null;
     const contradictory = aggregate.distinctAnswered > 1;
-    if (decision?.disposition === 'retire' && !decision.stale && !contradictory) continue;
     const representative = evidence[0];
     if (!representative) continue;
+    const changedExposure = changedExposureComparison(database, userId, evidence);
+    if (
+      decision?.disposition === 'retire' &&
+      !decision.stale &&
+      !contradictory &&
+      !changedExposure.changed
+    )
+      continue;
     const sourceDates = evidence.map((item) => item.session.date).sort();
     const stalenessReasons = [
       ...(from && sourceDates.every((date) => date < from) ? ['outside_recent_window'] : []),
@@ -858,6 +1012,8 @@ function readOpenConcerns(
       decisionId: decision?.id ?? null,
       decisionStale: decision?.stale ?? false,
       dependencyFingerprint,
+      changedExposure: changedExposure.changed,
+      changedExposureDependencies: changedExposure.dependencies,
     });
   }
   return { items: concerns, ...pageMeta(query.page, query.limit, total, concerns.length) };
@@ -874,17 +1030,29 @@ function buildFollowUpDrafts(
       ...(concern.stale ? (['stale'] as const) : []),
       ...(concern.contradictory ? (['contradictory'] as const) : []),
       ...(new Set(linked.map((item) => item.session.id)).size > 1 ? (['recurrence'] as const) : []),
+      ...(concern.changedExposure ? (['changed_exposure'] as const) : []),
     ];
     if (reasons.length === 0) return [];
-    const dependencies = (
-      linked.length > 0
+    const dependencies = [
+      ...(linked.length > 0
         ? linked.flatMap((item) => item.dependencies)
         : concern.evidenceIds.map((id) => ({
             kind: 'answer_revision' as const,
             id,
             version: concern.dependencyFingerprint,
-          }))
-    ).slice(0, 50);
+          }))),
+      ...concern.changedExposureDependencies,
+    ]
+      .filter(
+        (dependency, index, all) =>
+          all.findIndex(
+            (candidate) =>
+              candidate.kind === dependency.kind &&
+              candidate.id === dependency.id &&
+              candidate.version === dependency.version,
+          ) === index,
+      )
+      .slice(0, 50);
     return [
       {
         concernRef: concern.concernRef,
@@ -910,6 +1078,14 @@ export async function readFeedbackPlanningContext(
   const current = readEvidencePage(db, sqlite, userId, from, query, 'current');
   const history = readEvidencePage(db, sqlite, userId, from, query, 'historical');
   const openConcerns = readOpenConcerns(db, sqlite, userId, from, query);
+  const publicOpenConcerns = {
+    ...openConcerns,
+    items: openConcerns.items.map(({ changedExposure, changedExposureDependencies, ...item }) => {
+      void changedExposure;
+      void changedExposureDependencies;
+      return item;
+    }),
+  };
   const selectedSessionIds = [
     ...new Set([
       ...current.items.map((item) => item.session.id),
@@ -921,7 +1097,7 @@ export async function readFeedbackPlanningContext(
     query: { view: query.view, today, from, windowDays: query.windowDays },
     current,
     history,
-    openConcerns,
+    openConcerns: publicOpenConcerns,
     followUpDrafts: buildFollowUpDrafts(openConcerns.items, current.items),
     setEvidence: readSetEvidence(sqlite, userId, selectedSessionIds),
     audit: readAuditPage(sqlite, userId, from, query),

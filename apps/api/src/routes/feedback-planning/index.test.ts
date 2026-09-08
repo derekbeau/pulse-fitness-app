@@ -350,6 +350,241 @@ describe('source-linked feedback planning context', () => {
     return { jwt, template, session, futureSchedule, futureExercise, toeDefinition };
   }
 
+  async function completeExposureSession({
+    date,
+    jwt,
+    reps,
+    rir,
+  }: {
+    date: string;
+    jwt: string;
+    reps: number;
+    rir: number;
+  }) {
+    const startedAt = Date.parse(`${date}T14:00:00.000Z`);
+    const started = await app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: bearer(jwt),
+      payload: {
+        name: `Synthetic exposure ${date}`,
+        date,
+        startedAt,
+        sets: [
+          {
+            exerciseId: 'tib-raise',
+            section: 'main',
+            setNumber: 1,
+            reps,
+            rir,
+            completed: true,
+          },
+        ],
+        feedbackQuestions: [],
+      },
+    });
+    expect(started.statusCode, started.body).toBe(201);
+    const completed = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/workout-sessions/${started.json().data.id}`,
+      headers: bearer(jwt),
+      payload: {
+        status: 'completed',
+        completedAt: startedAt + 1_800_000,
+        duration: 1800,
+      },
+    });
+    expect(completed.statusCode, completed.body).toBe(200);
+    return completed.json().data;
+  }
+
+  it('drafts one source-linked follow-up only after completed loading exposure changes', async () => {
+    const fixture = await authorFixture();
+    const beforeSource = await app.inject({
+      method: 'GET',
+      url: `/api/v1/workout-sessions/${fixture.session.id}`,
+      headers: bearer(fixture.jwt),
+    });
+    const beforeTemplate = await app.inject({
+      method: 'GET',
+      url: `/api/v1/workout-templates/${fixture.template.id}`,
+      headers: bearer(fixture.jwt),
+    });
+    const beforeSchedule = await app.inject({
+      method: 'GET',
+      url: `/api/v1/scheduled-workouts/${fixture.futureSchedule.id}`,
+      headers: bearer(fixture.jwt),
+    });
+
+    const unchanged = await completeExposureSession({
+      date: '2026-08-08',
+      jwt: fixture.jwt,
+      reps: 12,
+      rir: 0,
+    });
+    const unchangedContext = await app.inject({
+      method: 'GET',
+      url: '/api/v1/context/feedback?windowDays=60&limit=50',
+      headers: agent('token-a'),
+    });
+    expect(unchangedContext.statusCode, unchangedContext.body).toBe(200);
+    expect(
+      unchangedContext
+        .json()
+        .data.followUpDrafts.filter(
+          (draft: { concernRef: string }) => draft.concernRef === 'synthetic-toe-flare',
+        ),
+    ).toEqual([]);
+
+    const changed = await completeExposureSession({
+      date: '2026-08-15',
+      jwt: fixture.jwt,
+      reps: 15,
+      rir: 0,
+    });
+    const changedContext = await app.inject({
+      method: 'GET',
+      url: '/api/v1/context/feedback?windowDays=60&limit=50',
+      headers: agent('token-a'),
+    });
+    expect(changedContext.statusCode, changedContext.body).toBe(200);
+    const changedExposureDrafts = changedContext
+      .json()
+      .data.followUpDrafts.filter((draft: { reasons: string[] }) =>
+        draft.reasons.includes('changed_exposure'),
+      );
+    expect(changedExposureDrafts).toHaveLength(1);
+    expect(changedExposureDrafts[0]).toMatchObject({
+      concernRef: 'synthetic-toe-flare',
+      timing: 'next_check_in',
+      reasons: ['changed_exposure'],
+      publicationState: 'draft',
+      dependencies: expect.arrayContaining([
+        expect.objectContaining({ kind: 'answer_revision' }),
+        expect.objectContaining({ kind: 'question_revision' }),
+        expect.objectContaining({
+          kind: 'session_sets',
+          id: `${fixture.session.id}:tib-raise`,
+        }),
+        expect.objectContaining({ kind: 'session', id: changed.id }),
+        expect.objectContaining({ kind: 'session_sets', id: `${changed.id}:tib-raise` }),
+      ]),
+      dependencyFingerprint: expect.stringMatching(/^[0-9a-f]{64}$/),
+    });
+    expect(changedExposureDrafts[0].prompt).not.toMatch(/\b(?:rpe|rir|reps?)\b/i);
+    expect(
+      changedContext
+        .json()
+        .data.followUpDrafts.filter((draft: { prompt: string }) =>
+          /\b(?:rpe|rir|reps?)\b/i.test(draft.prompt),
+        ),
+    ).toEqual([]);
+
+    const incompleteQuestion = {
+      ...toeQuestion,
+      id: 'incomplete-exposure-check',
+      concernRef: 'synthetic-incomplete-exposure',
+      contextLabel: 'Synthetic incomplete exposure',
+    };
+    const incompleteStartedAt = Date.parse('2026-08-20T14:00:00.000Z');
+    const incompleteStarted = await app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: bearer(fixture.jwt),
+      payload: {
+        name: 'Synthetic incomplete exposure',
+        date: '2026-08-20',
+        startedAt: incompleteStartedAt,
+        sets: [
+          {
+            exerciseId: 'tib-raise',
+            section: 'main',
+            setNumber: 1,
+            reps: 9,
+            completed: true,
+          },
+        ],
+        feedbackQuestions: [incompleteQuestion],
+      },
+    });
+    expect(incompleteStarted.statusCode, incompleteStarted.body).toBe(201);
+    const incompleteDefinition = incompleteStarted
+      .json()
+      .data.feedbackQuestions.questions.find(
+        (question: { id: string }) => question.id === incompleteQuestion.id,
+      );
+    const incompleteAnswered = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/workout-sessions/${incompleteStarted.json().data.id}`,
+      headers: bearer(fixture.jwt),
+      payload: {
+        feedbackExpectedRevision: 0,
+        feedbackResponses: [
+          {
+            questionId: incompleteQuestion.id,
+            definitionVersion: incompleteDefinition.version,
+            state: 'answered',
+            value: ['No symptoms during reported stages'],
+          },
+        ],
+      },
+    });
+    expect(incompleteAnswered.statusCode, incompleteAnswered.body).toBe(200);
+    await completeExposureSession({
+      date: '2026-08-27',
+      jwt: fixture.jwt,
+      reps: 18,
+      rir: 0,
+    });
+    const incompleteBaselineContext = await app.inject({
+      method: 'GET',
+      url: '/api/v1/context/feedback?windowDays=60&limit=50',
+      headers: agent('token-a'),
+    });
+    expect(incompleteBaselineContext.statusCode, incompleteBaselineContext.body).toBe(200);
+    expect(
+      incompleteBaselineContext
+        .json()
+        .data.followUpDrafts.filter(
+          (draft: { concernRef: string }) => draft.concernRef === incompleteQuestion.concernRef,
+        ),
+    ).toEqual([]);
+
+    const [afterSource, afterTemplate, afterSchedule, unchangedReadback, changedReadback] =
+      await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: `/api/v1/workout-sessions/${fixture.session.id}`,
+          headers: bearer(fixture.jwt),
+        }),
+        app.inject({
+          method: 'GET',
+          url: `/api/v1/workout-templates/${fixture.template.id}`,
+          headers: bearer(fixture.jwt),
+        }),
+        app.inject({
+          method: 'GET',
+          url: `/api/v1/scheduled-workouts/${fixture.futureSchedule.id}`,
+          headers: bearer(fixture.jwt),
+        }),
+        app.inject({
+          method: 'GET',
+          url: `/api/v1/workout-sessions/${unchanged.id}`,
+          headers: bearer(fixture.jwt),
+        }),
+        app.inject({
+          method: 'GET',
+          url: `/api/v1/workout-sessions/${changed.id}`,
+          headers: bearer(fixture.jwt),
+        }),
+      ]);
+    expect(afterSource.json()).toEqual(beforeSource.json());
+    expect(afterTemplate.json()).toEqual(beforeTemplate.json());
+    expect(afterSchedule.json()).toEqual(beforeSchedule.json());
+    expect(unchangedReadback.json().data.sets[0]).toMatchObject({ reps: 12, rir: 0 });
+    expect(changedReadback.json().data.sets[0]).toMatchObject({ reps: 15, rir: 0 });
+  });
+
   it('returns exact bounded evidence, separate history, open stale concerns, and owner-safe export', async () => {
     const fixture = await authorFixture();
     database.db
