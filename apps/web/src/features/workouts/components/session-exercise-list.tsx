@@ -72,6 +72,7 @@ import { formatWeight as formatWeightValue } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
 
 import { useRenameExercise } from '../api/workouts';
+import { selectRelatedHistory } from '../lib/related-history';
 import {
   getWorkoutExerciseStorageKey,
   getWorkoutSectionStorageKey,
@@ -813,6 +814,7 @@ function ExerciseCardItem({
         historyEntries: exercise.lastPerformance ? [exercise.lastPerformance] : [],
         related: [],
       };
+  const relatedHistory = selectRelatedHistory(historySummary.related);
   const state = getExerciseState(exercise, sessionCurrentExerciseId);
   const isExerciseComplete = state === 'completed';
   const isDurationExercise = exercise.trackingType === 'duration';
@@ -1114,7 +1116,7 @@ function ExerciseCardItem({
               </div>
             </div>
 
-            {historySummary.related.length > 0 ? (
+            {relatedHistory.length > 0 ? (
               <details className="group rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
@@ -1130,7 +1132,7 @@ function ExerciseCardItem({
                 </summary>
 
                 <div className="mt-3 space-y-2">
-                  {historySummary.related.map((relatedExercise) => (
+                  {relatedHistory.map((relatedExercise) => (
                     <div
                       className="rounded-xl border border-emerald-500/20 bg-background/70 px-3 py-2"
                       key={relatedExercise.exerciseId}
@@ -1155,12 +1157,6 @@ function ExerciseCardItem({
                           trackingType: relatedExercise.trackingType,
                           weightUnit,
                         });
-
-                        if (previewEntries.length === 0) {
-                          return (
-                            <p className="mt-1 text-sm text-foreground">No completed sets yet.</p>
-                          );
-                        }
 
                         return (
                           <div className="mt-1 space-y-1">

@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createQueryClientWrapper } from '@/test/query-client';
@@ -382,5 +382,145 @@ describe('use-last-performance hook', () => {
       expect.stringContaining('/api/v1/exercises/global-bench-press/history?limit=5'),
       expect.any(Object),
     );
+  });
+  it('keeps related loading, failed fetch, and successful retry distinct from emptiness', async () => {
+    let release!: (response: Response) => void;
+    mockFetch.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const { wrapper, queryClient } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    const { result } = renderHook(() => useLastPerformance('primary', { includeRelated: true }), {
+      wrapper,
+    });
+    expect(result.current.isPending).toBe(true);
+    expect(result.current.data).toBeUndefined();
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+    await act(async () => release(createJsonResponse(null, 503)));
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.data).toBeUndefined();
+    mockFetch.mockResolvedValueOnce(createJsonResponse({ history: null, related: [] }));
+    await act(async () => {
+      await result.current.refetch();
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual({ history: null, historyEntries: [], related: [] });
+  });
+
+  it('uses the normal automatic retry for related-history transport failures', async () => {
+    mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    mockFetch.mockResolvedValueOnce(createJsonResponse({ history: null, related: [] }));
+    const { wrapper, queryClient } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({ queries: { retry: 1, retryDelay: 0 } });
+    const { result } = renderHook(() => useLastPerformance('primary', { includeRelated: true }), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    null,
+    undefined,
+    {},
+    { history: null },
+    { related: [] },
+    {
+      history: null,
+      related: [{ exerciseId: 'related', exerciseName: 'Related', trackingType: 'weight_reps' }],
+    },
+    {
+      history: null,
+      related: Array.from({ length: 21 }, () => ({
+        exerciseId: 'related',
+        exerciseName: 'Related',
+        trackingType: 'weight_reps',
+        history: null,
+      })),
+    },
+  ])('leaves malformed/partial related payloads as errors: %j', async (payload) => {
+    mockFetch.mockResolvedValueOnce(createJsonResponse(payload));
+    const { wrapper, queryClient } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    const { result } = renderHook(() => useLastPerformance('primary', { includeRelated: true }), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it.each([401, 403, 404, 500])('preserves related-history HTTP %s as failure', async (status) => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: status === 404 ? 'EXERCISE_NOT_FOUND' : 'UNAVAILABLE',
+            message: 'Unavailable',
+          },
+        }),
+        { status, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    const { wrapper, queryClient } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    const { result } = renderHook(() => useLastPerformance('primary', { includeRelated: true }), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it('preserves related notes, zero load, native zero RIR, seconds, and distance', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createJsonResponse({
+        history: null,
+        related: [
+          {
+            exerciseId: 'related',
+            exerciseName: 'Related',
+            trackingType: 'weight_reps',
+            history: {
+              date: '2026-09-01',
+              sessionId: 'valid',
+              notes: 'Saved note',
+              sets: [
+                { setNumber: 1, weight: 0, reps: 8, rir: 0, seconds: 0, distance: 0 },
+                { setNumber: 2, weight: null, reps: null, rir: 0 },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+    const { wrapper } = createQueryClientWrapper();
+    const { result } = renderHook(() => useLastPerformance('primary', { includeRelated: true }), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.related[0].history).toEqual({
+      date: '2026-09-01',
+      sessionId: 'valid',
+      notes: 'Saved note',
+      sets: [
+        { completed: true, setNumber: 1, weight: 0, reps: 8, rir: 0, seconds: 0, distance: 0 },
+      ],
+    });
+  });
+  it('keeps truncated JSON as a transport/parse failure', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response('{"data":{"history":null,"related":[', {
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const { wrapper, queryClient } = createQueryClientWrapper();
+    queryClient.setDefaultOptions({ queries: { retry: false } });
+    const { result } = renderHook(() => useLastPerformance('primary', { includeRelated: true }), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.data).toBeUndefined();
   });
 });

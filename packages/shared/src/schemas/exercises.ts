@@ -179,6 +179,7 @@ export const exerciseLastPerformanceSetSchema = z
 
 export const exerciseLastPerformanceSchema = z.object({
   sessionId: z.string(),
+  notes: z.string().nullable().optional(),
   date: dateSchema,
   sets: z.array(exerciseLastPerformanceSetSchema).max(100),
 });

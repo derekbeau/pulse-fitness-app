@@ -48,6 +48,7 @@ export * from './utils/habit-scheduling.js';
 export * from './utils/protein-floor.js';
 export * from './utils/weight-unit.js';
 export * from './utils/workout-progression.js';
+export * from './utils/related-history.js';
 
 export const userSchema = z.object({
   id: z.string(),

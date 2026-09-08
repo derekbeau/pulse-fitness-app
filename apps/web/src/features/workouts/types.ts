@@ -114,6 +114,7 @@ export type ActiveWorkoutSetDrafts = Record<string, ActiveWorkoutSet[]>;
 
 export type ActiveWorkoutLastPerformanceSet = {
   completed: boolean;
+  skipped?: boolean;
   distance?: number | null;
   reps: number | null;
   rir?: number | null;

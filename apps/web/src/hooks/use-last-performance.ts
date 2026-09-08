@@ -47,7 +47,7 @@ function mapLastPerformance(
 
   return {
     date: payload.date,
-    notes: null,
+    notes: payload.notes ?? null,
     sessionId: payload.sessionId,
     sets,
   };
@@ -70,7 +70,7 @@ async function getLastPerformance(
       `/api/v1/exercises/${exerciseId}/${includeRelated ? 'last-performance' : 'history'}?${query}`,
     );
 
-    if (data == null) {
+    if (!includeRelated && data == null) {
       return null;
     }
 
@@ -112,7 +112,12 @@ async function getLastPerformance(
       })),
     };
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404 && error.code === 'EXERCISE_NOT_FOUND') {
+    if (
+      !includeRelated &&
+      error instanceof ApiError &&
+      error.status === 404 &&
+      error.code === 'EXERCISE_NOT_FOUND'
+    ) {
       return null;
     }
 
