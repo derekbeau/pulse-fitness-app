@@ -1,0 +1,45 @@
+RECEIPT_FORMAT: pulse-150-raw-v1
+TESTED_COMMIT: ea4ca7688c5c022abfa38affba424d150b07ee5a
+BRANCH: feat/workout-feedback-questions
+WORKTREE: /Users/meridian/Projects/pulse-workout-feedback-questions
+STARTED_UTC: 2026-09-08T17:50:42Z
+COMMAND: pnpm test:repo-scripts 
+STDOUT_STDERR_BEGIN
+
+> pulse@ test:repo-scripts /Users/meridian/Projects/pulse-workout-feedback-questions
+> node --test scripts/dev-gate0-isolated.test.mjs scripts/api-container-entrypoint.test.mjs scripts/runtime-secrets-isolation.test.mjs scripts/init-worktree.test.mjs
+
+▶ API container migration-map preflight
+  ✔ starts fresh, legacy-empty, and already-canonical databases without a map (82.019666ms)
+  ✔ fails closed for non-empty legacy data without a secure map (188.127958ms)
+  ✔ accepts a regular mode-0600 map for non-empty legacy data (102.302292ms)
+✔ API container migration-map preflight (373.059333ms)
+▶ Gate 0 isolated development startup
+  ✔ enforces the isolated database and all three fixed port values (2.616208ms)
+  ✔ allows only loopback or an exact Tailscale IPv4 preview host (0.237625ms)
+  ✔ advertises the reachable Tailscale-hosted web origin to Swagger (0.753583ms)
+  ✔ rejects default, production, snapshot, and arbitrary database paths (0.707458ms)
+  ✔ rejects a missing, read-only, or symlinked isolated database (3.588375ms)
+✔ Gate 0 isolated development startup (8.608833ms)
+▶ worktree initializer
+  ✔ derives a deterministic sibling path from a slash-delimited branch (1.100666ms)
+  ✔ parses defaults and explicit overrides (0.181042ms)
+  ✔ rejects unknown options and unsafe port values (0.217833ms)
+  ✔ reads worktree paths and reserves generated environment ports (1.929667ms)
+  ✔ renders a localhost-only environment with an absolute database path (0.234959ms)
+  ✔ recognizes both normal and signal-based child process exits (0.091041ms)
+✔ worktree initializer (4.48925ms)
+▶ runtime migration-map isolation
+  ✔ keeps the host-only map out of Git and the Docker build context (715.117125ms)
+✔ runtime migration-map isolation (715.6455ms)
+ℹ tests 15
+ℹ suites 4
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 816.875458
+STDOUT_STDERR_END
+EXIT_CODE: 0
+FINISHED_UTC: 2026-09-08T17:50:44Z

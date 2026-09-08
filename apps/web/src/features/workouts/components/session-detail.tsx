@@ -17,6 +17,8 @@ import {
   type WeightUnit,
   type WorkoutSession,
   type WorkoutSessionFeedbackResponse,
+  type WorkoutFeedbackAnswerInput,
+  type WorkoutFeedbackAnswerRevision,
   type WorkoutTemplate,
   type WorkoutTemplateSectionType,
 } from '@pulse/shared';
@@ -28,7 +30,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { Label } from '@/components/ui/label';
 import { StatCard } from '@/components/ui/stat-card';
-import { useStartSession } from '@/hooks/use-workout-session';
+import { useCorrectWorkoutFeedback, useStartSession } from '@/hooks/use-workout-session';
 import { useWeightUnit } from '@/hooks/use-weight-unit';
 import { useTodayKey } from '@/features/workouts/hooks/use-today-key';
 import {
@@ -60,6 +62,8 @@ import { findPreviousTemplateSession } from '../lib/session-comparison';
 import { ExerciseDetailModal } from './exercise-detail-modal';
 import { MarkdownNote } from './markdown-note';
 import { SessionComparison } from './session-comparison';
+import { SessionFeedback } from './session-feedback';
+import type { ActiveWorkoutFeedbackDraft } from '../types';
 import {
   createSessionSetDraft,
   SessionDetailExerciseCard,
@@ -130,6 +134,8 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   const [showComparison, setShowComparison] = useState(false);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingFeedback, setIsEditingFeedback] = useState(false);
+  const [feedbackCorrectionError, setFeedbackCorrectionError] = useState<string | null>(null);
   const [setDrafts, setSetDrafts] = useState<Record<string, SessionSetDraft>>({});
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -139,6 +145,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   const activeSessionsQuery = useWorkoutSessions({ status: ['in-progress', 'paused'] });
   const session = sessionQuery.data;
   const correctSessionSetsMutation = useCorrectSessionSets(sessionId);
+  const correctWorkoutFeedbackMutation = useCorrectWorkoutFeedback(sessionId);
   const startSessionMutation = useStartSession();
   const templateQuery = useWorkoutTemplate(session?.templateId ?? '');
   const template = templateQuery.data;
@@ -478,7 +485,25 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
 
       <Card>
         <CardHeader className="gap-2">
-          <CardTitle>Feedback</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle>Feedback</CardTitle>
+            {session.feedbackQuestions?.questions.some(
+              (question) => question.timing === 'post_session',
+            ) ? (
+              <Button
+                disabled={correctWorkoutFeedbackMutation.isPending}
+                onClick={() => {
+                  setFeedbackCorrectionError(null);
+                  setIsEditingFeedback((current) => !current);
+                }}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                {isEditingFeedback ? 'Cancel feedback edit' : 'Correct feedback'}
+              </Button>
+            ) : null}
+          </div>
           {session.feedbackNoteReview?.length ? (
             <p role="status" className="text-sm text-muted">
               Some coaching interpretations need provenance review or have been superseded. They are
@@ -487,6 +512,41 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
           ) : null}
         </CardHeader>
         <CardContent className="space-y-5">
+          {isEditingFeedback && session.feedbackQuestions ? (
+            <SessionFeedback
+              draftKey={`pulse-feedback-correction-v1:${session.userId}:${session.id}`}
+              heading="Correct workout feedback"
+              kicker="Immutable correction"
+              questions={session.feedbackQuestions.questions}
+              serverAnswers={session.feedbackAnswers?.current}
+              serverRevision={session.feedbackAnswers?.revision ?? 0}
+              submitLabel={
+                correctWorkoutFeedbackMutation.isPending ? 'Saving correction…' : 'Save correction'
+              }
+              onSubmit={async (feedback, expectedRevision) => {
+                setFeedbackCorrectionError(null);
+                try {
+                  await correctWorkoutFeedbackMutation.mutateAsync({
+                    expectedRevision,
+                    responses: mapFeedbackDraftToAnswerInputs(feedback),
+                  });
+                  setIsEditingFeedback(false);
+                } catch {
+                  setFeedbackCorrectionError(
+                    'Correction not saved. The visible draft is retained; refresh if another writer changed it.',
+                  );
+                }
+              }}
+            />
+          ) : null}
+          {feedbackCorrectionError ? (
+            <p aria-live="polite" className="text-sm text-destructive">
+              {feedbackCorrectionError}
+            </p>
+          ) : null}
+          {session.feedbackQuestions?.questions.length ? (
+            <NativeFeedbackHistory session={session} />
+          ) : null}
           {session.feedback ? (
             <>
               {Object.values(session.feedback.provenance).some(
@@ -627,6 +687,91 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
 
     void doRepeatStart(todayKey);
   }
+}
+
+function NativeFeedbackHistory({ session }: { session: WorkoutSession }) {
+  const definitions = session.feedbackQuestions?.questions ?? [];
+  const current = session.feedbackAnswers?.current ?? [];
+  const history = session.feedbackAnswers?.history ?? [];
+  const currentByQuestion = new Map(
+    current.map((answer) => [`${answer.questionId}:${answer.definitionVersion}`, answer]),
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+        {definitions.map((definition) => {
+          const answer = currentByQuestion.get(`${definition.id}:${definition.version}`);
+          return (
+            <div
+              className="min-w-0 rounded-2xl border border-border bg-secondary/35 p-4"
+              key={`${definition.id}:${definition.version}`}
+            >
+              <p className="break-words text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+                {definition.prompt}
+              </p>
+              <p className="mt-2 break-words text-base font-semibold text-foreground">
+                {answer ? formatAnswerRevisionValue(answer) : 'Unanswered'}
+              </p>
+              <p className="mt-2 break-words text-xs text-muted">
+                {`Question v${definition.version} · ${definition.timing.replace('_', ' ')} · ${answer ? `answer r${answer.revision}, ${answer.respondentSource}` : 'no accepted answer'}`}
+              </p>
+              {answer?.notes?.trim() ? (
+                <MarkdownNote className="mt-2 text-sm text-muted" content={answer.notes.trim()} />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+      {history.length > 0 ? (
+        <details className="rounded-2xl border border-border px-4 py-3">
+          <summary className="cursor-pointer text-sm font-semibold text-foreground">
+            Immutable answer history ({history.length})
+          </summary>
+          <ol className="mt-3 space-y-2 text-sm text-muted">
+            {history.map((answer) => (
+              <li className="break-words" key={`${answer.responseId}:${answer.revision}`}>
+                <span>{`${answer.questionId} v${answer.definitionVersion} · r${answer.revision} · ${formatAnswerRevisionValue(answer)} · ${answer.respondentSource}${answer.respondentActorId ? ` (${answer.respondentActorId})` : ''} · ${answer.answeredAt}`}</span>
+                {answer.notes?.trim() ? (
+                  <MarkdownNote className="mt-1 text-sm text-muted" content={answer.notes.trim()} />
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+function formatAnswerRevisionValue(answer: WorkoutFeedbackAnswerRevision) {
+  if (answer.state !== 'answered') return formatLabel(answer.state);
+  if (Array.isArray(answer.value)) return answer.value.join(', ');
+  if (typeof answer.value === 'boolean') return answer.value ? 'Yes' : 'No';
+  return String(answer.value ?? 'Unanswered');
+}
+
+function mapFeedbackDraftToAnswerInputs(
+  draft: ActiveWorkoutFeedbackDraft,
+): WorkoutFeedbackAnswerInput[] {
+  return draft
+    .filter((field) => field.definitionVersion !== undefined)
+    .map((field) => {
+      const clearedText = field.type === 'text' && (field.value ?? '').trim().length === 0;
+      const value = clearedText ? undefined : field.value;
+      const state = clearedText
+        ? 'unanswered'
+        : (field.answerState ??
+          (value === null || value === undefined ? 'unanswered' : 'answered'));
+
+      return {
+        questionId: field.id,
+        definitionVersion: field.definitionVersion ?? 1,
+        state,
+        ...(value === undefined || value === null ? {} : { value }),
+        ...(field.notes === undefined ? {} : { notes: field.notes }),
+      };
+    });
 }
 
 function buildSessionSetDrafts(sets: SessionSet[]) {

@@ -1,0 +1,247 @@
+RECEIPT_FORMAT: pulse-150-raw-v1
+TESTED_COMMIT: ea4ca7688c5c022abfa38affba424d150b07ee5a
+BRANCH: feat/workout-feedback-questions
+WORKTREE: /Users/meridian/Projects/pulse-workout-feedback-questions
+STARTED_UTC: 2026-09-08T17:53:59Z
+COMMAND: pnpm --filter web exec vitest run --maxWorkers=1 --no-file-parallelism --no-cache 
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-workout-feedback-questions/apps/web
+
+ ✓ src/pages/active-workout.test.tsx (39 tests) 5819ms
+     ✓ renders the active workout UI and does not auto-focus any set after rest timer completion  797ms
+     ✓ moves from session logging to feedback, summary, and back to workouts  1549ms
+     ✓ keeps the session active after the last set until completion is explicitly confirmed  1595ms
+ ✓ src/features/workouts/components/session-exercise-list.test.tsx (43 tests) 4715ms
+     ✓ shows editable set rows and renders an inline rest timer after the completed set  379ms
+     ✓ keeps section open state manual when workout progress moves into the next section  344ms
+     ✓ persists section and exercise collapse state across remounts for the same session id  355ms
+ ✓ src/pages/nutrition.test.tsx (33 tests) 1959ms
+ ✓ src/features/workouts/components/template-detail.test.tsx (23 tests) 4432ms
+     ✓ renders a fallback state when the template request returns 404  1025ms
+     ✓ treats legacy slug template IDs as not found when the request fails  1016ms
+     ✓ keeps generic error messaging for UUID template IDs on non-404 failures  1017ms
+ ✓ src/features/workouts/components/session-detail.test.tsx (23 tests) 1895ms
+     ✓ renders a not-found state for unknown sessions  1087ms
+ ✓ src/features/adaptive-nutrition/components/adaptive-coach.test.tsx (33 tests) 1058ms
+ ✓ src/pages/dashboard.test.tsx (23 tests) 1839ms
+ ✓ src/features/workouts/components/scheduled-workout-detail.test.tsx (14 tests) 816ms
+ ✓ src/pages/weight-history.test.tsx (10 tests) 1343ms
+ ✓ src/features/foods/components/food-list.test.tsx (14 tests) 3553ms
+     ✓ debounces search and sends the query to the foods API  492ms
+     ✓ keeps the inline editor open if a pending save blurs before the API fails  389ms
+     ✓ renders card and table views and persists the selected view  422ms
+     ✓ preserves filter and sort state when switching between card and table views  374ms
+ ✓ src/pages/workouts.test.tsx (13 tests) 817ms
+ ✓ src/features/workouts/components/exercise-library.test.tsx (16 tests) 3598ms
+     ✓ filters exercises by case-insensitive name search and syncs q to the URL  467ms
+     ✓ shows an empty state and still supports the unified exercise detail modal  720ms
+     ✓ falls back to the no-results state when the exercises request fails  1036ms
+ ✓ src/features/adaptive-nutrition/api/adaptive-nutrition.test.tsx (8 tests) 253ms
+ ✓ src/pages/active-workout.remove-set.test.tsx (2 tests) 369ms
+ ✓ src/features/dashboard/components/habit-chain.test.tsx (18 tests) 499ms
+ ✓ src/features/weight/api/weight.test.tsx (17 tests) 749ms
+ ✓ src/features/adaptive-nutrition/components/weekly-decision-review.test.tsx (16 tests) 534ms
+ ✓ src/features/adaptive-nutrition/components/goal-trajectory-workspace.test.tsx (15 tests) 704ms
+ ✓ src/features/workouts/components/workout-list.test.tsx (13 tests) 317ms
+ ✓ src/features/workouts/components/workout-calendar.test.tsx (8 tests) 408ms
+ ✓ src/pages/settings.test.tsx (11 tests) 1322ms
+ ✓ src/features/adaptive-nutrition/components/energy-balance-workspace.test.tsx (15 tests) 656ms
+ ✓ src/features/workouts/components/session-feedback.test.tsx (11 tests) 392ms
+ ✓ src/features/habits/api/habits.test.tsx (10 tests) 309ms
+ ✓ src/features/nutrition/api/nutrition.test.tsx (10 tests) 463ms
+ ✓ src/features/workouts/components/template-browser.test.tsx (11 tests) 631ms
+ ✓ src/features/workouts/components/workout-progression-review.test.tsx (14 tests) 248ms
+ ✓ src/features/habits/components/habit-card-menu.test.tsx (12 tests) 260ms
+ ✓ src/hooks/use-last-performance.test.tsx (21 tests) 1240ms
+ ✓ src/features/dashboard/components/snapshot-cards.test.tsx (15 tests) 131ms
+ ✓ src/features/dashboard/components/trend-sparkline.test.tsx (16 tests) 194ms
+ ✓ src/features/workouts/api/workouts.mutations.test.tsx (8 tests) 34ms
+ ✓ src/features/workouts/components/set-row.test.tsx (28 tests) 177ms
+ ✓ src/lib/api-client.test.ts (14 tests) 12ms
+ ✓ src/features/workouts/components/session-summary.test.tsx (4 tests) 294ms
+ ✓ src/features/foods/components/food-analytics-workspace.test.tsx (5 tests) 282ms
+ ✓ src/features/data-quality/components/data-quality-calendar-workspace.test.tsx (6 tests) 575ms
+ ✓ src/App.test.tsx (25 tests) 6956ms
+     ✓ renders 'Welcome back' page for '/login' when signed out  380ms
+     ✓ renders 'Create account' page for '/register' when signed out  316ms
+     ✓ renders 'Dashboard' page for '/' when signed in  347ms
+     ✓ renders 'Design System' page for '/design-system' when signed in  344ms
+     ✓ renders 'Workouts' page for '/workouts' when signed in  342ms
+     ✓ renders 'No active workout' page for '/workouts/active' when signed in  336ms
+     ✓ renders 'Upper Push' page for '/workouts/session/session-upper-push-…' when signed in  367ms
+     ✓ renders 'Upper Push' page for '/workouts/template/upper-push' when signed in  349ms
+     ✓ renders 'Nutrition' page for '/nutrition' when signed in  330ms
+     ✓ renders 'Energy Balance & Expenditure' page for '/nutrition/energy-balance' when signed in  326ms
+     ✓ renders 'Habits' page for '/habits' when signed in  326ms
+     ✓ renders 'Activity' page for '/activity' when signed in  337ms
+     ✓ renders 'Journal' page for '/journal' when signed in  337ms
+     ✓ renders 'Trend Weight' page for '/weight' when signed in  332ms
+     ✓ renders 'Profile' page for '/profile' when signed in  333ms
+     ✓ renders 'Equipment' page for '/profile/equipment' when signed in  348ms
+     ✓ renders 'Health Tracking' page for '/profile/injuries' when signed in  335ms
+     ✓ renders 'Resources' page for '/profile/resources' when signed in  328ms
+     ✓ renders 'McGill Big 3' page for '/profile/resources/mcgill-big-3' when signed in  333ms
+     ✓ renders 'Settings' page for '/settings' when signed in  353ms
+ ✓ src/features/habits/components/daily-habits.test.tsx (8 tests) 274ms
+ ✓ src/features/adaptive-nutrition/components/adaptive-setup-form.test.tsx (11 tests) 1257ms
+ ✓ src/pages/habits.test.tsx (6 tests) 417ms
+ ✓ src/features/workouts/components/rir-picker.test.tsx (43 tests) 397ms
+ ✓ src/features/workouts/api/workouts.optimistic.test.tsx (4 tests) 246ms
+ ✓ src/features/workouts/lib/active-session.test.ts (8 tests) 3ms
+ ✓ src/features/workouts/components/exercise-detail-modal.test.tsx (12 tests) 231ms
+ ✓ src/features/dashboard/components/habit-daily-status-card.test.tsx (8 tests) 115ms
+ ✓ src/hooks/use-workout-session.test.tsx (7 tests) 94ms
+ ✓ src/pages/workout-session-detail.test.tsx (7 tests) 1288ms
+     ✓ renders not-found state for unknown sessionId  1090ms
+ ✓ src/hooks/use-session-sets.test.tsx (3 tests) 247ms
+ ✓ src/features/dashboard/components/weight-trend-chart.test.tsx (5 tests) 346ms
+ ✓ src/hooks/use-complete-session.test.tsx (2 tests) 26ms
+ ✓ src/__tests__/components/daily-habits.test.tsx (8 tests) 232ms
+ ✓ src/features/habits/components/habit-form-dialog.test.tsx (8 tests) 429ms
+ ✓ src/features/nutrition/components/daily-energy-adherence-card.test.tsx (17 tests) 145ms
+ ✓ src/features/dashboard/components/recent-workouts.test.tsx (9 tests) 104ms
+ ✓ src/features/workouts/lib/session-persistence.test.ts (18 tests) 3ms
+ ✓ src/features/nutrition/components/daily-nutrition-note.test.tsx (7 tests) 367ms
+ ✓ src/features/workouts/components/exercise-trend-chart.test.tsx (17 tests) 294ms
+ ✓ src/features/nutrition/components/nutrition-macro-rings.test.tsx (12 tests) 150ms
+ ✓ src/features/workouts/components/swap-exercise-dialog.test.tsx (2 tests) 131ms
+ ✓ src/pages/activity.test.tsx (6 tests) 563ms
+ ✓ src/features/workouts/api/workouts.test.tsx (2 tests) 223ms
+ ✓ src/features/habits/components/habit-day-modal.test.tsx (6 tests) 183ms
+ ✓ src/store/auth-store.test.ts (7 tests) 8ms
+ ✓ src/features/workouts/components/session-comparison.test.tsx (6 tests) 93ms
+ ✓ src/features/injuries/components/severity-chart.test.tsx (6 tests) 206ms
+ ✓ src/features/nutrition/components/meal-card.test.tsx (14 tests) 134ms
+ ✓ src/hooks/use-pull-to-refresh.test.tsx (6 tests) 83ms
+ ✓ src/features/workouts/lib/time-estimates.test.ts (9 tests) 2ms
+ ✓ src/components/layout/sidebar.test.tsx (6 tests) 168ms
+ ✓ src/features/workouts/components/scheduled-start-surfaces.test.tsx (14 tests) 614ms
+ ✓ src/pages/equipment.test.tsx (6 tests) 1041ms
+     ✓ adds an item to the selected category within a location card  323ms
+ ✓ src/features/workouts/components/workout-exercise-card/index.test.tsx (5 tests) 86ms
+ ✓ src/components/ui/confirmation-dialog.test.tsx (9 tests) 266ms
+ ✓ src/features/auth/components/register-form.test.tsx (8 tests) 144ms
+ ✓ src/components/workouts/active-session-resume-gate.test.tsx (4 tests) 176ms
+ ✓ src/features/habits/components/weekly-habit-date-picker.test.tsx (4 tests) 84ms
+ ✓ src/pages/journal.test.tsx (4 tests) 207ms
+ ✓ src/features/settings/api/trash.test.tsx (4 tests) 72ms
+ ✓ src/components/charts/chart-primitives.test.tsx (7 tests) 92ms
+ ✓ src/features/foods/api/foods.test.tsx (2 tests) 175ms
+ ✓ src/features/dashboard/components/calendar-picker.test.tsx (7 tests) 83ms
+ ✓ src/components/layout/bottom-nav.test.tsx (3 tests) 149ms
+ ✓ src/features/habits/components/habit-history.test.tsx (4 tests) 260ms
+ ✓ src/features/dashboard/components/macro-rings.test.tsx (7 tests) 85ms
+ ✓ src/features/nutrition/api/daily-note.test.tsx (4 tests) 391ms
+ ✓ src/features/workouts/components/muscle-analytics.test.tsx (2 tests) 178ms
+ ✓ src/lib/optimistic.test.tsx (3 tests) 233ms
+ ✓ src/features/nutrition/components/nutrition-week-strip.test.tsx (6 tests) 101ms
+ ✓ src/features/nutrition/components/nutrition-trends.test.tsx (5 tests) 356ms
+ ✓ src/features/auth/components/login-form.test.tsx (8 tests) 117ms
+ ✓ src/features/workouts/lib/tracking.test.ts (15 tests) 6ms
+ ✓ src/features/settings/components/trash-manager.test.tsx (3 tests) 138ms
+ ✓ src/hooks/use-dashboard-snapshot.test.tsx (4 tests) 228ms
+ ✓ src/hooks/use-sync-sets.test.tsx (4 tests) 17ms
+ ✓ src/pages/design-system.test.tsx (3 tests) 223ms
+ ✓ src/hooks/use-exercise-history.test.tsx (5 tests) 231ms
+ ✓ src/features/dashboard/lib/widget-utils.test.ts (10 tests) 6ms
+ ✓ src/features/workouts/components/session-context.test.tsx (4 tests) 91ms
+ ✓ src/lib/use-debounced-callback.test.tsx (6 tests) 20ms
+ ✓ src/hooks/use-weight-trend.test.tsx (4 tests) 179ms
+ ✓ src/features/workouts/lib/effort.test.ts (61 tests) 6ms
+ ✓ src/pages/profile.test.tsx (4 tests) 137ms
+ ✓ src/features/workouts/components/session-header.test.tsx (3 tests) 98ms
+ ✓ src/features/nutrition/lib/nutrition-utils.test.ts (12 tests) 8ms
+ ✓ src/hooks/useTheme.test.tsx (5 tests) 16ms
+ ✓ src/features/nutrition/api/targets.test.tsx (3 tests) 129ms
+ ✓ src/lib/query-invalidation.test.ts (6 tests) 2ms
+ ✓ src/components/ui/stat-card.test.tsx (8 tests) 34ms
+ ✓ src/features/workouts/components/workout-exercise-card/last-performance-chip.test.tsx (5 tests) 73ms
+ ✓ src/hooks/use-recent-workouts.test.tsx (2 tests) 120ms
+ ✓ src/features/workouts/lib/workout-session-sets.test.ts (2 tests) 1ms
+ ✓ src/styles/globals.test.ts (2 tests) 2ms
+ ✓ src/lib/query-client.test.ts (6 tests) 11ms
+ ✓ src/hooks/use-macro-trend.test.tsx (3 tests) 130ms
+ ✓ src/hooks/use-habit-chains.test.tsx (3 tests) 176ms
+ ✓ src/hooks/use-save-as-template.test.tsx (2 tests) 18ms
+ ✓ src/hooks/use-user.test.tsx (2 tests) 129ms
+ ✓ src/features/activity/lib/mock-data.test.ts (3 tests) 2ms
+ ✓ src/__tests__/components/theme-toggle.test.tsx (3 tests) 51ms
+ ✓ src/features/resources/components/resource-detail.test.tsx (3 tests) 87ms
+ ✓ src/components/auth/protected-route.test.tsx (3 tests) 58ms
+ ✓ src/hooks/usePersistedState.test.tsx (5 tests) 17ms
+ ✓ src/features/adaptive-nutrition/components/nutrition-day-status-control.test.tsx (4 tests) 144ms
+ ✓ src/components/ui/data-table.test.tsx (4 tests) 81ms
+ ✓ src/hooks/use-date-authority.test.tsx (3 tests) 29ms
+ ✓ src/components/theme-provider.test.tsx (2 tests) 62ms
+ ✓ src/pages/journal-entry.test.tsx (3 tests) 92ms
+ ✓ src/hooks/use-dashboard-config.test.tsx (2 tests) 75ms
+ ✓ src/components/auth/guest-route.test.tsx (3 tests) 51ms
+ ✓ src/features/workouts/components/effort-display.test.tsx (5 tests) 143ms
+ ✓ src/features/workouts/components/form-cue-chips.test.tsx (3 tests) 74ms
+ ✓ src/features/weight/lib/trend-weight-date.test.ts (10 tests) 3ms
+ ✓ src/components/ui/button.test.tsx (4 tests) 57ms
+ ✓ src/features/workouts/components/workout-exercise-card/workout-exercise-set-list.test.tsx (3 tests) 81ms
+ ✓ src/components/ui/progress-bar.test.tsx (4 tests) 49ms
+ ✓ src/features/workouts/lib/related-history.test.ts (9 tests) 3ms
+ ✓ src/features/workouts/components/rest-timer.test.tsx (3 tests) 82ms
+ ✓ src/components/layout/page-header.test.tsx (4 tests) 68ms
+ ✓ src/features/resources/components/resource-grid.test.tsx (1 test) 105ms
+ ✓ src/components/ui/preview-banner.test.tsx (5 tests) 57ms
+ ✓ src/__tests__/components/progress-ring.test.tsx (5 tests) 53ms
+ ✓ src/features/workouts/api/progression.test.tsx (2 tests) 126ms
+ ✓ src/lib/api-error.test.ts (6 tests) 1ms
+ ✓ src/components/ui/progress-ring.test.tsx (5 tests) 50ms
+ ✓ src/features/workouts/components/workout-exercise-card/prescription-block.test.tsx (3 tests) 22ms
+ ✓ src/components/layout/app-layout.test.tsx (2 tests) 42ms
+ ✓ src/features/activity/components/activity-list.test.tsx (2 tests) 73ms
+ ✓ src/features/workouts/components/workout-exercise-card/exercise-header.test.tsx (2 tests) 65ms
+ ✓ src/lib/format-utils.test.ts (8 tests) 2ms
+ ✓ src/features/workouts/components/workout-exercise-card/agent-notes-block.test.tsx (3 tests) 26ms
+ ✓ src/components/ui/notes-indicator.test.tsx (3 tests) 89ms
+ ✓ src/components/ui/pull-to-refresh.test.tsx (3 tests) 22ms
+ ✓ src/features/workouts/api/workouts.keys.test.ts (5 tests) 2ms
+ ✓ src/components/ui/column-picker.test.tsx (1 test) 101ms
+ ✓ src/components/ui/dialog.test.tsx (1 test) 76ms
+ ✓ src/lib/date.test.ts (5 tests) 2ms
+ ✓ src/__tests__/components/progress-bar.test.tsx (4 tests) 51ms
+ ✓ src/components/skeletons/skeleton-variants.test.tsx (2 tests) 29ms
+ ✓ src/pages/login.test.tsx (1 test) 46ms
+ ✓ src/features/dashboard/components/trend-sparkline-responsive.test.tsx (1 test) 68ms
+ ✓ src/components/ui/help-icon.test.tsx (2 tests) 99ms
+ ✓ src/components/error-boundary.test.tsx (2 tests) 78ms
+ ✓ src/components/ui/sort-selector.test.tsx (2 tests) 122ms
+ ✓ src/features/workouts/components/workout-exercise-card/form-cues-block.test.tsx (2 tests) 60ms
+ ✓ src/components/ui/empty-state.test.tsx (2 tests) 64ms
+ ✓ src/features/workouts/components/scheduled-workout-header.test.tsx (2 tests) 68ms
+ ✓ src/components/ui/view-toggle.test.tsx (2 tests) 62ms
+ ✓ src/features/dashboard/lib/program-date.test.ts (2 tests) 11ms
+ ✓ src/components/ui/input.test.tsx (3 tests) 52ms
+ ✓ src/features/nutrition/api/keys.test.ts (3 tests) 2ms
+ ✓ src/__tests__/components/stat-card.test.tsx (3 tests) 24ms
+ ✓ src/components/ui/per-page-selector.test.tsx (2 tests) 116ms
+ ✓ src/components/ui/pagination-bar.test.tsx (2 tests) 56ms
+ ✓ src/components/ui/help-modal.test.tsx (2 tests) 73ms
+ ✓ src/lib/date-utils.test.ts (3 tests) 1ms
+ ✓ src/components/ui/filter-bar.test.tsx (1 test) 20ms
+ ✓ src/features/adaptive-nutrition/lib/format-adaptive-nutrition.test.ts (2 tests) 1ms
+ ✓ src/features/workouts/components/workout-exercise-card/programming-notes-block.test.tsx (2 tests) 24ms
+ ✓ src/features/nutrition/lib/program-local-midnight.test.ts (3 tests) 9ms
+ ✓ src/pages/injuries.test.tsx (1 test) 84ms
+ ✓ src/pages/resources.test.tsx (1 test) 72ms
+ ✓ src/components/ui/skeleton.test.tsx (1 test) 18ms
+ ✓ src/lib/utils.test.ts (3 tests) 4ms
+ ✓ src/features/workouts/components/tag-chips.test.tsx (2 tests) 19ms
+ ✓ src/components/ui/checkbox.test.tsx (1 test) 50ms
+ ✓ src/features/foods/api/keys.test.ts (1 test) 1ms
+ ✓ src/components/ui/card.test.tsx (1 test) 23ms
+ ✓ src/__tests__/placeholder.test.ts (1 test) 1ms
+
+ Test Files  189 passed (189)
+      Tests  1417 passed (1417)
+   Start at  13:54:00
+   Duration  190.01s (transform 3.25s, setup 13.98s, import 43.41s, tests 69.08s, environment 40.50s)
+
+STDOUT_STDERR_END
+EXIT_CODE: 0
+FINISHED_UTC: 2026-09-08T17:57:10Z

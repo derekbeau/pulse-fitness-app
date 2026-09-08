@@ -23,7 +23,7 @@ import {
   workoutTemplateSchema,
 } from '@pulse/shared';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
@@ -51,10 +51,18 @@ import {
   badRequestResponseSchema,
   idParamsSchema,
   successFlagSchema,
+  workoutFeedbackRevisionConflictResponseSchema,
 } from '../../openapi.js';
 import { allRelatedExercisesOwned } from '../exercises/store.js';
-import { templateBelongsToUser } from '../workout-templates/template-access.js';
-import { findWorkoutTemplateById } from '../workout-templates/store.js';
+import {
+  allTemplateExercisesAccessible,
+  findWorkoutTemplateById,
+} from '../workout-templates/store.js';
+import {
+  readQuestionList,
+  WorkoutFeedbackRevisionConflictError,
+  type FeedbackMutationActor,
+} from '../workout-feedback/store.js';
 
 import {
   readSnapshot,
@@ -111,6 +119,15 @@ const UNKNOWN_SCHEDULED_WORKOUT_EXERCISE_RESPONSE = {
 
 const TEMPLATE_DRIFT_SUMMARY = 'Template has been updated since scheduling.';
 const UNKNOWN_SNAPSHOT_EXERCISE_NAME = 'Unknown exercise';
+
+const feedbackActorForRequest = (request: FastifyRequest): FeedbackMutationActor =>
+  request.authType === 'agent-token'
+    ? {
+        kind: 'agent_token',
+        id: request.agentTokenId ?? null,
+        name: request.agentTokenName ?? null,
+      }
+    : { kind: 'user', id: request.userId, name: null };
 
 const scheduledWorkoutDetailWithTemplateSchema = scheduledWorkoutDetailSchema.extend({
   template: workoutTemplateSchema.nullable(),
@@ -315,6 +332,7 @@ const buildScheduledWorkoutDetail = async ({
 
   return {
     ...scheduledWorkout,
+    feedbackQuestions: readQuestionList(db, userId, 'scheduled', scheduledWorkout.id),
     exercises: snapshotExercises,
     templateDrift,
     staleExercises: [...staleByExerciseId.values()],
@@ -417,11 +435,8 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const templateAccessible = await templateBelongsToUser(
-        request.body.templateId,
-        request.userId,
-      );
-      if (!templateAccessible) {
+      const template = await findWorkoutTemplateById(request.body.templateId, request.userId);
+      if (!template) {
         return sendError(
           reply,
           404,
@@ -434,6 +449,7 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
         id: randomUUID(),
         userId: request.userId,
         input: request.body,
+        templateQuestions: template.feedbackQuestions?.questions ?? [],
       });
 
       await writeSnapshot({
@@ -633,7 +649,6 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
-          409: apiErrorResponseSchema,
         },
         tags: ['scheduled-workouts'],
         summary: 'Swap or remove an exercise in a scheduled workout snapshot',
@@ -860,6 +875,7 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
         },
         tags: ['scheduled-workouts'],
         summary: 'Reorder exercises in a scheduled workout snapshot',
@@ -1035,6 +1051,7 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
+          409: workoutFeedbackRevisionConflictResponseSchema,
         },
         tags: ['scheduled-workouts'],
         summary: 'Update a scheduled workout',
@@ -1055,11 +1072,39 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      const scheduledWorkout = await updateScheduledWorkout({
-        id: request.params.id,
-        userId: request.userId,
-        changes: request.body,
-      });
+      const questionExerciseIds = (request.body.feedbackQuestions ?? []).flatMap((question) =>
+        question.exerciseIdSnapshot ? [question.exerciseIdSnapshot] : [],
+      );
+      if (
+        !(await allTemplateExercisesAccessible({
+          userId: request.userId,
+          exerciseIds: questionExerciseIds,
+        }))
+      ) {
+        return sendError(
+          reply,
+          400,
+          INVALID_SCHEDULED_WORKOUT_EXERCISE_RESPONSE.code,
+          INVALID_SCHEDULED_WORKOUT_EXERCISE_RESPONSE.message,
+        );
+      }
+
+      let scheduledWorkout;
+      try {
+        scheduledWorkout = await updateScheduledWorkout({
+          id: request.params.id,
+          userId: request.userId,
+          changes: request.body,
+          actor: feedbackActorForRequest(request),
+        });
+      } catch (error) {
+        if (error instanceof WorkoutFeedbackRevisionConflictError) {
+          return sendError(reply, 409, 'WORKOUT_FEEDBACK_REVISION_CONFLICT', error.message, {
+            currentRevision: error.currentRevision,
+          });
+        }
+        throw error;
+      }
       if (!scheduledWorkout) {
         return sendError(
           reply,

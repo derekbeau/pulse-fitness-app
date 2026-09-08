@@ -1,0 +1,11 @@
+RECEIPT_FORMAT: pulse-150-raw-v1
+TESTED_COMMIT: 53d728c0936cd4756a0c5cc15aa6fe70cc064fca
+BRANCH: feat/workout-feedback-questions
+WORKTREE: /Users/meridian/Projects/pulse-workout-feedback-questions
+STARTED_UTC: 2026-09-08T17:41:07Z
+COMMAND: env NODE_OPTIONS=--no-warning pnpm test:repo-scripts 
+STDOUT_STDERR_BEGIN
+node: --no-warning is not allowed in NODE_OPTIONS
+STDOUT_STDERR_END
+EXIT_CODE: 9
+FINISHED_UTC: 2026-09-08T17:41:07Z

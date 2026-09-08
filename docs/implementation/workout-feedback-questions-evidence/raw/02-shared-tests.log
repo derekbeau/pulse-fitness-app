@@ -1,0 +1,69 @@
+RECEIPT_FORMAT: pulse-150-raw-v1
+TESTED_COMMIT: ea4ca7688c5c022abfa38affba424d150b07ee5a
+BRANCH: feat/workout-feedback-questions
+WORKTREE: /Users/meridian/Projects/pulse-workout-feedback-questions
+STARTED_UTC: 2026-09-08T17:50:58Z
+COMMAND: pnpm --filter shared exec vitest run --maxWorkers=1 --no-file-parallelism --no-cache 
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-workout-feedback-questions/packages/shared
+
+ ✓ src/utils/adaptive-tdee.test.ts (56 tests) 124ms
+ ✓ src/schemas/workout-sessions.test.ts (47 tests) 9ms
+ ✓ src/utils/adaptive-goal-trajectory.test.ts (37 tests) 22ms
+ ✓ src/schemas/adaptive-nutrition.test.ts (18 tests) 16ms
+ ✓ src/schemas/nutrition.test.ts (45 tests) 7ms
+ ✓ src/schemas/weight.test.ts (26 tests) 14ms
+ ✓ src/conventions-docs.test.ts (6 tests) 5ms
+ ✓ src/utils/workout-progression.test.ts (30 tests) 8ms
+ ✓ src/schemas/workout-templates.test.ts (19 tests) 5ms
+ ✓ src/schemas/scheduled-workouts.test.ts (23 tests) 5ms
+ ✓ src/schemas/exercises.test.ts (24 tests) 5ms
+ ✓ src/schemas/dashboard.test.ts (15 tests) 4ms
+ ✓ src/utils/adaptive-goal-progress.test.ts (8 tests) 6ms
+ ✓ src/utils/energy-balance.test.ts (9 tests) 10ms
+ ✓ src/schemas/adaptive-weekly-review.test.ts (6 tests) 18ms
+ ✓ src/schemas/workout-feedback.test.ts (8 tests) 6ms
+ ✓ src/utils/ewma.test.ts (14 tests) 58ms
+ ✓ src/schemas/data-quality-calendar.test.ts (8 tests) 19ms
+ ✓ src/schemas/workout-progression.test.ts (6 tests) 18ms
+ ✓ src/utils/adaptive-setup-projection.test.ts (15 tests) 7ms
+ ✓ src/utils/daily-energy-adherence.test.ts (44 tests) 25ms
+ ✓ src/schemas/habits.test.ts (21 tests) 5ms
+ ✓ src/schemas/foods.test.ts (19 tests) 4ms
+ ✓ src/schemas/health-conditions.test.ts (13 tests) 4ms
+ ✓ src/utils/protein-floor.test.ts (24 tests) 3ms
+ ✓ src/utils/chart-exploration.test.ts (19 tests) 18ms
+ ✓ src/schemas/session-set.test.ts (9 tests) 8ms
+ ✓ src/schemas/nutrition-targets.test.ts (7 tests) 4ms
+ ✓ src/utils/food-analytics.test.ts (6 tests) 3ms
+ ✓ src/schemas/feedback-provenance.test.ts (8 tests) 4ms
+ ✓ src/schemas/habit-entries.test.ts (12 tests) 8ms
+ ✓ src/unified-api-docs.test.ts (4 tests) 2ms
+ ✓ src/schemas/agent.test.ts (11 tests) 4ms
+ ✓ src/schemas/dashboard-config.test.ts (8 tests) 3ms
+ ✓ src/schemas/food-analytics.test.ts (4 tests) 18ms
+ ✓ src/monorepo-config.test.ts (2 tests) 6ms
+ ✓ src/schemas/energy-balance.test.ts (3 tests) 9ms
+ ✓ src/utils/habit-scheduling.test.ts (5 tests) 5ms
+ ✓ src/schemas/workout-progression-compatibility.test.ts (19 tests) 4ms
+ ✓ src/schemas/auth.test.ts (7 tests) 13ms
+ ✓ src/schemas/equipment.test.ts (5 tests) 2ms
+ ✓ src/schemas/common.test.ts (4 tests) 3ms
+ ✓ src/utils/related-history.test.ts (25 tests) 2ms
+ ✓ src/schemas/journal.test.ts (3 tests) 3ms
+ ✓ src/schemas/resources.test.ts (3 tests) 2ms
+ ✓ src/schemas/entity-links.test.ts (3 tests) 2ms
+ ✓ src/schemas/activities.test.ts (3 tests) 7ms
+ ✓ src/index.test.ts (5 tests) 3ms
+ ✓ src/schemas/agent-tokens.test.ts (4 tests) 2ms
+ ✓ src/utils/weight-unit.test.ts (4 tests) 1ms
+
+ Test Files  50 passed (50)
+      Tests  724 passed (724)
+   Start at  13:50:59
+   Duration  8.06s (transform 524ms, setup 0ms, import 1.43s, tests 547ms, environment 4ms)
+
+STDOUT_STDERR_END
+EXIT_CODE: 0
+FINISHED_UTC: 2026-09-08T17:51:07Z

@@ -20,6 +20,8 @@ import {
   classifyNativeFeedback,
   type FeedbackActor,
   type WorkoutSessionFeedbackInput,
+  type WorkoutFeedbackQuestionDefinition,
+  type WorkoutFeedbackAnswerInput,
 } from '@pulse/shared';
 import type {
   BatchUpsertSetsInput,
@@ -53,6 +55,14 @@ import {
   workoutTemplates,
 } from '../../db/schema/index.js';
 import { findWorkoutTemplateById } from '../workout-templates/store.js';
+import {
+  freezeSessionQuestionList,
+  materializeAuthoredQuestionDefinitions,
+  readAnswerSnapshot,
+  readQuestionList,
+  writeAnswerRevisions,
+  type FeedbackMutationActor,
+} from '../workout-feedback/store.js';
 import { backfillTimeSegmentSections, calculateSectionDurations } from './time-segments.js';
 
 const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'supplemental', 'cooldown'];
@@ -337,6 +347,8 @@ const buildWorkoutSession = (
       instructions: string | null;
     }
   >,
+  feedbackQuestions: WorkoutSession['feedbackQuestions'],
+  feedbackAnswers: WorkoutSession['feedbackAnswers'],
 ): WorkoutSession => {
   const timeSegments = backfillTimeSegmentSections(
     parseWorkoutSessionTimeSegments(session.timeSegments),
@@ -374,6 +386,8 @@ const buildWorkoutSession = (
     sets: sets.sort(sortSessionSets).map<SessionSet>(buildSessionSet),
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
+    feedbackQuestions,
+    feedbackAnswers,
   };
 };
 
@@ -998,10 +1012,16 @@ export const applySessionCorrections = async ({
   sessionId,
   userId,
   corrections,
+  feedbackResponses,
+  feedbackExpectedRevision,
+  feedbackMutationActor,
 }: {
   sessionId: string;
   userId: string;
   corrections: SetCorrection[];
+  feedbackResponses?: WorkoutFeedbackAnswerInput[];
+  feedbackExpectedRevision?: number;
+  feedbackMutationActor?: FeedbackMutationActor;
 }): Promise<WorkoutSession> => {
   const { db } = await import('../../db/index.js');
 
@@ -1282,6 +1302,16 @@ export const applySessionCorrections = async ({
         .run();
     }
 
+    if (feedbackResponses !== undefined) {
+      writeAnswerRevisions(tx, {
+        userId,
+        sessionId,
+        expectedRevision: feedbackExpectedRevision ?? 0,
+        responses: feedbackResponses,
+        actor: feedbackMutationActor ?? { kind: 'system', id: null, name: null },
+      });
+    }
+
     tx.update(workoutSessions)
       .set({ updatedAt: Date.now() })
       .where(
@@ -1445,6 +1475,9 @@ export const createWorkoutSession = async ({
   exercisePrescriptions,
   setSnapshotFactsByKey = {},
   feedbackActor,
+  feedbackMutationActor,
+  additionalFeedbackQuestions,
+  feedbackQuestionsSource,
 }: {
   id: string;
   userId: string;
@@ -1458,6 +1491,9 @@ export const createWorkoutSession = async ({
   exercisePrescriptions?: ExercisePrescriptions;
   setSnapshotFactsByKey?: Record<string, SessionSetSnapshotFact>;
   feedbackActor?: FeedbackActor;
+  feedbackMutationActor?: FeedbackMutationActor;
+  additionalFeedbackQuestions?: WorkoutFeedbackQuestionDefinition[];
+  feedbackQuestionsSource?: 'template_snapshot' | 'scheduled_override' | 'ad_hoc';
 }): Promise<WorkoutSession> => {
   const { db } = await import('../../db/index.js');
   const exerciseMetadata = db
@@ -1525,6 +1561,30 @@ export const createWorkoutSession = async ({
 
     if (insertResult.changes !== 1) {
       throw new Error('Failed to persist workout session');
+    }
+    const authoredAdditional =
+      additionalFeedbackQuestions ??
+      materializeAuthoredQuestionDefinitions(
+        input.feedbackQuestions ?? [],
+        feedbackMutationActor ?? { kind: 'system', id: null, name: null },
+        input.startedAt,
+      );
+    freezeSessionQuestionList(tx, {
+      userId,
+      sessionId: id,
+      source: feedbackQuestionsSource ?? 'ad_hoc',
+      additionalDefinitions: authoredAdditional,
+      startedAt: input.startedAt,
+    });
+    if (input.feedbackResponses !== undefined) {
+      writeAnswerRevisions(tx, {
+        userId,
+        sessionId: id,
+        expectedRevision: input.feedbackExpectedRevision ?? 0,
+        responses: input.feedbackResponses,
+        actor: feedbackMutationActor ?? { kind: 'system', id: null, name: null },
+        now: input.completedAt ?? input.startedAt,
+      });
     }
     if (input.feedback && (feedbackActor || !('schemaVersion' in input.feedback))) {
       tx.insert(feedbackSubmissionAudit)
@@ -1690,7 +1750,13 @@ export const findWorkoutSessionById = async (
     ]),
   );
 
-  return buildWorkoutSession(session, sets, exerciseInfoById);
+  return buildWorkoutSession(
+    session,
+    sets,
+    exerciseInfoById,
+    readQuestionList(db, userId, 'session', id),
+    readAnswerSnapshot(db, userId, id),
+  );
 };
 
 export const updateWorkoutSession = async ({
@@ -1700,6 +1766,9 @@ export const updateWorkoutSession = async ({
   replaceSetSnapshots = false,
   preserveSetRows = false,
   feedbackActor,
+  feedbackResponses,
+  feedbackExpectedRevision,
+  feedbackMutationActor,
 }: {
   id: string;
   userId: string;
@@ -1707,6 +1776,9 @@ export const updateWorkoutSession = async ({
   replaceSetSnapshots?: boolean;
   preserveSetRows?: boolean;
   feedbackActor?: FeedbackActor;
+  feedbackResponses?: WorkoutFeedbackAnswerInput[];
+  feedbackExpectedRevision?: number;
+  feedbackMutationActor?: FeedbackMutationActor;
 }): Promise<WorkoutSession | undefined> => {
   const { db } = await import('../../db/index.js');
   const existingSets = db
@@ -1853,6 +1925,16 @@ export const updateWorkoutSession = async ({
       if (setRows.length > 0) {
         tx.insert(sessionSets).values(setRows).run();
       }
+    }
+
+    if (feedbackResponses !== undefined) {
+      writeAnswerRevisions(tx, {
+        userId,
+        sessionId: id,
+        expectedRevision: feedbackExpectedRevision ?? 0,
+        responses: feedbackResponses,
+        actor: feedbackMutationActor ?? { kind: 'system', id: null, name: null },
+      });
     }
 
     return true;

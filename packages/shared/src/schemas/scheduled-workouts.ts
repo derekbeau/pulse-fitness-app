@@ -4,6 +4,10 @@ import { z } from 'zod';
 import { dateSchema } from './common.js';
 import { exerciseTrackingTypeSchema } from './exercises.js';
 import { workoutTemplateSectionTypeSchema } from './workout-templates.js';
+import {
+  workoutFeedbackQuestionInputListSchema,
+  workoutFeedbackQuestionListSchema,
+} from './workout-feedback.js';
 
 const requiredStringSchema = z.string().trim().min(1).max(255);
 const requiredLongStringSchema = z.string().trim().min(1).max(4000);
@@ -29,6 +33,7 @@ export const scheduledWorkoutSchema = z.object({
   sessionId: z.string().nullable(),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
+  feedbackQuestions: workoutFeedbackQuestionListSchema.optional(),
 });
 
 export const scheduledWorkoutListItemSchema = z.object({
@@ -49,6 +54,20 @@ export const createScheduledWorkoutInputSchema = z.object({
 export const updateScheduledWorkoutInputSchema = z
   .object({
     date: dateSchema.optional(),
+    feedbackQuestions: workoutFeedbackQuestionInputListSchema.optional(),
+    feedbackQuestionsExpectedRevision: z.number().int().nonnegative().optional(),
+  })
+  .superRefine((value, context) => {
+    if (
+      value.feedbackQuestions !== undefined &&
+      value.feedbackQuestionsExpectedRevision === undefined
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['feedbackQuestionsExpectedRevision'],
+        message: 'feedbackQuestionsExpectedRevision is required when feedbackQuestions is provided',
+      });
+    }
   })
   .refine((value) => Object.values(value).some((field) => field !== undefined), {
     message: 'At least one scheduled workout field must be provided',

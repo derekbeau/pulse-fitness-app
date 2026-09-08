@@ -1,0 +1,29 @@
+RECEIPT_FORMAT: pulse-150-raw-v1
+TESTED_COMMIT: ea4ca7688c5c022abfa38affba424d150b07ee5a
+BRANCH: feat/workout-feedback-questions
+WORKTREE: /Users/meridian/Projects/pulse-workout-feedback-questions
+STARTED_UTC: 2026-09-08T17:59:05Z
+COMMAND: /tmp/pulse150-migration-gate.zsh 
+STDOUT_STDERR_BEGIN
+MIGRATION_RECEIPT_SCOPE: predecessor-through-0061 to 0062; full fresh install; populated legacy schema-v2 fixture; restore-based rollback; migration idempotence; transactional rollback
+MIGRATION_SOURCE_HASHES_BEGIN
+bf0631f0441237f3791cb84100d98f17fac55fea802fe45c83ce83a2432af367  apps/api/drizzle/0062_workout_feedback_questions.sql
+d60a99bcd9add016a46c8e8d495e29af36dd78667c316f9e09b43d5c8fb2ae2c  apps/api/drizzle/meta/_journal.json
+cb0726814476d07b0dc07f5e2a3ad68666ab2ae591b73815ca8b2ea777208237  apps/api/src/db/workout-feedback-migration.test.ts
+f7f40e024e62ab91d4988b8a798d1d1a7cfb085e8c206e02101bde444f3a4014  apps/api/src/db/schema/workout-feedback.ts
+MIGRATION_SOURCE_HASHES_END
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-workout-feedback-questions/apps/api
+
+ ✓ src/db/workout-feedback-migration.test.ts > workout feedback question migration > upgrades an exact through-0061 fixture, preserves #149 bytes, and restores the untouched predecessor 108ms
+ ✓ src/db/workout-feedback-migration.test.ts > workout feedback question migration > installs the full current journal on an empty database 70ms
+ ✓ src/db/workout-feedback-migration.test.ts > workout feedback question migration > enforces owner links, exact revision order, immutable rows, and atomic rollback 74ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  13:59:06
+   Duration  642ms (transform 24ms, setup 0ms, import 254ms, tests 254ms, environment 0ms)
+
+STDOUT_STDERR_END
+EXIT_CODE: 0
+FINISHED_UTC: 2026-09-08T17:59:07Z

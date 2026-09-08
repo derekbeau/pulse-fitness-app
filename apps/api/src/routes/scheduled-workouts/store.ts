@@ -12,6 +12,7 @@ import {
   type UpdateScheduledWorkoutExercisesInput,
   type UpdateScheduledWorkoutExerciseSetsInput,
   type UpdateScheduledWorkoutInput,
+  type WorkoutFeedbackQuestionDefinition,
 } from '@pulse/shared';
 import {
   exercises,
@@ -23,6 +24,12 @@ import {
   workoutTemplates,
 } from '../../db/schema/index.js';
 import { readSnapshot, templateVersionMatchesCurrentTemplate } from './snapshot-store.js';
+import {
+  readQuestionList,
+  writeAuthoredQuestionList,
+  writeFrozenQuestionList,
+  type FeedbackMutationActor,
+} from '../workout-feedback/store.js';
 
 // Supplemental is retained for deterministic ordering of legacy snapshot rows.
 // Structural edit input schemas prevent callers from assigning supplemental.
@@ -253,6 +260,7 @@ const buildScheduledWorkoutDetail = async ({
 
   return {
     ...scheduledWorkout,
+    feedbackQuestions: readQuestionList(db, userId, 'scheduled', scheduledWorkout.id),
     exercises: snapshotExercises,
     templateDrift,
     staleExercises: [...staleByExerciseId.values()],
@@ -398,22 +406,32 @@ export const createScheduledWorkout = async ({
   id,
   userId,
   input,
+  templateQuestions,
 }: {
   id: string;
   userId: string;
   input: CreateScheduledWorkoutInput;
+  templateQuestions: WorkoutFeedbackQuestionDefinition[];
 }): Promise<ScheduledWorkout> => {
   const { db } = await import('../../db/index.js');
 
-  const result = db
-    .insert(scheduledWorkouts)
-    .values({
-      id,
+  const result = db.transaction((tx) => {
+    const inserted = tx
+      .insert(scheduledWorkouts)
+      .values({ id, userId, templateId: input.templateId, date: input.date })
+      .run();
+    if (inserted.changes !== 1) return inserted;
+    writeFrozenQuestionList(tx, {
       userId,
-      templateId: input.templateId,
-      date: input.date,
-    })
-    .run();
+      scopeKind: 'scheduled',
+      scopeId: id,
+      source: 'template_snapshot',
+      expectedRevision: 0,
+      definitions: templateQuestions,
+      actor: { kind: 'system', id: null, name: null },
+    });
+    return inserted;
+  });
 
   if (result.changes !== 1) {
     throw new Error('Failed to persist scheduled workout');
@@ -517,6 +535,7 @@ export const findScheduledWorkoutById = async (
   id: string,
   userId: string,
 ): Promise<ScheduledWorkout | undefined> => {
+  const { db } = await import('../../db/index.js');
   const scheduledWorkout = await findScheduledWorkoutByIdWithTemplateVersion(id, userId);
   if (!scheduledWorkout) {
     return undefined;
@@ -530,13 +549,16 @@ export const findScheduledWorkoutById = async (
     sessionId: scheduledWorkout.sessionId,
     createdAt: scheduledWorkout.createdAt,
     updatedAt: scheduledWorkout.updatedAt,
+    feedbackQuestions: readQuestionList(db, userId, 'scheduled', id),
   };
 };
 
 export const findScheduledWorkoutByIdWithTemplateVersion = async (
   id: string,
   userId: string,
-): Promise<(ScheduledWorkout & { templateVersion: string | null }) | undefined> => {
+): Promise<
+  (Omit<ScheduledWorkout, 'feedbackQuestions'> & { templateVersion: string | null }) | undefined
+> => {
   const { db } = await import('../../db/index.js');
 
   return db
@@ -551,10 +573,12 @@ export const updateScheduledWorkout = async ({
   id,
   userId,
   changes,
+  actor,
 }: {
   id: string;
   userId: string;
   changes: UpdateScheduledWorkoutInput;
+  actor: FeedbackMutationActor;
 }): Promise<ScheduledWorkout | undefined> => {
   const { db } = await import('../../db/index.js');
 
@@ -563,16 +587,42 @@ export const updateScheduledWorkout = async ({
     return undefined;
   }
 
-  const shouldClearSessionLink = existingWorkout.date !== changes.date;
-  const updatePayload = shouldClearSessionLink ? { ...changes, sessionId: null } : changes;
+  const { feedbackQuestions, feedbackQuestionsExpectedRevision, ...scheduledChanges } = changes;
+  const shouldClearSessionLink =
+    scheduledChanges.date !== undefined && existingWorkout.date !== scheduledChanges.date;
+  const updatePayload = shouldClearSessionLink
+    ? { ...scheduledChanges, sessionId: null }
+    : scheduledChanges;
 
-  const [updatedWorkout] = await db
-    .update(scheduledWorkouts)
-    .set(updatePayload)
-    .where(and(eq(scheduledWorkouts.id, id), eq(scheduledWorkouts.userId, userId)))
-    .returning(scheduledWorkoutSelection);
+  const updatedWorkout = db.transaction((tx) => {
+    const updated =
+      Object.keys(updatePayload).length === 0
+        ? existingWorkout
+        : tx
+            .update(scheduledWorkouts)
+            .set(updatePayload)
+            .where(and(eq(scheduledWorkouts.id, id), eq(scheduledWorkouts.userId, userId)))
+            .returning(scheduledWorkoutSelection)
+            .get();
+    if (feedbackQuestions !== undefined) {
+      writeAuthoredQuestionList(tx, {
+        userId,
+        scopeKind: 'scheduled',
+        scopeId: id,
+        source: 'scheduled_override',
+        expectedRevision: feedbackQuestionsExpectedRevision ?? 0,
+        questions: feedbackQuestions,
+        actor,
+      });
+    }
+    return updated;
+  });
 
-  return updatedWorkout;
+  if (!updatedWorkout) return undefined;
+  return {
+    ...updatedWorkout,
+    feedbackQuestions: readQuestionList(db, userId, 'scheduled', id),
+  };
 };
 
 export const deleteScheduledWorkout = async (id: string, userId: string): Promise<boolean> => {
@@ -592,12 +642,18 @@ export const findScheduledWorkoutBySessionId = async (
 ): Promise<ScheduledWorkout | undefined> => {
   const { db } = await import('../../db/index.js');
 
-  return db
+  const scheduled = db
     .select(scheduledWorkoutSelection)
     .from(scheduledWorkouts)
     .where(and(eq(scheduledWorkouts.sessionId, sessionId), eq(scheduledWorkouts.userId, userId)))
     .limit(1)
     .get();
+  return scheduled
+    ? {
+        ...scheduled,
+        feedbackQuestions: readQuestionList(db, userId, 'scheduled', scheduled.id),
+      }
+    : undefined;
 };
 
 export const unlinkScheduledWorkoutSession = async (

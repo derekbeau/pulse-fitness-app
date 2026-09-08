@@ -263,7 +263,15 @@ export type ActiveWorkoutEnhancedExercise = Omit<
 export type FeedbackFieldType = 'scale' | 'text' | 'yes_no' | 'emoji' | 'slider' | 'multi_select';
 
 export type ActiveWorkoutCustomFeedbackField = {
-  answerState?: 'answered' | 'unanswered' | 'skipped';
+  answerState?: 'answered' | 'unanswered' | 'skipped' | 'unknown';
+  definitionVersion?: number;
+  timing?: 'post_session' | 'next_check_in';
+  anchors?: Array<{ value: number; label: string }>;
+  exclusiveOption?: string;
+  exerciseNameSnapshot?: string | null;
+  bodyRegion?: string | null;
+  laterality?: 'left' | 'right' | 'bilateral' | 'midline' | 'unspecified' | null;
+  contextLabel?: string | null;
 } & (
   | {
       id: string;
@@ -272,6 +280,7 @@ export type ActiveWorkoutCustomFeedbackField = {
       min: number;
       notes?: string;
       optional?: boolean;
+      step?: number;
       type: 'scale';
       value?: number | null;
     }

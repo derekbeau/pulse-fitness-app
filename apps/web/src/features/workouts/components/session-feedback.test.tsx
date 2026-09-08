@@ -1,5 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+
+import {
+  createSystemWorkoutFeedbackQuestions,
+  type WorkoutFeedbackQuestionDefinition,
+} from '@pulse/shared';
 
 import type { ActiveWorkoutCustomFeedbackField } from '../types';
 import { SessionFeedback } from './session-feedback';
@@ -366,4 +371,212 @@ describe('SessionFeedback', () => {
     fireEvent.click(yesButton);
     expect(yesButton).toHaveAttribute('aria-pressed', 'true');
   });
+
+  it('renders the frozen post-session definitions, excludes next-check-in and the old energy core', () => {
+    const questions = [
+      ...createSystemWorkoutFeedbackQuestions('2026-09-08T12:00:00.000Z'),
+      feedbackDefinition({
+        id: 'tib-response',
+        prompt: 'What did the left lower leg do during tib-bar raises?',
+        type: 'multi_select',
+        optional: true,
+        timing: 'post_session',
+        config: { options: ['No issue', 'Pain', 'Tightness'], exclusiveOption: 'No issue' },
+        exerciseNameSnapshot: 'Tibialis Raise',
+        bodyRegion: 'lower leg',
+        laterality: 'left',
+      }),
+      feedbackDefinition({
+        id: 'next-check',
+        prompt: 'How did this feel the next morning?',
+        type: 'text',
+        optional: true,
+        timing: 'next_check_in',
+        config: {},
+      }),
+    ];
+
+    render(<SessionFeedback onSubmit={() => {}} questions={questions} />);
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'What did the left lower leg do during tib-bar raises?',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Tibialis Raise · lower leg · left')).toBeInTheDocument();
+    expect(screen.queryByText('How did this feel the next morning?')).not.toBeInTheDocument();
+    expect(screen.queryByText('Energy post workout')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Finalize session' })).toBeEnabled();
+  });
+
+  it('renders exact numeric anchors and submits cleared optional text as unanswered', async () => {
+    const onSubmit = vi.fn();
+    const questions = [
+      feedbackDefinition({
+        id: 'anchored-scale',
+        prompt: 'How controlled did the movement feel?',
+        type: 'scale',
+        optional: true,
+        timing: 'post_session',
+        config: {
+          min: 0,
+          max: 2,
+          step: 1,
+          anchors: [
+            { value: 0, label: 'Not controlled' },
+            { value: 2, label: 'Fully controlled' },
+          ],
+        },
+      }),
+      feedbackDefinition({
+        id: 'optional-context',
+        prompt: 'Optional context',
+        type: 'text',
+        optional: true,
+        timing: 'post_session',
+        config: {},
+      }),
+    ];
+
+    render(<SessionFeedback onSubmit={onSubmit} questions={questions} />);
+
+    expect(
+      screen.getByText((_, element) => element?.textContent === '0: Not controlled'),
+    ).toBeVisible();
+    expect(
+      screen.getByText((_, element) => element?.textContent === '2: Fully controlled'),
+    ).toBeVisible();
+    const context = screen.getByRole('textbox', { name: 'Optional context' });
+    fireEvent.change(context, { target: { value: 'temporary' } });
+    fireEvent.change(context, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Finalize session' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0]?.[0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'optional-context',
+          value: undefined,
+          answerState: 'unanswered',
+        }),
+      ]),
+    );
+  });
+
+  it('hydrates exact server revisions without letting an older local draft overwrite false', () => {
+    const questions = createSystemWorkoutFeedbackQuestions('2026-09-08T12:00:00.000Z');
+    localStorage.setItem(
+      'feedback-revision-test',
+      JSON.stringify({
+        revision: 0,
+        fields: [
+          {
+            id: 'pain-discomfort',
+            definitionVersion: 1,
+            type: 'yes_no',
+            label: 'Any pain or discomfort?',
+            value: true,
+            answerState: 'answered',
+          },
+        ],
+      }),
+    );
+    render(
+      <SessionFeedback
+        draftKey="feedback-revision-test"
+        onSubmit={() => {}}
+        questions={questions}
+        serverRevision={1}
+        serverAnswers={[
+          {
+            questionId: 'pain-discomfort',
+            definitionVersion: 1,
+            state: 'answered',
+            value: false,
+            responseId: 'response-pain',
+            revision: 1,
+            priorRevisionId: null,
+            answeredAt: '2026-09-08T12:01:00.000Z',
+            timing: 'post_session',
+            respondentSource: 'user',
+            respondentActorId: 'owner-a',
+          },
+        ]}
+      />,
+    );
+    expect(
+      within(screen.getByRole('group', { name: 'Any pain or discomfort? response' })).getByRole(
+        'button',
+        { name: 'No' },
+      ),
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('serializes durable saves and retries a failed draft without losing visible answers', async () => {
+    vi.useFakeTimers();
+    const onSaveDraft = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('synthetic network failure'))
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(2);
+    try {
+      render(
+        <SessionFeedback
+          onSaveDraft={onSaveDraft}
+          onSubmit={() => {}}
+          questions={createSystemWorkoutFeedbackQuestions('2026-09-08T12:00:00.000Z')}
+        />,
+      );
+      const noButton = within(
+        screen.getByRole('group', { name: 'Any pain or discomfort? response' }),
+      ).getByRole('button', { name: 'No' });
+      fireEvent.click(noButton);
+      await act(async () => vi.advanceTimersByTime(451));
+      await act(async () => Promise.resolve());
+      expect(noButton).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByText(/Draft not saved/)).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Retry save' }));
+        await Promise.resolve();
+      });
+      expect(screen.queryByText(/Draft not saved/)).not.toBeInTheDocument();
+      expect(onSaveDraft.mock.calls.map((call) => call[1])).toEqual([0, 0]);
+
+      fireEvent.click(
+        within(screen.getByRole('group', { name: 'Session RPE rating' })).getByRole('button', {
+          name: '5',
+        }),
+      );
+      await act(async () => vi.advanceTimersByTime(451));
+      await act(async () => Promise.resolve());
+      expect(onSaveDraft.mock.calls[2]?.[1]).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
+
+function feedbackDefinition(
+  input: Omit<
+    WorkoutFeedbackQuestionDefinition,
+    | 'version'
+    | 'revisionId'
+    | 'priorRevisionId'
+    | 'sourceKind'
+    | 'sourceActorId'
+    | 'sourceActorName'
+    | 'authoredAt'
+  >,
+): WorkoutFeedbackQuestionDefinition {
+  return {
+    ...input,
+    version: 1,
+    revisionId: `revision:${input.id}:1`,
+    priorRevisionId: null,
+    sourceKind: 'agent_token',
+    sourceActorId: 'synthetic-agent',
+    sourceActorName: 'Synthetic Agent',
+    authoredAt: '2026-09-08T12:00:00.000Z',
+  } as WorkoutFeedbackQuestionDefinition;
+}
