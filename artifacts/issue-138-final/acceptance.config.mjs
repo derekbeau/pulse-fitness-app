@@ -6,7 +6,8 @@ if (process.env.PULSE_ACCEPTANCE_LANE !== 'pulse160') {
 }
 // Keep the existing harness's networking, fixture DB, readiness URLs and Vite command.
 // This worktree has no .env. The API command uses only the explicit synthetic process env.
-export default defineConfig(base, {
+export default defineConfig({
+  ...base,
   testDir: '.',
   testMatch: 'acceptance.spec.mjs',
   retries: 0,
