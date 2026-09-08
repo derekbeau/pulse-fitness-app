@@ -1,0 +1,42 @@
+{
+  "startingHead": "f9154993989c8aa3b1db59a3bbcf802d52975d7c",
+  "verifiedSourceHead": "e25b4c6c0c92151eca01b583ef409c613c25e41f",
+  "worktree": "/Users/meridian/Projects/pulse-food-reuse",
+  "branch": "feat/ranked-food-reuse",
+  "sourceHashesUnchanged": true,
+  "frozenContractSha256": "7294b9e2463b8765358ce26422f8fab2260d5f20403f1ab3eaa869902d2789cd",
+  "gates": {
+    "final-lint": {
+      "command": "pnpm lint --force",
+      "exitCode": 0,
+      "elapsedSeconds": 13.89
+    },
+    "final-typecheck": {
+      "command": "pnpm typecheck --force",
+      "exitCode": 0,
+      "elapsedSeconds": 10.88
+    },
+    "final-test": {
+      "command": "pnpm test --force",
+      "exitCode": 1,
+      "elapsedSeconds": 79.89
+    },
+    "final-build": {
+      "command": "pnpm build --force",
+      "exitCode": 0,
+      "elapsedSeconds": 12.21
+    }
+  },
+  "browser": {
+    "status": "NOT_RUN",
+    "reason": "Required default full test gate remains red; obeying repair prompt stop/report rule. Fixture scripts prepared but never launched."
+  },
+  "acceptance": "BLOCKED; no full default test pass; no browser receipt; not independently accepted",
+  "serializedDiagnostic": {
+    "command": "zsh -c 'pnpm test:repo-scripts && pnpm exec turbo run test --concurrency=1 --force'",
+    "exitCode": 0,
+    "elapsedSeconds": 97.47,
+    "workspaceTestsPassed": 3225,
+    "acceptanceReplacement": false
+  }
+}

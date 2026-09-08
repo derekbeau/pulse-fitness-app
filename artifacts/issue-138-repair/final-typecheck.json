@@ -1,0 +1,5 @@
+{
+  "command": "pnpm typecheck --force",
+  "exitCode": 0,
+  "elapsedSeconds": 10.88
+}

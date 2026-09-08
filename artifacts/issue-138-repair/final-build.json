@@ -1,0 +1,5 @@
+{
+  "command": "pnpm build --force",
+  "exitCode": 0,
+  "elapsedSeconds": 12.21
+}

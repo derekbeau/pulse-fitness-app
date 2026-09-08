@@ -1,0 +1,46 @@
+$ pnpm lint --force
+
+> pulse@ lint /Users/meridian/Projects/pulse-food-reuse
+> turbo run lint --force
+
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running lint in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/shared:lint: cache bypass, force executing 7eeded3ccfd3898a
+@pulse/web:lint: cache bypass, force executing f7733f339756d43f
+@pulse/api:lint: cache bypass, force executing 40b7e7dac5b4686c
+@pulse/web:lint: 
+@pulse/web:lint: > @pulse/web@0.0.0 lint /Users/meridian/Projects/pulse-food-reuse/apps/web
+@pulse/web:lint: > eslint .
+@pulse/web:lint: 
+@pulse/shared:lint: 
+@pulse/shared:lint: > @pulse/shared@0.0.0 lint /Users/meridian/Projects/pulse-food-reuse/packages/shared
+@pulse/shared:lint: > eslint .
+@pulse/shared:lint: 
+@pulse/api:lint: 
+@pulse/api:lint: > @pulse/api@0.0.0 lint /Users/meridian/Projects/pulse-food-reuse/apps/api
+@pulse/api:lint: > eslint .
+@pulse/api:lint: 
+@pulse/web:lint: 
+@pulse/web:lint: /Users/meridian/Projects/pulse-food-reuse/apps/web/src/features/adaptive-nutrition/components/energy-balance-workspace.tsx
+@pulse/web:lint:   129:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+@pulse/web:lint:   158:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+@pulse/web:lint: 
+@pulse/web:lint: /Users/meridian/Projects/pulse-food-reuse/apps/web/src/features/workouts/components/session-detail-exercise-card.tsx
+@pulse/web:lint:   351:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+@pulse/web:lint: 
+@pulse/web:lint: /Users/meridian/Projects/pulse-food-reuse/apps/web/src/features/workouts/components/workout-exercise-card/index.tsx
+@pulse/web:lint:   23:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+@pulse/web:lint:   27:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+@pulse/web:lint: 
+@pulse/web:lint: /Users/meridian/Projects/pulse-food-reuse/apps/web/src/pages/active-workout.tsx
+@pulse/web:lint:   2567:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+@pulse/web:lint: 
+@pulse/web:lint: ✖ 6 problems (0 errors, 6 warnings)
+@pulse/web:lint: 
+
+ Tasks:    3 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    13.137s 
+
