@@ -58,3 +58,5 @@ export const userSchema = z.object({
 export type User = z.infer<typeof userSchema>;
 
 export * from './schemas/food-usage.js';
+
+export * from './schemas/feedback-provenance.js';

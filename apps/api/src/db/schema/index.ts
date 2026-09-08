@@ -24,3 +24,7 @@ export * from './scheduled-workout-exercises.js';
 export * from './scheduled-workout-exercise-sets.js';
 export * from './habits.js';
 export * from './agent-tokens.js';
+
+export * from './feedback-submission-audit.js';
+
+export * from './feedback-provenance-audit.js';

@@ -1,0 +1,97 @@
+- complementary:
+  - paragraph: Pulse
+  - button "Collapse sidebar":
+  - navigation "Desktop navigation":
+    - link "Dashboard":
+      - /url: /
+      - generic: Dashboard
+    - link "Workouts":
+      - /url: /workouts
+      - generic: Workouts
+    - link "Nutrition":
+      - /url: /nutrition
+      - generic: Nutrition
+    - link "Habits":
+      - /url: /habits
+      - generic: Habits
+    - link "Data Quality":
+      - /url: /data-quality
+      - generic: Data Quality
+    - link "Activity":
+      - /url: /activity
+      - generic: Activity
+    - link "Journal":
+      - /url: /journal
+      - generic: Journal
+    - link "Profile":
+      - /url: /profile
+      - generic: Profile
+  - link "S Synthetic Athlete @synthetic149":
+    - /url: /profile
+    - generic: S
+    - paragraph: Synthetic Athlete
+    - paragraph: "@synthetic149"
+  - button "Log out":
+    - generic: Log out
+- main:
+  - heading "Workout Session" [level=1]
+  - link "Back to Workouts":
+    - /url: /workouts?view=calendar
+    - text: Back to Workouts
+  - paragraph: Workout receipt
+  - generic: Completed
+  - heading "Synthetic Feedback Acceptance" [level=1]
+  - paragraph: Tuesday, September 8, 2026 · 0 min · Started 12:00 AM
+  - button "Edit"
+  - paragraph: Exercises
+  - paragraph: "1"
+  - paragraph: Sets
+  - paragraph: "2"
+  - paragraph: Reps
+  - paragraph: "16"
+  - paragraph: Volume
+  - paragraph: 320 lbs
+  - text: Session Notes
+  - paragraph: Synthetic session note preserved.
+  - heading "Session comparison" [level=2]
+  - paragraph: Compare this workout against the previous session on the same template.
+  - checkbox "Show comparison"
+  - generic: Show comparison
+  - heading "Section breakdown" [level=2]
+  - paragraph: Review each phase exactly as it was logged.
+  - generic "Main 1 exercise logged 1 exercise":
+    - heading "Main" [level=3]
+    - paragraph: 1 exercise logged
+    - generic: 1 exercise
+  - heading "Synthetic Dumbbell Row" [level=3]:
+    - button "Synthetic Dumbbell Row"
+  - button "Open Synthetic Dumbbell Row history":
+    - text: History
+  - generic: Weight × Reps
+  - generic: Moderate
+  - generic: "Last: Sep 8, 2026 · 20x8 (0 RIR), 20x8 (0 RIR)"
+  - 'button "Effort details: Last performance, 2026-09-08"':
+    - text: Effort details
+  - paragraph: Prescription
+  - paragraph: 2 sets
+  - generic "Show full set detail"
+  - paragraph: 2 logged sets
+  - generic: "Set 1: 20 lbs × 8 reps (0 RIR)"
+  - generic: "Set 2: 20 lbs × 8 reps (0 RIR)"
+  - paragraph: Exercise notes
+  - paragraph: Native set note preserved.
+  - generic: Feedback
+  - paragraph: Session RPE
+  - paragraph: "4"
+  - paragraph: Energy post workout
+  - paragraph: 💪
+  - paragraph: Any pain or discomfort?
+  - paragraph: "Yes"
+  - paragraph: Shoulder feel
+  - paragraph: Skipped — unknown
+  - paragraph: Coach note
+  - paragraph: Final synthetic exact note
+  - paragraph: Reflection
+  - paragraph: Final synthetic exact note
+  - generic "Original feedback audit — not coaching evidence"
+- region "Notifications alt+T"

@@ -20,6 +20,8 @@ import {
 describe('crossFeatureInvalidationMap', () => {
   it('returns the expected workout-session invalidations', () => {
     expect(crossFeatureInvalidationMap.workoutSessionChange()).toEqual([
+      adaptiveNutritionQueryKey,
+      ['workout-progression'],
       dashboardSnapshotQueryKeys.all,
       dataQualityQueryKey,
       recentWorkoutQueryKeys.all,

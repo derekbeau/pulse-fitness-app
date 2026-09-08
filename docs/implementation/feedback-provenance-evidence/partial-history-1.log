@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+
+ ✓ src/db/schema.test.ts (48 tests) 23ms
+
+ Test Files  1 passed (1)
+      Tests  48 passed (48)
+   Start at  00:29:04
+   Duration  933ms (transform 371ms, setup 0ms, import 766ms, tests 23ms, environment 0ms)
+

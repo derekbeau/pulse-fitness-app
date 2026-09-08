@@ -1,0 +1,13 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+
+ ✓ src/db/feedback-provenance-migration.test.ts (8 tests) 3857ms
+     ✓ dry-run writes nothing and reconciles owner/global counts  1125ms
+     ✓ preserves raw payloads/native performance and makes second apply a no-op  1229ms
+     ✓ forced first-batch failure preserves original database exactly  1137ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  00:42:59
+   Duration  4.33s (transform 233ms, setup 0ms, import 353ms, tests 3.86s, environment 0ms)
+

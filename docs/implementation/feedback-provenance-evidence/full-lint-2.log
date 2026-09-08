@@ -1,0 +1,42 @@
+
+> pulse@ lint /Users/meridian/Projects/pulse-feedback-provenance
+> turbo run lint
+
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running lint in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/web:lint: cache bypass, force executing 8b6295e9737b576a
+@pulse/api:lint: cache bypass, force executing ad272de42b4b5805
+@pulse/shared:lint: cache bypass, force executing 76a3f6416f108049
+@pulse/api:lint: 
+@pulse/api:lint: > @pulse/api@0.0.0 lint /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+@pulse/api:lint: > eslint .
+@pulse/api:lint: 
+@pulse/web:lint: 
+@pulse/web:lint: > @pulse/web@0.0.0 lint /Users/meridian/Projects/pulse-feedback-provenance/apps/web
+@pulse/web:lint: > eslint .
+@pulse/web:lint: 
+@pulse/shared:lint: 
+@pulse/shared:lint: > @pulse/shared@0.0.0 lint /Users/meridian/Projects/pulse-feedback-provenance/packages/shared
+@pulse/shared:lint: > eslint .
+@pulse/shared:lint: 
+@pulse/shared:lint: 
+@pulse/shared:lint: /Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/workout-sessions.ts
+@pulse/shared:lint:   16:7  error  'normalizeOptionalString' is assigned a value but never used  @typescript-eslint/no-unused-vars
+@pulse/shared:lint: 
+@pulse/shared:lint: ✖ 1 problem (1 error, 0 warnings)
+@pulse/shared:lint: 
+@pulse/shared:lint:  ELIFECYCLE  Command failed with exit code 1.
+@pulse/shared:lint: ERROR: command finished with error: command (/Users/meridian/Projects/pulse-feedback-provenance/packages/shared) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run lint exited (1)
+@pulse/web:lint:  ELIFECYCLE  Command failed.
+@pulse/api:lint:  ELIFECYCLE  Command failed.
+@pulse/shared#lint: command (/Users/meridian/Projects/pulse-feedback-provenance/packages/shared) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run lint exited (1)
+
+ Tasks:    0 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    3.678s 
+Failed:    @pulse/shared#lint
+
+ ERROR  run failed: command  exited (1)
+ ELIFECYCLE  Command failed with exit code 1.

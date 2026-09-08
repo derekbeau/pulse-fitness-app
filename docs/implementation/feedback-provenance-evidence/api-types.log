@@ -1,0 +1,9 @@
+
+> @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+> tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+
+src/db/schema.test.ts(1575,56): error TS2345: Argument of type '{ energy: number; recovery: number; technique: number; notes: string; responses: ({ id: string; label: string; type: "scale"; value: number; notes?: undefined; } | { id: string; label: string; type: "yes_no"; value: boolean; notes: string; })[]; }' is not assignable to parameter of type '{ provenance: { energy: { source: "unknown" | "explicit_user_response" | "explicit_agent_or_other_response" | "same_construct_documented_mapping" | "legacy_derived" | "legacy_unknown"; ... 7 more ...; classifiedAt: string; }; recovery: { ...; }; technique: { ...; }; }; ... 5 more ...; notes?: string | undefined; } |...'.
+  Type '{ energy: number; recovery: number; technique: number; notes: string; responses: ({ id: string; label: string; type: "scale"; value: number; notes?: undefined; } | { id: string; label: string; type: "yes_no"; value: boolean; notes: string; })[]; }' is missing the following properties from type '{ provenance: { energy: { source: "unknown" | "explicit_user_response" | "explicit_agent_or_other_response" | "same_construct_documented_mapping" | "legacy_derived" | "legacy_unknown"; ... 7 more ...; classifiedAt: string; }; recovery: { ...; }; technique: { ...; }; }; ... 5 more ...; notes?: string | undefined; }': provenance, schemaVersion
+/Users/meridian/Projects/pulse-feedback-provenance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @pulse/api@0.0.0 typecheck: `tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json`
+Exit status 2

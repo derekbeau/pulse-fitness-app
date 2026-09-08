@@ -1,0 +1,550 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+
+ ❯ src/db/schema.test.ts (47 tests | 1 failed) 23ms
+     ✓ defines the expected table and columns 1ms
+     ✓ defines the expected table, unique token hash, and foreign key to users 1ms
+     ✓ defines the expected table, recency index, defaults, and nutrition guards 0ms
+     ✓ defines the expected table, unique per-user date constraint, and validation checks 0ms
+     ✓ defines the expected table, per-user date index, and activity guardrails 0ms
+     ✓ defines the expected table, user index, JSON columns, and type guardrails 0ms
+     ✓ defines the expected table, user foreign key, and lookup index 0ms
+     ✓ defines the expected table, location foreign key, and category guardrails 0ms
+     ✓ defines the expected table, user scope, and polymorphic type guardrails 0ms
+     ✓ defines the expected table, per-user date index, and journal guardrails 0ms
+     ✓ defines the expected table, user index, and status/date guardrails 0ms
+     ✓ defines the expected table, condition/date index, and timeline type rules 0ms
+     ✓ defines the expected table, audit/index metadata, and protocol status/date rules 0ms
+     ✓ defines the expected table, condition/date index, and severity range guards 0ms
+     ✓ defines the expected table, lookup index, and effective-date guardrails 0ms
+     ✓ defines immutable, owned nutrition target event snapshots 0ms
+     ✓ defines the expected table, unique per-user date constraint, and date validation 0ms
+     ✓ defines one lifetime program per user with cascade ownership 0ms
+     ✓ defines causal owned program revision snapshots 0ms
+     ✓ defines an indexed immutable causal-date projection 0ms
+     ✓ defines a constant-row causal projection integrity counter 0ms
+     ✓ defines one active goal per user with owned immutable revisions 0ms
+     ✓ defines immutable check-in snapshot columns and pending uniqueness 0ms
+     ✓ defines one immutable accepted-check-in relation for completed and maintenance goals 0ms
+     ✓ defines the expected table, timestamps, and nutrition log foreign key 0ms
+     ✓ defines the expected singleton-per-user config row with JSON text defaults 0ms
+     ✓ defines the expected table, historical food linkage, and nonnegative nutrition checks 0ms
+     ✓ defines the expected table, columns, and tracking type constraint 0ms
+     ✓ defines the expected table, optional user scope, and tracking constraints 0ms
+     ✓ defines the expected table, columns, timestamps, and user index 0ms
+     ✓ defines the expected table, foreign keys, ordering, and section constraints 0ms
+     ✓ defines the expected table, nullable template link, indexes, and constraints 0ms
+     ✓ defines the expected table, foreign keys, unique constraint, and indexes 0ms
+     ✓ defines the expected table, defaults, ordering constraint, and required foreign keys 0ms
+     ✓ defines the expected table, foreign keys, and upcoming-workout indexes 0ms
+     ✓ defines snapshot exercise columns, constraints, and foreign keys 0ms
+     ✓ defines snapshot set columns, guardrails, and exercise foreign key 0ms
+     ✓ serializes and parses string arrays for SQLite text columns 0ms
+     ✓ rejects invalid JSON payloads 0ms
+     × serializes and parses feedback objects for SQLite text columns 12ms
+     ✓ rejects invalid feedback payloads 1ms
+     ✓ serializes and parses time segments for SQLite text columns 0ms
+     ✓ rejects invalid time segment payloads 0ms
+     ✓ defines one explicit revisioned programming configuration per scheduled exercise 0ms
+     ✓ defines immutable recommendation snapshots with owned scheduling evidence 0ms
+     ✓ defines owned idempotent append-only action facts 0ms
+     ✓ defines versioned primary and secondary muscle contributions 0ms
+ ✓ src/routes/workout-sessions/store.test.ts (9 tests) 1086ms
+ ❯ src/routes/workout-sessions/index.test.ts (119 tests | 3 failed) 1786ms
+     ✓ requires auth for workout session and session-set routes 25ms
+     ✓ saves a completed session as a template and allows duplicate saves 22ms
+     ✓ round-trips programming notes in save-as-template and drops session-specific exercise notes 9ms
+     ✓ uses session programming-note snapshots when save-as-template runs after template edits or deletion 4ms
+     ✓ includes trackingType on each exercise in session detail responses 3ms
+     ✓ includes metadata from soft-deleted exercises in session detail responses 3ms
+     ✓ returns deleted exercise placeholders when session sets have null exerciseId values 9ms
+     ✓ keeps null exerciseId set groups distinct by section and order index 2ms
+     ✓ reorders active session exercises by updating set orderIndex while preserving set data 5ms
+     ✓ swaps a session exercise while preserving entered set data 9ms
+     ✓ rejects JWT and AgentToken swaps that would retain RIR on unsupported tracking 4ms
+     ✓ rejects swaps for completed sessions 4ms
+     ✓ returns 404 when swapping an exercise not present in the session 8ms
+     ✓ rejects swap targets that are not user-owned exercises 3ms
+     ✓ applies save-as-template metadata overrides when provided 2ms
+     ✓ returns a validation error for invalid save-as-template payload 2ms
+     ✓ creates, updates, lists, and batch-upserts sets for an active owned session 10ms
+     ✓ logs, replaces, clears, and rejects conflicting native effort atomically for JWT and AgentToken callers 21ms
+     ✓ rejects RIR for unsupported tracking types across set write paths 2ms
+     ✓ validates correction effort against persisted state and tracking type before writing 3ms
+     ✓ publishes native RIR fields and AgentToken security in the workout-set OpenAPI contract 81ms
+     ✓ deletes a set from an in-progress session and renumbers sibling sets 9ms
+     ✓ returns 409 when deleting a set from a completed session 2ms
+     ✓ returns 409 when deleting a set from a cancelled session 2ms
+     ✓ returns 404 when deleting a set that does not belong to the requested session 2ms
+     ✓ returns 404 when deleting a set from an unknown session 1ms
+     ✓ supports AgentToken auth and returns enrichment when deleting a set 3ms
+     ✓ returns 401 when deleting a set without auth 3ms
+     ✓ returns 404 when deleting the same set twice 8ms
+     ✓ batch-upserted sets inherit an exercise superset group from existing sets 2ms
+     ✓ enforces ownership, active-session writes, and set-level validation 3ms
+     ✓ batch upsert is atomic when one set id is invalid 8ms
+     ✓ applies workout session corrections to completed sessions and preserves session timing 3ms
+     ✓ rejects invalid workout session correction requests 4ms
+     ✓ snapshots template exercise notes into per-exercise programming notes when starting a session 4ms
+     ✓ stores null programming notes for template exercises that have null notes 8ms
+     ✓ returns null programming notes for ad-hoc sessions without a template 2ms
+     ✓ supports templateId-only and name-only start modes with null session agent notes 3ms
+     ✓ keeps session programming-note snapshots immutable after template notes change 12ms
+     × creates, lists, and fetches workout sessions for the authenticated user 15ms
+     ✓ filters workout session listings by status and limit 3ms
+     ✓ includes sessions completed on the same-day range boundary 3ms
+     ✓ filters workout session listings by multiple statuses 2ms
+     ✓ keeps an independent template start separate from an unclaimed scheduled workout 9ms
+     ✓ starts a session from scheduled-workout snapshot and propagates programming and agent notes 4ms
+     ✓ preserves full DB/API snapshot provenance, nulls and notes (20-set visible parity=true) 16ms
+     ✓ preserves full DB/API snapshot provenance, nulls and notes (20-set visible parity=false) 13ms
+     ✓ retains a source exercise whose scheduled sets have all been removed 6ms
+     ✓ rejects invalid template materialization without consuming the schedule 5ms
+     ✓ rejects invalid template materialization without consuming the schedule 12ms
+     ✓ copies redundant legacy scheduled reps canonically while retaining source identity and source rows 13ms
+     ✓ rejects invalid stored snapshot targets {"targetSeconds":2147483647} before creating or linking any session 4ms
+     ✓ rejects invalid stored snapshot targets {"reps":8,"repsMin":6,"repsMax":8} before creating or linking any session 12ms
+     ✓ rejects invalid stored snapshot targets {"reps":8,"repsMin":8,"repsMax":10} before creating or linking any session 4ms
+     ✓ rejects invalid stored snapshot targets {"reps":null,"repsMin":10,"repsMax":6} before creating or linking any session 10ms
+     ✓ allows exactly one concurrent scheduled start and leaves no orphan session or sets 8ms
+     ✓ rolls back session and set inserts on injected sets failure, retaining cancelled link 14ms
+     ✓ rolls back session and set inserts on injected link failure, retaining cancelled link 14ms
+     ✓ rejects unauthorized or malformed scheduled selector (jwt) without writes 5ms
+     ✓ rejects unauthorized or malformed scheduled selector (agent) without writes 12ms
+     ✓ rejects unauthorized or malformed scheduled selector (missing) without writes 5ms
+     ✓ rejects unauthorized or malformed scheduled selector (malformed) without writes 10ms
+     ✓ fails closed for an unknown scheduled workout id without creating a template session 2ms
+     ✓ returns 409 when scheduled workout is already linked to a live session 3ms
+     ✓ restarts cancelled scheduled sessions by clearing stale links and creating a fresh session 10ms
+     ✓ returns stale-exercise 409 when snapshot exercises are deleted 3ms
+     ✓ skips stale exercises with force=true and includes warnings in the create response 3ms
+     ✓ clears scheduled_workouts.sessionId when a linked session is cancelled and preserves snapshot rows 3ms
+     ✓ cancel endpoint preserves non-scheduled sessions and marks them cancelled 8ms
+     ✓ does not open any section segment for legacy in-progress sessions with no time segments 2ms
+     ✓ backfills legacy stored time segments to main section on read 2ms
+     ✓ does not open any section segment when starting a new in-progress session 6ms
+     ✓ pausing closes the current segment and resuming opens a new section segment 9ms
+     ✓ requires activeSection when transitioning to in-progress from paused 4ms
+     ✓ starts scheduled sessions only when activeSection is provided 2ms
+     ✓ rejects changing in-progress section via status patch without pausing first 2ms
+     ✓ cancelling closes open segment and marks session cancelled 8ms
+     ✓ completing closes the final segment and calculates duration from segments 2ms
+     ✓ starts and pauses section timers through the section-timer endpoint 3ms
+     ✓ rejects section-timer pause when section does not match the open segment 2ms
+     ✓ rejects section-timer updates when session is not in-progress 1ms
+     ✓ supports section-timer updates with JWT and AgentToken auth 8ms
+     ✓ returns per-section derived durations for multi-section sessions 2ms
+     ✓ validates chronological ordering when editing time segments 1ms
+     ✓ validates out-of-order time segments when editing 1ms
+     ✓ supports directly editing a segment end timestamp 2ms
+     ✓ supports segment deletion merge and additional split edits 2ms
+     ✓ round-trips section-tagged time segments through time-segments updates 3ms
+     × updates owned workout sessions by replacing nested set rows 9ms
+     ✓ patches workout session startedAt and rejects invalid, too-old, or future timestamps 3ms
+     ✓ patches session notes and exercise notes on an existing completed session 3ms
+     ✓ rejects reverting a completed session back to in-progress 8ms
+     ✓ does not overwrite first-set notes when exerciseNotes are normalized to null 3ms
+     ✓ soft-deletes owned workout sessions 3ms
+     ✓ rejects inaccessible templates, unavailable exercises, and invalid merged updates 4ms
+     ✓ preserves immutable orphaned sets when patching after an exercise is force-purged 9ms
+     ✓ rejects invalid list queries and malformed payloads 3ms
+     ✓ creates sessions with AgentToken auth using templateName resolution 3ms
+     ✓ returns 404 when AgentToken templateName cannot be resolved 2ms
+     ✓ rejects templateName for JWT callers 6ms
+     ✓ patches sessions with agent exercise mutations and auto-creates missing exercises 4ms
+     × allows agent PATCH updates for duration, name, feedback, and timestamps 4ms
+     ✓ supports set upserts via exerciseId (JWT) and exerciseName (AgentToken) 11ms
+     ✓ honors skipped=true in session set patch updates 3ms
+     ✓ honors completed=false in session set patch updates 3ms
+     ✓ defaults omitted completed to true for logged set updates 9ms
+     ✓ preserves skipped/completed when patching notes only 3ms
+     ✓ round-trips notes and supersetGroup in session set patch updates 4ms
+     ✓ accepts session set target fields on patch 7ms
+     ✓ creates missing sets in patch updates and preserves provided structural fields 4ms
+     ✓ applies addExercises/removeExercises/reorderExercises for both JWT and AgentToken callers 16ms
+     ✓ preserves duration targets and effort fields when adding exercises 3ms
+     ✓ adds duplicate exercise ids in different sections and keeps section-local set numbering 3ms
+     ✓ removes exercises by exerciseId and section tuple 10ms
+     ✓ requires force to remove exercises that already have logged sets 4ms
+     ✓ removes exercises without force when no sets are logged yet 2ms
+     ✓ only checks logged sets within the removed section tuple 3ms
+     ✓ updates exercise superset groups and returns grouped exercise metadata 8ms
+     ✓ treats omitted supersetGroup in exercise updates as no-op 3ms
+ ✓ src/db/feedback-provenance-migration.test.ts (6 tests) 3783ms
+     ✓ dry-run writes nothing and reconciles owner/global counts  1281ms
+     ✓ preserves raw payloads/native performance and makes second apply a no-op  1191ms
+     ✓ forced first-batch failure preserves original database exactly  1103ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/db/schema.test.ts > workout session feedback helpers > serializes and parses feedback objects for SQLite text columns
+AssertionError: expected { Object (schemaVersion, energy, ...) } to deeply equal { energy: 4, recovery: 3, …(3) }
+
+- Expected
++ Received
+
+@@ -1,9 +1,44 @@
+  {
+-   "energy": 4,
++   "energy": null,
+    "notes": "Moved well today.",
+-   "recovery": 3,
++   "provenance": {
++     "energy": {
++       "actorId": null,
++       "classifiedAt": "2026-09-08T03:18:41.631Z",
++       "mappingVersion": null,
++       "reason": "Source actor is not evidenced; numeric summaries cannot prove provenance.",
++       "schemaVersion": 2,
++       "source": "legacy_unknown",
++       "sourceKind": "unknown",
++       "sourceResponseId": null,
++       "sourceRevisionId": null,
++     },
++     "recovery": {
++       "actorId": null,
++       "classifiedAt": "2026-09-08T03:18:41.631Z",
++       "mappingVersion": null,
++       "reason": "Source actor is not evidenced; numeric summaries cannot prove provenance.",
++       "schemaVersion": 2,
++       "source": "legacy_unknown",
++       "sourceKind": "unknown",
++       "sourceResponseId": null,
++       "sourceRevisionId": null,
++     },
++     "technique": {
++       "actorId": null,
++       "classifiedAt": "2026-09-08T03:18:41.631Z",
++       "mappingVersion": null,
++       "reason": "Source actor is not evidenced; numeric summaries cannot prove provenance.",
++       "schemaVersion": 2,
++       "source": "legacy_unknown",
++       "sourceKind": "unknown",
++       "sourceResponseId": null,
++       "sourceRevisionId": null,
++     },
++   },
++   "recovery": null,
+    "responses": [
+      {
+        "id": "session-rpe",
+        "label": "Session RPE",
+        "type": "scale",
+@@ -15,7 +50,8 @@
+        "notes": "Right knee discomfort during split squats.",
+        "type": "yes_no",
+        "value": true,
+      },
+    ],
+-   "technique": 5,
++   "schemaVersion": 2,
++   "technique": null,
+  }
+
+ ❯ src/db/schema.test.ts:1580:53
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/routes/workout-sessions/index.test.ts > workout session routes > creates, lists, and fetches workout sessions for the authenticated user
+AssertionError: expected { …(17) } to match object { userId: 'user-1', …(10) }
+(16 matching properties omitted from actual)
+
+- Expected
++ Received
+
+@@ -1,29 +1,29 @@
+  {
+    "completedAt": 1700000103000,
+    "date": "2026-03-12",
+    "duration": 50,
+    "feedback": {
+-     "energy": 4,
+-     "notes": "Locked in",
+-     "recovery": 3,
+-     "technique": 5,
++     "energy": null,
++     "notes": " Locked in ",
++     "recovery": null,
++     "technique": null,
+    },
+    "name": "Upper Push",
+    "notes": "Great pressing day",
+    "sets": [
+-     {
++     ObjectContaining {
+        "completed": true,
+        "exerciseId": "global-bench-press",
+        "notes": "Fast bar path",
+        "reps": 8,
+        "section": "main",
+        "setNumber": 1,
+        "skipped": false,
+        "weight": 185,
+      },
+-     {
++     ObjectContaining {
+        "completed": true,
+        "exerciseId": "user-1-lat-pulldown",
+        "notes": null,
+        "reps": 10,
+        "section": "main",
+
+ ❯ src/routes/workout-sessions/index.test.ts:3604:33
+    3602|     };
+    3603| 
+    3604|     expect(createdPayload.data).toMatchObject({
+       |                                 ^
+    3605|       userId: 'user-1',
+    3606|       templateId: 'template-1',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/routes/workout-sessions/index.test.ts > workout session routes > updates owned workout sessions by replacing nested set rows
+AssertionError: expected { data: { id: 'session-1', …(16) } } to deeply equal { data: ObjectContaining{…} }
+
+- Expected
++ Received
+
+@@ -1,18 +1,109 @@
+  {
+    "data": {
+      "completedAt": 4000,
++     "createdAt": 1788837523000,
+      "date": "2026-03-12",
+      "duration": 0,
++     "exercises": [
++       {
++         "agentNotes": null,
++         "agentNotesMeta": null,
++         "deletedAt": null,
++         "exercise": {
++           "coachingNotes": null,
++           "formCues": [],
++           "instructions": null,
++         },
++         "exerciseId": "user-1-lat-pulldown",
++         "exerciseName": "Lat Pulldown",
++         "orderIndex": 0,
++         "programmingNotes": null,
++         "section": "main",
++         "sets": [
++           {
++             "completed": true,
++             "createdAt": 1788837523000,
++             "exerciseId": "user-1-lat-pulldown",
++             "id": "c1253d3d-0511-4ec9-8db1-191998d93927",
++             "notes": null,
++             "orderIndex": 0,
++             "reps": 10,
++             "section": "main",
++             "setNumber": 1,
++             "skipped": false,
++             "weight": 150,
++           },
++           {
++             "completed": true,
++             "createdAt": 1788837523000,
++             "exerciseId": "user-1-lat-pulldown",
++             "id": "2ad95107-e92b-4fbf-b0c7-62717b19885b",
++             "notes": "Slowed down",
++             "orderIndex": 0,
++             "reps": 9,
++             "section": "main",
++             "setNumber": 2,
++             "skipped": false,
++             "weight": 150,
++           },
++         ],
++         "supersetGroup": null,
++         "trackingType": "weight_reps",
++       },
++     ],
+      "feedback": {
+-       "energy": 5,
+-       "recovery": 4,
+-       "technique": 4,
++       "energy": null,
++       "provenance": {
++         "energy": {
++           "actorId": null,
++           "classifiedAt": "2026-09-08T03:18:43.250Z",
++           "mappingVersion": null,
++           "reason": "Source actor is not evidenced; numeric summaries cannot prove provenance.",
++           "schemaVersion": 2,
++           "source": "legacy_unknown",
++           "sourceKind": "unknown",
++           "sourceResponseId": null,
++           "sourceRevisionId": null,
++         },
++         "recovery": {
++           "actorId": null,
++           "classifiedAt": "2026-09-08T03:18:43.250Z",
++           "mappingVersion": null,
++           "reason": "Source actor is not evidenced; numeric summaries cannot prove provenance.",
++           "schemaVersion": 2,
++           "source": "legacy_unknown",
++           "sourceKind": "unknown",
++           "sourceResponseId": null,
++           "sourceRevisionId": null,
++         },
++         "technique": {
++           "actorId": null,
++           "classifiedAt": "2026-09-08T03:18:43.250Z",
++           "mappingVersion": null,
++           "reason": "Source actor is not evidenced; numeric summaries cannot prove provenance.",
++           "schemaVersion": 2,
++           "source": "legacy_unknown",
++           "sourceKind": "unknown",
++           "sourceResponseId": null,
++           "sourceRevisionId": null,
++         },
++       },
++       "recovery": null,
++       "responses": [],
++       "schemaVersion": 2,
++       "technique": null,
+      },
+      "id": "session-1",
+      "name": "Upper Push",
+      "notes": "Strong day",
++     "sectionDurations": {
++       "cooldown": 0,
++       "main": 0,
++       "supplemental": 0,
++       "warmup": 0,
++     },
+      "sets": [
+        {
+          "completed": true,
+          "createdAt": 1788837523000,
+          "exerciseId": "user-1-lat-pulldown",
+@@ -40,7 +131,10 @@
+        },
+      ],
+      "startedAt": 1000,
+      "status": "completed",
+      "templateId": "template-2",
++     "timeSegments": [],
++     "updatedAt": 1788837523250,
++     "userId": "user-1",
+    },
+  }
+
+ ❯ src/routes/workout-sessions/index.test.ts:6106:29
+    6104| 
+    6105|     expect(response.statusCode).toBe(200);
+    6106|     expect(response.json()).toEqual({
+       |                             ^
+    6107|       data: expect.objectContaining({
+    6108|         id: 'session-1',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/routes/workout-sessions/index.test.ts > workout session routes > allows agent PATCH updates for duration, name, feedback, and timestamps
+AssertionError: expected { data: { …(17) }, agent: { …(3) } } to deeply equal { data: ObjectContaining{…}, …(1) }
+
+- Expected
++ Received
+
+@@ -17,17 +17,76 @@
+        "Review notes and confirm the session status is final.",
+      ],
+    },
+    "data": {
+      "completedAt": 1773311400000,
++     "createdAt": 1788837523000,
++     "date": "2026-03-12",
+      "duration": 1500,
++     "exercises": [],
+      "feedback": {
+-       "energy": 5,
+-       "notes": "Strong finish",
+-       "recovery": 4,
+-       "technique": 4,
++       "energy": null,
++       "notes": " Strong finish ",
++       "provenance": {
++         "energy": {
++           "actorId": null,
++           "classifiedAt": "2026-09-08T03:18:43.305Z",
++           "mappingVersion": null,
++           "reason": "Source actor is not evidenced; numeric summaries cannot prove provenance.",
++           "schemaVersion": 2,
++           "source": "legacy_unknown",
++           "sourceKind": "unknown",
++           "sourceResponseId": null,
++           "sourceRevisionId": null,
++         },
++         "recovery": {
++           "actorId": null,
++           "classifiedAt": "2026-09-08T03:18:43.305Z",
++           "mappingVersion": null,
++           "reason": "Source actor is not evidenced; numeric summaries cannot prove provenance.",
++           "schemaVersion": 2,
++           "source": "legacy_unknown",
++           "sourceKind": "unknown",
++           "sourceResponseId": null,
++           "sourceRevisionId": null,
++         },
++         "technique": {
++           "actorId": null,
++           "classifiedAt": "2026-09-08T03:18:43.305Z",
++           "mappingVersion": null,
++           "reason": "Source actor is not evidenced; numeric summaries cannot prove provenance.",
++           "schemaVersion": 2,
++           "source": "legacy_unknown",
++           "sourceKind": "unknown",
++           "sourceResponseId": null,
++           "sourceRevisionId": null,
++         },
+        },
++       "recovery": null,
++       "responses": [],
++       "schemaVersion": 2,
++       "technique": null,
++     },
+      "id": "session-agent-standard-fields",
+      "name": "Updated Session",
++     "notes": null,
++     "sectionDurations": {
++       "cooldown": 0,
++       "main": 900000,
++       "supplemental": 0,
++       "warmup": 0,
++     },
++     "sets": [],
+      "startedAt": 1773309900000,
++     "status": "completed",
++     "templateId": "template-1",
++     "timeSegments": [
++       {
++         "end": "2026-03-12T10:20:00.000Z",
++         "section": "main",
++         "start": "2026-03-12T10:05:00.000Z",
++       },
++     ],
++     "updatedAt": 1788837523305,
++     "userId": "user-1",
+    },
+  }
+
+ ❯ src/routes/workout-sessions/index.test.ts:7010:29
+    7008| 
+    7009|     expect(response.statusCode).toBe(200);
+    7010|     expect(response.json()).toEqual({
+       |                             ^
+    7011|       data: expect.objectContaining({
+    7012|         id: 'session-agent-standard-fields',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  2 failed | 2 passed (4)
+      Tests  4 failed | 177 passed (181)
+   Start at  23:18:40
+   Duration  4.57s (transform 2.07s, setup 0ms, import 2.80s, tests 6.68s, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-feedback-provenance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/workout-sessions/index.test.ts src/routes/workout-sessions/store.test.ts src/db/schema.test.ts src/db/feedback-provenance-migration.test.ts

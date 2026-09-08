@@ -1,0 +1,31 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/apps/web
+
+ ✓ src/App.test.tsx (25 tests) 6946ms
+     ✓ renders 'Welcome back' page for '/login' when signed out  381ms
+     ✓ renders 'Create account' page for '/register' when signed out  331ms
+     ✓ renders 'Dashboard' page for '/' when signed in  332ms
+     ✓ renders 'Design System' page for '/design-system' when signed in  330ms
+     ✓ renders 'Workouts' page for '/workouts' when signed in  338ms
+     ✓ renders 'No active workout' page for '/workouts/active' when signed in  334ms
+     ✓ renders 'Upper Push' page for '/workouts/session/session-upper-push-…' when signed in  365ms
+     ✓ renders 'Upper Push' page for '/workouts/template/upper-push' when signed in  350ms
+     ✓ renders 'Nutrition' page for '/nutrition' when signed in  325ms
+     ✓ renders 'Energy Balance & Expenditure' page for '/nutrition/energy-balance' when signed in  329ms
+     ✓ renders 'Habits' page for '/habits' when signed in  330ms
+     ✓ renders 'Activity' page for '/activity' when signed in  340ms
+     ✓ renders 'Journal' page for '/journal' when signed in  336ms
+     ✓ renders 'Trend Weight' page for '/weight' when signed in  337ms
+     ✓ renders 'Profile' page for '/profile' when signed in  333ms
+     ✓ renders 'Equipment' page for '/profile/equipment' when signed in  354ms
+     ✓ renders 'Health Tracking' page for '/profile/injuries' when signed in  344ms
+     ✓ renders 'Resources' page for '/profile/resources' when signed in  329ms
+     ✓ renders 'McGill Big 3' page for '/profile/resources/mcgill-big-3' when signed in  328ms
+     ✓ renders 'Settings' page for '/settings' when signed in  350ms
+ ✓ src/components/workouts/active-session-resume-gate.test.tsx (4 tests) 162ms
+
+ Test Files  2 passed (2)
+      Tests  29 passed (29)
+   Start at  00:41:23
+   Duration  11.14s (transform 1.75s, setup 171ms, import 3.17s, tests 7.11s, environment 439ms)
+

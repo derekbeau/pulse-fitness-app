@@ -1,4 +1,5 @@
-import { useState, type Dispatch, type SetStateAction } from 'react';
+import { nativeFeedbackResponseSchema } from '@pulse/shared';
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { CircleHelp } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -54,22 +55,70 @@ const RPE_SCALE_ANCHORS = [
 
 type SessionFeedbackProps = {
   className?: string;
+  draftKey?: string;
   fields: ActiveWorkoutCustomFeedbackField[];
   onSubmit: (feedback: ActiveWorkoutFeedbackDraft) => void;
 };
 
-export function SessionFeedback({ className, fields, onSubmit }: SessionFeedbackProps) {
-  const [feedback, setFeedback] = useState<ActiveWorkoutFeedbackDraft>(() =>
-    mergeFeedbackFields(fields).map(normalizeFeedbackField),
-  );
+export function SessionFeedback({ className, draftKey, fields, onSubmit }: SessionFeedbackProps) {
+  const [feedback, persistFeedback] = useState<ActiveWorkoutFeedbackDraft>(() => {
+    const empty = mergeFeedbackFields(fields).map(normalizeFeedbackField);
+    if (!draftKey) return empty;
+    try {
+      const stored: unknown = JSON.parse(localStorage.getItem(draftKey) ?? 'null');
+      if (!Array.isArray(stored)) return empty;
+      return empty.map((field) => {
+        const candidate = stored.find(
+          (entry) =>
+            entry &&
+            entry.id === field.id &&
+            entry.type === field.type &&
+            entry.label === field.label,
+        );
+        if (
+          !candidate ||
+          !nativeFeedbackResponseSchema.safeParse({
+            id: candidate.id,
+            label: candidate.label,
+            type: candidate.type,
+            value: candidate.value,
+            notes: candidate.notes,
+            state: candidate.answerState,
+          }).success
+        )
+          return field;
+        return {
+          ...field,
+          value: candidate.value,
+          notes: candidate.notes,
+          answerState: candidate.answerState,
+        };
+      });
+    } catch {
+      return empty;
+    }
+  });
+  const setFeedback: Dispatch<SetStateAction<ActiveWorkoutFeedbackDraft>> = (update) =>
+    persistFeedback((current) => {
+      const next = typeof update === 'function' ? update(current) : update;
+      return next.map((field) =>
+        field.value !== undefined && field.value !== null
+          ? { ...field, answerState: 'answered' }
+          : field,
+      );
+    });
+  useEffect(() => {
+    if (!draftKey) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(feedback));
+    } catch {
+      /* Current draft remains available when browser storage is unavailable. */
+    }
+  }, [draftKey, feedback]);
 
   const isComplete = feedback.every((field) => {
-    if (field.optional) {
+    if (field.optional || field.answerState === 'skipped') {
       return true;
-    }
-
-    if (field.id === 'pain-discomfort' && field.type === 'yes_no' && field.value === true) {
-      return (field.notes ?? '').trim().length > 0;
     }
 
     switch (field.type) {
@@ -116,6 +165,30 @@ export function SessionFeedback({ className, fields, onSubmit }: SessionFeedback
               </div>
 
               {renderFeedbackInput(field, setFeedback)}
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted" aria-live="polite">
+                  {field.answerState === 'skipped'
+                    ? 'Skipped — unknown'
+                    : field.value === null || field.value === undefined
+                      ? 'Unanswered'
+                      : 'Answered'}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() =>
+                    persistFeedback((current) =>
+                      current.map((entry) =>
+                        entry.id === field.id
+                          ? { ...entry, value: undefined, answerState: 'skipped' }
+                          : entry,
+                      ),
+                    )
+                  }
+                >
+                  Skip {field.label}
+                </Button>
+              </div>
 
               {field.id === 'pain-discomfort' && field.type === 'yes_no' && field.value === true ? (
                 <div className="space-y-2">
@@ -195,50 +268,8 @@ export function SessionFeedback({ className, fields, onSubmit }: SessionFeedback
 
 function mergeFeedbackFields(fields: ActiveWorkoutCustomFeedbackField[]) {
   const standardIds = new Set(STANDARD_FEEDBACK_QUESTIONS.map((field) => field.id));
-  const templateFields = fields.filter((field) => {
-    if (standardIds.has(field.id)) {
-      return false;
-    }
-
-    const canonicalId = getCanonicalStandardFieldId(field);
-
-    return canonicalId === null;
-  });
-
+  const templateFields = fields.filter((field) => !standardIds.has(field.id));
   return [...STANDARD_FEEDBACK_QUESTIONS, ...templateFields];
-}
-
-function getCanonicalStandardFieldId(field: ActiveWorkoutCustomFeedbackField) {
-  const normalizedId = field.id.trim().toLowerCase();
-  const normalizedLabel = field.label.trim().toLowerCase().replace(/\s+/g, ' ');
-
-  const sessionRpeIds = new Set(['session-rpe', 'rpe', 'session_rpe']);
-  const energyIds = new Set([
-    'energy-post-workout',
-    'energy-level',
-    'energy-post',
-    'energy_post_workout',
-    'energy_level',
-  ]);
-  const painIds = new Set(['pain-discomfort', 'pain_discomfort', 'knee-pain', 'knee_pain']);
-
-  const sessionRpeLabels = new Set(['session rpe', 'rpe']);
-  const energyLabels = new Set(['energy post workout', 'energy level']);
-  const painLabels = new Set(['any pain or discomfort?', 'pain/discomfort', 'knee pain']);
-
-  if (sessionRpeIds.has(normalizedId) || sessionRpeLabels.has(normalizedLabel)) {
-    return 'session-rpe';
-  }
-
-  if (energyIds.has(normalizedId) || energyLabels.has(normalizedLabel)) {
-    return 'energy-post-workout';
-  }
-
-  if (painIds.has(normalizedId) || painLabels.has(normalizedLabel)) {
-    return 'pain-discomfort';
-  }
-
-  return null;
 }
 
 function normalizeFeedbackField(
@@ -255,7 +286,7 @@ function normalizeFeedbackField(
       return {
         ...field,
         notes: '',
-        value: '',
+        value: undefined,
       };
     case 'yes_no':
       return {
@@ -280,7 +311,7 @@ function normalizeFeedbackField(
       return {
         ...field,
         notes: '',
-        value: [],
+        value: undefined,
       };
     default:
       return field;
@@ -350,6 +381,7 @@ function renderFeedbackInput(
     case 'text':
       return (
         <Textarea
+          aria-label={field.label}
           id={`${field.id}-value`}
           onChange={(event) =>
             setFeedback((current) =>
@@ -365,7 +397,7 @@ function renderFeedbackInput(
               ? 'What should we remember next time? Add a carry-forward coaching or programming note.'
               : `Add your ${field.label.toLowerCase()} notes.`
           }
-          value={field.value}
+          value={field.value ?? ''}
         />
       );
     case 'yes_no':
@@ -578,8 +610,8 @@ function RpeScaleHelp() {
           <DialogHeader>
             <DialogTitle>Session RPE Guide</DialogTitle>
             <DialogDescription className="sr-only">
-              This guide explains the Rate of Perceived Exertion scale so you can score your
-              session consistently.
+              This guide explains the Rate of Perceived Exertion scale so you can score your session
+              consistently.
             </DialogDescription>
           </DialogHeader>
           <RpeScaleAnchorList />

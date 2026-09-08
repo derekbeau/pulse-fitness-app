@@ -1,3 +1,7 @@
+import {
+  feedbackNoteProjection,
+  registerFeedbackNoteAudit,
+} from '../../middleware/feedback-note-projection.js';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -391,6 +395,8 @@ const markRescheduledAgentNotesAsStale = async ({
 
 export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
+  app.addHook('onSend', feedbackNoteProjection('scheduled'));
+  await registerFeedbackNoteAudit(app, 'scheduled');
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
 

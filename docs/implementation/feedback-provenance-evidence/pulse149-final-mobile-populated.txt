@@ -1,0 +1,95 @@
+- main:
+  - link "Back to session list":
+    - /url: /workouts/active
+  - paragraph: Post-workout feedback
+  - heading "How did this session feel?" [level=2]
+  - paragraph: Capture the session check-ins before you wrap the workout.
+  - heading "Session RPE" [level=3]
+  - button "Open Session RPE guide":
+  - paragraph: Rate session rpe from 1 to 10.
+  - group "Session RPE rating":
+    - button "1"
+    - button "2"
+    - button "3"
+    - button "4" [pressed]
+    - button "5"
+    - button "6"
+    - button "7"
+    - button "8"
+    - button "9"
+    - button "10"
+  - generic: Answered
+  - button "Skip Session RPE"
+  - text: Optional notes
+  - textbox "Optional notes":
+    - /placeholder: Add context about session rpe if it mattered today.
+  - heading "Energy post workout" [level=3]
+  - paragraph: Choose the option that best matches how you felt.
+  - group "Energy post workout options":
+    - button "😫":
+      - generic: 😫
+      - generic: 😫
+    - button "😕":
+      - generic: 😕
+      - generic: 😕
+    - button "😐":
+      - generic: 😐
+      - generic: 😐
+    - button "🙂":
+      - generic: 🙂
+      - generic: 🙂
+    - button "💪" [pressed]:
+      - generic: 💪
+      - generic: 💪
+  - generic: Answered
+  - button "Skip Energy post workout"
+  - text: Optional notes
+  - textbox "Optional notes":
+    - /placeholder: Add context about energy post workout if it mattered today.
+  - heading "Any pain or discomfort?" [level=3]
+  - paragraph: Select yes or no.
+  - group "Any pain or discomfort? response":
+    - button "Yes" [pressed]
+    - button "No"
+  - generic: Answered
+  - button "Skip Any pain or discomfort?"
+  - text: Pain/discomfort details
+  - textbox "Pain/discomfort details":
+    - /placeholder: Describe where it happened and what movements triggered it.
+  - heading "Shoulder feel" [level=3]
+  - paragraph: Rate shoulder feel from 1 to 5.
+  - group "Shoulder feel rating":
+    - button "1"
+    - button "2"
+    - button "3"
+    - button "4"
+    - button "5"
+  - generic: Skipped — unknown
+  - button "Skip Shoulder feel"
+  - text: Optional notes
+  - textbox "Optional notes":
+    - /placeholder: Add context about shoulder feel if it mattered today.
+  - heading "Coach note" [level=3]
+  - paragraph: What should we remember next time? Add a carry-forward coaching or programming note.
+  - textbox "Coach note" [active]:
+    - /placeholder: What should we remember next time? Add a carry-forward coaching or programming note.
+    - text: Final synthetic exact note
+  - generic: Answered
+  - button "Skip Coach note"
+  - button "Finalize session"
+- navigation "Mobile navigation":
+  - link "Dashboard":
+    - /url: /
+    - generic: Dashboard
+  - link "Workouts":
+    - /url: /workouts
+    - generic: Workouts
+  - link "Nutrition":
+    - /url: /nutrition
+    - generic: Nutrition
+  - link "Habits":
+    - /url: /habits
+    - generic: Habits
+  - button "More":
+    - generic: More
+- region "Notifications alt+T"

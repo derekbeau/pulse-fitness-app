@@ -1,0 +1,14 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/apps/web
+
+ ✓ src/hooks/use-complete-session.test.tsx (2 tests) 22ms
+ ✓ src/pages/active-workout.test.tsx (39 tests) 5821ms
+     ✓ renders the active workout UI and does not auto-focus any set after rest timer completion  741ms
+     ✓ moves from session logging to feedback, summary, and back to workouts  1602ms
+     ✓ keeps the session active after the last set until completion is explicitly confirmed  1590ms
+
+ Test Files  2 passed (2)
+      Tests  41 passed (41)
+   Start at  00:00:30
+   Duration  10.04s (transform 1.56s, setup 327ms, import 4.16s, tests 5.84s, environment 700ms)
+

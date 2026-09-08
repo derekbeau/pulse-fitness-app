@@ -1,3 +1,4 @@
+import { classifyNativeFeedback } from '@pulse/shared';
 import type { ExerciseCategory, WorkoutSessionFeedback } from '@pulse/shared';
 
 import type {
@@ -235,12 +236,15 @@ export const workoutCompletedSessions: ActiveWorkoutCompletedSession[] = [
         ],
       },
     ],
-    feedback: {
-      energy: 4,
-      recovery: 4,
-      technique: 5,
-      notes: 'Best pressing session since the shoulder flare settled down.',
-    },
+    feedback: classifyNativeFeedback(
+      {
+        energy: 4,
+        recovery: 4,
+        technique: 5,
+        notes: 'Best pressing session since the shoulder flare settled down.',
+      },
+      { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+    ),
     customFeedback: [
       {
         id: 'shoulder-feel',
@@ -321,12 +325,15 @@ export const workoutCompletedSessions: ActiveWorkoutCompletedSession[] = [
         ],
       },
     ],
-    feedback: {
-      energy: 4,
-      recovery: 3,
-      technique: 4,
-      notes: 'Knee tolerated deep flexion better than last week.',
-    },
+    feedback: classifyNativeFeedback(
+      {
+        energy: 4,
+        recovery: 3,
+        technique: 4,
+        notes: 'Knee tolerated deep flexion better than last week.',
+      },
+      { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+    ),
     customFeedback: [
       {
         id: 'knee-pain',
@@ -397,12 +404,15 @@ export const workoutCompletedSessions: ActiveWorkoutCompletedSession[] = [
         ],
       },
     ],
-    feedback: {
-      energy: 4,
-      recovery: 5,
-      technique: 4,
-      notes: 'Good full-body rhythm. Slight grip loss on RDL but positions stayed solid.',
-    },
+    feedback: classifyNativeFeedback(
+      {
+        energy: 4,
+        recovery: 5,
+        technique: 4,
+        notes: 'Good full-body rhythm. Slight grip loss on RDL but positions stayed solid.',
+      },
+      { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+    ),
     customFeedback: [
       {
         id: 'energy-post',
@@ -481,12 +491,15 @@ export const workoutCompletedSessions: ActiveWorkoutCompletedSession[] = [
         ],
       },
     ],
-    feedback: {
-      energy: 3,
-      recovery: 3,
-      technique: 4,
-      notes: 'Good decision to keep the top set conservative and avoid a painful lockout.',
-    },
+    feedback: classifyNativeFeedback(
+      {
+        energy: 3,
+        recovery: 3,
+        technique: 4,
+        notes: 'Good decision to keep the top set conservative and avoid a painful lockout.',
+      },
+      { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+    ),
     customFeedback: [
       {
         id: 'shoulder-feel',

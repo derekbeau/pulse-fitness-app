@@ -1,0 +1,46 @@
+apps/api/src/routes/workout-sessions/store.ts:42:  parseWorkoutSessionFeedback,
+apps/api/src/routes/workout-sessions/store.ts:83:  feedback: string | null;
+apps/api/src/routes/workout-sessions/store.ts:165:  feedback: workoutSessions.feedback,
+apps/api/src/routes/workout-sessions/store.ts:364:    feedback: parseWorkoutSessionFeedback(session.feedback),
+apps/api/src/routes/workout-sessions/store.ts:1513:        feedback: serializeWorkoutSessionFeedback(
+apps/api/src/routes/workout-sessions/store.ts:1811:        feedback: serializeWorkoutSessionFeedback(
+apps/api/src/routes/workout-sessions/store.ts:2188:  if ('schemaVersion' in input && !actor) return parseWorkoutSessionFeedback(JSON.stringify(input));
+apps/api/src/routes/workout-sessions/index.ts:300:    feedback: session.feedback,
+apps/api/src/routes/workout-sessions/index.ts:863:          feedback: body.feedback,
+apps/api/src/routes/workout-sessions/index.ts:947:          feedback: body.feedback,
+apps/api/src/routes/adaptive-nutrition/review-store.ts:56:import { parseWorkoutSessionFeedback } from '../../db/schema/workout-session-feedback.js';
+apps/api/src/routes/adaptive-nutrition/review-store.ts:671:        feedback: workoutSessions.feedback,
+apps/api/src/routes/adaptive-nutrition/review-store.ts:1041:        const feedback = parseWorkoutSessionFeedback(session.feedback);
+apps/api/src/routes/adaptive-nutrition/review-store.ts:1044:          feedback: feedback
+apps/api/src/routes/adaptive-nutrition/review-store.ts:1124:      sessionFeedback.some(({ feedback }) => feedback?.recovery != null && feedback.recovery <= 2);
+apps/api/src/routes/adaptive-nutrition/review-store.ts:1205:            feedback?.energy != null ? [feedback.energy] : [],
+apps/api/src/routes/adaptive-nutrition/review-store.ts:1210:            feedback?.recovery != null ? [feedback.recovery] : [],
+packages/shared/src/schemas/workout-sessions.ts:356:    feedback: workoutSessionFeedbackSchema.nullable(),
+packages/shared/src/schemas/workout-sessions.ts:500:  feedback: workoutSessionFeedbackInputSchema.nullable().optional().default(null),
+packages/shared/src/schemas/workout-sessions.ts:544:    feedback: workoutSessionFeedbackInputSchema.nullable().optional(),
+apps/api/src/routes/workout-progression/store.ts:35:  parseWorkoutSessionFeedback,
+apps/api/src/routes/workout-progression/store.ts:287:        feedback: workoutSessions.feedback,
+apps/api/src/routes/workout-progression/store.ts:451:      ? parseWorkoutSessionFeedback(latestSession.feedback)
+packages/shared/src/schemas/feedback-provenance.ts:199:  feedback: ProvenanceSafeFeedback,
+packages/shared/src/schemas/feedback-provenance.ts:217:  return expected[construct] === feedback[construct] &&
+apps/api/src/scripts/migrate-static.ts:2069:            feedback: null,
+apps/api/src/scripts/migrate-static.ts:2082:              feedback: null,
+apps/api/src/db/schema/workout-session-feedback.ts:16:export function parseWorkoutSessionFeedback(
+apps/api/src/db/schema/workout-sessions.ts:85:    feedback: text('feedback'),
+apps/api/src/db/feedback-provenance-migration.ts:39:type SessionSource = { id: string; user_id: string; feedback: string | null };
+apps/web/src/hooks/use-complete-session.ts:28:  feedback: WorkoutSessionFeedback;
+apps/web/src/hooks/use-complete-session.ts:37:    feedback: input.feedback,
+apps/web/e2e/rir-history-fixture.ts:137:        feedback: {
+apps/web/src/pages/active-workout.tsx:871:                  feedback: {
+apps/web/src/pages/active-workout.tsx:918:                feedback: {
+apps/web/src/features/workouts/lib/mock-data.ts:29:  feedback: WorkoutSessionFeedback;
+apps/web/src/features/workouts/lib/mock-data.ts:239:    feedback: classifyNativeFeedback(
+apps/web/src/features/workouts/lib/mock-data.ts:328:    feedback: classifyNativeFeedback(
+apps/web/src/features/workouts/lib/mock-data.ts:407:    feedback: classifyNativeFeedback(
+apps/web/src/features/workouts/lib/mock-data.ts:494:    feedback: classifyNativeFeedback(
+apps/web/src/features/workouts/lib/mock-data.ts:713:    feedback: input.feedback,
+apps/web/src/features/workouts/components/session-detail.tsx:515:                  <FeedbackScore label="Energy" score={session.feedback.energy} />
+apps/web/src/features/workouts/components/session-detail.tsx:516:                  <FeedbackScore label="Recovery" score={session.feedback.recovery} />
+apps/web/src/features/workouts/components/session-detail.tsx:517:                  <FeedbackScore label="Technique" score={session.feedback.technique} />
+apps/web/src/features/workouts/components/session-feedback.tsx:60:  onSubmit: (feedback: ActiveWorkoutFeedbackDraft) => void;
+apps/web/src/features/workouts/types.ts:331:  feedback: WorkoutSessionFeedback;

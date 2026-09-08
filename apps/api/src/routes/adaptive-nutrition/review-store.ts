@@ -1,3 +1,4 @@
+import { actionableFeedbackRating } from '@pulse/shared';
 import { createHash, randomUUID } from 'node:crypto';
 
 import type Database from 'better-sqlite3';
@@ -774,7 +775,8 @@ export const createAdaptiveWeeklyReviewStore = (options: {
     sources: ReturnType<typeof loadSourceFacts>,
   ) =>
     fingerprint({
-      version: 1,
+      version: 2,
+      feedbackEvidenceVersion: 2,
       checkInId: checkIn.id,
       checkInFingerprint: checkIn.dataFingerprint,
       algorithmVersion: checkIn.algorithmVersion,
@@ -1035,7 +1037,19 @@ export const createAdaptiveWeeklyReviewStore = (options: {
       (item) => item.reasonCodes.includes('LIKELY_PARTIAL_NUTRITION') && item.resolution === null,
     );
     const sessionFeedback = sources.sessions
-      .map((session) => ({ session, feedback: parseWorkoutSessionFeedback(session.feedback) }))
+      .map((session) => {
+        const feedback = parseWorkoutSessionFeedback(session.feedback);
+        return {
+          session,
+          feedback: feedback
+            ? {
+                ...feedback,
+                energy: actionableFeedbackRating(feedback, 'energy'),
+                recovery: actionableFeedbackRating(feedback, 'recovery'),
+              }
+            : null,
+        };
+      })
       .filter((entry) => entry.feedback !== null);
     const average = (values: number[]) =>
       values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
@@ -1083,14 +1097,13 @@ export const createAdaptiveWeeklyReviewStore = (options: {
       sources.contexts.some((context) =>
         ['illness', 'pain_injury', 'recovery'].includes(context.category),
       ) ||
-      sessionFeedback.some(({ session, feedback }) =>
-        [
-          session.notes,
-          feedback?.notes,
-          ...(feedback?.responses?.flatMap((response) => [response.label, response.notes]) ?? []),
-        ]
-          .filter(Boolean)
-          .some((text) => /pain|injur|ill|sick|flare/iu.test(text ?? '')),
+      sessionFeedback.some(({ feedback }) =>
+        feedback?.responses.some(
+          (response) =>
+            response.id === 'pain-discomfort' &&
+            response.type === 'yes_no' &&
+            response.value === true,
+        ),
       );
     const completedSessions = sources.sessions.filter((session) => session.status === 'completed');
     const cancelledSessions = sources.sessions.filter((session) => session.status === 'cancelled');
@@ -1108,7 +1121,7 @@ export const createAdaptiveWeeklyReviewStore = (options: {
       missedSchedules.length > 0 ||
       movedContexts.length > 0 ||
       performanceTrend === 'declining' ||
-      sessionFeedback.some(({ feedback }) => (feedback?.recovery ?? 5) <= 2);
+      sessionFeedback.some(({ feedback }) => feedback?.recovery != null && feedback.recovery <= 2);
     const calorieDelta =
       currentTarget && proposedTarget ? proposedTarget.calories - currentTarget.calories : 0;
     const recommendationOutcome = hasUnresolvedLowDay
@@ -1188,10 +1201,14 @@ export const createAdaptiveWeeklyReviewStore = (options: {
         ]).size,
         averageRpe: average(rpes),
         averageEnergy: average(
-          sessionFeedback.flatMap(({ feedback }) => (feedback ? [feedback.energy] : [])),
+          sessionFeedback.flatMap(({ feedback }) =>
+            feedback?.energy != null ? [feedback.energy] : [],
+          ),
         ),
         averageRecovery: average(
-          sessionFeedback.flatMap(({ feedback }) => (feedback ? [feedback.recovery] : [])),
+          sessionFeedback.flatMap(({ feedback }) =>
+            feedback?.recovery != null ? [feedback.recovery] : [],
+          ),
         ),
         performanceTrend,
         painOrIllnessPresent,

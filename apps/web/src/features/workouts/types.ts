@@ -262,7 +262,9 @@ export type ActiveWorkoutEnhancedExercise = Omit<
 
 export type FeedbackFieldType = 'scale' | 'text' | 'yes_no' | 'emoji' | 'slider' | 'multi_select';
 
-export type ActiveWorkoutCustomFeedbackField =
+export type ActiveWorkoutCustomFeedbackField = {
+  answerState?: 'answered' | 'unanswered' | 'skipped';
+} & (
   | {
       id: string;
       label: string;
@@ -317,7 +319,8 @@ export type ActiveWorkoutCustomFeedbackField =
       options: string[];
       type: 'multi_select';
       value?: string[];
-    };
+    }
+);
 
 export type ActiveWorkoutFeedbackDraft = ActiveWorkoutCustomFeedbackField[];
 

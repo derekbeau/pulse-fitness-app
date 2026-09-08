@@ -1,0 +1,93 @@
+
+Running 2 tests using 1 worker
+
+(node:79305) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 e2e/feedback-provenance.spec.ts:4:7 › native feedback survives failure and reload at 375px (3.7s)
+(node:79339) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 e2e/feedback-provenance.spec.ts:4:7 › native feedback survives failure and reload at 1280px (3.8s)
+
+
+  1) e2e/feedback-provenance.spec.ts:4:7 › native feedback survives failure and reload at 375px ────
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+    @@ -1,9 +1,9 @@
+      Array [
+        Object {
+          "completed": true,
+    -     "createdAt": 1788840016000,
+    +     "createdAt": 1788840020000,
+          "exerciseId": "synthetic-row",
+          "id": "e6ef18ec-5641-4d1b-9f05-dc0fa2d10479",
+          "notes": "Exact native set.",
+          "orderIndex": 0,
+          "reps": 8,
+
+      52 |     const readback = await request.get(`http://127.0.0.1:3119/api/v1/workout-sessions/${session.id}`, { headers });
+      53 |     const saved = (await readback.json()).data;
+    > 54 |     expect(saved.sets).toEqual(session.sets);
+         |                        ^
+      55 |     expect(saved.notes).toBe(session.notes);
+      56 |     expect(saved.startedAt).toBe(session.startedAt);
+      57 |     expect(saved.feedback).toMatchObject({ energy: 4, recovery: null, technique: null, notes: exactNote });
+        at /Users/meridian/Projects/pulse-feedback-provenance/apps/web/e2e/feedback-provenance.spec.ts:54:24
+
+    Error Context: ../../docs/implementation/feedback-provenance-evidence/playwright/feedback-provenance-native-fb409-failure-and-reload-at-375px/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../docs/implementation/feedback-provenance-evidence/playwright/feedback-provenance-native-fb409-failure-and-reload-at-375px/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../docs/implementation/feedback-provenance-evidence/playwright/feedback-provenance-native-fb409-failure-and-reload-at-375px/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) e2e/feedback-provenance.spec.ts:4:7 › native feedback survives failure and reload at 1280px ───
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+    @@ -1,9 +1,9 @@
+      Array [
+        Object {
+          "completed": true,
+    -     "createdAt": 1788840021000,
+    +     "createdAt": 1788840024000,
+          "exerciseId": "synthetic-row",
+          "id": "97f8977b-36ec-42f5-b4c0-860db38ca827",
+          "notes": "Exact native set.",
+          "orderIndex": 0,
+          "reps": 8,
+
+      52 |     const readback = await request.get(`http://127.0.0.1:3119/api/v1/workout-sessions/${session.id}`, { headers });
+      53 |     const saved = (await readback.json()).data;
+    > 54 |     expect(saved.sets).toEqual(session.sets);
+         |                        ^
+      55 |     expect(saved.notes).toBe(session.notes);
+      56 |     expect(saved.startedAt).toBe(session.startedAt);
+      57 |     expect(saved.feedback).toMatchObject({ energy: 4, recovery: null, technique: null, notes: exactNote });
+        at /Users/meridian/Projects/pulse-feedback-provenance/apps/web/e2e/feedback-provenance.spec.ts:54:24
+
+    Error Context: ../../docs/implementation/feedback-provenance-evidence/playwright/feedback-provenance-native-2cd77-ailure-and-reload-at-1280px/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../docs/implementation/feedback-provenance-evidence/playwright/feedback-provenance-native-2cd77-ailure-and-reload-at-1280px/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../docs/implementation/feedback-provenance-evidence/playwright/feedback-provenance-native-2cd77-ailure-and-reload-at-1280px/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    e2e/feedback-provenance.spec.ts:4:7 › native feedback survives failure and reload at 375px ─────
+    e2e/feedback-provenance.spec.ts:4:7 › native feedback survives failure and reload at 1280px ────
+undefined
+/Users/meridian/Projects/pulse-feedback-provenance/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.feedback-synthetic.config.ts

@@ -1,0 +1,55 @@
+
+Running 2 tests using 1 worker
+
+(node:80531) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/feedback-provenance.spec.ts:4:7 › native feedback survives failure and reload at 375px (3.7s)
+  ✘  2 e2e/feedback-provenance.spec.ts:4:7 › native feedback survives failure and reload at 1280px (30.2s)
+
+
+  1) e2e/feedback-provenance.spec.ts:4:7 › native feedback survives failure and reload at 1280px ───
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: 'Complete', exact: true })
+        - locator resolved to <button type="button" data-size="default" data-variant="default" data-slot="alert-dialog-action" class="inline-flex min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/4…>Complete</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      - retrying click action
+        - waiting 100ms
+      - element was detached from the DOM, retrying
+
+
+      24 |             setNumber: 1,
+      25 |             weight: 20,
+    > 26 |             reps: 8,
+         |                     ^
+      27 |             rir: 0,
+      28 |             completed: true,
+      29 |             section: 'main',
+        at open (/Users/meridian/Projects/pulse-feedback-provenance/apps/web/e2e/feedback-provenance.spec.ts:26:73)
+        at /Users/meridian/Projects/pulse-feedback-provenance/apps/web/e2e/feedback-provenance.spec.ts:28:5
+
+    Error Context: ../../docs/implementation/feedback-provenance-evidence/playwright/feedback-provenance-native-2cd77-ailure-and-reload-at-1280px/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../docs/implementation/feedback-provenance-evidence/playwright/feedback-provenance-native-2cd77-ailure-and-reload-at-1280px/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../docs/implementation/feedback-provenance-evidence/playwright/feedback-provenance-native-2cd77-ailure-and-reload-at-1280px/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    e2e/feedback-provenance.spec.ts:4:7 › native feedback survives failure and reload at 1280px ────
+  1 passed (34.4s)
+undefined
+/Users/meridian/Projects/pulse-feedback-provenance/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.feedback-synthetic.config.ts

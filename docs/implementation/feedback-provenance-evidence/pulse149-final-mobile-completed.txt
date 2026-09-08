@@ -1,0 +1,56 @@
+- main:
+  - text: Session complete
+  - heading "Workout summary" [level=1]
+  - paragraph: Logged, reflected, and ready to head back to the workouts overview.
+  - generic: Total volume
+  - paragraph: 320 lbs
+  - generic: Duration
+  - paragraph: 32:59
+  - generic: Sets
+  - paragraph: 2/2
+  - generic: Reps
+  - paragraph: "16"
+  - heading "Exercise results" [level=2]
+  - heading "Synthetic Dumbbell Row" [level=3]
+  - generic: 2/2 sets
+  - generic: Weight × Reps
+  - generic "Show set values"
+  - generic: "Volume: 320 lbs"
+  - generic: "Reps: 16"
+  - paragraph: Native set note preserved.
+  - generic: 1 exercise logged
+  - heading "Session notes" [level=2]
+  - paragraph: What happened today? Anything notable about this session?
+  - textbox "Session notes":
+    - /placeholder: What happened today? Anything notable about this session?
+  - heading "Session feedback" [level=2]
+  - paragraph: Saved check-ins from the end of this workout.
+  - paragraph: Session RPE
+  - paragraph: 4 / 10
+  - paragraph: Energy post workout
+  - paragraph: 💪
+  - paragraph: Any pain or discomfort?
+  - paragraph: "Yes"
+  - paragraph: Shoulder feel
+  - paragraph: Skipped — unknown
+  - paragraph: Coach note
+  - paragraph: Final synthetic exact note
+  - button "Save as Template":
+    - text: Save as Template
+  - button "Done"
+- navigation "Mobile navigation":
+  - link "Dashboard":
+    - /url: /
+    - generic: Dashboard
+  - link "Workouts":
+    - /url: /workouts
+    - generic: Workouts
+  - link "Nutrition":
+    - /url: /nutrition
+    - generic: Nutrition
+  - link "Habits":
+    - /url: /habits
+    - generic: Habits
+  - button "More":
+    - generic: More
+- region "Notifications alt+T"

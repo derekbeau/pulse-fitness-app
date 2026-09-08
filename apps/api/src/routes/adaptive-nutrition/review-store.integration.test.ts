@@ -1,3 +1,4 @@
+import { classifyNativeFeedback } from '@pulse/shared';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -157,7 +158,27 @@ const seedTrainingSession = (input: {
       status: 'completed',
       startedAt: completedAt - 60_000,
       completedAt,
-      feedback: input.lowRecovery ? JSON.stringify({ energy: 3, recovery: 2, technique: 4 }) : null,
+      feedback: input.lowRecovery
+        ? JSON.stringify(
+            classifyNativeFeedback(
+              {
+                responses: [
+                  {
+                    id: 'explicit-recovery',
+                    label: 'Recovery',
+                    type: 'scale',
+                    construct: 'recovery',
+                    value: 2,
+                  },
+                ],
+              },
+              {
+                classifiedAt: new Date(completedAt).toISOString(),
+                actor: { kind: 'user', id: 'user-1' },
+              },
+            ),
+          )
+        : null,
       updatedAt: input.updatedAt,
     })
     .run();

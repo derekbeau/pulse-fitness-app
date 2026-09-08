@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 2,
+  "energy": 4,
+  "recovery": null,
+  "technique": null,
+  "provenance": {
+    "energy": {
+      "source": "same_construct_documented_mapping",
+      "sourceResponseId": "energy-post-workout",
+      "sourceRevisionId": null,
+      "sourceKind": "user",
+      "actorId": "synthetic-149",
+      "schemaVersion": 2,
+      "mappingVersion": "pulse-energy-emoji-v1",
+      "reason": "Explicit same-construct native answer with evidenced actor.",
+      "classifiedAt": "2026-09-08T04:47:59.672Z"
+    },
+    "recovery": {
+      "source": "unknown",
+      "sourceResponseId": null,
+      "sourceRevisionId": null,
+      "sourceKind": "user",
+      "actorId": "synthetic-149",
+      "schemaVersion": 2,
+      "mappingVersion": null,
+      "reason": "No valid explicit same-construct answer.",
+      "classifiedAt": "2026-09-08T04:47:59.672Z"
+    },
+    "technique": {
+      "source": "unknown",
+      "sourceResponseId": null,
+      "sourceRevisionId": null,
+      "sourceKind": "user",
+      "actorId": "synthetic-149",
+      "schemaVersion": 2,
+      "mappingVersion": null,
+      "reason": "No valid explicit same-construct answer.",
+      "classifiedAt": "2026-09-08T04:47:59.672Z"
+    }
+  },
+  "notes": "  Synthetic exact whitespace  ",
+  "responses": [
+    {
+      "id": "session-rpe",
+      "label": "Session RPE",
+      "type": "scale",
+      "value": 8,
+      "notes": "",
+      "state": "answered"
+    },
+    {
+      "id": "energy-post-workout",
+      "label": "Energy post workout",
+      "type": "emoji",
+      "value": "🙂",
+      "notes": "",
+      "state": "answered"
+    },
+    {
+      "id": "pain-discomfort",
+      "label": "Any pain or discomfort?",
+      "type": "yes_no",
+      "value": false,
+      "notes": "",
+      "state": "answered"
+    },
+    {
+      "id": "shoulder-feel",
+      "label": "Shoulder feel",
+      "type": "scale",
+      "notes": "",
+      "state": "skipped"
+    },
+    {
+      "id": "session-note",
+      "label": "Coach note",
+      "type": "text",
+      "value": "  Synthetic exact whitespace  ",
+      "notes": "",
+      "state": "answered"
+    }
+  ]
+}

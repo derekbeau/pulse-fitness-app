@@ -1,3 +1,4 @@
+import { FeedbackAudit, FeedbackNoteReviewNotice } from './feedback-audit';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
@@ -434,6 +435,15 @@ export function WorkoutTemplateDetail({ templateId }: WorkoutTemplateDetailProps
 
   return (
     <section className="space-y-6">
+      <FeedbackNoteReviewNotice reviews={template?.feedbackNoteReview} />
+      {template?.feedbackNoteReview?.length && template.userId ? (
+        <FeedbackAudit
+          sessionId={template.id}
+          userId={template.userId}
+          resource="workout-templates"
+        />
+      ) : null}
+
       <Card className="gap-4 overflow-hidden border-transparent bg-card/80 py-0">
         <div className="space-y-4 bg-[var(--color-accent-cream)] px-6 py-6 text-on-cream dark:border-b dark:border-border dark:bg-card dark:text-foreground">
           <div className="space-y-2">

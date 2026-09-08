@@ -1,0 +1,12 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+
+ ✓ src/routes/adaptive-nutrition/review-store.integration.test.ts (78 tests) 7096ms
+     ✓ serializes simultaneous accepts in separate processes into one transition  1067ms
+ ✓ src/routes/workout-progression/store.integration.test.ts (28 tests) 3013ms
+
+ Test Files  2 passed (2)
+      Tests  106 passed (106)
+   Start at  00:10:42
+   Duration  11.52s (transform 497ms, setup 0ms, import 1.15s, tests 10.11s, environment 0ms)
+

@@ -1,3 +1,4 @@
+import { feedbackNoteReviewSchema } from './feedback-provenance.js';
 import { z } from 'zod';
 
 import { dateSchema } from './common.js';
@@ -70,6 +71,7 @@ export const exerciseTrackingTypeSchema = z.enum([
 ]);
 
 export const exerciseSchema = z.object({
+  feedbackNoteReview: feedbackNoteReviewSchema.optional(),
   id: z.string(),
   userId: z.string().nullable(),
   name: requiredStringSchema,

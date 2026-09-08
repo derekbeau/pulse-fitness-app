@@ -1,3 +1,4 @@
+import { classifyNativeFeedback } from '@pulse/shared';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -131,11 +132,7 @@ describe('ActiveSessionResumeGate', () => {
               section: 'main',
             },
           ],
-          feedback: {
-            energy: 4,
-            recovery: 4,
-            technique: 4,
-          },
+          feedback: classifyNativeFeedback({}, { classifiedAt: '2026-03-09T00:00:00.000Z' }),
           notes: null,
           sets: [],
           createdAt: 100,

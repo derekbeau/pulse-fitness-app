@@ -1,0 +1,4063 @@
+{
+  "pageErrors": [],
+  "consoleMessages": [
+    "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+  ],
+  "network": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/login",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/main.tsx?t=1788842482354",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@vite/client",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react.js?v=257af1bc",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@react-refresh",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=257af1bc",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/node_modules/.pnpm/vite@7.3.1_@types+node@24.11.0_jiti@2.6.1_lightningcss@1.31.1_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/client/env.mjs",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/styles/globals.css?t=1788842482354",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-G3PMV62Z.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/App.tsx?t=1788841358450",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/theme-provider.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-LQJ5AVEX.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@tanstack_react-query.js?v=b59828b4",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react-dom_client.js?v=b565b9b1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/error-boundary.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/auth/guest-route.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/sonner.js?v=daa8a5bf",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/index.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/auth/auth-route-loader.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/auth/protected-route.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/layout/app-layout.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/query-client.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/theme-context.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/useTheme.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-EBZS5F5X.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-CXS66GOW.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react-router.js?v=9a1619ef",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/button.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/card.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/store/auth-store.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/habit-row-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/food-card-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/meal-card-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/page-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/workout-card-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/stat-card-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-user.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/layout/sidebar.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/layout/bottom-nav.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/pull-to-refresh.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/api-error.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/workouts/active-session-resume-gate.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/class-variance-authority.js?v=c9d37867",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/utils.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/lucide-react.js?v=4ad12177",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/auth-storage.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/zustand_react.js?v=a33c71ea",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/index.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/zustand_middleware.js?v=5d374294",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/api-client.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/weight/api/weight.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-dashboard-snapshot.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/layout/nav-items.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-weight-trend.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/query-invalidation.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/tooltip.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/radix-ui.js?v=f560c552",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/confirmation-dialog.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-pull-to-refresh.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-SIU35MPB.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/clsx.js?v=dd8787dd",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/session-persistence.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/zod.js?v=165fbaa6",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/tailwind-merge.js?v=eebfd914",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/adaptive-weekly-review.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/adaptive-nutrition.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/activities.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/auth.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/energy-balance.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/daily-energy-adherence.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/agent.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/agent-tokens.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/common.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/dashboard-config.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/dashboard.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/data-quality-calendar.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/entity-links.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/exercises.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/habit-entries.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/habits.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/health-conditions.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/equipment.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/journal.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/foods.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/food-analytics.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/goal-trajectory.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/nutrition.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/nutrition-targets.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/protein-floor.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/resources.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/session-set.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/trash.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/weight.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/scheduled-workouts.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/users.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/workout-templates.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/workout-progression.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/workout-sessions.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/workout-effort.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/adaptive-setup-projection.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/adaptive-goal-progress.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/adaptive-goal-trajectory.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/adaptive-tdee.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/daily-energy-adherence.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/food-analytics.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/ewma.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/chart-exploration.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/energy-balance.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/habit-scheduling.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/protein-floor.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/weight-unit.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/workout-progression.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/related-history.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/food-usage.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/feedback-provenance.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/optimistic.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/habits/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-habit-chains.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-macro-trend.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/date.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/nutrition/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/foods/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-2RFD3KSE.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-recent-workouts.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/alert-dialog.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-7R54KITY.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/pages/login.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/auth/index.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/auth/components/login-form.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/auth/components/register-form.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react-hook-form.js?v=b11337ae",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/input.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/label.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@hookform_resolvers_zod.js?v=db4f44f1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-VEMW4M52.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHTWEBlw.woff2",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtqUYLknw.woff2",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:5289/api/v1/auth/login",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/users/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/pages/dashboard.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/layout/page-header.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/date-authority-state.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/badge.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/empty-state.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/help-icon.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/popover.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/components/calendar-picker.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/components/dashboard-drilldown-link.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/components/dashboard-edit-mode.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/components/habit-daily-status-card.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/components/recent-workouts.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/components/dashboard-snapshot-state.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/components/snapshot-cards.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/components/habit-chain.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/components/macro-rings.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/lib/greeting.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/lib/program-date.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/components/weight-trend-chart.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/components/trend-sparkline.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/lib/widget-utils.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/index.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/habits/api/habits.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-dashboard-config.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-weight-unit.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/query-polling.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/format-utils.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@dnd-kit_core.js?v=6b03681c",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@dnd-kit_sortable.js?v=9a6b3337",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/help-modal.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@dnd-kit_utilities.js?v=b15d6976",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/separator.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/switch.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/checkbox.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/progress-bar.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/progress-ring.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/notes-indicator.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/lib/recent-workouts.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/accent-card-styles.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/stat-card.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/habits/components/habit-chain-dot.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/nutrition/lib/program-local-midnight.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/habits/components/habit-day-modal.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/nutrition-day-status-control.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/weight/components/trend-weight-workspace.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/dashboard/lib/trend-sparklines.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/adaptive-coach.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/api/adaptive-nutrition.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-trajectory-workspace.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/weekly-decision-review.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@radix-ui_react-checkbox.js?v=56be2d5d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/markdown-note.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/energy-balance-workspace.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-TWD4OUUG.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/index.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/dialog.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/weight/lib/trend-weight-date.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-HNVBJJRQ.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/nutrition/api/nutrition.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/adaptive-setup-form.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/check-in-comparison.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-card.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-completion-dialog.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/algorithm-status-card.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/check-in-history.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-history.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-editor-dialog.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/weekly-review-history.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/api/keys.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/lib/format-adaptive-nutrition.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/recharts.js?v=8cd8c590",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-trajectory-chart.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/journal/lib/markdown.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-annotation-layer.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-data-table.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/radio-group.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/textarea.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-frame.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-legend.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-date.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-point-detail.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-range-control.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-state.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-summary.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-tooltip.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/adaptive-setup-choice-group.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/adaptive-setup-projection-card.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/check-in-data-details.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/adaptive-nutrition",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/dashboard/config",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/habits",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/workout-sessions?status=completed&limit=5",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/weight/trend?range=1m&end=2026-09-08",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/dashboard/snapshot?date=2026-09-08",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/habit-entries?from=2026-08-10&to=2026-09-08",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/dashboard/snapshot?date=2026-09-07",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/dashboard/snapshot?date=2026-09-09",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/dashboard/trends/macros?from=2026-08-10&to=2026-09-08",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/workouts/active?sessionId=6de98726-04d9-4984-9519-4094b338813c",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/main.tsx?t=1788842482354",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=257af1bc",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react.js?v=257af1bc",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react-dom_client.js?v=b565b9b1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-LQJ5AVEX.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-G3PMV62Z.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-CXS66GOW.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@react-refresh",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@vite/client",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/theme-provider.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/App.tsx?t=1788841358450",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@tanstack_react-query.js?v=b59828b4",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react-router.js?v=9a1619ef",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/sonner.js?v=daa8a5bf",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-EBZS5F5X.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/node_modules/.pnpm/vite@7.3.1_@types+node@24.11.0_jiti@2.6.1_lightningcss@1.31.1_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/client/env.mjs",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/styles/globals.css?t=1788842482354",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/theme-context.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/useTheme.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/auth/guest-route.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/error-boundary.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/auth/protected-route.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/auth/auth-route-loader.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/index.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/layout/app-layout.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/query-client.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/lucide-react.js?v=4ad12177",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/store/auth-store.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/food-card-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/button.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/card.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/meal-card-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-user.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/habit-row-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/workout-card-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/stat-card-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/layout/bottom-nav.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/page-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/api-error.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/pull-to-refresh.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/workouts/active-session-resume-gate.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/layout/sidebar.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/zustand_middleware.js?v=5d374294",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/zustand_react.js?v=a33c71ea",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/class-variance-authority.js?v=c9d37867",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/radix-ui.js?v=f560c552",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/zod.js?v=165fbaa6",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-SIU35MPB.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-2RFD3KSE.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-7R54KITY.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/index.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/api-client.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/auth-storage.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/utils.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/weight/api/weight.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-dashboard-snapshot.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-weight-trend.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/query-invalidation.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/layout/nav-items.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-pull-to-refresh.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/confirmation-dialog.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/session-persistence.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/tooltip.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/clsx.js?v=dd8787dd",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/tailwind-merge.js?v=eebfd914",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/energy-balance.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/adaptive-weekly-review.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/adaptive-nutrition.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/daily-energy-adherence.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/agent.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/auth.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/activities.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/agent-tokens.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/common.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/dashboard-config.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/dashboard.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/entity-links.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/data-quality-calendar.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/equipment.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/exercises.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/habit-entries.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/habits.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/health-conditions.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/journal.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/foods.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/food-analytics.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/nutrition-targets.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/nutrition.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/protein-floor.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/goal-trajectory.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/resources.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/session-set.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/scheduled-workouts.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/trash.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/weight.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/workout-sessions.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/workout-effort.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/users.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/workout-templates.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/adaptive-setup-projection.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/adaptive-goal-progress.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/workout-progression.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/chart-exploration.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/adaptive-tdee.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/energy-balance.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/adaptive-goal-trajectory.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/daily-energy-adherence.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/food-analytics.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/ewma.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/habit-scheduling.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/protein-floor.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/weight-unit.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/workout-progression.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/related-history.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/food-usage.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/feedback-provenance.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/date.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/optimistic.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-habit-chains.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/habits/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-macro-trend.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-recent-workouts.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/nutrition/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/foods/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/alert-dialog.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHTWEBlw.woff2",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtqUYLknw.woff2",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/users/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/pages/active-workout.tsx?t=1788841358450",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/feedback-audit.tsx?t=1788841070302",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/index.ts?t=1788841358450",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/time-estimates.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/dropdown-menu.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/tracking.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/api/workouts.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-complete-session.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-session-sets.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/dialog.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/input.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-workout-session.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/session-notes.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/start-case.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-weight-unit.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-feedback.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/exercise-library.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-exercise-list.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@dnd-kit_core.js?v=6b03681c",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@dnd-kit_sortable.js?v=9a6b3337",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@dnd-kit_utilities.js?v=b15d6976",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-HNVBJJRQ.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-TWD4OUUG.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-detail.tsx?t=1788841358450",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-context.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-summary.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/template-browser.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-header.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/scheduled-workout-detail.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/muscle-analytics.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/recharts.js?v=8cd8c590",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-calendar.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-list.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/effort.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/session-query-cache.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/format-utils.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/template-detail.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/active-session.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/mock-data.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/column-picker.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/badge.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/data-table.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/filter-bar.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/textarea.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/per-page-constants.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/pagination-bar.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/sort-selector.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/view-toggle.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/exercise-detail-modal.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/rename-exercise-dialog.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/tag-chips.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/use-debounced-callback.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-last-performance.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/checkbox.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/usePersistedState.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/related-history.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/notes-indicator.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/superset-utils.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/form-cue-chips.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/effort-display.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/set-row.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/swap-exercise-dialog.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/label.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/hooks/use-today-key.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/stat-card.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/session-comparison.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/workout-session-sets.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-detail-exercise-card.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/markdown-note.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-comparison.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/template-tags.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/preview-banner.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-save-as-template.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/accent-card-styles.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/schedule-workout-dialog.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/day-workout-conflicts.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-summary-exercise-card.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/per-page-selector.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/scheduled-start.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/elapsed-time.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/progress-bar.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/sticky-rest-timer-bar.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/scheduled-workout-header.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/popover.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-progression-review.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/index.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/api/progression.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/index.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/workout-filters.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/date-utils.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/select.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@radix-ui_react-checkbox.js?v=56be2d5d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-exercise-history.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/journal/lib/markdown.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-date-authority.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/calendar.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/exercise-trend-chart.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/rir-picker.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/exercise-header.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/hooks/use-countdown-timer.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/agent-notes-block.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/formatters.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/programming-notes-block.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/prescription-block.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/form-cues-block.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/last-performance-chip.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-annotation-layer.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/workout-exercise-set-list.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-date.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-data-table.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-legend.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-frame.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-range-control.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-point-detail.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-state.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-summary.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-tooltip.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/index.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/nutrition/lib/program-local-midnight.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/exercise-trend-data.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/exercise-trend-metrics.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/api/adaptive-nutrition.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/nutrition-day-status-control.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/adaptive-coach.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-trajectory-workspace.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/energy-balance-workspace.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/api/keys.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/weekly-decision-review.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/nutrition/api/nutrition.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/algorithm-status-card.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/check-in-comparison.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/check-in-history.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/adaptive-setup-form.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@hookform_resolvers_zod.js?v=db4f44f1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react-hook-form.js?v=b11337ae",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-VEMW4M52.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-completion-dialog.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-card.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-editor-dialog.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-history.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/weekly-review-history.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/radio-group.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/check-in-data-details.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/lib/format-adaptive-nutrition.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-trajectory-chart.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/adaptive-setup-choice-group.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/adaptive-setup-projection-card.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/weight/lib/trend-weight-date.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react-day-picker.js?v=e3f21378",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/workout-sessions/6de98726-04d9-4984-9519-4094b338813c",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/workout-sessions?status=in-progress&status=paused",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/workout-sessions?status=completed&limit=3",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/exercises/synthetic-row/history?limit=3",
+      "status": 200
+    },
+    {
+      "method": "PUT",
+      "url": "http://127.0.0.1:5289/api/v1/workout-sessions/6de98726-04d9-4984-9519-4094b338813c",
+      "status": 503
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/workouts/active?sessionId=6de98726-04d9-4984-9519-4094b338813c",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/main.tsx?t=1788842482354",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@vite/client",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=257af1bc",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react.js?v=257af1bc",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@react-refresh",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-G3PMV62Z.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-LQJ5AVEX.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/App.tsx?t=1788841358450",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/theme-provider.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/node_modules/.pnpm/vite@7.3.1_@types+node@24.11.0_jiti@2.6.1_lightningcss@1.31.1_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/client/env.mjs",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/styles/globals.css?t=1788842482354",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/sonner.js?v=daa8a5bf",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/auth/guest-route.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@tanstack_react-query.js?v=b59828b4",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/auth/auth-route-loader.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/index.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/error-boundary.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/auth/protected-route.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/query-client.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/theme-context.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-CXS66GOW.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/layout/app-layout.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-EBZS5F5X.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react-dom_client.js?v=b565b9b1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react-router.js?v=9a1619ef",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/useTheme.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/store/auth-store.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/food-card-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/habit-row-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/meal-card-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/page-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/stat-card-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/skeletons/workout-card-skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/zustand_middleware.js?v=5d374294",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/zustand_react.js?v=a33c71ea",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/button.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/card.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-user.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/workouts/active-session-resume-gate.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/api-error.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/class-variance-authority.js?v=c9d37867",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/layout/bottom-nav.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/layout/sidebar.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/pull-to-refresh.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/api-client.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/auth-storage.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/index.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/skeleton.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/utils.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-SIU35MPB.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/weight/api/weight.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/zod.js?v=165fbaa6",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-dashboard-snapshot.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-weight-trend.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/query-invalidation.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/session-persistence.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/layout/nav-items.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-pull-to-refresh.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/confirmation-dialog.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/tooltip.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/adaptive-weekly-review.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/energy-balance.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/clsx.js?v=dd8787dd",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/daily-energy-adherence.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/adaptive-nutrition.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/agent.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/auth.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/activities.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/agent-tokens.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/tailwind-merge.js?v=eebfd914",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/common.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/dashboard-config.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/dashboard.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/radix-ui.js?v=f560c552",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/data-quality-calendar.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/entity-links.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/equipment.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/exercises.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/habit-entries.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/habits.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/health-conditions.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/journal.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/foods.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/lucide-react.js?v=4ad12177",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/food-analytics.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/nutrition.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/nutrition-targets.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/protein-floor.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/resources.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/goal-trajectory.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/scheduled-workouts.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/session-set.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/trash.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/weight.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/workout-effort.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/users.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/workout-sessions.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/workout-templates.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/adaptive-setup-projection.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/adaptive-goal-progress.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/workout-progression.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/adaptive-tdee.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/chart-exploration.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/adaptive-goal-trajectory.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/energy-balance.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/daily-energy-adherence.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/food-analytics.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/ewma.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/habit-scheduling.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/protein-floor.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/weight-unit.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/workout-progression.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/utils/related-history.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/food-usage.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/@fs/Users/meridian/Projects/pulse-feedback-provenance/packages/shared/src/schemas/feedback-provenance.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/date.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/optimistic.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/habits/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-macro-trend.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-habit-chains.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-recent-workouts.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/nutrition/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/foods/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-2RFD3KSE.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/alert-dialog.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-7R54KITY.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "https://fonts.gstatic.com/s/dmsans/v17/rP2Hp2ywxg089UriCZOIHTWEBlw.woff2",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/users/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/pages/active-workout.tsx?t=1788841358450",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtqUYLknw.woff2",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/feedback-audit.tsx?t=1788841070302",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/index.ts?t=1788841358450",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/time-estimates.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/dropdown-menu.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/dialog.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/input.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/tracking.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-complete-session.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/api/workouts.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-session-sets.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-weight-unit.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-workout-session.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/session-notes.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/start-case.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/exercise-library.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-header.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/workout-sessions/6de98726-04d9-4984-9519-4094b338813c",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-feedback.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-context.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-detail.tsx?t=1788841358450",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/muscle-analytics.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-summary.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-exercise-list.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/template-browser.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/active-session.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/format-utils.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-calendar.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/effort.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-list.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/scheduled-workout-detail.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/mock-data.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/session-query-cache.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/badge.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/column-picker.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@dnd-kit_core.js?v=6b03681c",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@dnd-kit_sortable.js?v=9a6b3337",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@dnd-kit_utilities.js?v=b15d6976",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/data-table.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/filter-bar.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/per-page-constants.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/template-detail.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/pagination-bar.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/sort-selector.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/view-toggle.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/exercise-detail-modal.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/rename-exercise-dialog.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-TWD4OUUG.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/tag-chips.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/progress-bar.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/accent-card-styles.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/elapsed-time.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-HNVBJJRQ.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/sticky-rest-timer-bar.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/textarea.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/preview-banner.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/checkbox.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/label.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/stat-card.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/hooks/use-today-key.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/workout-session-sets.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/session-comparison.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/markdown-note.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-comparison.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-detail-exercise-card.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@radix-ui_react-checkbox.js?v=56be2d5d",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/index.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/api/progression.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-save-as-template.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/template-tags.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/session-summary-exercise-card.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/notes-indicator.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-last-performance.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/usePersistedState.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/use-debounced-callback.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/related-history.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/superset-utils.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/effort-display.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/form-cue-chips.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/set-row.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/swap-exercise-dialog.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/per-page-selector.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/schedule-workout-dialog.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/day-workout-conflicts.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/lib/date-utils.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/workout-filters.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/lib/scheduled-start.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/popover.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/scheduled-workout-header.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/index.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/select.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-exercise-history.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-progression-review.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/exercise-trend-chart.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/hooks/use-countdown-timer.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/hooks/use-date-authority.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/journal/lib/markdown.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/rir-picker.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-annotation-layer.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-data-table.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-date.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-frame.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-legend.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-point-detail.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-range-control.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-state.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-summary.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/charts/chart-tooltip.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/recharts.js?v=8cd8c590",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/agent-notes-block.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/calendar.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/exercise-header.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/formatters.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/form-cues-block.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/last-performance-chip.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/prescription-block.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/programming-notes-block.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/workout-exercise-card/workout-exercise-set-list.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/exercise-trend-data.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/workouts/components/exercise-trend-metrics.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/index.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/nutrition/lib/program-local-midnight.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/adaptive-coach.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/nutrition-day-status-control.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/api/adaptive-nutrition.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-trajectory-workspace.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/weekly-decision-review.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/energy-balance-workspace.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react-day-picker.js?v=e3f21378",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/adaptive-setup-form.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/check-in-comparison.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-completion-dialog.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/check-in-history.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/weekly-review-history.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/api/keys.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-card.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/components/ui/radio-group.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/algorithm-status-card.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-editor-dialog.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/lib/format-adaptive-nutrition.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-history.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/nutrition/api/nutrition.ts?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/goal-trajectory-chart.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/react-hook-form.js?v=b11337ae",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/adaptive-setup-choice-group.tsx",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/@hookform_resolvers_zod.js?v=db4f44f1",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/weight/lib/trend-weight-date.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/check-in-data-details.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/src/features/adaptive-nutrition/components/adaptive-setup-projection-card.tsx?t=1788841070362",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/node_modules/.vite/deps/chunk-VEMW4M52.js?v=9274e327",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/workout-sessions/6de98726-04d9-4984-9519-4094b338813c",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/workout-sessions?status=in-progress&status=paused",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/workout-sessions?status=completed&limit=3",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/exercises/synthetic-row/history?limit=3",
+      "status": 200
+    },
+    {
+      "method": "PUT",
+      "url": "http://127.0.0.1:5289/api/v1/workout-sessions/6de98726-04d9-4984-9519-4094b338813c",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/workout-sessions?status=in-progress&status=paused",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/workout-sessions/6de98726-04d9-4984-9519-4094b338813c",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/workout-sessions?status=completed&limit=3",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5289/api/v1/workout-sessions/6de98726-04d9-4984-9519-4094b338813c",
+      "status": 200
+    }
+  ]
+}

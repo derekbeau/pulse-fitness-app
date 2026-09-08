@@ -1,3 +1,4 @@
+import { classifyNativeFeedback } from '@pulse/shared';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -522,6 +523,63 @@ describe('workout progression store', () => {
     )?.[0];
     expect(replacement?.id).not.toBe(first?.id);
     expect(replacement).toMatchObject({ decision: 'hold', state: 'current' });
+  });
+
+  it('excludes legacy technique and false pain, then revisions explicit same-construct evidence', async () => {
+    const databaseUrl = prepareDatabase();
+    const rawDb = new Database(databaseUrl);
+    const legacy = {
+      energy: 3,
+      recovery: 4,
+      technique: 2,
+      responses: [
+        { id: 'session-rpe', label: 'Session RPE', type: 'scale' as const, value: 4 },
+        { id: 'pain-discomfort', label: 'Any pain?', type: 'yes_no' as const, value: false },
+      ],
+    };
+    rawDb
+      .prepare('UPDATE workout_sessions SET feedback = ? WHERE id = ?')
+      .run(JSON.stringify(legacy), 'session-1');
+    const store = await loadStore();
+    const preview = () =>
+      store.previewWorkoutProgression({
+        effectiveDate: '2026-08-24',
+        generatedAt: 500,
+        scheduledWorkoutId: 'scheduled-1',
+        userId: 'user-1',
+      });
+    const before = (await preview())?.[0];
+    expect(
+      before?.evidence.context.facts.filter((fact) => fact.source === 'session_feedback'),
+    ).toEqual([]);
+    const native = classifyNativeFeedback(
+      {
+        responses: [
+          {
+            id: 'technique-explicit',
+            label: 'Technique',
+            construct: 'technique',
+            type: 'scale',
+            value: 2,
+          },
+        ],
+      },
+      { classifiedAt: '2026-09-08T00:00:00.000Z', actor: { kind: 'user', id: 'user-1' } },
+    );
+    rawDb
+      .prepare('UPDATE workout_sessions SET feedback = ? WHERE id = ?')
+      .run(JSON.stringify(native), 'session-1');
+    rawDb.close();
+    const after = (await preview())?.[0];
+    expect(after?.evidence.context.facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: 'session_feedback', type: 'form_failure' }),
+      ]),
+    );
+    expect(after?.sourceFingerprint).not.toBe(before?.sourceFingerprint);
+    expect(
+      await store.getWorkoutProgressionRecommendation('user-1', before?.id ?? ''),
+    ).toMatchObject({ state: 'stale' });
   });
 
   it('fingerprints raw native RIR provenance and stales prior native RPE evidence', async () => {

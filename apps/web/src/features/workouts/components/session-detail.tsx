@@ -1,3 +1,4 @@
+import { FeedbackAudit } from './feedback-audit';
 import { useId, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import {
@@ -10,6 +11,7 @@ import {
   Scale,
 } from 'lucide-react';
 import {
+  actionableFeedbackRating,
   type ExerciseTrackingType,
   type SessionSet,
   type WeightUnit,
@@ -477,10 +479,24 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
       <Card>
         <CardHeader className="gap-2">
           <CardTitle>Feedback</CardTitle>
+          {session.feedbackNoteReview?.length ? (
+            <p role="status" className="text-sm text-muted">
+              Some coaching interpretations need provenance review or have been superseded. They are
+              not actionable training evidence.
+            </p>
+          ) : null}
         </CardHeader>
         <CardContent className="space-y-5">
           {session.feedback ? (
             <>
+              {Object.values(session.feedback.provenance).some(
+                (provenance) => provenance.sourceKind === 'unknown',
+              ) ? (
+                <p className="text-sm text-muted">
+                  Historical response source is unverified. Retained values are non-actionable until
+                  provenance is established.
+                </p>
+              ) : null}
               {session.feedback.responses && session.feedback.responses.length > 0 ? (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {session.feedback.responses.map((response) => (
@@ -505,9 +521,18 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                 </div>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <FeedbackScore label="Energy" score={session.feedback.energy} />
-                  <FeedbackScore label="Recovery" score={session.feedback.recovery} />
-                  <FeedbackScore label="Technique" score={session.feedback.technique} />
+                  <FeedbackScore
+                    label="Energy"
+                    score={actionableFeedbackRating(session.feedback, 'energy')}
+                  />
+                  <FeedbackScore
+                    label="Recovery"
+                    score={actionableFeedbackRating(session.feedback, 'recovery')}
+                  />
+                  <FeedbackScore
+                    label="Technique"
+                    score={actionableFeedbackRating(session.feedback, 'technique')}
+                  />
                 </div>
               )}
 
@@ -526,6 +551,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
           ) : (
             <p className="text-sm text-muted">No feedback captured for this session.</p>
           )}
+          <FeedbackAudit sessionId={session.id} userId={session.userId} />
         </CardContent>
       </Card>
 
@@ -996,16 +1022,20 @@ function getSessionSummary(session: WorkoutSession, template: WorkoutTemplate | 
   );
 }
 
-function FeedbackScore({ label, score }: { label: string; score: number }) {
+function FeedbackScore({ label, score }: { label: string; score: number | null }) {
   return (
     <div className="rounded-2xl border border-border bg-secondary/35 p-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{label}</p>
-      <p className="mt-2 text-base font-semibold text-foreground">{`${score}/5`}</p>
+      <p className="mt-2 text-base font-semibold text-foreground">
+        {score === null ? 'Unknown — no source-validated rating' : `${score}/5`}
+      </p>
     </div>
   );
 }
 
 function formatFeedbackResponseValue(response: WorkoutSessionFeedbackResponse) {
+  if (response.state === 'skipped') return 'Skipped — unknown';
+  if (response.value === undefined) return 'Unanswered';
   if (response.value === null) {
     return '-';
   }

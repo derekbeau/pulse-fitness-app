@@ -1,3 +1,4 @@
+import { classifyNativeFeedback } from '@pulse/shared';
 import { screen } from '@testing-library/react';
 import type { WorkoutSession } from '@pulse/shared';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -240,12 +241,15 @@ function createSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession 
       cooldown: 0,
       supplemental: 0,
     },
-    feedback: {
-      energy: 4,
-      recovery: 4,
-      technique: 5,
-      notes: 'Strong pressing day.',
-    },
+    feedback: classifyNativeFeedback(
+      {
+        energy: 4,
+        recovery: 4,
+        technique: 5,
+        notes: 'Strong pressing day.',
+      },
+      { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+    ),
     notes: 'Solid control and tempo.',
     sets: [
       createSet({

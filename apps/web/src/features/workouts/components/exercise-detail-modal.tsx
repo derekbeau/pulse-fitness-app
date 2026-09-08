@@ -1,3 +1,4 @@
+import { FeedbackAudit, FeedbackNoteReviewNotice } from './feedback-audit';
 import { useId, useState } from 'react';
 import type { ExerciseTrackingType } from '@pulse/shared';
 import { ExternalLink } from 'lucide-react';
@@ -93,6 +94,10 @@ export function ExerciseDetailModal({
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+        <FeedbackNoteReviewNotice reviews={exercise?.feedbackNoteReview} />
+        {exercise?.feedbackNoteReview?.length && exercise.userId ? (
+          <FeedbackAudit sessionId={exercise.id} userId={exercise.userId} resource="exercises" />
+        ) : null}
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

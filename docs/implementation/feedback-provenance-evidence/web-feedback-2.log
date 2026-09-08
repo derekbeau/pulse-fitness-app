@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/apps/web
+
+ ✓ src/features/workouts/components/session-feedback.test.tsx (7 tests) 358ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  23:26:04
+   Duration  1.72s (transform 357ms, setup 171ms, import 657ms, tests 358ms, environment 393ms)
+

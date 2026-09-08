@@ -1,3 +1,4 @@
+import { feedbackNoteReviewSchema } from './feedback-provenance.js';
 import { z } from 'zod';
 import { exerciseTrackingTypeSchema } from './exercises.js';
 
@@ -192,6 +193,7 @@ const workoutTemplateSectionInputSchema = z.object({
 });
 
 export const workoutTemplateSchema = z.object({
+  feedbackNoteReview: feedbackNoteReviewSchema.optional(),
   id: z.string(),
   userId: z.string(),
   name: requiredStringSchema,

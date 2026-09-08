@@ -1,0 +1,9 @@
+
+Running 2 tests using 1 worker
+
+(node:78952) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/feedback-provenance.spec.ts:4:7 › native feedback survives failure and reload at 375px (4.1s)
+  ✓  2 e2e/feedback-provenance.spec.ts:4:7 › native feedback survives failure and reload at 1280px (3.6s)
+
+  2 passed (8.4s)

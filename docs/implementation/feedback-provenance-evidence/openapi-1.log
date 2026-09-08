@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+
+ ✓ src/index.test.ts (8 tests) 531ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  00:29:28
+   Duration  2.50s (transform 1.00s, setup 0ms, import 1.80s, tests 531ms, environment 0ms)
+

@@ -36,7 +36,7 @@ async function completeSession(sessionId: string, input: CompleteSessionInput) {
     duration: input.duration ?? null,
     feedback: input.feedback,
     exerciseNotes: input.exerciseNotes,
-    notes: input.notes ?? null,
+    notes: input.notes,
     sets: input.sets,
     status: 'completed',
   });
