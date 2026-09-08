@@ -1,0 +1,17 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 696f6776641c51e0132ceb021f951937803247c6
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: f7973c7d32ec6ac6583d7cde243f9cc2a7ab464d062e7ff72369060a62877ea0
+STARTED_UTC: 2026-09-08T20:21:31.824Z
+COMMAND_ARGV_JSON: ["pnpm","exec","prettier","--write","apps/api/src/index.test.ts","apps/api/src/db/workout-feedback-migration.test.ts"]
+COMMAND: "pnpm" "exec" "prettier" "--write" "apps/api/src/index.test.ts" "apps/api/src/db/workout-feedback-migration.test.ts"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+apps/api/src/index.test.ts 49ms (unchanged)
+apps/api/src/db/workout-feedback-migration.test.ts 11ms (unchanged)
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T20:21:32.343Z
+EXIT_CODE: 0

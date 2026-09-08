@@ -161,6 +161,8 @@ describe('workout feedback question migration', () => {
         'workout_feedback_answer_current',
         'workout_feedback_answer_revisions',
         'workout_feedback_answer_sets',
+        'workout_feedback_planning_decision_responses',
+        'workout_feedback_planning_decisions',
         'workout_feedback_question_definitions',
         'workout_feedback_question_list_revisions',
         'workout_feedback_question_lists',

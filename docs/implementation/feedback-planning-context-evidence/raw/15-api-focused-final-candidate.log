@@ -1,0 +1,96 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 696f6776641c51e0132ceb021f951937803247c6
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 3a684d307ee702a37a8d76a8994ccd2fef8726cf89a903b4bd2e6468a8626f93
+STARTED_UTC: 2026-09-08T20:03:50.387Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","api","exec","vitest","run","src/routes/feedback-planning/index.test.ts","src/db/feedback-planning-context-migration.test.ts","--no-cache","--maxWorkers=1","--no-file-parallelism"]
+COMMAND: "pnpm" "--filter" "api" "exec" "vitest" "run" "src/routes/feedback-planning/index.test.ts" "src/db/feedback-planning-context-migration.test.ts" "--no-cache" "--maxWorkers=1" "--no-file-parallelism"
+CACHE_CONTROLS_JSON: {"PULSE_TEST_NOW":"2026-09-08T16:00:00.000Z","CI":"true"}
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-planning-context/apps/api
+
+ ❯ src/routes/feedback-planning/index.test.ts (4 tests | 3 failed) 843ms
+     × returns exact bounded evidence, separate history, open stale concerns, and owner-safe export 48ms
+     × applies only an explicit future-note decision, preserves safeguards, and invalidates on correction 19ms
+     × fails closed for invalid query/auth, clinician guidance, foreign targets, and purge readback 18ms
+     ✓ publishes the bounded query and explicit decision contracts in OpenAPI 74ms
+ ✓ src/db/feedback-planning-context-migration.test.ts (2 tests) 145ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/feedback-planning/index.test.ts > source-linked feedback planning context > returns exact bounded evidence, separate history, open stale concerns, and owner-safe export
+AssertionError: {"error":{"code":"WORKOUT_SESSION_NOT_COMPLETED","message":"Workout session must be completed before applying corrections"}}: expected 409 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 409
+
+ ❯ authorFixture src/routes/feedback-planning/index.test.ts:295:50
+    293|       },
+    294|     });
+    295|     expect(notTested.statusCode, notTested.body).toBe(200);
+       |                                                  ^
+    296|     const completed = await app.inject({
+    297|       method: 'PATCH',
+ ❯ src/routes/feedback-planning/index.test.ts:351:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/routes/feedback-planning/index.test.ts > source-linked feedback planning context > applies only an explicit future-note decision, preserves safeguards, and invalidates on correction
+AssertionError: {"error":{"code":"WORKOUT_SESSION_NOT_COMPLETED","message":"Workout session must be completed before applying corrections"}}: expected 409 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 409
+
+ ❯ authorFixture src/routes/feedback-planning/index.test.ts:295:50
+    293|       },
+    294|     });
+    295|     expect(notTested.statusCode, notTested.body).toBe(200);
+       |                                                  ^
+    296|     const completed = await app.inject({
+    297|       method: 'PATCH',
+ ❯ src/routes/feedback-planning/index.test.ts:516:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/routes/feedback-planning/index.test.ts > source-linked feedback planning context > fails closed for invalid query/auth, clinician guidance, foreign targets, and purge readback
+AssertionError: {"error":{"code":"WORKOUT_SESSION_NOT_COMPLETED","message":"Workout session must be completed before applying corrections"}}: expected 409 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 409
+
+ ❯ authorFixture src/routes/feedback-planning/index.test.ts:295:50
+    293|       },
+    294|     });
+    295|     expect(notTested.statusCode, notTested.body).toBe(200);
+       |                                                  ^
+    296|     const completed = await app.inject({
+    297|       method: 'PATCH',
+ ❯ src/routes/feedback-planning/index.test.ts:930:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 3 passed (6)
+   Start at  16:03:51
+   Duration  1.99s (transform 627ms, setup 0ms, import 797ms, tests 988ms, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-feedback-planning-context/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/feedback-planning/index.test.ts src/db/feedback-planning-context-migration.test.ts --no-cache --maxWorkers=1 --no-file-parallelism
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T20:03:53.169Z
+EXIT_CODE: 1

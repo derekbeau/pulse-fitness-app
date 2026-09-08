@@ -1,0 +1,33 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "696f6776641c51e0132ceb021f951937803247c6",
+  "branch": "feat/feedback-planning-context",
+  "worktree": "/Users/meridian/Projects/pulse-feedback-planning-context",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M apps/api/drizzle/meta/_journal.json\n M apps/api/src/db/schema/index.ts\n M apps/api/src/routes/trash/index.ts\n M apps/api/src/routes/v1/context.ts\n M docs/conventions/agent-integration.md\n M docs/conventions/data-models.md\n M packages/shared/src/index.ts\n?? apps/api/drizzle/0063_feedback_planning_context.sql\n?? apps/api/src/db/feedback-planning-context-migration.test.ts\n?? apps/api/src/db/schema/feedback-planning-context.ts\n?? apps/api/src/routes/feedback-planning/\n?? docs/implementation/feedback-planning-context-evidence/\n?? packages/shared/src/schemas/feedback-planning-context.test.ts\n?? packages/shared/src/schemas/feedback-planning-context.ts",
+  "dirtyPatchSha256": "0fc6b3ce356624544204172b1dbcc06fcf9ad49d44f139b440b698cabf56b5e4",
+  "argv": [
+    "pnpm",
+    "--filter",
+    "api",
+    "exec",
+    "vitest",
+    "run",
+    "src/routes/feedback-planning/index.test.ts",
+    "src/db/feedback-planning-context-migration.test.ts",
+    "--no-cache",
+    "--maxWorkers=1",
+    "--no-file-parallelism"
+  ],
+  "command": "\"pnpm\" \"--filter\" \"api\" \"exec\" \"vitest\" \"run\" \"src/routes/feedback-planning/index.test.ts\" \"src/db/feedback-planning-context-migration.test.ts\" \"--no-cache\" \"--maxWorkers=1\" \"--no-file-parallelism\"",
+  "cacheControls": {
+    "PULSE_TEST_NOW": "2026-09-08T16:00:00.000Z",
+    "CI": "true"
+  },
+  "startedAt": "2026-09-08T20:16:30.843Z",
+  "endedAt": "2026-09-08T20:16:33.274Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "49786cb50fc1c9ba1d316659ddeb2eae68cb3522d3566c744153ee7cb18a234e",
+  "rawLog": "/Users/meridian/Projects/pulse-feedback-planning-context/docs/implementation/feedback-planning-context-evidence/raw/30-api-focused-final-02.log",
+  "rawLogSha256": "59d4284c53f5436dafaca0d456fa723e47ab2a95dcd82ce1f7fc0beb3d33f159"
+}

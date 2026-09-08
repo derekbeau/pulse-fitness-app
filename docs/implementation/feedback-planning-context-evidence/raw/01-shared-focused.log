@@ -1,0 +1,18 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 696f6776641c51e0132ceb021f951937803247c6
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 00a4107a039fb4422f23b7fd69bf01b9bedfd25fd14c7a705f5cc79fd39908c0
+STARTED_UTC: 2026-09-08T19:41:05.825Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","shared","exec","vitest","run","src/schemas/feedback-planning-context.test.ts","--maxWorkers=1","--no-file-parallelism","--no-cache"]
+COMMAND: "pnpm" "--filter" "shared" "exec" "vitest" "run" "src/schemas/feedback-planning-context.test.ts" "--maxWorkers=1" "--no-file-parallelism" "--no-cache"
+CACHE_CONTROLS_JSON: {"PULSE_TEST_NOW":"2026-09-08T16:00:00.000Z"}
+STDOUT_STDERR_BEGIN
+undefined
+/Users/meridian/Projects/pulse-feedback-planning-context/packages/shared:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command "vitest" not found
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T19:41:06.282Z
+EXIT_CODE: 254

@@ -1,0 +1,19 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 696f6776641c51e0132ceb021f951937803247c6
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 3a684d307ee702a37a8d76a8994ccd2fef8726cf89a903b4bd2e6468a8626f93
+STARTED_UTC: 2026-09-08T19:58:20.547Z
+COMMAND_ARGV_JSON: ["pnpm","exec","prettier","--write","packages/shared/src/schemas/feedback-planning-context.ts","apps/api/src/routes/feedback-planning/store.ts","apps/api/src/routes/feedback-planning/index.test.ts","docs/implementation/feedback-planning-context-evidence/consumer-inventory.md"]
+COMMAND: "pnpm" "exec" "prettier" "--write" "packages/shared/src/schemas/feedback-planning-context.ts" "apps/api/src/routes/feedback-planning/store.ts" "apps/api/src/routes/feedback-planning/index.test.ts" "docs/implementation/feedback-planning-context-evidence/consumer-inventory.md"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+packages/shared/src/schemas/feedback-planning-context.ts 51ms (unchanged)
+apps/api/src/routes/feedback-planning/store.ts 42ms (unchanged)
+apps/api/src/routes/feedback-planning/index.test.ts 35ms (unchanged)
+docs/implementation/feedback-planning-context-evidence/consumer-inventory.md 16ms (unchanged)
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T19:58:21.181Z
+EXIT_CODE: 0

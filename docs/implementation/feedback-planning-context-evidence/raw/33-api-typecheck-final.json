@@ -1,0 +1,22 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "696f6776641c51e0132ceb021f951937803247c6",
+  "branch": "feat/feedback-planning-context",
+  "worktree": "/Users/meridian/Projects/pulse-feedback-planning-context",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M apps/api/drizzle/meta/_journal.json\n M apps/api/src/db/schema/index.ts\n M apps/api/src/routes/trash/index.ts\n M apps/api/src/routes/v1/context.ts\n M docs/conventions/agent-integration.md\n M docs/conventions/data-models.md\n M packages/shared/src/index.ts\n?? apps/api/drizzle/0063_feedback_planning_context.sql\n?? apps/api/src/db/feedback-planning-context-migration.test.ts\n?? apps/api/src/db/schema/feedback-planning-context.ts\n?? apps/api/src/routes/feedback-planning/\n?? docs/implementation/feedback-planning-context-evidence/\n?? packages/shared/src/schemas/feedback-planning-context.test.ts\n?? packages/shared/src/schemas/feedback-planning-context.ts",
+  "dirtyPatchSha256": "0fc6b3ce356624544204172b1dbcc06fcf9ad49d44f139b440b698cabf56b5e4",
+  "argv": ["pnpm", "--filter", "api", "typecheck"],
+  "command": "\"pnpm\" \"--filter\" \"api\" \"typecheck\"",
+  "cacheControls": {
+    "TURBO_FORCE": "true",
+    "TURBO_CONCURRENCY": "1",
+    "CI": "true"
+  },
+  "startedAt": "2026-09-08T20:17:16.561Z",
+  "endedAt": "2026-09-08T20:17:25.567Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "55f5b01a4b0d8273ece44cdb226fb662bc8b4293204d665a77404dd3c894d192",
+  "rawLog": "/Users/meridian/Projects/pulse-feedback-planning-context/docs/implementation/feedback-planning-context-evidence/raw/33-api-typecheck-final.log",
+  "rawLogSha256": "81d6eaaa7a9c33984f8f0f87ed09578d2006dc311f598d033dd76eeb23324bb7"
+}

@@ -1,0 +1,19 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 696f6776641c51e0132ceb021f951937803247c6
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 00a4107a039fb4422f23b7fd69bf01b9bedfd25fd14c7a705f5cc79fd39908c0
+STARTED_UTC: 2026-09-08T19:43:16.610Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","@pulse/api","typecheck"]
+COMMAND: "pnpm" "--filter" "@pulse/api" "typecheck"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+
+> @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-feedback-planning-context/apps/api
+> tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T19:43:26.622Z
+EXIT_CODE: 0

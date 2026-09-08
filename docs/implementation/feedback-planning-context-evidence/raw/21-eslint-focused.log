@@ -1,0 +1,21 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 696f6776641c51e0132ceb021f951937803247c6
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 3a684d307ee702a37a8d76a8994ccd2fef8726cf89a903b4bd2e6468a8626f93
+STARTED_UTC: 2026-09-08T20:06:08.581Z
+COMMAND_ARGV_JSON: ["pnpm","exec","eslint","packages/shared/src/schemas/feedback-planning-context.ts","packages/shared/src/schemas/feedback-planning-context.test.ts","packages/shared/src/index.ts","apps/api/src/db/schema/feedback-planning-context.ts","apps/api/src/db/schema/index.ts","apps/api/src/db/feedback-planning-context-migration.test.ts","apps/api/src/routes/feedback-planning/store.ts","apps/api/src/routes/feedback-planning/index.test.ts","apps/api/src/routes/v1/context.ts","apps/api/src/routes/trash/index.ts"]
+COMMAND: "pnpm" "exec" "eslint" "packages/shared/src/schemas/feedback-planning-context.ts" "packages/shared/src/schemas/feedback-planning-context.test.ts" "packages/shared/src/index.ts" "apps/api/src/db/schema/feedback-planning-context.ts" "apps/api/src/db/schema/index.ts" "apps/api/src/db/feedback-planning-context-migration.test.ts" "apps/api/src/routes/feedback-planning/store.ts" "apps/api/src/routes/feedback-planning/index.test.ts" "apps/api/src/routes/v1/context.ts" "apps/api/src/routes/trash/index.ts"
+CACHE_CONTROLS_JSON: {"CI":"true"}
+STDOUT_STDERR_BEGIN
+
+/Users/meridian/Projects/pulse-feedback-planning-context/apps/api/src/routes/feedback-planning/store.ts
+  528:7  error  This assigned value is not used in subsequent statements  no-useless-assignment
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T20:06:10.430Z
+EXIT_CODE: 1

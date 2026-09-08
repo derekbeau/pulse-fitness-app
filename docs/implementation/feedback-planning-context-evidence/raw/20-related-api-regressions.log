@@ -1,0 +1,30 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 696f6776641c51e0132ceb021f951937803247c6
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 3a684d307ee702a37a8d76a8994ccd2fef8726cf89a903b4bd2e6468a8626f93
+STARTED_UTC: 2026-09-08T20:05:50.214Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","api","exec","vitest","run","src/routes/v1/context.test.ts","src/routes/workout-feedback/index.test.ts","src/routes/workout-feedback/store.test.ts","src/routes/trash/index.test.ts","src/routes/workout-progression/index.test.ts","src/routes/workout-progression/store.integration.test.ts","--no-cache","--maxWorkers=1","--no-file-parallelism"]
+COMMAND: "pnpm" "--filter" "api" "exec" "vitest" "run" "src/routes/v1/context.test.ts" "src/routes/workout-feedback/index.test.ts" "src/routes/workout-feedback/store.test.ts" "src/routes/trash/index.test.ts" "src/routes/workout-progression/index.test.ts" "src/routes/workout-progression/store.integration.test.ts" "--no-cache" "--maxWorkers=1" "--no-file-parallelism"
+CACHE_CONTROLS_JSON: {"PULSE_TEST_NOW":"2026-09-08T16:00:00.000Z","CI":"true"}
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-planning-context/apps/api
+
+ ✓ src/routes/workout-progression/store.integration.test.ts (28 tests) 2227ms
+ ✓ src/routes/workout-feedback/index.test.ts (4 tests) 705ms
+ ✓ src/routes/workout-feedback/store.test.ts (3 tests) 304ms
+ ✓ src/routes/workout-progression/index.test.ts (6 tests) 123ms
+ ✓ src/routes/trash/index.test.ts (4 tests) 234ms
+ ✓ src/routes/v1/context.test.ts (2 tests) 78ms
+
+ Test Files  6 passed (6)
+      Tests  47 passed (47)
+   Start at  16:05:50
+   Duration  5.73s (transform 563ms, setup 0ms, import 1.54s, tests 3.67s, environment 0ms)
+
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T20:05:56.530Z
+EXIT_CODE: 0
