@@ -1,0 +1,31 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: c609090f5926f2473299be2b28168505b8f127f9
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 22729691af2ecbb5575a53a5189bbbca48b7ee761c9049dd24d2b161645e71cb
+STARTED_UTC: 2026-09-08T22:11:37.274Z
+COMMAND_ARGV_JSON: ["shasum","-a","256","-c","docs/implementation/feedback-planning-context-evidence/source-hashes.sha256"]
+COMMAND: "shasum" "-a" "256" "-c" "docs/implementation/feedback-planning-context-evidence/source-hashes.sha256"
+CACHE_CONTROLS_JSON: {"CI":"true"}
+STDOUT_STDERR_BEGIN
+apps/api/drizzle/0063_feedback_planning_context.sql: OK
+apps/api/drizzle/meta/_journal.json: OK
+apps/api/src/db/feedback-planning-context-migration.test.ts: OK
+apps/api/src/db/schema/feedback-planning-context.ts: OK
+apps/api/src/db/schema/index.ts: OK
+apps/api/src/db/workout-feedback-migration.test.ts: OK
+apps/api/src/index.test.ts: OK
+apps/api/src/routes/feedback-planning/index.test.ts: OK
+apps/api/src/routes/feedback-planning/store.ts: OK
+apps/api/src/routes/trash/index.ts: OK
+apps/api/src/routes/v1/context.ts: OK
+docs/conventions/agent-integration.md: OK
+docs/conventions/data-models.md: OK
+packages/shared/src/index.ts: OK
+packages/shared/src/schemas/feedback-planning-context.test.ts: OK
+packages/shared/src/schemas/feedback-planning-context.ts: OK
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T22:11:37.330Z
+EXIT_CODE: 0

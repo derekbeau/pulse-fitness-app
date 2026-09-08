@@ -5,7 +5,7 @@
 - Worktree: `/Users/meridian/Projects/pulse-feedback-planning-context`
 - Branch: `feat/feedback-planning-context`
 - Required start/base commit: `696f6776641c51e0132ceb021f951937803247c6`
-- Tested source commit: `057f66765c996a09712f49af613e70e8ac6b08fa`
+- Tested source commit: `c609090f5926f2473299be2b28168505b8f127f9`
 - Final commit: the evidence-only descendant reported in the draft PR and executor handoff. This
   document cannot embed its own commit hash without changing that hash.
 - The source-hash manifest covers all 16 changed product, migration, test, and convention files.
@@ -30,6 +30,11 @@
   sessions, active/historical workouts, templates, unrelated exercises, and general pain-stop
   safeguards remain unchanged. Clinician guidance can be retained but cannot be revised/retired
   without its distinct clearance condition.
+- Added deterministic changed-loading/exposure follow-up detection for answered `next_check_in`
+  concerns. It compares only completed, non-skipped structural set fields for the exact snapshotted
+  exercise across owner-matched completed sessions. RPE, RIR, notes, and answer text do not become
+  inferred loading or medical state. Draft dependencies bind the baseline answer/question/session,
+  baseline scoped-set fingerprint, later completed session, and later scoped-set fingerprint.
 - Added migration `0063_feedback_planning_context.sql` with owner/source integrity, append-only
   decision history, response links, and cascade purge. There is no backfill or historical rewrite.
 
@@ -58,6 +63,12 @@
   deletion stale prior decisions without overwriting history. A question revision exposes the new
   unanswered definition while retaining the prior exact answer in history. Recurrence reopens the
   concern and emits only a draft follow-up.
+- Changed-exposure remediation readback proves an unchanged 12-rep exposure does not repeat the
+  answered toe question even when RIR changes, while a later 15-rep completed exposure emits exactly
+  one `changed_exposure` draft linked to both source sessions and scoped set fingerprints. An answered
+  in-progress-session counterexample followed by changed completed loading emits no changed-exposure
+  draft. Source workouts, the future schedule, and the template remain byte-identical across context
+  retrieval; the synthetic exposure sessions retain their exact reps/RIR values.
 - Purge readback returns zero current, history, set evidence, audit, decisions, open concerns, and
   stored cache rows; source-linked note dispositions are also gone.
 - OpenAPI readback publishes the bounded read query, explicit decision contract, revision IDs, and
@@ -92,10 +103,21 @@ hash, safe cache controls, output/log SHA-256 values, and exit code.
 | `49-full-typecheck-uncached-serial-final` | `pnpm typecheck` | same Turbo controls; 0 cached | 0 |
 | `50-full-lint-uncached-serial-final` | `pnpm lint` | same Turbo controls; 0 cached | 0 |
 | `51-full-build-uncached-serial-final` | `pnpm build` | same Turbo controls; 0 cached | 0 |
+| `59-remediation-review-fix-focused` | `pnpm --filter api exec vitest run src/routes/feedback-planning/index.test.ts --no-cache --maxWorkers=1 --no-file-parallelism` | Vitest no cache; serial; final Luna fix included | 0 |
+| `60-remediation-review-fix-typecheck` | `pnpm --filter api typecheck` | focused | 0 |
+| `61-remediation-review-fix-eslint` | `pnpm exec eslint apps/api/src/routes/feedback-planning/store.ts apps/api/src/routes/feedback-planning/index.test.ts` | focused | 0 |
+| `62-remediation-source-hashes` | `shasum -a 256 -c docs/implementation/feedback-planning-context-evidence/source-hashes.sha256` | tested remediation source tree | 0 |
+| `63-remediation-full-test` | `pnpm test -- --maxWorkers=1 --no-file-parallelism --no-cache` | `CI=true TURBO_FORCE=true TURBO_CONCURRENCY=1 TURBO_ENV_MODE=strict`; 0 cached | 0 |
+| `64-remediation-full-typecheck` | `pnpm typecheck` | same Turbo controls; 0 cached | 0 |
+| `65-remediation-full-lint` | `pnpm lint` | same Turbo controls; 0 cached | 0 |
+| `66-remediation-full-build` | `pnpm build` | same Turbo controls; 0 cached | 0 |
+| `67-remediation-evidence-json` | `jq empty <manifest and remediation receipts>` | evidence JSON parse | 0 |
+| `68-remediation-source-hashes-final` | `shasum -a 256 -c docs/implementation/feedback-planning-context-evidence/source-hashes.sha256` | final tested remediation source tree | 0 |
 
-Full test totals: shared 51 files/727 tests, API 96 files/1,235 tests, web 189
+Full test totals: shared 51 files/727 tests, API 96 files/1,236 tests, web 189
 files/1,417 tests. Lint has zero errors and six pre-existing Fast Refresh warnings in unchanged web
 files. Build has the existing Vite greater-than-500-kB chunk warning and succeeds.
+The remediation typecheck, lint, and build receipts each report zero cached tasks.
 
 ## Known failures retained
 
@@ -107,6 +129,11 @@ files. Build has the existing Vite greater-than-500-kB chunk warning and succeed
 - Receipts 43 through 45 retain the question-revision fixture failures that exposed the missing
   historical-definition lookup and the need to author a new-version answer before later decisions;
   receipt 46 is the corrected passing proof.
+- Remediation receipt 54 retains the first focused failure, where private comparison metadata was
+  correctly rejected by the strict public response schema. The implementation now strips that
+  internal metadata before response parsing; receipts 55 and 59 prove the corrected behavior.
+- Remediation receipt 57 retains the focused lint failure for discarded private-field bindings;
+  receipt 58 and the later final receipt 61 prove the explicit stripping is lint-clean.
 - A sandbox-only typecheck attempt could not create receipt 39 or Turbo logs outside the configured
   writable root. It made no source change and produced no receipt; the identical approved command
   then passed and is retained as receipt 39.
@@ -120,5 +147,10 @@ Luna 5.6 medium, Fast off, reviewed the complete diff read-only. All six in-scop
 consolidated: exercise binding, explicit concern boundary, export reconciliation, non-fabricated
 staleness time, owner/source-link safety, and interrupted-migration rollback. All accepted findings
 were fixed and re-tested. See `internal-review.md` for exact disposition.
+
+For this remediation, Luna 5.6 medium, Fast off, performed one additional read-only adversarial
+pass. Its single finding required the baseline source itself to be an owner-matched, nondeleted,
+completed session. That boundary and an in-progress answered counterexample were added; Luna's
+focused re-review found no residual issue. No executor/model setting was changed.
 
 Ready for independent acceptance. Not self-accepted and not merged.

@@ -4,7 +4,7 @@
   "branch": "feat/feedback-planning-context",
   "worktree": "/Users/meridian/Projects/pulse-feedback-planning-context",
   "baseCommit": "696f6776641c51e0132ceb021f951937803247c6",
-  "testedSourceCommit": "057f66765c996a09712f49af613e70e8ac6b08fa",
+  "testedSourceCommit": "c609090f5926f2473299be2b28168505b8f127f9",
   "finalCommitResolution": "git rev-parse HEAD after the evidence-only commit",
   "sourceHashManifest": "docs/implementation/feedback-planning-context-evidence/source-hashes.sha256",
   "sourceFileCount": 16,
@@ -18,7 +18,17 @@
     "raw/48-full-test-uncached-serial-final.json",
     "raw/49-full-typecheck-uncached-serial-final.json",
     "raw/50-full-lint-uncached-serial-final.json",
-    "raw/51-full-build-uncached-serial-final.json"
+    "raw/51-full-build-uncached-serial-final.json",
+    "raw/59-remediation-review-fix-focused.json",
+    "raw/60-remediation-review-fix-typecheck.json",
+    "raw/61-remediation-review-fix-eslint.json",
+    "raw/62-remediation-source-hashes.json",
+    "raw/63-remediation-full-test.json",
+    "raw/64-remediation-full-typecheck.json",
+    "raw/65-remediation-full-lint.json",
+    "raw/66-remediation-full-build.json",
+    "raw/67-remediation-evidence-json.json",
+    "raw/68-remediation-source-hashes-final.json"
   ],
   "fullGateControls": {
     "CI": "true",
@@ -34,7 +44,7 @@
   },
   "fullTestTotals": {
     "shared": { "files": 51, "tests": 727 },
-    "api": { "files": 96, "tests": 1235 },
+    "api": { "files": 96, "tests": 1236 },
     "web": { "files": 189, "tests": 1417 }
   },
   "review": {
@@ -42,6 +52,14 @@
     "effort": "medium",
     "fast": false,
     "findings": 6,
+    "unresolvedInScopeFindings": 0,
+    "report": "docs/implementation/feedback-planning-context-evidence/internal-review.md"
+  },
+  "remediationReview": {
+    "model": "gpt-5.6-luna",
+    "effort": "medium",
+    "fast": false,
+    "findings": 1,
     "unresolvedInScopeFindings": 0,
     "report": "docs/implementation/feedback-planning-context-evidence/internal-review.md"
   },

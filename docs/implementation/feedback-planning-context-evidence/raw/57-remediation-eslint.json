@@ -1,0 +1,26 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "7a046b15130fc54e70ed1eb64a32d3e837eb74b0",
+  "branch": "feat/feedback-planning-context",
+  "worktree": "/Users/meridian/Projects/pulse-feedback-planning-context",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M apps/api/src/routes/feedback-planning/index.test.ts\n M apps/api/src/routes/feedback-planning/store.ts\n?? docs/implementation/feedback-planning-context-evidence/raw/53-remediation-format.json\n?? docs/implementation/feedback-planning-context-evidence/raw/53-remediation-format.log\n?? docs/implementation/feedback-planning-context-evidence/raw/54-remediation-api-focused.json\n?? docs/implementation/feedback-planning-context-evidence/raw/54-remediation-api-focused.log\n?? docs/implementation/feedback-planning-context-evidence/raw/55-remediation-api-focused.json\n?? docs/implementation/feedback-planning-context-evidence/raw/55-remediation-api-focused.log\n?? docs/implementation/feedback-planning-context-evidence/raw/56-remediation-api-typecheck.json\n?? docs/implementation/feedback-planning-context-evidence/raw/56-remediation-api-typecheck.log",
+  "dirtyPatchSha256": "190fb5ab3ceb7e87def397c0a669d7a29b39492205df16f6ebe928408a7e13a4",
+  "argv": [
+    "pnpm",
+    "exec",
+    "eslint",
+    "apps/api/src/routes/feedback-planning/store.ts",
+    "apps/api/src/routes/feedback-planning/index.test.ts"
+  ],
+  "command": "\"pnpm\" \"exec\" \"eslint\" \"apps/api/src/routes/feedback-planning/store.ts\" \"apps/api/src/routes/feedback-planning/index.test.ts\"",
+  "cacheControls": {
+    "CI": "true"
+  },
+  "startedAt": "2026-09-08T21:54:44.228Z",
+  "endedAt": "2026-09-08T21:54:45.554Z",
+  "exitCode": 1,
+  "combinedOutputSha256": "d392acba4329a465c5103dcce34e933d6f42317ff37de082c865cd3cd94e903c",
+  "rawLog": "/Users/meridian/Projects/pulse-feedback-planning-context/docs/implementation/feedback-planning-context-evidence/raw/57-remediation-eslint.log",
+  "rawLogSha256": "042e6e061e25055cb1cf1f024c4e431b1ee18bc8522dd28c4bdcae24399130e6"
+}

@@ -1,0 +1,98 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 7a046b15130fc54e70ed1eb64a32d3e837eb74b0
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: ce4c3c53990fb0557de4b6a590e6935cecd49f266742b0aa52b5314b1458897b
+STARTED_UTC: 2026-09-08T21:50:43.766Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","api","exec","vitest","run","src/routes/feedback-planning/index.test.ts","--no-cache","--maxWorkers=1","--no-file-parallelism"]
+COMMAND: "pnpm" "--filter" "api" "exec" "vitest" "run" "src/routes/feedback-planning/index.test.ts" "--no-cache" "--maxWorkers=1" "--no-file-parallelism"
+CACHE_CONTROLS_JSON: {"CI":"true"}
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-planning-context/apps/api
+
+ ❯ src/routes/feedback-planning/index.test.ts (5 tests | 4 failed) 939ms
+     × drafts one source-linked follow-up only after completed loading exposure changes 86ms
+     × returns exact bounded evidence, separate history, open stale concerns, and owner-safe export 30ms
+     × applies only an explicit future-note decision, preserves safeguards, and invalidates on correction 29ms
+     × fails closed for invalid query/auth, clinician guidance, foreign targets, and purge readback 36ms
+     ✓ publishes the bounded query and explicit decision contracts in OpenAPI 73ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/feedback-planning/index.test.ts > source-linked feedback planning context > drafts one source-linked follow-up only after completed loading exposure changes
+AssertionError: {"error":{"code":"INTERNAL_ERROR","message":"An unexpected error occurred"}}: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ src/routes/feedback-planning/index.test.ts:430:64
+    428|       headers: agent('token-a'),
+    429|     });
+    430|     expect(unchangedContext.statusCode, unchangedContext.body).toBe(20…
+       |                                                                ^
+    431|     expect(
+    432|       unchangedContext
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/routes/feedback-planning/index.test.ts > source-linked feedback planning context > returns exact bounded evidence, separate history, open stale concerns, and owner-safe export
+AssertionError: {"error":{"code":"INTERNAL_ERROR","message":"An unexpected error occurred"}}: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ src/routes/feedback-planning/index.test.ts:538:62
+    536|       headers: agent('token-a'),
+    537|     });
+    538|     expect(defaultResponse.statusCode, defaultResponse.body).toBe(200);
+       |                                                              ^
+    539|     expect(defaultResponse.headers['cache-control']).toBe('private, no…
+    540|     expect(defaultResponse.json().data).toMatchObject({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/routes/feedback-planning/index.test.ts > source-linked feedback planning context > applies only an explicit future-note decision, preserves safeguards, and invalidates on correction
+TypeError: Cannot read properties of undefined (reading 'current')
+ ❯ src/routes/feedback-planning/index.test.ts:737:8
+    735|     const toe = planning
+    736|       .json()
+    737|       .data.current.items.find(
+       |        ^
+    738|         (item: { question: { id: string } }) => item.question.id === t…
+    739|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/routes/feedback-planning/index.test.ts > source-linked feedback planning context > fails closed for invalid query/auth, clinician guidance, foreign targets, and purge readback
+TypeError: Cannot read properties of undefined (reading 'audit')
+ ❯ src/routes/feedback-planning/index.test.ts:1426:28
+    1424|       headers: agent('token-a'),
+    1425|     });
+    1426|     expect(planning.json().data.audit.items).toEqual(
+       |                            ^
+    1427|       expect.arrayContaining([
+    1428|         expect.objectContaining({ classification: 'clinician_authored_…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 1 passed (5)
+   Start at  17:50:44
+   Duration  1.57s (transform 564ms, setup 0ms, import 542ms, tests 939ms, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-feedback-planning-context/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/feedback-planning/index.test.ts --no-cache --maxWorkers=1 --no-file-parallelism
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T21:50:46.006Z
+EXIT_CODE: 1

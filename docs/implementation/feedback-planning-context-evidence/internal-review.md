@@ -35,3 +35,19 @@ Additional consolidation tightened decision counts to SQL aggregation, paginated
 relation with reconciled totals, exposed nested evidence truncation, hashed all current evidence
 for the same concern so recurrence invalidates prior decisions, and cascaded later decision-chain
 links when a purged predecessor source disappears.
+
+## Independent-review blocker remediation
+
+- Reviewer: Luna 5.6, medium effort, Fast off
+- Scope: the changed-loading/exposure remediation diff from reviewed candidate
+  `7a046b15130fc54e70ed1eb64a32d3e837eb74b0`
+- Mode: read-only; no reviewer edits, server/UI launch, or live-data access
+- **Accepted and fixed:** the first comparison required completed/non-skipped set rows but did not
+  independently require the baseline session to be completed. The baseline query now joins the
+  owner-scoped session, requires `completed` status, and excludes soft-deleted sessions. A focused
+  counterexample authors an answered next-check-in on an in-progress session, records later changed
+  completed loading, and proves no changed-exposure draft is emitted for the incomplete baseline.
+- Focused re-review found no residual issue. The reviewer confirmed stable structural comparison,
+  RPE/RIR exclusion, bounded candidates, linked fingerprints, one draft per concern, read-only
+  retrieval, and preservation of unknown/skipped, recurrence/contradiction, clinician, and
+  symptom/recovery boundaries.
