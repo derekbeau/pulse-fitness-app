@@ -1,0 +1,49 @@
+RECEIPT_FORMAT: pulse-150-raw-v1
+TESTED_COMMIT: 53d728c0936cd4756a0c5cc15aa6fe70cc064fca
+BRANCH: feat/workout-feedback-questions
+WORKTREE: /Users/meridian/Projects/pulse-workout-feedback-questions
+STARTED_UTC: 2026-09-08T17:45:32Z
+COMMAND: pnpm --filter api exec vitest run src/routes/workout-feedback/index.test.ts --maxWorkers=1 --no-file-parallelism --no-cache 
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-workout-feedback-questions/apps/api
+
+ ❯ src/routes/workout-feedback/index.test.ts (4 tests | 1 failed) 864ms
+     ✓ authors template definitions with AgentToken provenance and rejects foreign/stale writes atomically 35ms
+     × closes the scheduled override through draft, pause/reload, completion, and immutable correction 34ms
+     ✓ freezes direct-template and ad-hoc definitions while enforcing ad-hoc exercise ownership 12ms
+     ✓ publishes concrete question, optimistic revision, answer, and conflict contracts in OpenAPI 98ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/workout-feedback/index.test.ts > workout feedback authenticated routes > closes the scheduled override through draft, pause/reload, completion, and immutable correction
+AssertionError: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 400
+
+ ❯ src/routes/workout-feedback/index.test.ts:339:34
+    337|       payload: { status: 'completed', completedAt: 1_788_876_600_000, …
+    338|     });
+    339|     expect(completed.statusCode).toBe(200);
+       |                                  ^
+    340|     const corrected = await app.inject({
+    341|       method: 'PATCH',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  13:45:33
+   Duration  1.59s (transform 666ms, setup 0ms, import 612ms, tests 864ms, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-workout-feedback-questions/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/workout-feedback/index.test.ts --maxWorkers=1 --no-file-parallelism --no-cache
+STDOUT_STDERR_END
+EXIT_CODE: 1
+FINISHED_UTC: 2026-09-08T17:45:34Z

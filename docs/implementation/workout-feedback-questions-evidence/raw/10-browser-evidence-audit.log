@@ -1,0 +1,26 @@
+RECEIPT_FORMAT: pulse-150-raw-v1
+TESTED_COMMIT: ea4ca7688c5c022abfa38affba424d150b07ee5a
+BRANCH: feat/workout-feedback-questions
+WORKTREE: /Users/meridian/Projects/pulse-workout-feedback-questions
+STARTED_UTC: 2026-09-08T18:01:26Z
+COMMAND: node /tmp/pulse150-browser-audit.mjs 
+STDOUT_STDERR_BEGIN
+BROWSER_SOURCE_AND_ARTIFACT_HASHES_BEGIN
+dc0711d456a8413283f80c6e075bc65ce8a324ec119b59e3359435b073f1a470  apps/web/e2e/workout-feedback-questions.spec.ts
+fa32773ed5cf7dd5e580d724153acbf0010863ad318605b74027d383de58bfa9  apps/web/playwright.workout-feedback.config.ts
+e0df3e13dbfb0dab5b33fafdedabda10ec5d930a2882dc6b9acd8cbac26d50dc  docs/implementation/workout-feedback-questions-evidence/playwright-results.json
+e97d1f0c8345b11c3429b1303e64e7da4b8258a35999102f7d6e4aa45b958824  docs/implementation/workout-feedback-questions-evidence/playwright/workout-feedback-questions-c5723-correction-and-raw-evidence/feedback-375.png
+52dc43ca8bdaa9be0fc307b019b03b7f37ecc02b5196951aaa171823f9e08651  docs/implementation/workout-feedback-questions-evidence/playwright/workout-feedback-questions-c5723-correction-and-raw-evidence/history-1280.png
+BROWSER_SOURCE_AND_ARTIFACT_HASHES_END
+PLAYWRIGHT_STATUS: passed
+ATTACHMENTS: accessibility-tree, completed-corrected-deleted-readback, console-network, scheduled-api-readback
+MOBILE_SCREENSHOT: 375x2039
+DESKTOP_SCREENSHOT: 1280x2075
+PAGE_ERRORS: 0
+UNEXPECTED_CONSOLE_ERRORS: 0
+UNEXPECTED_NETWORK_FAILURES: 0
+EXPECTED_SYNTHETIC_FAILURE-PATH: PATCH /api/v1/workout-sessions/9c16cb81-bfb2-49cf-b4ea-2ad74569b77d 503
+EXPECTED_SYNTHETIC_FAILURE-PATH_PURPOSE: failed-save visibility and successful retry
+STDOUT_STDERR_END
+EXIT_CODE: 0
+FINISHED_UTC: 2026-09-08T18:01:26Z

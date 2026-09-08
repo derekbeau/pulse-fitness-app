@@ -1,0 +1,174 @@
+RECEIPT_FORMAT: pulse-150-raw-v1
+TESTED_COMMIT: ea4ca7688c5c022abfa38affba424d150b07ee5a
+BRANCH: feat/workout-feedback-questions
+WORKTREE: /Users/meridian/Projects/pulse-workout-feedback-questions
+STARTED_UTC: 2026-09-08T17:58:17Z
+COMMAND: env TURBO_FORCE=true pnpm build 
+STDOUT_STDERR_BEGIN
+
+> pulse@ build /Users/meridian/Projects/pulse-workout-feedback-questions
+> turbo run build
+
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running build in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/shared:build: cache bypass, force executing 0b4203ffb5976d36
+@pulse/shared:build: 
+@pulse/shared:build: > @pulse/shared@0.0.0 build /Users/meridian/Projects/pulse-workout-feedback-questions/packages/shared
+@pulse/shared:build: > tsc -p tsconfig.json
+@pulse/shared:build: 
+@pulse/web:build: cache bypass, force executing aa7d788c8bbabd41
+@pulse/api:build: cache bypass, force executing f894cb6ae2c8123d
+@pulse/web:build: 
+@pulse/web:build: > @pulse/web@0.0.0 build /Users/meridian/Projects/pulse-workout-feedback-questions/apps/web
+@pulse/web:build: > tsc -b && vite build
+@pulse/web:build: 
+@pulse/api:build: 
+@pulse/api:build: > @pulse/api@0.0.0 build /Users/meridian/Projects/pulse-workout-feedback-questions/apps/api
+@pulse/api:build: > tsc
+@pulse/api:build: 
+@pulse/web:build: vite v7.3.1 building client environment for production...
+@pulse/web:build: transforming...
+@pulse/web:build: ✓ 3917 modules transformed.
+@pulse/web:build: rendering chunks...
+@pulse/web:build: computing gzip size...
+@pulse/web:build: dist/index.html                                         2.15 kB │ gzip:   0.76 kB
+@pulse/web:build: dist/assets/index--uZa41wS.css                        174.41 kB │ gzip:  25.13 kB
+@pulse/web:build: dist/assets/query-polling-CWrVhzp4.js                   0.09 kB │ gzip:   0.09 kB
+@pulse/web:build: dist/assets/plus-Cbb1tuDs.js                            0.15 kB │ gzip:   0.15 kB
+@pulse/web:build: dist/assets/arrow-up-CVnDmy_C.js                        0.16 kB │ gzip:   0.16 kB
+@pulse/web:build: dist/assets/clock-3-Cl5vSaE8.js                         0.17 kB │ gzip:   0.16 kB
+@pulse/web:build: dist/assets/arrow-right-DrfoCsZp.js                     0.17 kB │ gzip:   0.16 kB
+@pulse/web:build: dist/assets/search-nW5D6eSf.js                          0.17 kB │ gzip:   0.17 kB
+@pulse/web:build: dist/assets/circle-check-DzVHQTg2.js                    0.17 kB │ gzip:   0.17 kB
+@pulse/web:build: dist/assets/trending-up-D6AjD13S.js                     0.18 kB │ gzip:   0.17 kB
+@pulse/web:build: dist/assets/gauge-Cett-rCh.js                           0.18 kB │ gzip:   0.17 kB
+@pulse/web:build: dist/assets/trending-down-D7CQ0mOA.js                   0.18 kB │ gzip:   0.17 kB
+@pulse/web:build: dist/assets/flame-DUsZe1L8.js                           0.20 kB │ gzip:   0.18 kB
+@pulse/web:build: dist/assets/info-vFUX7CSI.js                            0.20 kB │ gzip:   0.18 kB
+@pulse/web:build: dist/assets/rotate-ccw-D6TsO25l.js                      0.20 kB │ gzip:   0.18 kB
+@pulse/web:build: dist/assets/useThemeContext-BTQPvZZB.js                 0.23 kB │ gzip:   0.20 kB
+@pulse/web:build: dist/assets/history-D4JO_ksm.js                         0.24 kB │ gzip:   0.19 kB
+@pulse/web:build: dist/assets/timer-CHmWolkD.js                           0.24 kB │ gzip:   0.18 kB
+@pulse/web:build: dist/assets/circle-question-mark-B6CJcYgN.js            0.24 kB │ gzip:   0.20 kB
+@pulse/web:build: dist/assets/arrow-up-down-DLMe4fBD.js                   0.25 kB │ gzip:   0.19 kB
+@pulse/web:build: dist/assets/route-B9c04JAd.js                           0.25 kB │ gzip:   0.20 kB
+@pulse/web:build: dist/assets/circle-alert-CIKMr4lr.js                    0.25 kB │ gzip:   0.19 kB
+@pulse/web:build: dist/assets/chart-column-Y4d3g85B.js                    0.25 kB │ gzip:   0.20 kB
+@pulse/web:build: dist/assets/heart-gzalAQhc.js                           0.26 kB │ gzip:   0.21 kB
+@pulse/web:build: dist/assets/pencil-CiBXPZLP.js                          0.28 kB │ gzip:   0.23 kB
+@pulse/web:build: dist/assets/book-open-6ZYY1OiI.js                       0.28 kB │ gzip:   0.21 kB
+@pulse/web:build: dist/assets/arrow-up-right-CmlwsHfy.js                  0.29 kB │ gzip:   0.21 kB
+@pulse/web:build: dist/assets/pencil-line-at0cAosC.js                     0.32 kB │ gzip:   0.24 kB
+@pulse/web:build: dist/assets/refresh-cw-CFjaOOYS.js                      0.32 kB │ gzip:   0.22 kB
+@pulse/web:build: dist/assets/trash-2-D3cDeHY0.js                         0.33 kB │ gzip:   0.22 kB
+@pulse/web:build: dist/assets/program-local-midnight-Cn37BJ_O.js          0.33 kB │ gzip:   0.27 kB
+@pulse/web:build: dist/assets/scale-BOnBJVRx.js                           0.33 kB │ gzip:   0.22 kB
+@pulse/web:build: dist/assets/grip-vertical-DzWGdxYC.js                   0.37 kB │ gzip:   0.19 kB
+@pulse/web:build: dist/assets/calendar-clock-CoSjupBO.js                  0.37 kB │ gzip:   0.25 kB
+@pulse/web:build: dist/assets/label-MgDkVylP.js                           0.37 kB │ gzip:   0.28 kB
+@pulse/web:build: dist/assets/use-today-key-ByBBHF4L.js                   0.39 kB │ gzip:   0.26 kB
+@pulse/web:build: dist/assets/index-CGYuBC0j.js                           0.43 kB │ gzip:   0.29 kB
+@pulse/web:build: dist/assets/template-tags-Ce0Nr_b0.js                   0.43 kB │ gzip:   0.29 kB
+@pulse/web:build: dist/assets/accent-card-styles-juGWYX3b.js              0.48 kB │ gzip:   0.21 kB
+@pulse/web:build: dist/assets/calendar-days-DQvf_Shl.js                   0.50 kB │ gzip:   0.27 kB
+@pulse/web:build: dist/assets/sparkles-cuourPzM.js                        0.50 kB │ gzip:   0.28 kB
+@pulse/web:build: dist/assets/date-utils-hJv2Zwft.js                      0.52 kB │ gzip:   0.30 kB
+@pulse/web:build: dist/assets/workout-session-sets-CqGuqGnY.js            0.57 kB │ gzip:   0.34 kB
+@pulse/web:build: dist/assets/circle-dashed-DmEOGCmS.js                   0.58 kB │ gzip:   0.29 kB
+@pulse/web:build: dist/assets/textarea-l8_0nSXs.js                        0.64 kB │ gzip:   0.39 kB
+@pulse/web:build: dist/assets/markdown-note-CHuvpCaj.js                   0.65 kB │ gzip:   0.39 kB
+@pulse/web:build: dist/assets/chart-range-control-CbIJY8zR.js             0.66 kB │ gzip:   0.41 kB
+@pulse/web:build: dist/assets/empty-state-lkRUe78p.js                     0.69 kB │ gzip:   0.42 kB
+@pulse/web:build: dist/assets/superset-utils-DkKjp23C.js                  0.70 kB │ gzip:   0.42 kB
+@pulse/web:build: dist/assets/save-DDmDnKMq.js                            0.70 kB │ gzip:   0.34 kB
+@pulse/web:build: dist/assets/format-utils-Bsyxf4FY.js                    0.73 kB │ gzip:   0.35 kB
+@pulse/web:build: dist/assets/wrench-DNJ68IAU.js                          0.74 kB │ gzip:   0.38 kB
+@pulse/web:build: dist/assets/separator-DHPnuHRU.js                       0.78 kB │ gzip:   0.42 kB
+@pulse/web:build: dist/assets/chart-legend-dY7msXxm.js                    0.85 kB │ gzip:   0.49 kB
+@pulse/web:build: dist/assets/markdown-aUL2GTqK.js                        0.87 kB │ gzip:   0.43 kB
+@pulse/web:build: dist/assets/page-header-elXY2uUL.js                     0.90 kB │ gzip:   0.42 kB
+@pulse/web:build: dist/assets/rename-exercise-dialog-HNbK0vpY.js          0.94 kB │ gzip:   0.56 kB
+@pulse/web:build: dist/assets/input-CRAkwy57.js                           0.95 kB │ gzip:   0.54 kB
+@pulse/web:build: dist/assets/use-date-authority-DjApfnp_.js              0.96 kB │ gzip:   0.53 kB
+@pulse/web:build: dist/assets/trend-weight-date-vlormCn4.js               1.00 kB │ gzip:   0.50 kB
+@pulse/web:build: dist/assets/progress-bar-7IeaMpRx.js                    1.04 kB │ gzip:   0.58 kB
+@pulse/web:build: dist/assets/progress-ring-BIIaSxWH.js                   1.21 kB │ gzip:   0.64 kB
+@pulse/web:build: dist/assets/index-cE3H3loM.js                           1.31 kB │ gzip:   0.66 kB
+@pulse/web:build: dist/assets/use-debounced-callback-j32MCZqU.js          1.32 kB │ gzip:   0.61 kB
+@pulse/web:build: dist/assets/badge-_WK8TpcZ.js                           1.34 kB │ gzip:   0.64 kB
+@pulse/web:build: dist/assets/preview-banner-DimJN0EN.js                  1.40 kB │ gzip:   0.78 kB
+@pulse/web:build: dist/assets/progression-DuhHgr36.js                     1.47 kB │ gzip:   0.73 kB
+@pulse/web:build: dist/assets/chart-exploration-CIVsEJBu.js               1.70 kB │ gzip:   0.76 kB
+@pulse/web:build: dist/assets/adaptive-weekly-review-ByOhPXfP.js          1.80 kB │ gzip:   0.97 kB
+@pulse/web:build: dist/assets/stat-card-BOJJCZms.js                       2.30 kB │ gzip:   1.08 kB
+@pulse/web:build: dist/assets/chart-tooltip-9Pe_rZCo.js                   2.49 kB │ gzip:   1.04 kB
+@pulse/web:build: dist/assets/help-icon-B_EsyJQn.js                       2.66 kB │ gzip:   1.06 kB
+@pulse/web:build: dist/assets/dialog-BSTVoMMY.js                          2.79 kB │ gzip:   1.07 kB
+@pulse/web:build: dist/assets/login-ClyzI1kM.js                           3.12 kB │ gzip:   1.30 kB
+@pulse/web:build: dist/assets/chart-summary-C8b08BNw.js                   3.16 kB │ gzip:   1.38 kB
+@pulse/web:build: dist/assets/journal-entry-s8Lp54cR.js                   3.45 kB │ gzip:   1.37 kB
+@pulse/web:build: dist/assets/habit-chain-dot-DRiFYJcK.js                 3.45 kB │ gzip:   1.63 kB
+@pulse/web:build: dist/assets/mock-data-C5acpO0F.js                       3.71 kB │ gzip:   1.57 kB
+@pulse/web:build: dist/assets/profile-Bm2zk630.js                         4.10 kB │ gzip:   1.63 kB
+@pulse/web:build: dist/assets/register-BMklOnkP.js                        4.17 kB │ gzip:   1.53 kB
+@pulse/web:build: dist/assets/resources-DasvxG18.js                       4.22 kB │ gzip:   1.73 kB
+@pulse/web:build: dist/assets/swap-exercise-dialog-DqtZGj9Y.js            4.43 kB │ gzip:   1.81 kB
+@pulse/web:build: dist/assets/journal-Rp-ZrcvP.js                         5.46 kB │ gzip:   2.07 kB
+@pulse/web:build: dist/assets/resource-detail-w00L-W34.js                 5.60 kB │ gzip:   1.80 kB
+@pulse/web:build: dist/assets/popover-BRlDwdoL.js                         6.04 kB │ gzip:   2.18 kB
+@pulse/web:build: dist/assets/use-dashboard-config-Bzg2JTpM.js            6.31 kB │ gzip:   2.06 kB
+@pulse/web:build: dist/assets/nutrition-day-status-control-CCOaN7Dv.js    7.40 kB │ gzip:   2.51 kB
+@pulse/web:build: dist/assets/view-toggle-DgcB148D.js                     8.76 kB │ gzip:   3.22 kB
+@pulse/web:build: dist/assets/injuries-D7erCi7i.js                        9.27 kB │ gzip:   3.26 kB
+@pulse/web:build: dist/assets/weight-history-Cge5yyjf.js                  9.86 kB │ gzip:   3.55 kB
+@pulse/web:build: dist/assets/design-system-CQHqkFy4.js                   9.95 kB │ gzip:   3.15 kB
+@pulse/web:build: dist/assets/mock-data-DJITbgeB.js                      10.15 kB │ gzip:   4.27 kB
+@pulse/web:build: dist/assets/mock-data-DXXmDnoy.js                      14.00 kB │ gzip:   4.60 kB
+@pulse/web:build: dist/assets/session-feedback-CIX4LHct.js               14.49 kB │ gzip:   4.70 kB
+@pulse/web:build: dist/assets/equipment-CmoCJ1Jt.js                      15.22 kB │ gzip:   4.76 kB
+@pulse/web:build: dist/assets/activity-CFVVeG0N.js                       16.18 kB │ gzip:   5.24 kB
+@pulse/web:build: dist/assets/trend-weight-workspace-xz5vdzgs.js         17.30 kB │ gzip:   5.30 kB
+@pulse/web:build: dist/assets/workouts-dsiH13L0.js                       19.70 kB │ gzip:   4.74 kB
+@pulse/web:build: dist/assets/select-Bi48uGFJ.js                         20.60 kB │ gzip:   7.29 kB
+@pulse/web:build: dist/assets/active-session-8H7TB5QN.js                 21.30 kB │ gzip:   6.53 kB
+@pulse/web:build: dist/assets/dropdown-menu-BmwFOX1p.js                  21.90 kB │ gzip:   6.83 kB
+@pulse/web:build: dist/assets/energy-balance-CsZSs9v8.js                 21.98 kB │ gzip:   6.57 kB
+@pulse/web:build: dist/assets/injury-detail-BRyiLQCx.js                  23.40 kB │ gzip:   7.27 kB
+@pulse/web:build: dist/assets/data-quality-DnUMEo-_.js                   24.95 kB │ gzip:   7.73 kB
+@pulse/web:build: dist/assets/workout-template-detail-CUp8zyIs.js        24.96 kB │ gzip:   7.82 kB
+@pulse/web:build: dist/assets/settings-CtM3Z5ep.js                       29.74 kB │ gzip:   8.12 kB
+@pulse/web:build: dist/assets/zod-DXL12IUs.js                            29.90 kB │ gzip:  10.78 kB
+@pulse/web:build: dist/assets/goal-trajectory-BAzM-s_3.js                30.30 kB │ gzip:   8.65 kB
+@pulse/web:build: dist/assets/weekly-decision-review-M_x0Ki-U.js         32.94 kB │ gzip:   8.62 kB
+@pulse/web:build: dist/assets/workout-session-detail-B580nvVV.js         36.77 kB │ gzip:  10.92 kB
+@pulse/web:build: dist/assets/vendor-router-D-aEi-ws.js                  37.19 kB │ gzip:  13.40 kB
+@pulse/web:build: dist/assets/scheduled-workout-detail-D6UG1mPO.js       37.80 kB │ gzip:  11.69 kB
+@pulse/web:build: 
+@pulse/web:build: dist/assets/habits-C0boXjtZ.js                         39.34 kB │ gzip:  11.80 kB
+@pulse/web:build: (!) Some chunks are larger than 500 kB after minification. Consider:
+@pulse/web:build: dist/assets/vendor-query-Y28iZGx7.js                   45.14 kB │ gzip:  13.84 kB
+@pulse/web:build: dist/assets/sortable.esm-CJzEZENr.js                   51.01 kB │ gzip:  17.09 kB
+@pulse/web:build: - Using dynamic import() to code-split the application
+@pulse/web:build: dist/assets/use-workout-session-BbVSYQea.js            56.60 kB │ gzip:  16.45 kB
+@pulse/web:build: dist/assets/vendor-zod-CxxuDTfS.js                     57.83 kB │ gzip:  13.48 kB
+@pulse/web:build: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+@pulse/web:build: dist/assets/workouts-CFCNJBgd.js                       67.54 kB │ gzip:  18.36 kB
+@pulse/web:build: dist/assets/dashboard-CyR5ZqKA.js                      69.23 kB │ gzip:  20.12 kB
+@pulse/web:build: dist/assets/goal-editor-dialog-D-vxEw2U.js             69.87 kB │ gzip:  20.12 kB
+@pulse/web:build: dist/assets/schedule-workout-dialog-miD3T9mu.js        71.22 kB │ gzip:  21.27 kB
+@pulse/web:build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+@pulse/web:build: dist/assets/active-workout-BGs4Vza_.js                 97.90 kB │ gzip:  28.30 kB
+@pulse/web:build: dist/assets/nutrition-_ybrjBlY.js                     153.12 kB │ gzip:  41.28 kB
+@pulse/web:build: dist/assets/vendor-recharts-vi3UUqYC.js               397.49 kB │ gzip: 115.25 kB
+@pulse/web:build: dist/assets/index-lX77X3xF.js                         529.73 kB │ gzip: 157.28 kB
+@pulse/web:build: ✓ built in 4.37s
+
+ Tasks:    3 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    16.546s 
+
+STDOUT_STDERR_END
+EXIT_CODE: 0
+FINISHED_UTC: 2026-09-08T17:58:34Z

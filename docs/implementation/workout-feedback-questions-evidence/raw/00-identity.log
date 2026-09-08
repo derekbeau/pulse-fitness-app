@@ -1,0 +1,26 @@
+RECEIPT_FORMAT: pulse-150-raw-v1
+TESTED_COMMIT: ea4ca7688c5c022abfa38affba424d150b07ee5a
+BRANCH: feat/workout-feedback-questions
+WORKTREE: /Users/meridian/Projects/pulse-workout-feedback-questions
+STARTED_UTC: 2026-09-08T17:50:29Z
+COMMAND: /tmp/pulse150-identity.zsh 
+STDOUT_STDERR_BEGIN
+git status --porcelain=v1
+?? docs/implementation/workout-feedback-questions-evidence/raw/
+?? docs/implementation/workout-feedback-questions-evidence/source-hashes.sha256
+NOTE: the worktree was clean at initial verification; entries above are evidence generated after that check.
+git diff --quiet (tracked implementation changes)
+TRACKED_DIFF_EXIT_CODE: 0
+git branch --show-current
+feat/workout-feedback-questions
+git rev-parse HEAD
+ea4ca7688c5c022abfa38affba424d150b07ee5a
+git merge-base HEAD origin/main
+6326bd7b81219a4cf4d7b2e819e09369bf4a3946
+git rev-parse a2e6f7837022b46f663c74e52def9fd6d7856a94
+a2e6f7837022b46f663c74e52def9fd6d7856a94
+git merge-base --is-ancestor a2e6f7837022b46f663c74e52def9fd6d7856a94 HEAD
+PREPARED_SHA_ANCESTOR_EXIT_CODE: 0
+STDOUT_STDERR_END
+EXIT_CODE: 0
+FINISHED_UTC: 2026-09-08T17:50:29Z

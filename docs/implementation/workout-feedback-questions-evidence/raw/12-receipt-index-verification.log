@@ -1,0 +1,23 @@
+RECEIPT_FORMAT: pulse-150-raw-v1
+TESTED_COMMIT: ea4ca7688c5c022abfa38affba424d150b07ee5a
+BRANCH: feat/workout-feedback-questions
+WORKTREE: /Users/meridian/Projects/pulse-workout-feedback-questions
+STARTED_UTC: 2026-09-08T18:04:58Z
+COMMAND: /tmp/pulse150-receipt-audit.zsh 
+STDOUT_STDERR_BEGIN
+FINAL_RECEIPT_OK: 00-identity.log
+FINAL_RECEIPT_OK: 01-repo-tests.log
+FINAL_RECEIPT_OK: 02-shared-tests.log
+FINAL_RECEIPT_OK: 03-api-tests.log
+FINAL_RECEIPT_OK: 04-web-tests.log
+FINAL_RECEIPT_OK: 05-typecheck.log
+FINAL_RECEIPT_OK: 06-lint.log
+FINAL_RECEIPT_OK: 07-build.log
+FINAL_RECEIPT_OK: 08-migration-acceptance.log
+FINAL_RECEIPT_OK: 09-playwright-acceptance.log
+FINAL_RECEIPT_OK: 10-browser-evidence-audit.log
+FINAL_RECEIPT_OK: 11-source-hash-verification.log
+SUPERSEDED_RECEIPTS_LABELED: 3
+STDOUT_STDERR_END
+EXIT_CODE: 0
+FINISHED_UTC: 2026-09-08T18:04:59Z

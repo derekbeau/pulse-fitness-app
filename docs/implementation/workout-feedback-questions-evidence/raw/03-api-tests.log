@@ -1,0 +1,373 @@
+RECEIPT_FORMAT: pulse-150-raw-v1
+TESTED_COMMIT: ea4ca7688c5c022abfa38affba424d150b07ee5a
+BRANCH: feat/workout-feedback-questions
+WORKTREE: /Users/meridian/Projects/pulse-workout-feedback-questions
+STARTED_UTC: 2026-09-08T17:51:20Z
+COMMAND: pnpm --filter api exec vitest run --maxWorkers=1 --no-file-parallelism --no-cache 
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-workout-feedback-questions/apps/api
+
+ ✓ src/routes/workout-sessions/index.test.ts (122 tests) 1656ms
+ ✓ src/routes/scheduled-workouts/index.test.ts (44 tests) 740ms
+ ✓ src/routes/exercises/index.test.ts (49 tests) 547ms
+ ✓ src/db/nutrition-target-event-migration.test.ts (78 tests) 5186ms
+ ✓ src/routes/adaptive-nutrition/review-store.integration.test.ts (78 tests) 7042ms
+     ✓ serializes simultaneous accepts in separate processes into one transition  823ms
+ ✓ src/db/schema.test.ts (48 tests) 22ms
+ ✓ src/routes/adaptive-nutrition/store.integration.test.ts (35 tests) 786ms
+ ✓ src/routes/workout-progression/store.integration.test.ts (28 tests) 3046ms
+ ✓ src/routes/adaptive-nutrition/index.test.ts (20 tests) 658ms
+ ✓ src/db/migrations.test.ts (19 tests) 63ms
+ ✓ src/routes/nutrition/index.test.ts (15 tests) 285ms
+ ✓ src/routes/adaptive-nutrition/goal-trajectory-store.integration.test.ts (16 tests) 985ms
+ ✓ src/routes/data-quality/store.integration.test.ts (18 tests) 5421ms
+     ✓ reduces large revision and action histories before Data Quality materialization  3033ms
+     ✓ preserves per-date context and event caps across a fully dense 42-day range  573ms
+ ✓ src/routes/workout-templates/index.test.ts (14 tests) 429ms
+ ✓ src/db/adaptive-goal-migration.test.ts (11 tests) 350ms
+ ✓ src/routes/foods/analytics-store.integration.test.ts (11 tests) 1110ms
+ ✓ src/routes/foods/index.test.ts (27 tests) 427ms
+ ✓ src/routes/adaptive-nutrition/analytics-store.integration.test.ts (17 tests) 553ms
+ ✓ src/routes/meals/index.test.ts (15 tests) 292ms
+ ✓ src/routes/nutrition/daily-energy-store.integration.test.ts (23 tests) 935ms
+     ✓ uses constant-row indexed lookups across dense pre-date revision history  549ms
+ ✓ src/__tests__/foods-nutrition.test.ts (4 tests) 683ms
+     ✓ covers foods CRUD, search, deletion, and recency sorting  574ms
+ ✓ src/__tests__/habits-weight-targets.test.ts (6 tests) 6829ms
+     ✓ logs weight, supports range and latest reads, and scopes results per user  1660ms
+     ✓ filters weight entries by days lookback  604ms
+     ✓ upserts weight entries by user and date without leaking across users  1177ms
+     ✓ deletes weight entries, updates latest/list reads, and enforces ownership  1132ms
+     ✓ returns the current nutrition target based on the latest effective date on or before today  1107ms
+     ✓ upserts nutrition targets by user and effective date without crossing user boundaries  1148ms
+ ✓ src/scripts/seed-adaptive-tdee-preview.test.ts (3 tests) 8601ms
+     ✓ rebuilds every Coach state and keeps goal completion explicit  5995ms
+     ✓ matches the independent 2026-08-23 fixture contract across all repaired domains  2602ms
+ ✓ src/routes/weight/index.test.ts (17 tests) 301ms
+ ✓ src/db/adaptive-program-revision-causal-migration.test.ts (10 tests) 880ms
+ ✓ src/routes/nutrition/store.food-usage.test.ts (12 tests) 496ms
+{"level":30,"time":1788889942629,"pid":74678,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","req":{"method":"POST","url":"/api/v1/habits","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788889942630,"pid":74678,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","res":{"statusCode":401},"responseTime":0.29974985122680664,"msg":"request completed"}
+{"level":30,"time":1788889942643,"pid":74678,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","req":{"method":"GET","url":"/api/v1/habits","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788889942643,"pid":74678,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","res":{"statusCode":200},"responseTime":0.2128748893737793,"msg":"request completed"}
+ ✓ src/routes/habits/index.test.ts (14 tests) 306ms
+ ✓ src/__tests__/auth.test.ts (20 tests) 9261ms
+     ✓ registers a user, returns a JWT, and stores a hashed password  1146ms
+     ✓ rejects duplicate usernames with a 409 conflict  338ms
+     ✓ logs in with valid credentials and returns a JWT  582ms
+     ✓ returns INVALID_CREDENTIALS for the wrong password  580ms
+     ✓ accepts a valid JWT on a protected route  580ms
+     ✓ rejects expired JWTs on protected routes  616ms
+     ✓ rejects JWTs without the required type claim  592ms
+     ✓ rejects JWTs with the wrong type claim  576ms
+     ✓ rejects JWTs without the required issuer claim  614ms
+     ✓ creates and lists agent tokens without exposing stored hashes  607ms
+     ✓ authenticates unified /api/v1 routes with an agent token and updates lastUsedAt  584ms
+     ✓ rejects expired agent tokens on unified /api/v1 routes  571ms
+     ✓ accepts agent tokens with null expiresAt for backward compatibility  580ms
+     ✓ extends expiring agent tokens from the new rotation time  572ms
+     ✓ rejects deleted agent tokens on subsequent use  575ms
+ ✓ src/routes/nutrition/ranked-food-reuse.integration.test.ts (23 tests) 644ms
+stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+Skipping duplicate food "Large Eggs" for user user-1.
+Foods migration summary: inserted 2, skipped 1, lastUsedAt updated 0.
+
+stderr | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+Missing food reference for "Mystery Food" on 2026-03-05; item imported without linked foodId.
+Missing habit reference for "Unknown Habit" on 2026-03-05; entry skipped for this day.
+
+stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+Processed 2026-03-05: 2 meals, 2 habit entries, weight: 181.9
+Processed 2026-03-06: 1 meals, 1 habit entries, weight: 180.8
+Processed 2026-03-07: 0 meals, 0 habit entries, weight: 181.1
+Migration summary: processed 3 day(s), failed 0, meals 3, habit entries 3, weight entries 3.
+
+stderr | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+Missing food reference for "Mystery Food" on 2026-03-05; item imported without linked foodId.
+Missing habit reference for "Unknown Habit" on 2026-03-05; entry skipped for this day.
+
+stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+Processed 2026-03-05: 2 meals, 2 habit entries, weight: 181.9
+Processed 2026-03-06: 1 meals, 1 habit entries, weight: 180.8
+Processed 2026-03-07: 0 meals, 0 habit entries, weight: 181.1
+Migration summary: processed 3 day(s), failed 0, meals 3, habit entries 3, weight entries 3.
+
+stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+Skipping duplicate food "Greek Yogurt" (Fage) for user user-1.
+Skipping duplicate food "Oat Bran" for user user-1.
+Skipping duplicate food "Large Eggs" for user user-1.
+Foods migration summary: inserted 0, skipped 3, lastUsedAt updated 0.
+
+stdout | src/scripts/migrate-static.test.ts > migrate-static script > is idempotent for foods migration when re-run
+Skipping duplicate food "Large Eggs" for user user-1.
+Foods migration summary: inserted 2, skipped 1, lastUsedAt updated 0.
+
+stdout | src/scripts/migrate-static.test.ts > migrate-static script > is idempotent for foods migration when re-run
+Skipping duplicate food "Greek Yogurt" (Fage) for user user-1.
+Skipping duplicate food "Oat Bran" for user user-1.
+Skipping duplicate food "Large Eggs" for user user-1.
+Foods migration summary: inserted 0, skipped 3, lastUsedAt updated 0.
+
+ ✓ src/scripts/migrate-static.test.ts (8 tests) 2073ms
+     ✓ derives food usage from imported links and preserves exact usage on reimport  1336ms
+ ✓ src/__tests__/workouts.test.ts (4 tests) 400ms
+ ✓ src/routes/v1/dashboard.test.ts (12 tests) 306ms
+ ✓ src/routes/workout-progression/muscle-store.integration.test.ts (9 tests) 1548ms
+     ✓ keeps dense 90-day totals exact while bounding source references  602ms
+ ✓ src/routes/scheduled-workouts/store.test.ts (13 tests) 164ms
+ ✓ src/routes/weight/trend-store.integration.test.ts (8 tests) 982ms
+ ✓ src/routes/nutrition/daily-notes.integration.test.ts (26 tests) 888ms
+ ✓ src/routes/workout-sessions/store.test.ts (9 tests) 360ms
+ ✓ src/routes/v1/dashboard-store.test.ts (16 tests) 40ms
+ ✓ src/db/adaptive-weekly-review-migration.test.ts (3 tests) 286ms
+ ✓ src/routes/habit-entries/index.test.ts (9 tests) 212ms
+ ✓ src/__tests__/food-usage-reconciliation.test.ts (22 tests) 24747ms
+     ✓ defaults to a byte-identical dry run, isolates hostile links and deleted foods, then applies idempotently  4904ms
+     ✓ rejects malformed or broadened scope {"mode":"invalid"} without writes  1186ms
+     ✓ rejects malformed or broadened scope {"mode":null} without writes  1213ms
+     ✓ rejects malformed or broadened scope {"limit":0} without writes  1175ms
+     ✓ rejects malformed or broadened scope {"limit":501} without writes  1180ms
+     ✓ rejects malformed or broadened scope {"limit":1.5} without writes  1218ms
+     ✓ rejects malformed or broadened scope {"limit":"1"} without writes  1256ms
+     ✓ rejects malformed or broadened scope {"cursor":"anything"} without writes  1249ms
+     ✓ rejects malformed or broadened scope {"userId":"user-2"} without writes  1210ms
+     ✓ rejects malformed or broadened scope {"allUsers":true} without writes  1186ms
+     ✓ rejects malformed or broadened scope {"foodId":"foreign"} without writes  1395ms
+     ✓ fails closed on excessive scope, missing users and invalid JWT claims  1187ms
+     ✓ rolls back earlier target writes when a later update fails  1173ms
+     ✓ rejects query selectors and explicit null bodies without writes  1188ms
+     ✓ previews and repairs malformed stored count -1 without a post-commit serialization error  1250ms
+     ✓ previews and repairs malformed stored count 1.5 without a post-commit serialization error  1197ms
+     ✓ rolls back all apply writes if a malformed source timestamp cannot produce a valid response  1232ms
+ ✓ src/routes/workout-feedback/index.test.ts (4 tests) 652ms
+ ✓ src/middleware/auth.test.ts (19 tests) 79ms
+ ✓ src/db/workout-progression-migration.test.ts (4 tests) 361ms
+ ✓ src/index.test.ts (8 tests) 484ms
+stdout | src/routes/nutrition/food-reuse-process.integration.test.ts > independent API processes serialize owner-local food creation
+Independent worker startup phases: [
+  [
+    {
+      kind: 'phase',
+      phase: 'bootstrap',
+      elapsedMs: 0.03595799999999372,
+      sinceForkMs: 157.29891699999996
+    },
+    {
+      kind: 'phase',
+      phase: 'database-open',
+      elapsedMs: 463.57454200000006,
+      sinceForkMs: 620.481458
+    },
+    {
+      kind: 'phase',
+      phase: 'api-imported',
+      elapsedMs: 676.840417,
+      sinceForkMs: 833.7227499999999
+    },
+    {
+      kind: 'phase',
+      phase: 'api-ready',
+      elapsedMs: 798.6722500000001,
+      sinceForkMs: 955.6379999999999
+    },
+    {
+      kind: 'online',
+      pid: 74974,
+      apiReady: true,
+      elapsedMs: 798.7163330000001,
+      sinceForkMs: 955.6482080000001
+    }
+  ],
+  [
+    {
+      kind: 'phase',
+      phase: 'bootstrap',
+      elapsedMs: 0.033084000000002334,
+      sinceForkMs: 156.10962499999994
+    },
+    {
+      kind: 'phase',
+      phase: 'database-open',
+      elapsedMs: 463.187084,
+      sinceForkMs: 618.9047089999999
+    },
+    {
+      kind: 'phase',
+      phase: 'api-imported',
+      elapsedMs: 677.431459,
+      sinceForkMs: 833.063584
+    },
+    {
+      kind: 'phase',
+      phase: 'api-ready',
+      elapsedMs: 795.883584,
+      sinceForkMs: 951.590584
+    },
+    {
+      kind: 'online',
+      pid: 74975,
+      apiReady: true,
+      elapsedMs: 795.9115419999999,
+      sinceForkMs: 951.6106669999999
+    }
+  ]
+]
+
+ ✓ src/routes/nutrition/food-reuse-process.integration.test.ts (7 tests) 1642ms
+stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > restores original parent IDs transactionally without rewriting child links
+{
+  alreadyAppliedCount: 0,
+  dryRun: false,
+  foreignKeyViolationCountBefore: 2,
+  mapSha256: '4225ccbe5c1e2df09de67991dcd8d4a42826fb5dd199d51de7908071820e0f92',
+  missingExerciseCount: 2,
+  orphanLinkCount: 2,
+  proposedRepairCount: 2,
+  remainingForeignKeyViolationCount: 0,
+  sessionSetOrphanCount: 1,
+  templateExerciseOrphanCount: 1,
+  unresolvedExerciseCount: 0
+} Workout exercise link repair preflight complete
+
+stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > is replayable and makes no changes after the map has already been applied
+{
+  alreadyAppliedCount: 0,
+  dryRun: false,
+  foreignKeyViolationCountBefore: 1,
+  mapSha256: 'a2c728a915f6c0ad2db9373de9439e7b0f824d01471cb380e065562a53720c01',
+  missingExerciseCount: 1,
+  orphanLinkCount: 1,
+  proposedRepairCount: 1,
+  remainingForeignKeyViolationCount: 0,
+  sessionSetOrphanCount: 1,
+  templateExerciseOrphanCount: 0,
+  unresolvedExerciseCount: 0
+} Workout exercise link repair preflight complete
+{
+  alreadyAppliedCount: 1,
+  dryRun: false,
+  foreignKeyViolationCountBefore: 0,
+  mapSha256: 'a2c728a915f6c0ad2db9373de9439e7b0f824d01471cb380e065562a53720c01',
+  missingExerciseCount: 0,
+  orphanLinkCount: 0,
+  proposedRepairCount: 0,
+  remainingForeignKeyViolationCount: 0,
+  sessionSetOrphanCount: 0,
+  templateExerciseOrphanCount: 0,
+  unresolvedExerciseCount: 0
+} Workout exercise link repair preflight complete
+
+stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > relinks an exact canonical match while preserving the template row
+{
+  alreadyAppliedCount: 0,
+  dryRun: false,
+  foreignKeyViolationCountBefore: 1,
+  mapSha256: 'ffcfe1cb7e1acf87f0122d2cd063cd1cf035d8759838991951bc94f4a49483ba',
+  missingExerciseCount: 1,
+  orphanLinkCount: 1,
+  proposedRepairCount: 1,
+  remainingForeignKeyViolationCount: 0,
+  sessionSetOrphanCount: 0,
+  templateExerciseOrphanCount: 1,
+  unresolvedExerciseCount: 0
+} Workout exercise link repair preflight complete
+{
+  alreadyAppliedCount: 1,
+  dryRun: false,
+  foreignKeyViolationCountBefore: 0,
+  mapSha256: 'ffcfe1cb7e1acf87f0122d2cd063cd1cf035d8759838991951bc94f4a49483ba',
+  missingExerciseCount: 0,
+  orphanLinkCount: 0,
+  proposedRepairCount: 0,
+  remainingForeignKeyViolationCount: 0,
+  sessionSetOrphanCount: 0,
+  templateExerciseOrphanCount: 0,
+  unresolvedExerciseCount: 0
+} Workout exercise link repair preflight complete
+
+stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > refuses ambiguous ownership, incomplete maps, and unrelated violations
+{
+  alreadyAppliedCount: 0,
+  dryRun: true,
+  foreignKeyViolationCountBefore: 2,
+  mapSha256: '33363e5be74a423945de2208b335fe01d3bf19d2aecc820f91829b839b3ea2b1',
+  missingExerciseCount: 1,
+  orphanLinkCount: 2,
+  proposedRepairCount: 0,
+  remainingForeignKeyViolationCount: 2,
+  sessionSetOrphanCount: 1,
+  templateExerciseOrphanCount: 1,
+  unresolvedExerciseCount: 1
+} Workout exercise link repair preflight complete
+
+ ✓ src/scripts/repair-workout-exercise-links.test.ts (7 tests) 45ms
+ ✓ src/routes/nutrition/logging-context.integration.test.ts (3 tests) 369ms
+ ✓ src/routes/workout-feedback/store.test.ts (3 tests) 418ms
+ ✓ src/routes/workout-progression/index.test.ts (6 tests) 188ms
+ ✓ src/routes/foods/store.test.ts (6 tests) 321ms
+     ✓ creates a food and normalizes omitted optional fields to null  317ms
+ ✓ src/routes/nutrition/completeness-mutations.integration.test.ts (5 tests) 308ms
+ ✓ src/routes/weight/store.test.ts (10 tests) 7ms
+ ✓ src/db/canonical-weight-migration.test.ts (16 tests) 97ms
+ ✓ src/routes/trash/index.test.ts (4 tests) 366ms
+ ✓ src/db/feedback-provenance-migration.test.ts (8 tests) 4237ms
+     ✓ dry-run writes nothing and reconciles owner/global counts  1264ms
+     ✓ preserves raw payloads/native performance and makes second apply a no-op  1289ms
+     ✓ forced first-batch failure preserves original database exactly  1333ms
+ ✓ src/scripts/backtest-adaptive-tdee.test.ts (10 tests) 205ms
+ ✓ src/routes/adaptive-nutrition/goal-store.integration.test.ts (4 tests) 297ms
+ ✓ src/middleware/agent-transforms.test.ts (9 tests) 47ms
+ ✓ src/db/rir-migration.test.ts (1 test) 97ms
+ ✓ src/routes/nutrition/store.test.ts (6 tests) 13ms
+ ✓ src/routes/agent-tokens/index.test.ts (9 tests) 212ms
+ ✓ src/routes/agent/context-store.test.ts (9 tests) 314ms
+     ✓ returns user profile name when user exists  311ms
+ ✓ src/routes/nutrition-targets/index.test.ts (5 tests) 162ms
+ ✓ src/middleware/agent-enrichment.test.ts (9 tests) 4ms
+ ✓ src/routes/users/index.test.ts (8 tests) 211ms
+ ✓ src/db/workout-feedback-migration.test.ts (3 tests) 239ms
+ ✓ src/db/adaptive-nutrition-migration.test.ts (3 tests) 66ms
+ ✓ src/routes/nutrition-targets/provenance.integration.test.ts (4 tests) 133ms
+ ✓ src/routes/nutrition/store.display-fields.test.ts (3 tests) 17ms
+ ✓ src/db/adaptive-program-revision-migration.test.ts (1 test) 16ms
+ ✓ src/routes/nutrition-targets/store.test.ts (4 tests) 6ms
+ ✓ src/routes/workout-sessions/session-set-utils.test.ts (5 tests) 2ms
+ ✓ src/scripts/run-migration.test.ts (6 tests) 3ms
+ ✓ src/routes/scheduled-workouts/snapshot-store.test.ts (2 tests) 166ms
+ ✓ src/routes/auth/index.test.ts (6 tests) 1750ms
+     ✓ registers a new user, normalizes the username, hashes the password, and returns a 7-day JWT  592ms
+     ✓ logs in a user and returns the auth envelope  550ms
+     ✓ returns INVALID_CREDENTIALS for incorrect passwords  552ms
+ ✓ src/routes/foods/reuse-policy.test.ts (23 tests) 6ms
+ ✓ src/routes/v1/dashboard-store.integration.test.ts (6 tests) 632ms
+ ✓ src/routes/habit-entries/store.test.ts (4 tests) 313ms
+     ✓ inserts a new habit entry when no entry exists for the habit and date  312ms
+ ✓ src/routes/data-quality/index.test.ts (3 tests) 134ms
+ ✓ src/routes/v1/context.test.ts (2 tests) 111ms
+ ✓ src/routes/workout-sessions/time-segments.test.ts (10 tests) 2ms
+ ✓ src/routes/auth/starter-habits.test.ts (1 test) 658ms
+     ✓ seeds five starter habits on register and returns them from GET /api/v1/habits  305ms
+ ✓ src/db/backfill/scheduled-workout-snapshots.test.ts (1 test) 97ms
+ ✓ src/db/integrity.test.ts (5 tests) 9ms
+ ✓ src/db/feedback-note-remediation.test.ts (1 test) 1291ms
+     ✓ preserves originals, queues uncertain prose, and supersedes only an owned exact causal link  1290ms
+ ✓ src/routes/nutrition/status-store.test.ts (3 tests) 309ms
+ ✓ src/db/index.test.ts (3 tests) 337ms
+     ✓ enables foreign key enforcement on the sqlite connection  308ms
+ ✓ src/lib/habit-resolvers.test.ts (4 tests) 313ms
+     ✓ returns completed for weight resolver when a body weight row exists for the date  312ms
+ ✓ src/db/scheduled-session-prescriptions-migration.test.ts (1 test) 95ms
+ ✓ src/db/adaptive-program-revision-projection.test.ts (2 tests) 5ms
+ ✓ src/lib/user-time-zone.test.ts (4 tests) 5ms
+ ✓ src/scripts/rehearse-adaptive-goal-migration.test.ts (1 test) 1ms
+ ✓ src/__tests__/placeholder.test.ts (1 test) 1ms
+
+ Test Files  94 passed (94)
+      Tests  1228 passed (1228)
+   Start at  13:51:21
+   Duration  146.91s (transform 1.97s, setup 0ms, import 26.93s, tests 108.40s, environment 6ms)
+
+STDOUT_STDERR_END
+EXIT_CODE: 0
+FINISHED_UTC: 2026-09-08T17:53:48Z
