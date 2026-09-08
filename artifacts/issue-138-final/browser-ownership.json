@@ -1,0 +1,22 @@
+{
+  "runId": "452fe1dd-9b56-4f2a-a324-f913794a14f9",
+  "head": "56bec515b8bc1bf23585f62f3f7cab03e840cea4",
+  "database": "/Users/meridian/Projects/qa-reports/pulse-parallel-networking/fixtures/pulse160/pulse-e2e.db",
+  "inode": 80623929,
+  "uid": 501,
+  "servers": [
+    {
+      "port": 3160,
+      "pid": 85483,
+      "cwd": "/Users/meridian/Projects/pulse-food-reuse/apps/api",
+      "assignedDatabaseOpen": true
+    },
+    {
+      "port": 5260,
+      "pid": 85587,
+      "cwd": "/Users/meridian/Projects/pulse-food-reuse/apps/web",
+      "assignedDatabaseOpen": false
+    }
+  ],
+  "readyAt": "2026-09-08T00:54:28.432Z"
+}

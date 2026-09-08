@@ -1,0 +1,5 @@
+{
+  "command": "pnpm exec eslint apps/api/src/routes/nutrition/__tests__/food-reuse-worker.ts apps/api/src/routes/nutrition/food-reuse-process.integration.test.ts apps/api/src/routes/nutrition/store.food-usage.test.ts",
+  "exitCode": 0,
+  "elapsedSeconds": 1.35
+}

@@ -1,0 +1,29 @@
+{
+  "gateHead": "89828ac5e2d4828c447016d0093e60a5aa1cb8d3",
+  "browserHead": "56bec515b8bc1bf23585f62f3f7cab03e840cea4",
+  "identicalCheckedTreesAndConfigs": {
+    "89828ac5e2d4828c447016d0093e60a5aa1cb8d3": {
+      "apps": "f0f0debebe0e6919915e5198a0d15d3858416d5c",
+      "packages": "f363e0b71f1eeb6bfd0af8089143f6dc278122ca",
+      "scripts": "a609b35821fcc0671ad49ed7a5f4155c7f0690f6",
+      "docs": "99621038c195d0d2b42bffec5ec30e6ba6446ed1",
+      "package.json": "435128fd63b1e4c24d49350d795d4f5c24dd8ea3",
+      "pnpm-lock.yaml": "8f948b97753eb82b5e98b747ef01739c04439fd8",
+      "turbo.json": "29892ea04fcda1e1443f4f75ce3fb2c5a8aaee53",
+      "playwright.config.ts": "7e87c3f0008225b4b48f247d171fd32b9de2caa4",
+      "eslint.config.js": "3a699cf13578dfa1356d4b12a63c87034e794a33"
+    },
+    "56bec515b8bc1bf23585f62f3f7cab03e840cea4": {
+      "apps": "f0f0debebe0e6919915e5198a0d15d3858416d5c",
+      "packages": "f363e0b71f1eeb6bfd0af8089143f6dc278122ca",
+      "scripts": "a609b35821fcc0671ad49ed7a5f4155c7f0690f6",
+      "docs": "99621038c195d0d2b42bffec5ec30e6ba6446ed1",
+      "package.json": "435128fd63b1e4c24d49350d795d4f5c24dd8ea3",
+      "pnpm-lock.yaml": "8f948b97753eb82b5e98b747ef01739c04439fd8",
+      "turbo.json": "29892ea04fcda1e1443f4f75ce3fb2c5a8aaee53",
+      "playwright.config.ts": "7e87c3f0008225b4b48f247d171fd32b9de2caa4",
+      "eslint.config.js": "3a699cf13578dfa1356d4b12a63c87034e794a33"
+    }
+  },
+  "onlyInterveningChange": "artifacts/issue-138-final/acceptance.config.mjs: replace multi-config merge with object spread; all application source/tests/docs/configs identical"
+}

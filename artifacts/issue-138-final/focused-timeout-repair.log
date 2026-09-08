@@ -1,0 +1,82 @@
+$ pnpm --filter @pulse/api exec vitest run src/routes/nutrition/store.food-usage.test.ts src/routes/nutrition/food-reuse-process.integration.test.ts
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/api
+
+stdout | src/routes/nutrition/food-reuse-process.integration.test.ts > independent API processes serialize owner-local food creation
+Independent worker startup phases: [
+  [
+    {
+      kind: 'phase',
+      phase: 'bootstrap',
+      elapsedMs: 0.08845800000000281,
+      sinceForkMs: 182.98754099999996
+    },
+    {
+      kind: 'phase',
+      phase: 'database-open',
+      elapsedMs: 529.357042,
+      sinceForkMs: 712.089708
+    },
+    {
+      kind: 'phase',
+      phase: 'api-imported',
+      elapsedMs: 864.9309170000001,
+      sinceForkMs: 1047.640375
+    },
+    {
+      kind: 'phase',
+      phase: 'api-ready',
+      elapsedMs: 1024.715208,
+      sinceForkMs: 1207.595333
+    },
+    {
+      kind: 'online',
+      pid: 74597,
+      apiReady: true,
+      elapsedMs: 1024.769667,
+      sinceForkMs: 1207.616041
+    }
+  ],
+  [
+    {
+      kind: 'phase',
+      phase: 'bootstrap',
+      elapsedMs: 0.09712499999997704,
+      sinceForkMs: 181.26091700000006
+    },
+    {
+      kind: 'phase',
+      phase: 'database-open',
+      elapsedMs: 524.215917,
+      sinceForkMs: 705.002709
+    },
+    {
+      kind: 'phase',
+      phase: 'api-imported',
+      elapsedMs: 867.2425420000001,
+      sinceForkMs: 1047.9910840000002
+    },
+    {
+      kind: 'phase',
+      phase: 'api-ready',
+      elapsedMs: 1018.1953339999999,
+      sinceForkMs: 1199.0573749999999
+    },
+    {
+      kind: 'online',
+      pid: 74598,
+      apiReady: true,
+      elapsedMs: 1018.2687500000001,
+      sinceForkMs: 1199.2131669999999
+    }
+  ]
+]
+
+ ✓ src/routes/nutrition/store.food-usage.test.ts (12 tests) 1508ms
+ ✓ src/routes/nutrition/food-reuse-process.integration.test.ts (7 tests) 1858ms
+
+ Test Files  2 passed (2)
+      Tests  19 passed (19)
+   Start at  20:39:34
+   Duration  2.36s (transform 1.02s, setup 0ms, import 771ms, tests 3.37s, environment 0ms)
+

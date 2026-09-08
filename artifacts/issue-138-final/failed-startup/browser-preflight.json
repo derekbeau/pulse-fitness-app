@@ -1,0 +1,17 @@
+{
+  "runId": "06217f81-c2b8-4528-8c3f-00f4a9286ba8",
+  "root": "/Users/meridian/Projects/pulse-food-reuse",
+  "branch": "feat/ranked-food-reuse",
+  "head": "89828ac5e2d4828c447016d0093e60a5aa1cb8d3",
+  "status": "?? artifacts/issue-138-final/acceptance-collection.json\n?? artifacts/issue-138-final/acceptance-collection.log\n?? artifacts/issue-138-final/default-after-timeout-repair.json\n?? artifacts/issue-138-final/default-after-timeout-repair.log\n?? artifacts/issue-138-final/final-build.json\n?? artifacts/issue-138-final/final-build.log\n?? artifacts/issue-138-final/final-lint.json\n?? artifacts/issue-138-final/final-lint.log\n?? artifacts/issue-138-final/final-test.json\n?? artifacts/issue-138-final/final-test.log\n?? artifacts/issue-138-final/final-typecheck.json\n?? artifacts/issue-138-final/final-typecheck.log\n?? artifacts/issue-138-final/focused-eslint.json\n?? artifacts/issue-138-final/focused-eslint.log\n?? artifacts/issue-138-final/focused-timeout-repair.json\n?? artifacts/issue-138-final/focused-timeout-repair.log\n?? artifacts/issue-138-final/invariant-hashes.json\n?? artifacts/issue-138-final/merge-baseline-profile.json\n?? artifacts/issue-138-final/merge-baseline-profile.log\n?? artifacts/issue-138-final/merge-fixed-profile.json\n?? artifacts/issue-138-final/merge-fixed-profile.log\n?? artifacts/issue-138-final/preflight.txt\n?? artifacts/issue-138-final/profile-summary.json\n?? artifacts/issue-138-final/profiles/\n?? artifacts/issue-138-final/resources-before-browser.txt\n?? artifacts/issue-138-final/resources-before-build.txt\n?? artifacts/issue-138-final/resources-before-final-test.txt\n?? artifacts/issue-138-final/resources-before-test.txt\n?? artifacts/issue-138-final/review.md\n?? artifacts/issue-138-final/worker-baseline.json\n?? artifacts/issue-138-final/worker-baseline.log",
+  "database": "/Users/meridian/Projects/qa-reports/pulse-parallel-networking/fixtures/pulse160/pulse-e2e.db",
+  "ports": {
+    "3160": "no listener",
+    "5260": "no listener"
+  },
+  "fixtureAbsent": true,
+  "hostname": "Meridians-Mac-Mini.local",
+  "uid": 501,
+  "launcherPid": 84474,
+  "createdAt": "2026-09-08T00:53:11.669Z"
+}

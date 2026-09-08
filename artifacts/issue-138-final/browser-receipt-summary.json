@@ -1,0 +1,2325 @@
+{
+  "runId": "452fe1dd-9b56-4f2a-a324-f913794a14f9",
+  "head": "56bec515b8bc1bf23585f62f3f7cab03e840cea4",
+  "requests": [
+    {
+      "path": "/api/v1/nutrition/logging-context?date=2026-09-07&q=Receipt%20staple",
+      "method": "GET",
+      "owner": "owner",
+      "auth": "agent",
+      "transport": "browser fetch through Vite proxy",
+      "status": 200,
+      "body": {
+        "data": {
+          "date": "2026-09-07",
+          "query": {
+            "q": "Receipt staple",
+            "variants": ["Receipt staple"]
+          },
+          "today": {
+            "nutrition": null,
+            "summary": {
+              "date": "2026-09-07",
+              "notes": null,
+              "meals": 0,
+              "actual": {
+                "calories": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0
+              },
+              "target": null,
+              "proteinFloor": {
+                "actualProteinGrams": null,
+                "proteinFloorGrams": null,
+                "remainingToFloorGrams": null,
+                "amountAboveFloorGrams": null,
+                "state": "unavailable",
+                "isFinal": false
+              }
+            }
+          },
+          "recentMealItems": [
+            {
+              "date": "2026-09-06",
+              "mealId": "meal-later",
+              "mealName": "Travel bowl",
+              "mealTime": null,
+              "item": {
+                "id": "item-later",
+                "mealId": "meal-later",
+                "foodId": null,
+                "name": "Receipt staple",
+                "amount": 2,
+                "unit": "serving",
+                "displayQuantity": null,
+                "displayUnit": null,
+                "calories": 150,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": 2,
+                "sugar": 3,
+                "createdAt": 1788828923000
+              }
+            },
+            {
+              "date": "2026-09-01",
+              "mealId": "meal-earlier",
+              "mealName": "Travel bowl",
+              "mealTime": null,
+              "item": {
+                "id": "item-earlier",
+                "mealId": "meal-earlier",
+                "foodId": null,
+                "name": "Receipt staple",
+                "amount": 1,
+                "unit": "serving",
+                "displayQuantity": null,
+                "displayUnit": null,
+                "calories": 100,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": 2,
+                "sugar": 3,
+                "createdAt": 1788828923000
+              }
+            }
+          ],
+          "savedFoodMatches": [
+            {
+              "food": {
+                "id": "secondary",
+                "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                "name": "Secondary choice",
+                "brand": null,
+                "servingSize": "serving",
+                "servingGrams": null,
+                "calories": 100,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": null,
+                "sugar": null,
+                "verified": false,
+                "source": null,
+                "notes": null,
+                "usageCount": 0,
+                "tags": ["receipt staple"],
+                "lastUsedAt": null,
+                "createdAt": 1788828923000,
+                "updatedAt": 1788828923000
+              },
+              "evidence": [
+                {
+                  "category": "brand_or_tag",
+                  "field": "tag",
+                  "value": "receipt staple"
+                }
+              ],
+              "ambiguity": "none",
+              "aliasVersion": "1",
+              "reason": "brand_or_tag",
+              "matchedVariant": "receipt staple"
+            }
+          ],
+          "promotionCandidates": [
+            {
+              "normalizedName": "receipt staple",
+              "displayName": "Receipt staple",
+              "occurrenceCount": 2,
+              "distinctDayCount": 2,
+              "mostRecentDate": "2026-09-06",
+              "snapshots": [
+                {
+                  "date": "2026-09-06",
+                  "mealId": "meal-later",
+                  "mealName": "Travel bowl",
+                  "mealTime": null,
+                  "item": {
+                    "id": "item-later",
+                    "mealId": "meal-later",
+                    "foodId": null,
+                    "name": "Receipt staple",
+                    "amount": 2,
+                    "unit": "serving",
+                    "displayQuantity": null,
+                    "displayUnit": null,
+                    "calories": 150,
+                    "protein": 5,
+                    "carbs": 10,
+                    "fat": 4,
+                    "fiber": 2,
+                    "sugar": 3,
+                    "createdAt": 1788828923000
+                  }
+                },
+                {
+                  "date": "2026-09-01",
+                  "mealId": "meal-earlier",
+                  "mealName": "Travel bowl",
+                  "mealTime": null,
+                  "item": {
+                    "id": "item-earlier",
+                    "mealId": "meal-earlier",
+                    "foodId": null,
+                    "name": "Receipt staple",
+                    "amount": 1,
+                    "unit": "serving",
+                    "displayQuantity": null,
+                    "displayUnit": null,
+                    "calories": 100,
+                    "protein": 5,
+                    "carbs": 10,
+                    "fat": 4,
+                    "fiber": 2,
+                    "sugar": 3,
+                    "createdAt": 1788828923000
+                  }
+                }
+              ],
+              "stability": "review_only",
+              "stabilityReason": "SNAPSHOT_DIFFERENCE",
+              "likelySavedFoodMatch": {
+                "food": {
+                  "id": "secondary",
+                  "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                  "name": "Secondary choice",
+                  "brand": null,
+                  "servingSize": "serving",
+                  "servingGrams": null,
+                  "calories": 100,
+                  "protein": 5,
+                  "carbs": 10,
+                  "fat": 4,
+                  "fiber": null,
+                  "sugar": null,
+                  "verified": false,
+                  "source": null,
+                  "notes": null,
+                  "usageCount": 0,
+                  "tags": ["receipt staple"],
+                  "lastUsedAt": null,
+                  "createdAt": 1788828923000,
+                  "updatedAt": 1788828923000
+                },
+                "evidence": [
+                  {
+                    "category": "brand_or_tag",
+                    "field": "tag",
+                    "value": "receipt staple"
+                  }
+                ],
+                "ambiguity": "none",
+                "aliasVersion": "1",
+                "reason": "brand_or_tag",
+                "matchedVariant": "receipt staple"
+              },
+              "reason": "POSSIBLE_SAVED_MATCH"
+            }
+          ],
+          "frequentFoods": [
+            {
+              "food": {
+                "id": "secondary",
+                "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                "name": "Secondary choice",
+                "brand": null,
+                "servingSize": "serving",
+                "servingGrams": null,
+                "calories": 100,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": null,
+                "sugar": null,
+                "verified": false,
+                "source": null,
+                "notes": null,
+                "usageCount": 0,
+                "tags": ["receipt staple"],
+                "lastUsedAt": null,
+                "createdAt": 1788828923000,
+                "updatedAt": 1788828923000
+              },
+              "evidence": [
+                {
+                  "category": "frequent",
+                  "field": "usage",
+                  "value": "0"
+                }
+              ],
+              "ambiguity": "none",
+              "aliasVersion": "1",
+              "reason": "Saved food available for quick logging.",
+              "matchedVariant": null
+            }
+          ],
+          "shorthandExpansions": [],
+          "waterHabit": null
+        }
+      }
+    },
+    {
+      "path": "/api/v1/nutrition/logging-context?date=2026-09-07&q=Receipt%20staple",
+      "method": "GET",
+      "owner": "owner",
+      "auth": "agent",
+      "transport": "browser fetch through Vite proxy",
+      "status": 200,
+      "body": {
+        "data": {
+          "date": "2026-09-07",
+          "query": {
+            "q": "Receipt staple",
+            "variants": ["Receipt staple"]
+          },
+          "today": {
+            "nutrition": null,
+            "summary": {
+              "date": "2026-09-07",
+              "notes": null,
+              "meals": 0,
+              "actual": {
+                "calories": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0
+              },
+              "target": null,
+              "proteinFloor": {
+                "actualProteinGrams": null,
+                "proteinFloorGrams": null,
+                "remainingToFloorGrams": null,
+                "amountAboveFloorGrams": null,
+                "state": "unavailable",
+                "isFinal": false
+              }
+            }
+          },
+          "recentMealItems": [
+            {
+              "date": "2026-09-06",
+              "mealId": "meal-later",
+              "mealName": "Travel bowl",
+              "mealTime": null,
+              "item": {
+                "id": "item-later",
+                "mealId": "meal-later",
+                "foodId": null,
+                "name": "Receipt staple",
+                "amount": 2,
+                "unit": "serving",
+                "displayQuantity": null,
+                "displayUnit": null,
+                "calories": 150,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": 2,
+                "sugar": 3,
+                "createdAt": 1788828923000
+              }
+            },
+            {
+              "date": "2026-09-01",
+              "mealId": "meal-earlier",
+              "mealName": "Travel bowl",
+              "mealTime": null,
+              "item": {
+                "id": "item-earlier",
+                "mealId": "meal-earlier",
+                "foodId": null,
+                "name": "Receipt staple",
+                "amount": 1,
+                "unit": "serving",
+                "displayQuantity": null,
+                "displayUnit": null,
+                "calories": 100,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": 2,
+                "sugar": 3,
+                "createdAt": 1788828923000
+              }
+            }
+          ],
+          "savedFoodMatches": [
+            {
+              "food": {
+                "id": "secondary",
+                "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                "name": "Secondary choice",
+                "brand": null,
+                "servingSize": "serving",
+                "servingGrams": null,
+                "calories": 100,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": null,
+                "sugar": null,
+                "verified": false,
+                "source": null,
+                "notes": null,
+                "usageCount": 0,
+                "tags": ["receipt staple"],
+                "lastUsedAt": null,
+                "createdAt": 1788828923000,
+                "updatedAt": 1788828923000
+              },
+              "evidence": [
+                {
+                  "category": "brand_or_tag",
+                  "field": "tag",
+                  "value": "receipt staple"
+                }
+              ],
+              "ambiguity": "none",
+              "aliasVersion": "1",
+              "reason": "brand_or_tag",
+              "matchedVariant": "receipt staple"
+            }
+          ],
+          "promotionCandidates": [
+            {
+              "normalizedName": "receipt staple",
+              "displayName": "Receipt staple",
+              "occurrenceCount": 2,
+              "distinctDayCount": 2,
+              "mostRecentDate": "2026-09-06",
+              "snapshots": [
+                {
+                  "date": "2026-09-06",
+                  "mealId": "meal-later",
+                  "mealName": "Travel bowl",
+                  "mealTime": null,
+                  "item": {
+                    "id": "item-later",
+                    "mealId": "meal-later",
+                    "foodId": null,
+                    "name": "Receipt staple",
+                    "amount": 2,
+                    "unit": "serving",
+                    "displayQuantity": null,
+                    "displayUnit": null,
+                    "calories": 150,
+                    "protein": 5,
+                    "carbs": 10,
+                    "fat": 4,
+                    "fiber": 2,
+                    "sugar": 3,
+                    "createdAt": 1788828923000
+                  }
+                },
+                {
+                  "date": "2026-09-01",
+                  "mealId": "meal-earlier",
+                  "mealName": "Travel bowl",
+                  "mealTime": null,
+                  "item": {
+                    "id": "item-earlier",
+                    "mealId": "meal-earlier",
+                    "foodId": null,
+                    "name": "Receipt staple",
+                    "amount": 1,
+                    "unit": "serving",
+                    "displayQuantity": null,
+                    "displayUnit": null,
+                    "calories": 100,
+                    "protein": 5,
+                    "carbs": 10,
+                    "fat": 4,
+                    "fiber": 2,
+                    "sugar": 3,
+                    "createdAt": 1788828923000
+                  }
+                }
+              ],
+              "stability": "review_only",
+              "stabilityReason": "SNAPSHOT_DIFFERENCE",
+              "likelySavedFoodMatch": {
+                "food": {
+                  "id": "secondary",
+                  "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                  "name": "Secondary choice",
+                  "brand": null,
+                  "servingSize": "serving",
+                  "servingGrams": null,
+                  "calories": 100,
+                  "protein": 5,
+                  "carbs": 10,
+                  "fat": 4,
+                  "fiber": null,
+                  "sugar": null,
+                  "verified": false,
+                  "source": null,
+                  "notes": null,
+                  "usageCount": 0,
+                  "tags": ["receipt staple"],
+                  "lastUsedAt": null,
+                  "createdAt": 1788828923000,
+                  "updatedAt": 1788828923000
+                },
+                "evidence": [
+                  {
+                    "category": "brand_or_tag",
+                    "field": "tag",
+                    "value": "receipt staple"
+                  }
+                ],
+                "ambiguity": "none",
+                "aliasVersion": "1",
+                "reason": "brand_or_tag",
+                "matchedVariant": "receipt staple"
+              },
+              "reason": "POSSIBLE_SAVED_MATCH"
+            }
+          ],
+          "frequentFoods": [
+            {
+              "food": {
+                "id": "secondary",
+                "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                "name": "Secondary choice",
+                "brand": null,
+                "servingSize": "serving",
+                "servingGrams": null,
+                "calories": 100,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": null,
+                "sugar": null,
+                "verified": false,
+                "source": null,
+                "notes": null,
+                "usageCount": 0,
+                "tags": ["receipt staple"],
+                "lastUsedAt": null,
+                "createdAt": 1788828923000,
+                "updatedAt": 1788828923000
+              },
+              "evidence": [
+                {
+                  "category": "frequent",
+                  "field": "usage",
+                  "value": "0"
+                }
+              ],
+              "ambiguity": "none",
+              "aliasVersion": "1",
+              "reason": "Saved food available for quick logging.",
+              "matchedVariant": null
+            }
+          ],
+          "shorthandExpansions": [],
+          "waterHabit": null
+        }
+      }
+    },
+    {
+      "path": "/api/v1/nutrition/logging-context?date=2026-09-07&q=Receipt%20staple",
+      "method": "GET",
+      "owner": "owner",
+      "auth": "jwt",
+      "transport": "browser fetch through Vite proxy",
+      "status": 200,
+      "body": {
+        "data": {
+          "date": "2026-09-07",
+          "query": {
+            "q": "Receipt staple",
+            "variants": ["Receipt staple"]
+          },
+          "today": {
+            "nutrition": null,
+            "summary": {
+              "date": "2026-09-07",
+              "notes": null,
+              "meals": 0,
+              "actual": {
+                "calories": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0
+              },
+              "target": null,
+              "proteinFloor": {
+                "actualProteinGrams": null,
+                "proteinFloorGrams": null,
+                "remainingToFloorGrams": null,
+                "amountAboveFloorGrams": null,
+                "state": "unavailable",
+                "isFinal": false
+              }
+            }
+          },
+          "recentMealItems": [
+            {
+              "date": "2026-09-06",
+              "mealId": "meal-later",
+              "mealName": "Travel bowl",
+              "mealTime": null,
+              "item": {
+                "id": "item-later",
+                "mealId": "meal-later",
+                "foodId": null,
+                "name": "Receipt staple",
+                "amount": 2,
+                "unit": "serving",
+                "displayQuantity": null,
+                "displayUnit": null,
+                "calories": 150,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": 2,
+                "sugar": 3,
+                "createdAt": 1788828923000
+              }
+            },
+            {
+              "date": "2026-09-01",
+              "mealId": "meal-earlier",
+              "mealName": "Travel bowl",
+              "mealTime": null,
+              "item": {
+                "id": "item-earlier",
+                "mealId": "meal-earlier",
+                "foodId": null,
+                "name": "Receipt staple",
+                "amount": 1,
+                "unit": "serving",
+                "displayQuantity": null,
+                "displayUnit": null,
+                "calories": 100,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": 2,
+                "sugar": 3,
+                "createdAt": 1788828923000
+              }
+            }
+          ],
+          "savedFoodMatches": [
+            {
+              "food": {
+                "id": "secondary",
+                "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                "name": "Secondary choice",
+                "brand": null,
+                "servingSize": "serving",
+                "servingGrams": null,
+                "calories": 100,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": null,
+                "sugar": null,
+                "verified": false,
+                "source": null,
+                "notes": null,
+                "usageCount": 0,
+                "tags": ["receipt staple"],
+                "lastUsedAt": null,
+                "createdAt": 1788828923000,
+                "updatedAt": 1788828923000
+              },
+              "evidence": [
+                {
+                  "category": "brand_or_tag",
+                  "field": "tag",
+                  "value": "receipt staple"
+                }
+              ],
+              "ambiguity": "none",
+              "aliasVersion": "1",
+              "reason": "brand_or_tag",
+              "matchedVariant": "receipt staple"
+            }
+          ],
+          "promotionCandidates": [
+            {
+              "normalizedName": "receipt staple",
+              "displayName": "Receipt staple",
+              "occurrenceCount": 2,
+              "distinctDayCount": 2,
+              "mostRecentDate": "2026-09-06",
+              "snapshots": [
+                {
+                  "date": "2026-09-06",
+                  "mealId": "meal-later",
+                  "mealName": "Travel bowl",
+                  "mealTime": null,
+                  "item": {
+                    "id": "item-later",
+                    "mealId": "meal-later",
+                    "foodId": null,
+                    "name": "Receipt staple",
+                    "amount": 2,
+                    "unit": "serving",
+                    "displayQuantity": null,
+                    "displayUnit": null,
+                    "calories": 150,
+                    "protein": 5,
+                    "carbs": 10,
+                    "fat": 4,
+                    "fiber": 2,
+                    "sugar": 3,
+                    "createdAt": 1788828923000
+                  }
+                },
+                {
+                  "date": "2026-09-01",
+                  "mealId": "meal-earlier",
+                  "mealName": "Travel bowl",
+                  "mealTime": null,
+                  "item": {
+                    "id": "item-earlier",
+                    "mealId": "meal-earlier",
+                    "foodId": null,
+                    "name": "Receipt staple",
+                    "amount": 1,
+                    "unit": "serving",
+                    "displayQuantity": null,
+                    "displayUnit": null,
+                    "calories": 100,
+                    "protein": 5,
+                    "carbs": 10,
+                    "fat": 4,
+                    "fiber": 2,
+                    "sugar": 3,
+                    "createdAt": 1788828923000
+                  }
+                }
+              ],
+              "stability": "review_only",
+              "stabilityReason": "SNAPSHOT_DIFFERENCE",
+              "likelySavedFoodMatch": {
+                "food": {
+                  "id": "secondary",
+                  "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                  "name": "Secondary choice",
+                  "brand": null,
+                  "servingSize": "serving",
+                  "servingGrams": null,
+                  "calories": 100,
+                  "protein": 5,
+                  "carbs": 10,
+                  "fat": 4,
+                  "fiber": null,
+                  "sugar": null,
+                  "verified": false,
+                  "source": null,
+                  "notes": null,
+                  "usageCount": 0,
+                  "tags": ["receipt staple"],
+                  "lastUsedAt": null,
+                  "createdAt": 1788828923000,
+                  "updatedAt": 1788828923000
+                },
+                "evidence": [
+                  {
+                    "category": "brand_or_tag",
+                    "field": "tag",
+                    "value": "receipt staple"
+                  }
+                ],
+                "ambiguity": "none",
+                "aliasVersion": "1",
+                "reason": "brand_or_tag",
+                "matchedVariant": "receipt staple"
+              },
+              "reason": "POSSIBLE_SAVED_MATCH"
+            }
+          ],
+          "frequentFoods": [
+            {
+              "food": {
+                "id": "secondary",
+                "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                "name": "Secondary choice",
+                "brand": null,
+                "servingSize": "serving",
+                "servingGrams": null,
+                "calories": 100,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": null,
+                "sugar": null,
+                "verified": false,
+                "source": null,
+                "notes": null,
+                "usageCount": 0,
+                "tags": ["receipt staple"],
+                "lastUsedAt": null,
+                "createdAt": 1788828923000,
+                "updatedAt": 1788828923000
+              },
+              "evidence": [
+                {
+                  "category": "frequent",
+                  "field": "usage",
+                  "value": "0"
+                }
+              ],
+              "ambiguity": "none",
+              "aliasVersion": "1",
+              "reason": "Saved food available for quick logging.",
+              "matchedVariant": null
+            }
+          ],
+          "shorthandExpansions": [],
+          "waterHabit": null
+        }
+      }
+    },
+    {
+      "path": "/api/docs/json",
+      "method": "GET",
+      "owner": "owner",
+      "auth": "agent",
+      "transport": "browser fetch through Vite proxy",
+      "status": 200,
+      "body": {
+        "rawArchive": "browser-openapi.json.gz",
+        "rawSha256": "b8fc4e01651d2b17f41823b9b4e54be8a709d30e4f1ce7fc8fb7e49f5982faa5",
+        "note": "Full exact HTTP OpenAPI response retained in gzip archive; removed only from this derived summary."
+      }
+    },
+    {
+      "path": "/api/v1/meals",
+      "method": "POST",
+      "owner": "owner",
+      "auth": "agent",
+      "transport": "browser fetch through Vite proxy",
+      "payload": {
+        "date": "2026-09-07",
+        "name": "Fictional current lunch",
+        "returnSummary": true,
+        "items": [
+          {
+            "foodName": "Receipt staple",
+            "quantity": 2,
+            "unit": "serving",
+            "servingSize": "one serving",
+            "servingGrams": 40,
+            "calories": 100,
+            "protein": 5,
+            "carbs": 10,
+            "fat": 4,
+            "fiber": 2,
+            "sugar": 3,
+            "brand": "Fixture Co",
+            "source": "Fictional label",
+            "notes": "Fictional verified label",
+            "verified": true,
+            "tags": ["receipt"]
+          }
+        ]
+      },
+      "status": 201,
+      "body": {
+        "data": {
+          "meal": {
+            "id": "ab97d2e7-82f7-44d2-b527-14b06a14dbf1",
+            "nutritionLogId": "364facc6-918e-4ce6-8a81-a92f55ffbb1e",
+            "name": "Fictional current lunch",
+            "summary": "Receipt staple",
+            "time": null,
+            "notes": null,
+            "createdAt": 1788828925000,
+            "updatedAt": 1788828925000
+          },
+          "items": [
+            {
+              "id": "b9c9c99c-9147-40e5-86dd-ab682186a133",
+              "mealId": "ab97d2e7-82f7-44d2-b527-14b06a14dbf1",
+              "foodId": "d6b2880c-b603-4286-82ca-612336812cec",
+              "name": "Receipt staple",
+              "amount": 2,
+              "unit": "serving",
+              "displayQuantity": null,
+              "displayUnit": null,
+              "calories": 200,
+              "protein": 10,
+              "carbs": 20,
+              "fat": 8,
+              "fiber": 4,
+              "sugar": 6,
+              "createdAt": 1788828925000
+            }
+          ],
+          "summary": {
+            "date": "2026-09-07",
+            "notes": null,
+            "meals": 1,
+            "actual": {
+              "calories": 200,
+              "protein": 10,
+              "carbs": 20,
+              "fat": 8
+            },
+            "target": null,
+            "proteinFloor": {
+              "actualProteinGrams": 10,
+              "proteinFloorGrams": null,
+              "remainingToFloorGrams": null,
+              "amountAboveFloorGrams": null,
+              "state": "unavailable",
+              "isFinal": false
+            }
+          }
+        },
+        "agent": {
+          "hints": ["Fictional current lunch adds 200 kcal, 10g protein, 20g carbs, and 8g fat."],
+          "suggestedActions": ["Log the next meal or snack when it happens."],
+          "relatedState": {
+            "date": "2026-09-07",
+            "mealName": "Fictional current lunch",
+            "itemCount": 1,
+            "mealMacros": {
+              "calories": 200,
+              "protein": 10,
+              "carbs": 20,
+              "fat": 8
+            }
+          },
+          "itemOutcomes": [
+            {
+              "itemId": "b9c9c99c-9147-40e5-86dd-ab682186a133",
+              "foodId": "d6b2880c-b603-4286-82ca-612336812cec",
+              "outcome": "created"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "/api/v1/meals",
+      "method": "POST",
+      "owner": "owner",
+      "auth": "agent",
+      "transport": "browser fetch through Vite proxy",
+      "payload": {
+        "date": "2026-09-07",
+        "name": "Fictional current lunch",
+        "returnSummary": true,
+        "items": [
+          {
+            "foodName": "Receipt staple",
+            "quantity": 2,
+            "unit": "serving",
+            "servingSize": "one serving",
+            "servingGrams": 40,
+            "calories": 100,
+            "protein": 5,
+            "carbs": 10,
+            "fat": 4,
+            "fiber": 2,
+            "sugar": 3,
+            "brand": "Fixture Co",
+            "source": "Fictional label",
+            "notes": "Fictional verified label",
+            "verified": true,
+            "tags": ["receipt"]
+          }
+        ]
+      },
+      "status": 201,
+      "body": {
+        "data": {
+          "meal": {
+            "id": "07ffe83e-4f10-4a9f-8778-70d24aff2cce",
+            "nutritionLogId": "364facc6-918e-4ce6-8a81-a92f55ffbb1e",
+            "name": "Fictional current lunch",
+            "summary": "Receipt staple",
+            "time": null,
+            "notes": null,
+            "createdAt": 1788828925000,
+            "updatedAt": 1788828925000
+          },
+          "items": [
+            {
+              "id": "165587af-5bb0-4e98-adae-c70761f81b75",
+              "mealId": "07ffe83e-4f10-4a9f-8778-70d24aff2cce",
+              "foodId": "d6b2880c-b603-4286-82ca-612336812cec",
+              "name": "Receipt staple",
+              "amount": 2,
+              "unit": "serving",
+              "displayQuantity": null,
+              "displayUnit": null,
+              "calories": 200,
+              "protein": 10,
+              "carbs": 20,
+              "fat": 8,
+              "fiber": 4,
+              "sugar": 6,
+              "createdAt": 1788828925000
+            }
+          ],
+          "summary": {
+            "date": "2026-09-07",
+            "notes": null,
+            "meals": 2,
+            "actual": {
+              "calories": 400,
+              "protein": 20,
+              "carbs": 40,
+              "fat": 16
+            },
+            "target": null,
+            "proteinFloor": {
+              "actualProteinGrams": 20,
+              "proteinFloorGrams": null,
+              "remainingToFloorGrams": null,
+              "amountAboveFloorGrams": null,
+              "state": "unavailable",
+              "isFinal": false
+            }
+          }
+        },
+        "agent": {
+          "hints": ["Fictional current lunch adds 200 kcal, 10g protein, 20g carbs, and 8g fat."],
+          "suggestedActions": ["Log the next meal or snack when it happens."],
+          "relatedState": {
+            "date": "2026-09-07",
+            "mealName": "Fictional current lunch",
+            "itemCount": 1,
+            "mealMacros": {
+              "calories": 200,
+              "protein": 10,
+              "carbs": 20,
+              "fat": 8
+            }
+          },
+          "itemOutcomes": [
+            {
+              "itemId": "165587af-5bb0-4e98-adae-c70761f81b75",
+              "foodId": "d6b2880c-b603-4286-82ca-612336812cec",
+              "outcome": "reused"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "/api/v1/nutrition/logging-context?date=2026-09-07&q=Receipt%20staple",
+      "method": "GET",
+      "owner": "owner",
+      "auth": "agent",
+      "transport": "browser fetch through Vite proxy",
+      "status": 200,
+      "body": {
+        "data": {
+          "date": "2026-09-07",
+          "query": {
+            "q": "Receipt staple",
+            "variants": ["Receipt staple"]
+          },
+          "today": {
+            "nutrition": {
+              "log": {
+                "id": "364facc6-918e-4ce6-8a81-a92f55ffbb1e",
+                "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                "date": "2026-09-07",
+                "notes": null,
+                "status": "unknown",
+                "statusUpdatedAt": null,
+                "createdAt": 1788828925000,
+                "updatedAt": 1788828925000
+              },
+              "meals": [
+                {
+                  "meal": {
+                    "id": "ab97d2e7-82f7-44d2-b527-14b06a14dbf1",
+                    "nutritionLogId": "364facc6-918e-4ce6-8a81-a92f55ffbb1e",
+                    "name": "Fictional current lunch",
+                    "summary": "Receipt staple",
+                    "time": null,
+                    "notes": null,
+                    "createdAt": 1788828925000,
+                    "updatedAt": 1788828925000
+                  },
+                  "items": [
+                    {
+                      "id": "b9c9c99c-9147-40e5-86dd-ab682186a133",
+                      "mealId": "ab97d2e7-82f7-44d2-b527-14b06a14dbf1",
+                      "foodId": "d6b2880c-b603-4286-82ca-612336812cec",
+                      "name": "Receipt staple",
+                      "amount": 2,
+                      "unit": "serving",
+                      "displayQuantity": null,
+                      "displayUnit": null,
+                      "calories": 200,
+                      "protein": 10,
+                      "carbs": 20,
+                      "fat": 8,
+                      "fiber": 4,
+                      "sugar": 6,
+                      "createdAt": 1788828925000
+                    }
+                  ]
+                },
+                {
+                  "meal": {
+                    "id": "07ffe83e-4f10-4a9f-8778-70d24aff2cce",
+                    "nutritionLogId": "364facc6-918e-4ce6-8a81-a92f55ffbb1e",
+                    "name": "Fictional current lunch",
+                    "summary": "Receipt staple",
+                    "time": null,
+                    "notes": null,
+                    "createdAt": 1788828925000,
+                    "updatedAt": 1788828925000
+                  },
+                  "items": [
+                    {
+                      "id": "165587af-5bb0-4e98-adae-c70761f81b75",
+                      "mealId": "07ffe83e-4f10-4a9f-8778-70d24aff2cce",
+                      "foodId": "d6b2880c-b603-4286-82ca-612336812cec",
+                      "name": "Receipt staple",
+                      "amount": 2,
+                      "unit": "serving",
+                      "displayQuantity": null,
+                      "displayUnit": null,
+                      "calories": 200,
+                      "protein": 10,
+                      "carbs": 20,
+                      "fat": 8,
+                      "fiber": 4,
+                      "sugar": 6,
+                      "createdAt": 1788828925000
+                    }
+                  ]
+                }
+              ]
+            },
+            "summary": {
+              "date": "2026-09-07",
+              "notes": null,
+              "meals": 2,
+              "actual": {
+                "calories": 400,
+                "protein": 20,
+                "carbs": 40,
+                "fat": 16
+              },
+              "target": null,
+              "proteinFloor": {
+                "actualProteinGrams": 20,
+                "proteinFloorGrams": null,
+                "remainingToFloorGrams": null,
+                "amountAboveFloorGrams": null,
+                "state": "unavailable",
+                "isFinal": false
+              }
+            }
+          },
+          "recentMealItems": [
+            {
+              "date": "2026-09-06",
+              "mealId": "meal-later",
+              "mealName": "Travel bowl",
+              "mealTime": null,
+              "item": {
+                "id": "item-later",
+                "mealId": "meal-later",
+                "foodId": null,
+                "name": "Receipt staple",
+                "amount": 2,
+                "unit": "serving",
+                "displayQuantity": null,
+                "displayUnit": null,
+                "calories": 150,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": 2,
+                "sugar": 3,
+                "createdAt": 1788828923000
+              }
+            },
+            {
+              "date": "2026-09-01",
+              "mealId": "meal-earlier",
+              "mealName": "Travel bowl",
+              "mealTime": null,
+              "item": {
+                "id": "item-earlier",
+                "mealId": "meal-earlier",
+                "foodId": null,
+                "name": "Receipt staple",
+                "amount": 1,
+                "unit": "serving",
+                "displayQuantity": null,
+                "displayUnit": null,
+                "calories": 100,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": 2,
+                "sugar": 3,
+                "createdAt": 1788828923000
+              }
+            }
+          ],
+          "savedFoodMatches": [
+            {
+              "food": {
+                "id": "d6b2880c-b603-4286-82ca-612336812cec",
+                "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                "name": "Receipt staple",
+                "brand": "Fixture Co",
+                "servingSize": "one serving",
+                "servingGrams": 40,
+                "calories": 100,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": 2,
+                "sugar": 3,
+                "verified": true,
+                "source": "Fictional label",
+                "notes": "Fictional verified label",
+                "usageCount": 2,
+                "tags": ["receipt"],
+                "lastUsedAt": 1788828925000,
+                "createdAt": 1788828925000,
+                "updatedAt": 1788828925000
+              },
+              "evidence": [
+                {
+                  "category": "exact_normalized",
+                  "field": "name",
+                  "value": "Receipt staple"
+                }
+              ],
+              "ambiguity": "none",
+              "aliasVersion": "1",
+              "reason": "exact_normalized",
+              "matchedVariant": "Receipt staple"
+            },
+            {
+              "food": {
+                "id": "secondary",
+                "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                "name": "Secondary choice",
+                "brand": null,
+                "servingSize": "serving",
+                "servingGrams": null,
+                "calories": 100,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": null,
+                "sugar": null,
+                "verified": false,
+                "source": null,
+                "notes": null,
+                "usageCount": 0,
+                "tags": ["receipt staple"],
+                "lastUsedAt": null,
+                "createdAt": 1788828923000,
+                "updatedAt": 1788828923000
+              },
+              "evidence": [
+                {
+                  "category": "brand_or_tag",
+                  "field": "tag",
+                  "value": "receipt staple"
+                }
+              ],
+              "ambiguity": "none",
+              "aliasVersion": "1",
+              "reason": "brand_or_tag",
+              "matchedVariant": "receipt staple"
+            }
+          ],
+          "promotionCandidates": [
+            {
+              "normalizedName": "receipt staple",
+              "displayName": "Receipt staple",
+              "occurrenceCount": 2,
+              "distinctDayCount": 2,
+              "mostRecentDate": "2026-09-06",
+              "snapshots": [
+                {
+                  "date": "2026-09-06",
+                  "mealId": "meal-later",
+                  "mealName": "Travel bowl",
+                  "mealTime": null,
+                  "item": {
+                    "id": "item-later",
+                    "mealId": "meal-later",
+                    "foodId": null,
+                    "name": "Receipt staple",
+                    "amount": 2,
+                    "unit": "serving",
+                    "displayQuantity": null,
+                    "displayUnit": null,
+                    "calories": 150,
+                    "protein": 5,
+                    "carbs": 10,
+                    "fat": 4,
+                    "fiber": 2,
+                    "sugar": 3,
+                    "createdAt": 1788828923000
+                  }
+                },
+                {
+                  "date": "2026-09-01",
+                  "mealId": "meal-earlier",
+                  "mealName": "Travel bowl",
+                  "mealTime": null,
+                  "item": {
+                    "id": "item-earlier",
+                    "mealId": "meal-earlier",
+                    "foodId": null,
+                    "name": "Receipt staple",
+                    "amount": 1,
+                    "unit": "serving",
+                    "displayQuantity": null,
+                    "displayUnit": null,
+                    "calories": 100,
+                    "protein": 5,
+                    "carbs": 10,
+                    "fat": 4,
+                    "fiber": 2,
+                    "sugar": 3,
+                    "createdAt": 1788828923000
+                  }
+                }
+              ],
+              "stability": "review_only",
+              "stabilityReason": "SNAPSHOT_DIFFERENCE",
+              "likelySavedFoodMatch": {
+                "food": {
+                  "id": "d6b2880c-b603-4286-82ca-612336812cec",
+                  "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                  "name": "Receipt staple",
+                  "brand": "Fixture Co",
+                  "servingSize": "one serving",
+                  "servingGrams": 40,
+                  "calories": 100,
+                  "protein": 5,
+                  "carbs": 10,
+                  "fat": 4,
+                  "fiber": 2,
+                  "sugar": 3,
+                  "verified": true,
+                  "source": "Fictional label",
+                  "notes": "Fictional verified label",
+                  "usageCount": 2,
+                  "tags": ["receipt"],
+                  "lastUsedAt": 1788828925000,
+                  "createdAt": 1788828925000,
+                  "updatedAt": 1788828925000
+                },
+                "evidence": [
+                  {
+                    "category": "exact_normalized",
+                    "field": "name",
+                    "value": "Receipt staple"
+                  }
+                ],
+                "ambiguity": "none",
+                "aliasVersion": "1",
+                "reason": "exact_normalized",
+                "matchedVariant": "Receipt staple"
+              },
+              "reason": "EXACT_SAVED_MATCH"
+            }
+          ],
+          "frequentFoods": [
+            {
+              "food": {
+                "id": "d6b2880c-b603-4286-82ca-612336812cec",
+                "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                "name": "Receipt staple",
+                "brand": "Fixture Co",
+                "servingSize": "one serving",
+                "servingGrams": 40,
+                "calories": 100,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": 2,
+                "sugar": 3,
+                "verified": true,
+                "source": "Fictional label",
+                "notes": "Fictional verified label",
+                "usageCount": 2,
+                "tags": ["receipt"],
+                "lastUsedAt": 1788828925000,
+                "createdAt": 1788828925000,
+                "updatedAt": 1788828925000
+              },
+              "evidence": [
+                {
+                  "category": "frequent",
+                  "field": "usage",
+                  "value": "2"
+                }
+              ],
+              "ambiguity": "none",
+              "aliasVersion": "1",
+              "reason": "Frequent saved food used 2 times.",
+              "matchedVariant": null
+            },
+            {
+              "food": {
+                "id": "secondary",
+                "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+                "name": "Secondary choice",
+                "brand": null,
+                "servingSize": "serving",
+                "servingGrams": null,
+                "calories": 100,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": null,
+                "sugar": null,
+                "verified": false,
+                "source": null,
+                "notes": null,
+                "usageCount": 0,
+                "tags": ["receipt staple"],
+                "lastUsedAt": null,
+                "createdAt": 1788828923000,
+                "updatedAt": 1788828923000
+              },
+              "evidence": [
+                {
+                  "category": "frequent",
+                  "field": "usage",
+                  "value": "0"
+                }
+              ],
+              "ambiguity": "none",
+              "aliasVersion": "1",
+              "reason": "Saved food available for quick logging.",
+              "matchedVariant": null
+            }
+          ],
+          "shorthandExpansions": [],
+          "waterHabit": null
+        }
+      }
+    },
+    {
+      "path": "/api/v1/nutrition/logging-context?date=2026-09-07&q=Receipt%20staple",
+      "method": "GET",
+      "owner": "foreign",
+      "auth": "agent",
+      "transport": "browser fetch through Vite proxy",
+      "status": 200,
+      "body": {
+        "data": {
+          "date": "2026-09-07",
+          "query": {
+            "q": "Receipt staple",
+            "variants": ["Receipt staple"]
+          },
+          "today": {
+            "nutrition": null,
+            "summary": {
+              "date": "2026-09-07",
+              "notes": null,
+              "meals": 0,
+              "actual": {
+                "calories": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0
+              },
+              "target": null,
+              "proteinFloor": {
+                "actualProteinGrams": null,
+                "proteinFloorGrams": null,
+                "remainingToFloorGrams": null,
+                "amountAboveFloorGrams": null,
+                "state": "unavailable",
+                "isFinal": false
+              }
+            }
+          },
+          "recentMealItems": [],
+          "savedFoodMatches": [],
+          "promotionCandidates": [],
+          "frequentFoods": [
+            {
+              "food": {
+                "id": "foreign-secret",
+                "userId": "5b9cbaa5-45bf-41ef-ac92-fbfcd4f3df61",
+                "name": "Foreign private staple",
+                "brand": null,
+                "servingSize": "serving",
+                "servingGrams": null,
+                "calories": 999,
+                "protein": 5,
+                "carbs": 10,
+                "fat": 4,
+                "fiber": null,
+                "sugar": null,
+                "verified": false,
+                "source": null,
+                "notes": null,
+                "usageCount": 0,
+                "tags": [],
+                "lastUsedAt": null,
+                "createdAt": 1788828923000,
+                "updatedAt": 1788828923000
+              },
+              "evidence": [
+                {
+                  "category": "frequent",
+                  "field": "usage",
+                  "value": "0"
+                }
+              ],
+              "ambiguity": "none",
+              "aliasVersion": "1",
+              "reason": "Saved food available for quick logging.",
+              "matchedVariant": null
+            }
+          ],
+          "shorthandExpansions": [],
+          "waterHabit": null
+        }
+      }
+    },
+    {
+      "path": "/api/v1/meals",
+      "method": "POST",
+      "owner": "foreign",
+      "auth": "agent",
+      "transport": "Playwright API through Vite proxy",
+      "payload": {
+        "date": "2026-09-07",
+        "name": "Fictional current lunch",
+        "returnSummary": true,
+        "items": [
+          {
+            "foodId": "d6b2880c-b603-4286-82ca-612336812cec",
+            "name": "Foreign attempt",
+            "amount": 1
+          }
+        ]
+      },
+      "status": 422,
+      "body": {
+        "error": {
+          "code": "INVALID_MEAL_ITEMS",
+          "message": "One or more meal items reference unavailable foods"
+        }
+      }
+    },
+    {
+      "path": "/api/v1/foods/d6b2880c-b603-4286-82ca-612336812cec",
+      "method": "PATCH",
+      "owner": "owner",
+      "auth": "jwt",
+      "transport": "browser fetch through Vite proxy",
+      "payload": {
+        "calories": 777
+      },
+      "status": 200,
+      "body": {
+        "data": {
+          "id": "d6b2880c-b603-4286-82ca-612336812cec",
+          "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+          "name": "Receipt staple",
+          "brand": "Fixture Co",
+          "servingSize": "one serving",
+          "servingGrams": 40,
+          "calories": 777,
+          "protein": 5,
+          "carbs": 10,
+          "fat": 4,
+          "fiber": 2,
+          "sugar": 3,
+          "verified": true,
+          "source": "Fictional label",
+          "notes": "Fictional verified label",
+          "usageCount": 2,
+          "tags": ["receipt"],
+          "lastUsedAt": 1788828925000,
+          "createdAt": 1788828925000,
+          "updatedAt": 1788828925267
+        }
+      }
+    },
+    {
+      "path": "/api/v1/meals",
+      "method": "POST",
+      "owner": "owner",
+      "auth": "agent",
+      "transport": "Playwright API through Vite proxy",
+      "payload": {
+        "date": "2026-09-07",
+        "name": "Fictional current lunch",
+        "returnSummary": true,
+        "items": [
+          {
+            "foodName": "Must roll back",
+            "quantity": 2,
+            "unit": "serving",
+            "servingSize": "one serving",
+            "servingGrams": 40,
+            "calories": 100,
+            "protein": 5,
+            "carbs": 10,
+            "fat": 4,
+            "fiber": 2,
+            "sugar": 3,
+            "brand": "Fixture Co",
+            "source": "Fictional label",
+            "notes": "Fictional verified label",
+            "verified": true,
+            "tags": ["receipt"]
+          }
+        ]
+      },
+      "status": 500,
+      "body": {
+        "error": {
+          "code": "INTERNAL_ERROR",
+          "message": "An unexpected error occurred"
+        }
+      }
+    }
+  ],
+  "console": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting..."
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected."
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting..."
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected."
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+    }
+  ],
+  "network": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/src/features/weight/api/weight.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/src/features/habits/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/src/features/foods/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/src/features/nutrition/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/logging-context?date=2026-09-07&q=Receipt%20staple",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/logging-context?date=2026-09-07&q=Receipt%20staple",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/logging-context?date=2026-09-07&q=Receipt%20staple",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/docs/json",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:5260/api/v1/meals",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:5260/api/v1/meals",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/logging-context?date=2026-09-07&q=Receipt%20staple",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/logging-context?date=2026-09-07&q=Receipt%20staple",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "url": "http://127.0.0.1:5260/api/v1/foods/d6b2880c-b603-4286-82ca-612336812cec",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/src/features/weight/api/weight.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/src/features/habits/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/src/features/nutrition/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/src/features/foods/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/users/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/src/features/nutrition/api/nutrition.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/src/features/adaptive-nutrition/api/adaptive-nutrition.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/src/features/adaptive-nutrition/api/keys.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/src/features/foods/api/foods.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/src/features/foods/api/food-analytics.ts",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/adaptive-nutrition",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/2026-09-06",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/2026-09-06/summary",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/2026-09-06/energy-adherence",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/2026-09-08",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/2026-09-08/summary",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/2026-09-08/energy-adherence",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/2026-09-07",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/2026-09-07/summary",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/2026-09-07/energy-adherence",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5260/api/v1/nutrition/week-summary?date=2026-09-07T12%3A00%3A00.000Z",
+      "status": 200
+    }
+  ],
+  "pageErrors": [],
+  "failedRequests": [],
+  "historyBefore": {
+    "foods": [
+      {
+        "id": "foreign-secret",
+        "user_id": "5b9cbaa5-45bf-41ef-ac92-fbfcd4f3df61",
+        "name": "Foreign private staple",
+        "brand": null,
+        "serving_size": "serving",
+        "serving_grams": null,
+        "calories": 999,
+        "protein": 5,
+        "carbs": 10,
+        "fat": 4,
+        "fiber": null,
+        "sugar": null,
+        "verified": 0,
+        "source": null,
+        "notes": null,
+        "last_used_at": null,
+        "created_at": 1788828923000,
+        "updated_at": 1788828923000,
+        "deleted_at": null,
+        "usage_count": 0,
+        "tags": "[]"
+      },
+      {
+        "id": "secondary",
+        "user_id": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+        "name": "Secondary choice",
+        "brand": null,
+        "serving_size": "serving",
+        "serving_grams": null,
+        "calories": 100,
+        "protein": 5,
+        "carbs": 10,
+        "fat": 4,
+        "fiber": null,
+        "sugar": null,
+        "verified": 0,
+        "source": null,
+        "notes": null,
+        "last_used_at": null,
+        "created_at": 1788828923000,
+        "updated_at": 1788828923000,
+        "deleted_at": null,
+        "usage_count": 0,
+        "tags": "[\"receipt staple\"]"
+      }
+    ],
+    "nutrition_logs": [
+      {
+        "id": "log-earlier",
+        "user_id": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+        "date": "2026-09-01",
+        "notes": "Historical note: preserve exactly",
+        "status": "unknown",
+        "status_updated_at": null,
+        "created_at": 1788828923000,
+        "updated_at": 1788828923000
+      },
+      {
+        "id": "log-later",
+        "user_id": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+        "date": "2026-09-06",
+        "notes": "Historical note: preserve exactly",
+        "status": "unknown",
+        "status_updated_at": null,
+        "created_at": 1788828923000,
+        "updated_at": 1788828923000
+      }
+    ],
+    "meals": [
+      {
+        "id": "meal-earlier",
+        "nutrition_log_id": "log-earlier",
+        "name": "Travel bowl",
+        "time": null,
+        "notes": null,
+        "created_at": 1788828923000,
+        "updated_at": 1788828923000,
+        "summary": null
+      },
+      {
+        "id": "meal-later",
+        "nutrition_log_id": "log-later",
+        "name": "Travel bowl",
+        "time": null,
+        "notes": null,
+        "created_at": 1788828923000,
+        "updated_at": 1788828923000,
+        "summary": null
+      }
+    ],
+    "meal_items": [
+      {
+        "id": "item-earlier",
+        "meal_id": "meal-earlier",
+        "food_id": null,
+        "name": "Receipt staple",
+        "amount": 1,
+        "unit": "serving",
+        "display_quantity": null,
+        "display_unit": null,
+        "calories": 100,
+        "protein": 5,
+        "carbs": 10,
+        "fat": 4,
+        "fiber": 2,
+        "sugar": 3,
+        "created_at": 1788828923000
+      },
+      {
+        "id": "item-later",
+        "meal_id": "meal-later",
+        "food_id": null,
+        "name": "Receipt staple",
+        "amount": 2,
+        "unit": "serving",
+        "display_quantity": null,
+        "display_unit": null,
+        "calories": 150,
+        "protein": 5,
+        "carbs": 10,
+        "fat": 4,
+        "fiber": 2,
+        "sugar": 3,
+        "created_at": 1788828923000
+      }
+    ]
+  },
+  "openapi": {
+    "rankedKeys": ["aliasVersion", "ambiguity", "evidence", "food", "matchedVariant", "reason"],
+    "shorthandScoreRetained": true
+  },
+  "rollback": {
+    "forcedFailureStatus": 500,
+    "unchanged": true,
+    "noNewDefinitionOrMealOrItem": true
+  },
+  "readback": {
+    "definitionBeforeEdit": {
+      "id": "d6b2880c-b603-4286-82ca-612336812cec",
+      "user_id": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+      "name": "Receipt staple",
+      "brand": "Fixture Co",
+      "serving_size": "one serving",
+      "serving_grams": 40,
+      "calories": 100,
+      "protein": 5,
+      "carbs": 10,
+      "fat": 4,
+      "fiber": 2,
+      "sugar": 3,
+      "verified": 1,
+      "source": "Fictional label",
+      "notes": "Fictional verified label",
+      "last_used_at": 1788828925000,
+      "created_at": 1788828925000,
+      "updated_at": 1788828925000,
+      "deleted_at": null,
+      "usage_count": 2,
+      "tags": "[\"receipt\"]"
+    },
+    "links": [
+      {
+        "id": "b9c9c99c-9147-40e5-86dd-ab682186a133",
+        "meal_id": "ab97d2e7-82f7-44d2-b527-14b06a14dbf1",
+        "food_id": "d6b2880c-b603-4286-82ca-612336812cec",
+        "name": "Receipt staple",
+        "amount": 2,
+        "unit": "serving",
+        "display_quantity": null,
+        "display_unit": null,
+        "calories": 200,
+        "protein": 10,
+        "carbs": 20,
+        "fat": 8,
+        "fiber": 4,
+        "sugar": 6,
+        "created_at": 1788828925000
+      },
+      {
+        "id": "165587af-5bb0-4e98-adae-c70761f81b75",
+        "meal_id": "07ffe83e-4f10-4a9f-8778-70d24aff2cce",
+        "food_id": "d6b2880c-b603-4286-82ca-612336812cec",
+        "name": "Receipt staple",
+        "amount": 2,
+        "unit": "serving",
+        "display_quantity": null,
+        "display_unit": null,
+        "calories": 200,
+        "protein": 10,
+        "carbs": 20,
+        "fat": 8,
+        "fiber": 4,
+        "sugar": 6,
+        "created_at": 1788828925000
+      }
+    ],
+    "reviewOnly": [
+      {
+        "normalizedName": "receipt staple",
+        "displayName": "Receipt staple",
+        "occurrenceCount": 2,
+        "distinctDayCount": 2,
+        "mostRecentDate": "2026-09-06",
+        "snapshots": [
+          {
+            "date": "2026-09-06",
+            "mealId": "meal-later",
+            "mealName": "Travel bowl",
+            "mealTime": null,
+            "item": {
+              "id": "item-later",
+              "mealId": "meal-later",
+              "foodId": null,
+              "name": "Receipt staple",
+              "amount": 2,
+              "unit": "serving",
+              "displayQuantity": null,
+              "displayUnit": null,
+              "calories": 150,
+              "protein": 5,
+              "carbs": 10,
+              "fat": 4,
+              "fiber": 2,
+              "sugar": 3,
+              "createdAt": 1788828923000
+            }
+          },
+          {
+            "date": "2026-09-01",
+            "mealId": "meal-earlier",
+            "mealName": "Travel bowl",
+            "mealTime": null,
+            "item": {
+              "id": "item-earlier",
+              "mealId": "meal-earlier",
+              "foodId": null,
+              "name": "Receipt staple",
+              "amount": 1,
+              "unit": "serving",
+              "displayQuantity": null,
+              "displayUnit": null,
+              "calories": 100,
+              "protein": 5,
+              "carbs": 10,
+              "fat": 4,
+              "fiber": 2,
+              "sugar": 3,
+              "createdAt": 1788828923000
+            }
+          }
+        ],
+        "stability": "review_only",
+        "stabilityReason": "SNAPSHOT_DIFFERENCE",
+        "likelySavedFoodMatch": {
+          "food": {
+            "id": "d6b2880c-b603-4286-82ca-612336812cec",
+            "userId": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+            "name": "Receipt staple",
+            "brand": "Fixture Co",
+            "servingSize": "one serving",
+            "servingGrams": 40,
+            "calories": 100,
+            "protein": 5,
+            "carbs": 10,
+            "fat": 4,
+            "fiber": 2,
+            "sugar": 3,
+            "verified": true,
+            "source": "Fictional label",
+            "notes": "Fictional verified label",
+            "usageCount": 2,
+            "tags": ["receipt"],
+            "lastUsedAt": 1788828925000,
+            "createdAt": 1788828925000,
+            "updatedAt": 1788828925000
+          },
+          "evidence": [
+            {
+              "category": "exact_normalized",
+              "field": "name",
+              "value": "Receipt staple"
+            }
+          ],
+          "ambiguity": "none",
+          "aliasVersion": "1",
+          "reason": "exact_normalized",
+          "matchedVariant": "Receipt staple"
+        },
+        "reason": "EXACT_SAVED_MATCH"
+      }
+    ],
+    "stableOrder": [
+      {
+        "id": "d6b2880c-b603-4286-82ca-612336812cec",
+        "reason": "exact_normalized",
+        "ambiguity": "none"
+      },
+      {
+        "id": "secondary",
+        "reason": "brand_or_tag",
+        "ambiguity": "none"
+      }
+    ],
+    "ownerIsolation": true,
+    "unchangedHistory": true,
+    "finalSnapshot": {
+      "foods": [
+        {
+          "id": "d6b2880c-b603-4286-82ca-612336812cec",
+          "user_id": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+          "name": "Receipt staple",
+          "brand": "Fixture Co",
+          "serving_size": "one serving",
+          "serving_grams": 40,
+          "calories": 777,
+          "protein": 5,
+          "carbs": 10,
+          "fat": 4,
+          "fiber": 2,
+          "sugar": 3,
+          "verified": 1,
+          "source": "Fictional label",
+          "notes": "Fictional verified label",
+          "last_used_at": 1788828925000,
+          "created_at": 1788828925000,
+          "updated_at": 1788828925267,
+          "deleted_at": null,
+          "usage_count": 2,
+          "tags": "[\"receipt\"]"
+        },
+        {
+          "id": "foreign-secret",
+          "user_id": "5b9cbaa5-45bf-41ef-ac92-fbfcd4f3df61",
+          "name": "Foreign private staple",
+          "brand": null,
+          "serving_size": "serving",
+          "serving_grams": null,
+          "calories": 999,
+          "protein": 5,
+          "carbs": 10,
+          "fat": 4,
+          "fiber": null,
+          "sugar": null,
+          "verified": 0,
+          "source": null,
+          "notes": null,
+          "last_used_at": null,
+          "created_at": 1788828923000,
+          "updated_at": 1788828923000,
+          "deleted_at": null,
+          "usage_count": 0,
+          "tags": "[]"
+        },
+        {
+          "id": "secondary",
+          "user_id": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+          "name": "Secondary choice",
+          "brand": null,
+          "serving_size": "serving",
+          "serving_grams": null,
+          "calories": 100,
+          "protein": 5,
+          "carbs": 10,
+          "fat": 4,
+          "fiber": null,
+          "sugar": null,
+          "verified": 0,
+          "source": null,
+          "notes": null,
+          "last_used_at": null,
+          "created_at": 1788828923000,
+          "updated_at": 1788828923000,
+          "deleted_at": null,
+          "usage_count": 0,
+          "tags": "[\"receipt staple\"]"
+        }
+      ],
+      "nutrition_logs": [
+        {
+          "id": "364facc6-918e-4ce6-8a81-a92f55ffbb1e",
+          "user_id": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+          "date": "2026-09-07",
+          "notes": null,
+          "status": "unknown",
+          "status_updated_at": null,
+          "created_at": 1788828925000,
+          "updated_at": 1788828925000
+        },
+        {
+          "id": "log-earlier",
+          "user_id": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+          "date": "2026-09-01",
+          "notes": "Historical note: preserve exactly",
+          "status": "unknown",
+          "status_updated_at": null,
+          "created_at": 1788828923000,
+          "updated_at": 1788828923000
+        },
+        {
+          "id": "log-later",
+          "user_id": "939568e2-74cd-49f0-9a6f-aa8f6d217198",
+          "date": "2026-09-06",
+          "notes": "Historical note: preserve exactly",
+          "status": "unknown",
+          "status_updated_at": null,
+          "created_at": 1788828923000,
+          "updated_at": 1788828923000
+        }
+      ],
+      "meals": [
+        {
+          "id": "07ffe83e-4f10-4a9f-8778-70d24aff2cce",
+          "nutrition_log_id": "364facc6-918e-4ce6-8a81-a92f55ffbb1e",
+          "name": "Fictional current lunch",
+          "time": null,
+          "notes": null,
+          "created_at": 1788828925000,
+          "updated_at": 1788828925000,
+          "summary": "Receipt staple"
+        },
+        {
+          "id": "ab97d2e7-82f7-44d2-b527-14b06a14dbf1",
+          "nutrition_log_id": "364facc6-918e-4ce6-8a81-a92f55ffbb1e",
+          "name": "Fictional current lunch",
+          "time": null,
+          "notes": null,
+          "created_at": 1788828925000,
+          "updated_at": 1788828925000,
+          "summary": "Receipt staple"
+        },
+        {
+          "id": "meal-earlier",
+          "nutrition_log_id": "log-earlier",
+          "name": "Travel bowl",
+          "time": null,
+          "notes": null,
+          "created_at": 1788828923000,
+          "updated_at": 1788828923000,
+          "summary": null
+        },
+        {
+          "id": "meal-later",
+          "nutrition_log_id": "log-later",
+          "name": "Travel bowl",
+          "time": null,
+          "notes": null,
+          "created_at": 1788828923000,
+          "updated_at": 1788828923000,
+          "summary": null
+        }
+      ],
+      "meal_items": [
+        {
+          "id": "165587af-5bb0-4e98-adae-c70761f81b75",
+          "meal_id": "07ffe83e-4f10-4a9f-8778-70d24aff2cce",
+          "food_id": "d6b2880c-b603-4286-82ca-612336812cec",
+          "name": "Receipt staple",
+          "amount": 2,
+          "unit": "serving",
+          "display_quantity": null,
+          "display_unit": null,
+          "calories": 200,
+          "protein": 10,
+          "carbs": 20,
+          "fat": 8,
+          "fiber": 4,
+          "sugar": 6,
+          "created_at": 1788828925000
+        },
+        {
+          "id": "b9c9c99c-9147-40e5-86dd-ab682186a133",
+          "meal_id": "ab97d2e7-82f7-44d2-b527-14b06a14dbf1",
+          "food_id": "d6b2880c-b603-4286-82ca-612336812cec",
+          "name": "Receipt staple",
+          "amount": 2,
+          "unit": "serving",
+          "display_quantity": null,
+          "display_unit": null,
+          "calories": 200,
+          "protein": 10,
+          "carbs": 20,
+          "fat": 8,
+          "fiber": 4,
+          "sugar": 6,
+          "created_at": 1788828925000
+        },
+        {
+          "id": "item-earlier",
+          "meal_id": "meal-earlier",
+          "food_id": null,
+          "name": "Receipt staple",
+          "amount": 1,
+          "unit": "serving",
+          "display_quantity": null,
+          "display_unit": null,
+          "calories": 100,
+          "protein": 5,
+          "carbs": 10,
+          "fat": 4,
+          "fiber": 2,
+          "sugar": 3,
+          "created_at": 1788828923000
+        },
+        {
+          "id": "item-later",
+          "meal_id": "meal-later",
+          "food_id": null,
+          "name": "Receipt staple",
+          "amount": 2,
+          "unit": "serving",
+          "display_quantity": null,
+          "display_unit": null,
+          "calories": 150,
+          "protein": 5,
+          "carbs": 10,
+          "fat": 4,
+          "fiber": 2,
+          "sugar": 3,
+          "created_at": 1788828923000
+        }
+      ]
+    }
+  },
+  "result": "PASS"
+}

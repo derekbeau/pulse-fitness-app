@@ -1,0 +1,5 @@
+{
+  "command": "pnpm --filter @pulse/api exec vitest run src/routes/nutrition/store.food-usage.test.ts -t 'derives merge from links' --maxWorkers=1 --execArgv=--cpu-prof --execArgv=--cpu-prof-dir=/Users/meridian/Projects/pulse-food-reuse/artifacts/issue-138-final/profiles",
+  "exitCode": 0,
+  "elapsedSeconds": 2.05
+}

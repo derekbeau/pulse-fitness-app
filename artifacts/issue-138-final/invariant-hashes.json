@@ -1,0 +1,51 @@
+{
+  "head": "89828ac5e2d4828c447016d0093e60a5aa1cb8d3",
+  "followupStart": "6efd64fd058f8611838dd9ed29629bd44d25ff48",
+  "files": [
+    {
+      "path": "docs/implementation/ranked-food-reuse-goal.md",
+      "sha256": "7294b9e2463b8765358ce26422f8fab2260d5f20403f1ab3eaa869902d2789cd",
+      "unchangedFromFollowupStart": true
+    },
+    {
+      "path": "apps/api/src/routes/foods/reuse-policy.ts",
+      "sha256": "e6e4e156190aa39373ae861f334b015c64f44a212b1d1136a7ef6bdd557096dd",
+      "unchangedFromFollowupStart": true
+    },
+    {
+      "path": "packages/shared/src/schemas/nutrition.ts",
+      "sha256": "151c251f417b3076d255a00256e1bbd5e6fc32c85d0fcb2405458d575f47e836",
+      "unchangedFromFollowupStart": true
+    },
+    {
+      "path": "apps/api/src/routes/nutrition/ranked-food-reuse.integration.test.ts",
+      "sha256": "fac0b6813a1318d08c661d0e32756b97356924b423add33bc788ad57fd681d0c",
+      "unchangedFromFollowupStart": true
+    },
+    {
+      "path": "docs/agents/foods-api.md",
+      "sha256": "381f84a553ee04f27c4f578d51860701e7e5eeb25e9d8cbc3f89cb050663f793",
+      "unchangedFromFollowupStart": true
+    },
+    {
+      "path": "docs/conventions/agent-integration.md",
+      "sha256": "46f23d012e7ed256bded665b4459c3c49c84bee73004bd12e7b2bc6619e15c33",
+      "unchangedFromFollowupStart": true
+    },
+    {
+      "path": "apps/api/src/routes/meals/write-transaction.ts",
+      "sha256": "5b4acca3ec24fc389ff2d5e08338d7b169fe429790b4c571fc4bea1efe49e040",
+      "unchangedFromFollowupStart": true
+    },
+    {
+      "path": "apps/api/src/routes/meals/food-plans.ts",
+      "sha256": "fb31df7bd73040a5759b1465333347f94e5abba916ae0455e3108ffcf06156b5",
+      "unchangedFromFollowupStart": true
+    },
+    {
+      "path": "apps/api/src/routes/nutrition/store.ts",
+      "sha256": "0f0738ce3cfce448d195411ff996c10eec72153543a54d76e54c47eaf9feeffc",
+      "unchangedFromFollowupStart": true
+    }
+  ]
+}

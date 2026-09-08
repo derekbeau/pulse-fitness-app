@@ -1,0 +1,11 @@
+$ pnpm --filter @pulse/api exec vitest run src/routes/nutrition/food-reuse-process.integration.test.ts --maxWorkers=1
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/api
+
+ ✓ src/routes/nutrition/food-reuse-process.integration.test.ts (7 tests) 1856ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  20:38:59
+   Duration  2.37s (transform 129ms, setup 0ms, import 385ms, tests 1.86s, environment 0ms)
+

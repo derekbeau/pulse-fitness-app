@@ -1,0 +1,282 @@
+[
+  {
+    "file": "CPU.20260907.203600.71715.0.001.cpuprofile",
+    "durationMs": 4654,
+    "vitestExpectSelfMs": 2694.5,
+    "gcSelfMs": 559.3,
+    "topSelfMs": [
+      {
+        "fn": "keys",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 336,
+        "ms": 1100.5
+      },
+      {
+        "fn": "(idle)",
+        "file": "",
+        "line": 0,
+        "ms": 597.0
+      },
+      {
+        "fn": "(garbage collector)",
+        "file": "",
+        "line": 0,
+        "ms": 559.3
+      },
+      {
+        "fn": "iterableEquality",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 420,
+        "ms": 353.6
+      },
+      {
+        "fn": "eq",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 203,
+        "ms": 301.4
+      },
+      {
+        "fn": "keys",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 336,
+        "ms": 198.1
+      },
+      {
+        "fn": "eq",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 203,
+        "ms": 137.9
+      },
+      {
+        "fn": "eq",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 203,
+        "ms": 117.4
+      },
+      {
+        "fn": "iterableEqualityWithStack",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 440,
+        "ms": 106.7
+      },
+      {
+        "fn": "(program)",
+        "file": "",
+        "line": 0,
+        "ms": 81.3
+      },
+      {
+        "fn": "hasKey",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 348,
+        "ms": 51.3
+      },
+      {
+        "fn": "run",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/drizzle-orm@0.45.1_@types+better-sqlite3@7.6.13_better-sqlite3@12.6.2/node_modules/drizzle-orm/better-sqlite3/session.js",
+        "line": 69,
+        "ms": 47.7
+      },
+      {
+        "fn": "iterableEqualityWithStack",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 440,
+        "ms": 47.0
+      },
+      {
+        "fn": "iterableEqualityWithStack",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 440,
+        "ms": 41.7
+      },
+      {
+        "fn": "Script",
+        "file": "node:vm",
+        "line": 85,
+        "ms": 36.4
+      },
+      {
+        "fn": "hasKey",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 348,
+        "ms": 32.9
+      },
+      {
+        "fn": "_runInlinedModule",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/vitest@4.0.18_@types+node@24.11.0_jiti@2.6.1_jsdom@26.1.0_lightningcss@1.31.1_msw@2.12._1bfaa7858fd9dea7ae0ec12730e0a711/node_modules/vitest/dist/module-evaluator.js",
+        "line": 109,
+        "ms": 29.0
+      },
+      {
+        "fn": "hasKey",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 348,
+        "ms": 28.9
+      },
+      {
+        "fn": "get",
+        "file": "node:internal/modules/package_json_reader",
+        "line": 79,
+        "ms": 27.2
+      },
+      {
+        "fn": "equals",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 161,
+        "ms": 22.8
+      },
+      {
+        "fn": "hasDefinedKey",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 345,
+        "ms": 20.5
+      },
+      {
+        "fn": "iterableEquality",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/@vitest+expect@4.0.18/node_modules/@vitest/expect/dist/index.js",
+        "line": 420,
+        "ms": 18.9
+      }
+    ]
+  },
+  {
+    "file": "CPU.20260907.204037.75259.0.001.cpuprofile",
+    "durationMs": 1329,
+    "vitestExpectSelfMs": 1.2,
+    "gcSelfMs": 38.9,
+    "topSelfMs": [
+      {
+        "fn": "(idle)",
+        "file": "",
+        "line": 0,
+        "ms": 611.4
+      },
+      {
+        "fn": "run",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/drizzle-orm@0.45.1_@types+better-sqlite3@7.6.13_better-sqlite3@12.6.2/node_modules/drizzle-orm/better-sqlite3/session.js",
+        "line": 69,
+        "ms": 45.1
+      },
+      {
+        "fn": "_runInlinedModule",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/vitest@4.0.18_@types+node@24.11.0_jiti@2.6.1_jsdom@26.1.0_lightningcss@1.31.1_msw@2.12._1bfaa7858fd9dea7ae0ec12730e0a711/node_modules/vitest/dist/module-evaluator.js",
+        "line": 109,
+        "ms": 40.6
+      },
+      {
+        "fn": "(garbage collector)",
+        "file": "",
+        "line": 0,
+        "ms": 38.9
+      },
+      {
+        "fn": "get",
+        "file": "node:internal/modules/package_json_reader",
+        "line": 79,
+        "ms": 27.4
+      },
+      {
+        "fn": "Script",
+        "file": "node:vm",
+        "line": 85,
+        "ms": 23.1
+      },
+      {
+        "fn": "get",
+        "file": "node:internal/modules/package_json_reader",
+        "line": 79,
+        "ms": 14.9
+      },
+      {
+        "fn": "get",
+        "file": "node:internal/modules/package_json_reader",
+        "line": 79,
+        "ms": 14.9
+      },
+      {
+        "fn": "get",
+        "file": "node:internal/modules/package_json_reader",
+        "line": 79,
+        "ms": 10.7
+      },
+      {
+        "fn": "readFileSync",
+        "file": "node:fs",
+        "line": 434,
+        "ms": 8.8
+      },
+      {
+        "fn": "",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/packages/shared/src/utils/weight-unit.ts",
+        "line": 1,
+        "ms": 8.8
+      },
+      {
+        "fn": "get",
+        "file": "node:internal/modules/package_json_reader",
+        "line": 79,
+        "ms": 7.5
+      },
+      {
+        "fn": "get",
+        "file": "node:internal/modules/package_json_reader",
+        "line": 79,
+        "ms": 7.5
+      },
+      {
+        "fn": "readSync",
+        "file": "node:fs",
+        "line": 696,
+        "ms": 6.3
+      },
+      {
+        "fn": "get",
+        "file": "node:internal/modules/package_json_reader",
+        "line": 79,
+        "ms": 6.2
+      },
+      {
+        "fn": "prepare",
+        "file": "file:///Users/meridian/Projects/pulse-food-reuse/node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3/lib/methods/wrappers.js",
+        "line": 4,
+        "ms": 6.1
+      },
+      {
+        "fn": "compileSourceTextModule",
+        "file": "node:internal/modules/esm/utils",
+        "line": 316,
+        "ms": 5.0
+      },
+      {
+        "fn": "get",
+        "file": "node:internal/modules/package_json_reader",
+        "line": 79,
+        "ms": 5.0
+      },
+      {
+        "fn": "get",
+        "file": "node:internal/modules/package_json_reader",
+        "line": 79,
+        "ms": 5.0
+      },
+      {
+        "fn": "readFileSync",
+        "file": "node:fs",
+        "line": 434,
+        "ms": 5.0
+      },
+      {
+        "fn": "readSync",
+        "file": "node:fs",
+        "line": 696,
+        "ms": 4.4
+      },
+      {
+        "fn": "readSync",
+        "file": "node:fs",
+        "line": 696,
+        "ms": 4.0
+      }
+    ]
+  }
+]
