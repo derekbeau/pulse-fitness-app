@@ -16,7 +16,7 @@ See [executor acknowledgement](executor-acknowledgement.md) for exact initial HE
 
 ## Full gates
 
-All four final root commands exited 0, with zero cached tasks:
+All four final root commands exited 0, with zero cached tasks. The earlier retained `final-test.log` is a failed development receipt and is **superseded**, not a final-pass receipt; the independently retained passing receipt is `final-test-3.log` (same exact head and command family). The failed receipt remains unchanged for audit history. No historical output has been rewritten or reconstructed.
 
 | Root command | Environment prefix | Result | Raw receipt |
 | --- | --- | --- | --- |
