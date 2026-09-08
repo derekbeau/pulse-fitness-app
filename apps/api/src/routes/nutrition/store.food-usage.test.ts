@@ -28,6 +28,14 @@ type TestContext = {
 };
 
 let context: TestContext;
+
+// SQLite images are byte sequences. Generic iterable equality enumerates every byte
+// into JS keys/stacks (and megabytes of garbage) for each rollback assertion.
+// Native equality retains the exact whole-image check, including length, in one pass.
+expect.addEqualityTesters([
+  (actual, expected) =>
+    Buffer.isBuffer(actual) && Buffer.isBuffer(expected) ? actual.equals(expected) : undefined,
+]);
 const required = <T>(value: T | undefined): T => {
   if (value === undefined) throw new Error('Missing expected fixture row');
   return value;
@@ -225,6 +233,15 @@ describe('food usage lifecycle integrity', () => {
       `CREATE TRIGGER fail_usage BEFORE UPDATE OF usage_count ON foods BEGIN SELECT RAISE(ABORT, 'injected usage failure'); END`,
     );
   const clearFailure = () => context.sqlite.exec('DROP TRIGGER IF EXISTS fail_usage');
+
+  it('detects changed bytes and lengths in the exact SQLite rollback images', () => {
+    const original = snapshot();
+    expect(Buffer.from(original)).toEqual(original);
+    const changed = Buffer.from(original);
+    changed[changed.length - 1] ^= 1;
+    expect(changed).not.toEqual(original);
+    expect(original.subarray(0, original.length - 1)).not.toEqual(original);
+  });
 
   it.each(['preferred', 'date-scoped'])(
     'counts every linked row through %s JWT and AgentToken creation',

@@ -14,6 +14,9 @@ type Message = {
   kind: string;
   id?: string;
   pid?: number;
+  apiReady?: boolean;
+  elapsedMs?: number;
+  sinceForkMs?: number;
   code?: string;
   attempt?: number;
   attempts?: number;
@@ -28,8 +31,10 @@ class Worker {
   child: ChildProcess;
   messages: Message[] = [];
   stderr = '';
+  exited = false;
   listeners = new Set<() => void>();
   constructor(databasePath: string) {
+    const forkStarted = performance.now();
     this.child = fork(
       fileURLToPath(new URL('./__tests__/food-reuse-worker.ts', import.meta.url)),
       [],
@@ -49,10 +54,18 @@ class Worker {
       this.stderr += String(chunk);
     });
     this.child.on('message', (message: Message) => {
-      this.messages.push(message);
+      this.messages.push({ ...message, sinceForkMs: performance.now() - forkStarted });
       for (const listener of this.listeners) listener();
     });
-    this.child.on('exit', () => {
+    this.child.on('error', (error) => {
+      this.messages.push({ kind: 'fatal' });
+      this.stderr += String(error);
+      for (const listener of this.listeners) listener();
+    });
+    this.child.on('exit', (code, signal) => {
+      this.exited = true;
+      this.messages.push({ kind: 'fatal' });
+      this.stderr += `Child exited: code=${code} signal=${signal}`;
       for (const listener of this.listeners) listener();
     });
   }
@@ -77,7 +90,7 @@ class Worker {
           clearTimeout(timer);
           this.listeners.delete(check);
           resolve(message);
-        } else if (this.child.exitCode !== null || this.messages.some((m) => m.kind === 'fatal')) {
+        } else if (this.exited || this.messages.some((m) => m.kind === 'fatal')) {
           clearTimeout(timer);
           this.listeners.delete(check);
           reject(new Error(`Worker failed: ${JSON.stringify(this.messages)} ${this.stderr}`));
@@ -88,7 +101,7 @@ class Worker {
     });
   }
   async close() {
-    if (this.child.exitCode !== null) return;
+    if (this.exited || !this.child.pid) return;
     await new Promise<void>((resolve) => {
       const timer = setTimeout(() => this.child.kill('SIGKILL'), 1000);
       this.child.once('exit', () => {
@@ -184,6 +197,11 @@ describe('independent API processes serialize owner-local food creation', () => 
     const online = await Promise.all(workers.map((worker) => worker.wait('online')));
     expect(new Set(online.map((message) => message.pid)).size).toBe(2);
     expect(online.every((message) => message.pid !== process.pid)).toBe(true);
+    expect(online.every((message) => message.apiReady === true)).toBe(true);
+    console.info(
+      'Independent worker startup phases:',
+      workers.map((worker) => worker.messages),
+    );
   });
   afterAll(async () => {
     if (sqlite?.inTransaction) sqlite.exec('ROLLBACK');
