@@ -334,7 +334,7 @@ describe('workout feedback authenticated routes', () => {
       method: 'PATCH',
       url: `/api/v1/workout-sessions/${session.id}`,
       headers: bearer(jwtA),
-      payload: { status: 'completed', completedAt: 1_788_876_600_000, duration: 10 },
+      payload: { status: 'completed', completedAt: Date.now(), duration: 10 },
     });
     expect(completed.statusCode).toBe(200);
     const corrected = await app.inject({
