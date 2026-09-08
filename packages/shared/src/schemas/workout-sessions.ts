@@ -13,6 +13,12 @@ import {
   nullableRpeSchema,
   validateMutuallyExclusiveWorkoutEffort,
 } from './workout-effort.js';
+import {
+  workoutFeedbackAnswerInputSchema,
+  workoutFeedbackAnswerSnapshotSchema,
+  workoutFeedbackQuestionInputListSchema,
+  workoutFeedbackQuestionListSchema,
+} from './workout-feedback.js';
 
 const normalizeNullableString = (value: unknown) => {
   if (value === null || value === undefined) {
@@ -360,6 +366,8 @@ export const workoutSessionSchema = z
     sets: z.array(sessionSetSchema).max(500),
     createdAt: z.number().int(),
     updatedAt: z.number().int(),
+    feedbackQuestions: workoutFeedbackQuestionListSchema.optional(),
+    feedbackAnswers: workoutFeedbackAnswerSnapshotSchema.optional(),
   })
   .superRefine(validateWorkoutSessionTiming);
 
@@ -500,10 +508,22 @@ const createWorkoutSessionInputObjectSchema = z.object({
   feedback: workoutSessionFeedbackInputSchema.nullable().optional().default(null),
   notes: nullableLongStringSchema.optional().default(null),
   sets: z.array(sessionSetInputSchema).max(500).optional().default([]),
+  feedbackQuestions: workoutFeedbackQuestionInputListSchema.optional(),
+  feedbackResponses: z.array(workoutFeedbackAnswerInputSchema).min(1).max(50).optional(),
+  feedbackExpectedRevision: z.number().int().nonnegative().optional(),
 });
 
 export const createWorkoutSessionInputSchema = createWorkoutSessionInputObjectSchema.superRefine(
-  validateWorkoutSessionTiming,
+  (value, context) => {
+    validateWorkoutSessionTiming(value, context);
+    if (value.feedbackResponses && value.feedbackExpectedRevision === undefined) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['feedbackExpectedRevision'],
+        message: 'feedbackExpectedRevision is required when feedbackResponses is provided',
+      });
+    }
+  },
 );
 
 export const createWorkoutSessionRequestSchema = createWorkoutSessionInputObjectSchema
@@ -542,6 +562,8 @@ export const updateWorkoutSessionInputSchema = z
     duration: nullableIntegerSchema.optional(),
     timeSegments: validatedTimeSegmentsSchema.optional(),
     feedback: workoutSessionFeedbackInputSchema.nullable().optional(),
+    feedbackResponses: z.array(workoutFeedbackAnswerInputSchema).min(1).max(50).optional(),
+    feedbackExpectedRevision: z.number().int().nonnegative().optional(),
     notes: nullableLongStringSchema.optional(),
     exerciseNotes: exerciseNotesInputSchema.optional(),
     sets: z.array(sessionSetInputSchema).max(500).optional(),
@@ -551,8 +573,20 @@ export const updateWorkoutSessionInputSchema = z
     reorderExercises: z.array(requiredStringSchema).min(1).max(200).optional(),
     exercises: z.array(workoutSessionExerciseUpdateInputSchema).min(1).max(200).optional(),
   })
-  .refine((value) => Object.values(value).some((field) => field !== undefined), {
-    message: 'At least one workout session field must be provided',
+  .superRefine((value, context) => {
+    if (!Object.values(value).some((field) => field !== undefined)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'At least one workout session field must be provided',
+      });
+    }
+    if (value.feedbackResponses !== undefined && value.feedbackExpectedRevision === undefined) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['feedbackExpectedRevision'],
+        message: 'feedbackExpectedRevision is required when feedbackResponses is provided',
+      });
+    }
   });
 
 export const updateWorkoutSessionTimeSegmentsInputSchema = z.object({
@@ -588,9 +622,27 @@ export const setCorrectionSchema = z
   )
   .superRefine(validateMutuallyExclusiveWorkoutEffort);
 
-export const sessionCorrectionRequestSchema = z.object({
-  corrections: z.array(setCorrectionSchema).min(1).max(500),
-});
+export const sessionCorrectionRequestSchema = z
+  .object({
+    corrections: z.array(setCorrectionSchema).min(1).max(500).optional(),
+    feedbackResponses: z.array(workoutFeedbackAnswerInputSchema).min(1).max(50).optional(),
+    feedbackExpectedRevision: z.number().int().nonnegative().optional(),
+  })
+  .superRefine((value, context) => {
+    if (!value.corrections && !value.feedbackResponses) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'At least one set or feedback correction is required',
+      });
+    }
+    if (value.feedbackResponses && value.feedbackExpectedRevision === undefined) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['feedbackExpectedRevision'],
+        message: 'feedbackExpectedRevision is required for feedback corrections',
+      });
+    }
+  });
 
 export const reorderWorkoutSessionExercisesInputSchema = z.object({
   section: workoutTemplateSectionTypeSchema,

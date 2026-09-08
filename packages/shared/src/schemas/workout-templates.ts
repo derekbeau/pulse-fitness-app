@@ -1,6 +1,10 @@
 import { feedbackNoteReviewSchema } from './feedback-provenance.js';
 import { z } from 'zod';
 import { exerciseTrackingTypeSchema } from './exercises.js';
+import {
+  workoutFeedbackQuestionInputListSchema,
+  workoutFeedbackQuestionListSchema,
+} from './workout-feedback.js';
 
 export const MAX_DURATION_SECONDS = 21_600;
 
@@ -215,6 +219,7 @@ export const workoutTemplateSchema = z.object({
     ),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
+  feedbackQuestions: workoutFeedbackQuestionListSchema.optional(),
 });
 
 const createWorkoutTemplateInputSchemaInternal = z
@@ -223,6 +228,8 @@ const createWorkoutTemplateInputSchemaInternal = z
     description: nullableStringSchema.optional().default(null),
     tags: z.array(requiredStringSchema).max(20).optional().default([]),
     sections: z.array(workoutTemplateSectionInputSchema).max(4).optional().default([]),
+    feedbackQuestions: workoutFeedbackQuestionInputListSchema.optional(),
+    feedbackQuestionsExpectedRevision: z.number().int().nonnegative().optional(),
   })
   .superRefine((value, context) => {
     const seen = new Set<string>();
@@ -247,19 +254,33 @@ export const updateWorkoutTemplateInputSchema = z
     description: nullableStringSchema.optional(),
     tags: z.array(requiredStringSchema).max(20).optional(),
     sections: z.array(workoutTemplateSectionInputSchema).max(4).optional(),
+    feedbackQuestions: workoutFeedbackQuestionInputListSchema.optional(),
+    feedbackQuestionsExpectedRevision: z.number().int().nonnegative().optional(),
   })
   .superRefine((value, context) => {
     if (
       value.name === undefined &&
       value.description === undefined &&
       value.tags === undefined &&
-      value.sections === undefined
+      value.sections === undefined &&
+      value.feedbackQuestions === undefined
     ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'At least one field must be provided',
       });
       return;
+    }
+
+    if (
+      value.feedbackQuestions !== undefined &&
+      value.feedbackQuestionsExpectedRevision === undefined
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'feedbackQuestionsExpectedRevision is required when feedbackQuestions is provided',
+        path: ['feedbackQuestionsExpectedRevision'],
+      });
     }
 
     if (!value.sections) {

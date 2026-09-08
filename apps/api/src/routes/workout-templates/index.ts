@@ -33,8 +33,13 @@ import {
   idParamsSchema,
   opaqueIdParamSchema,
   successFlagSchema,
+  workoutFeedbackRevisionConflictResponseSchema,
 } from '../../openapi.js';
 import { allRelatedExercisesOwned } from '../exercises/store.js';
+import {
+  WorkoutFeedbackRevisionConflictError,
+  type FeedbackMutationActor,
+} from '../workout-feedback/store.js';
 
 import {
   allTemplateExercisesAccessible,
@@ -86,6 +91,20 @@ const getReferencedExerciseIds = (
 ): string[] =>
   sections.flatMap((section) => section.exercises.map((exercise) => exercise.exerciseId));
 
+const getQuestionExerciseIds = (questions: Array<{ exerciseIdSnapshot?: string | null }>) =>
+  questions.flatMap((question) =>
+    question.exerciseIdSnapshot ? [question.exerciseIdSnapshot] : [],
+  );
+
+const feedbackActorForRequest = (request: FastifyRequest): FeedbackMutationActor =>
+  request.authType === 'agent-token'
+    ? {
+        kind: 'agent_token',
+        id: request.agentTokenId ?? null,
+        name: request.agentTokenName ?? null,
+      }
+    : { kind: 'user', id: request.userId, name: null };
+
 const resolveTemplateUpdateInput = ({
   existingTemplate,
   update,
@@ -120,6 +139,12 @@ const resolveTemplateUpdateInput = ({
           programmingNotes: exercise.programmingNotes ?? null,
         })),
       })),
+    ...(update.feedbackQuestions === undefined
+      ? {}
+      : {
+          feedbackQuestions: update.feedbackQuestions,
+          feedbackQuestionsExpectedRevision: update.feedbackQuestionsExpectedRevision,
+        }),
   };
 };
 
@@ -200,6 +225,7 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
           201: workoutTemplateMutationResponseSchema,
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
+          409: workoutFeedbackRevisionConflictResponseSchema,
         },
         tags: ['workout-templates'],
         summary: 'Create a workout template',
@@ -207,7 +233,10 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const exerciseIds = getReferencedExerciseIds(request.body.sections);
+      const exerciseIds = [
+        ...getReferencedExerciseIds(request.body.sections),
+        ...getQuestionExerciseIds(request.body.feedbackQuestions ?? []),
+      ];
       const exercisesAccessible = await allTemplateExercisesAccessible({
         userId: request.userId,
         exerciseIds,
@@ -221,11 +250,22 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      const template = await createWorkoutTemplate({
-        id: randomUUID(),
-        userId: request.userId,
-        input: request.body,
-      });
+      let template;
+      try {
+        template = await createWorkoutTemplate({
+          id: randomUUID(),
+          userId: request.userId,
+          input: request.body,
+          actor: feedbackActorForRequest(request),
+        });
+      } catch (error) {
+        if (error instanceof WorkoutFeedbackRevisionConflictError) {
+          return sendError(reply, 409, 'WORKOUT_FEEDBACK_REVISION_CONFLICT', error.message, {
+            currentRevision: error.currentRevision,
+          });
+        }
+        throw error;
+      }
 
       setAgentEnrichmentContext(request, {
         endpoint: 'workout-template.mutation',
@@ -257,7 +297,10 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
       update: body,
     });
 
-    const exerciseIds = getReferencedExerciseIds(resolvedInput.sections);
+    const exerciseIds = [
+      ...getReferencedExerciseIds(resolvedInput.sections),
+      ...getQuestionExerciseIds(body.feedbackQuestions ?? []),
+    ];
     const exercisesAccessible = await allTemplateExercisesAccessible({
       userId: request.userId,
       exerciseIds,
@@ -271,11 +314,22 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    const template = await updateWorkoutTemplate({
-      id: params.id,
-      userId: request.userId,
-      input: resolvedInput,
-    });
+    let template;
+    try {
+      template = await updateWorkoutTemplate({
+        id: params.id,
+        userId: request.userId,
+        input: resolvedInput,
+        actor: feedbackActorForRequest(request),
+      });
+    } catch (error) {
+      if (error instanceof WorkoutFeedbackRevisionConflictError) {
+        return sendError(reply, 409, 'WORKOUT_FEEDBACK_REVISION_CONFLICT', error.message, {
+          currentRevision: error.currentRevision,
+        });
+      }
+      throw error;
+    }
     if (!template) {
       return sendError(
         reply,
@@ -308,6 +362,7 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
+          409: workoutFeedbackRevisionConflictResponseSchema,
         },
         tags: ['workout-templates'],
         summary: 'Replace a workout template',
@@ -330,6 +385,7 @@ export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
+          409: workoutFeedbackRevisionConflictResponseSchema,
         },
         tags: ['workout-templates'],
         summary: 'Update a workout template',

@@ -19,6 +19,7 @@ import {
   type CreateWorkoutSessionRequestInput,
   type CreateWorkoutSessionInput,
   type SessionSetInput,
+  type WorkoutFeedbackQuestionDefinition,
   updateSetSchema,
   updateWorkoutSessionInputSchema,
   updateWorkoutSessionSectionTimerInputSchema,
@@ -49,6 +50,7 @@ import {
   idParamsSchema,
   opaqueIdParamSchema,
   successFlagSchema,
+  workoutFeedbackRevisionConflictResponseSchema,
 } from '../../openapi.js';
 import { allRelatedExercisesOwned } from '../exercises/store.js';
 import {
@@ -61,8 +63,16 @@ import {
   readSnapshot,
   type ScheduledWorkoutSnapshot,
 } from '../scheduled-workouts/snapshot-store.js';
-import { findWorkoutTemplateById } from '../workout-templates/store.js';
+import {
+  allTemplateExercisesAccessible,
+  findWorkoutTemplateById,
+} from '../workout-templates/store.js';
 import { templateBelongsToUser } from '../workout-templates/template-access.js';
+import {
+  WorkoutFeedbackRevisionConflictError,
+  WorkoutFeedbackValidationError,
+  type FeedbackMutationActor,
+} from '../workout-feedback/store.js';
 import {
   applyExerciseNotesToSets,
   buildExerciseSectionOrder,
@@ -164,6 +174,15 @@ const STALE_EXERCISES_SKIPPED_WARNING = {
   code: 'STALE_EXERCISES_SKIPPED',
 } as const;
 const UNKNOWN_SNAPSHOT_EXERCISE_NAME = 'Unknown exercise';
+
+const feedbackMutationActorForRequest = (request: FastifyRequest): FeedbackMutationActor =>
+  request.authType === 'agent-token'
+    ? {
+        kind: 'agent_token',
+        id: request.agentTokenId ?? null,
+        name: request.agentTokenName ?? null,
+      }
+    : { kind: 'user', id: request.userId, name: null };
 
 const WORKOUT_SESSION_NOT_ACTIVE_RESPONSE = {
   code: 'WORKOUT_SESSION_NOT_ACTIVE',
@@ -298,6 +317,7 @@ const toCreateWorkoutSessionInput = (
     duration: session.duration,
     timeSegments: session.timeSegments,
     feedback: session.feedback,
+    feedbackQuestions: [],
     notes: session.notes,
     sets: session.sets.flatMap((set) =>
       // Deleted exercises cannot be resolved back into actionable active-session inputs.
@@ -727,6 +747,25 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
+      if (hasAdHocStart) {
+        const questionExerciseIds = (body.feedbackQuestions ?? []).flatMap((question) =>
+          question.exerciseIdSnapshot ? [question.exerciseIdSnapshot] : [],
+        );
+        if (
+          !(await allTemplateExercisesAccessible({
+            userId: request.userId,
+            exerciseIds: questionExerciseIds,
+          }))
+        ) {
+          return sendError(
+            reply,
+            400,
+            'INVALID_FEEDBACK_QUESTION_EXERCISE',
+            'Feedback question references an exercise unavailable to this user',
+          );
+        }
+      }
+
       let input: CreateWorkoutSessionInput;
       let programmingNotesByExerciseSection: Record<string, string | null> | undefined;
       let agentNotesByExerciseSection: Record<string, string | null> | undefined;
@@ -744,6 +783,8 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       let setSnapshotFactsByKey: Record<string, SessionSetSnapshotFact> | undefined;
       let linkScheduledWorkoutSession = false;
       let warnings: Array<z.infer<typeof workoutSessionCreateWarningSchema>> | undefined;
+      let additionalFeedbackQuestions: WorkoutFeedbackQuestionDefinition[] | undefined;
+      let feedbackQuestionsSource: 'template_snapshot' | 'scheduled_override' | 'ad_hoc' = 'ad_hoc';
 
       // templateName is an AgentToken-only convenience; JWT callers must send templateId.
       if (body.templateName !== undefined && !isAgentRequest(request)) {
@@ -866,6 +907,9 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           feedback: body.feedback,
           notes: body.notes,
           sets: scheduledSeed.sets,
+          feedbackQuestions: [],
+          feedbackResponses: body.feedbackResponses,
+          feedbackExpectedRevision: body.feedbackExpectedRevision,
         };
         programmingNotesByExerciseSection = scheduledSeed.programmingNotesByExerciseSection;
         agentNotesByExerciseSection = scheduledSeed.agentNotesByExerciseSection;
@@ -874,6 +918,11 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         exercisePrescriptions = scheduledSeed.exercisePrescriptions;
         scheduledWorkoutId = schedule.id;
         linkScheduledWorkoutSession = true;
+        additionalFeedbackQuestions = schedule.feedbackQuestions?.questions ?? [];
+        feedbackQuestionsSource =
+          schedule.feedbackQuestions?.source === 'scheduled_override'
+            ? 'scheduled_override'
+            : 'template_snapshot';
 
         if (body.force && staleExercises.length > 0) {
           warnings = [
@@ -927,6 +976,8 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           templateSections: template.sections,
           sets: input.sets,
         });
+        additionalFeedbackQuestions = template.feedbackQuestions?.questions ?? [];
+        feedbackQuestionsSource = 'template_snapshot';
       } else {
         const adHocName = body.name;
         if (!adHocName) {
@@ -950,6 +1001,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           feedback: body.feedback,
           notes: body.notes,
           sets: body.sets,
+          feedbackQuestions: body.feedbackQuestions,
         };
       }
 
@@ -1016,6 +1068,9 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           feedbackActor: request.agentTokenId
             ? { kind: 'agent_token', id: request.agentTokenId }
             : { kind: 'user', id: request.userId },
+          feedbackMutationActor: feedbackMutationActorForRequest(request),
+          additionalFeedbackQuestions,
+          feedbackQuestionsSource,
         });
       } catch (error) {
         if (error instanceof SessionSetRirUnsupportedError) {
@@ -1268,7 +1323,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
-          409: apiErrorResponseSchema,
+          409: z.union([apiErrorResponseSchema, workoutFeedbackRevisionConflictResponseSchema]),
         },
         tags: ['workout-sessions'],
         summary: 'Apply corrections to a completed workout session',
@@ -1280,7 +1335,10 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         const session = await applySessionCorrections({
           sessionId: request.params.sessionId,
           userId: request.userId,
-          corrections: request.body.corrections,
+          corrections: request.body.corrections ?? [],
+          feedbackResponses: request.body.feedbackResponses,
+          feedbackExpectedRevision: request.body.feedbackExpectedRevision,
+          feedbackMutationActor: feedbackMutationActorForRequest(request),
         });
 
         return reply.send({
@@ -1312,6 +1370,16 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             INVALID_SESSION_CORRECTION_SET_RESPONSE.code,
             `${INVALID_SESSION_CORRECTION_SET_RESPONSE.message}: ${error.setId}`,
           );
+        }
+
+        if (error instanceof WorkoutFeedbackRevisionConflictError) {
+          return sendError(reply, 409, 'WORKOUT_FEEDBACK_REVISION_CONFLICT', error.message, {
+            currentRevision: error.currentRevision,
+          });
+        }
+
+        if (error instanceof WorkoutFeedbackValidationError || error instanceof z.ZodError) {
+          return sendError(reply, 400, 'VALIDATION_ERROR', error.message);
         }
 
         if (error instanceof SessionSetEffortConflictError) {
@@ -2064,7 +2132,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         input,
         replaceSetSnapshots: request.method === 'PUT' && body.sets !== undefined,
         preserveSetRows:
-          body.feedback !== undefined &&
+          (body.feedback !== undefined || body.feedbackResponses !== undefined) &&
           body.sets === undefined &&
           body.addExercises === undefined &&
           body.removeExercises === undefined &&
@@ -2077,10 +2145,21 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             : request.agentTokenId
               ? { kind: 'agent_token', id: request.agentTokenId }
               : { kind: 'user', id: request.userId },
+        feedbackResponses: body.feedbackResponses,
+        feedbackExpectedRevision: body.feedbackExpectedRevision,
+        feedbackMutationActor: feedbackMutationActorForRequest(request),
       });
     } catch (error) {
       if (error instanceof SessionSetRirUnsupportedError) {
         return sendError(reply, 400, 'RIR_UNSUPPORTED_TRACKING_TYPE', error.message);
+      }
+      if (error instanceof WorkoutFeedbackRevisionConflictError) {
+        return sendError(reply, 409, 'WORKOUT_FEEDBACK_REVISION_CONFLICT', error.message, {
+          currentRevision: error.currentRevision,
+        });
+      }
+      if (error instanceof WorkoutFeedbackValidationError || error instanceof z.ZodError) {
+        return sendError(reply, 400, 'VALIDATION_ERROR', error.message);
       }
       throw error;
     }
@@ -2494,7 +2573,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
-          409: apiErrorResponseSchema,
+          409: z.union([apiErrorResponseSchema, workoutFeedbackRevisionConflictResponseSchema]),
         },
         tags: ['workout-sessions'],
         summary: 'Replace a workout session',
@@ -2517,7 +2596,7 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
-          409: apiErrorResponseSchema,
+          409: z.union([apiErrorResponseSchema, workoutFeedbackRevisionConflictResponseSchema]),
         },
         tags: ['workout-sessions'],
         summary: 'Update a workout session',

@@ -41,6 +41,16 @@ export const apiErrorResponseSchema = z.object({
   error: apiErrorSchema,
 });
 
+export const workoutFeedbackRevisionConflictResponseSchema = z.object({
+  error: z.object({
+    code: z.literal('WORKOUT_FEEDBACK_REVISION_CONFLICT'),
+    message: z.string(),
+    details: z.object({
+      currentRevision: z.number().int().nonnegative(),
+    }),
+  }),
+});
+
 const zodIssueSchema = z
   .object({
     code: z.string(),

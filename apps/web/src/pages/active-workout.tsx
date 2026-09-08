@@ -19,6 +19,7 @@ import {
   workoutSessionSchema,
   type WorkoutSessionFeedback,
   type WorkoutSessionFeedbackResponse,
+  type WorkoutFeedbackAnswerInput,
   WorkoutTemplate as ApiWorkoutTemplate,
   type WorkoutTemplateSectionType,
 } from '@pulse/shared';
@@ -83,6 +84,7 @@ import {
   useUpdateSessionTimeSegments,
   useReorderSessionExercises,
   useWorkoutSession,
+  useSaveWorkoutFeedback,
   workoutSessionQueryKeys,
 } from '@/hooks/use-workout-session';
 import {
@@ -190,6 +192,7 @@ export function ActiveWorkoutPage() {
   const updateSessionTimeSegmentsMutation = useUpdateSessionTimeSegments(sessionId);
   const reorderSessionExercisesMutation = useReorderSessionExercises(sessionId);
   const completeSessionMutation = useCompleteSession(sessionId);
+  const saveFeedbackMutation = useSaveWorkoutFeedback(sessionId);
   const resolvedTemplateId = requestedTemplateId ?? sessionQuery.data?.templateId ?? '';
   const shouldLoadApiTemplate = Boolean(requestedTemplateId);
   const templateQuery = useWorkoutTemplate(requestedTemplateId ?? '', {
@@ -841,13 +844,27 @@ export function ActiveWorkoutPage() {
 
       {stage === 'feedback' ? (
         <SessionFeedback
-          fields={workoutFeedbackFields}
+          fields={activeSession?.feedbackQuestions ? undefined : workoutFeedbackFields}
+          questions={activeSession?.feedbackQuestions?.questions}
+          serverAnswers={activeSession?.feedbackAnswers?.current}
+          serverRevision={activeSession?.feedbackAnswers?.revision ?? 0}
           draftKey={
             activeSession
               ? `pulse-feedback-v2:${activeSession.userId}:${activeSession.id}`
               : undefined
           }
-          onSubmit={async (feedback) => {
+          onSaveDraft={
+            activeSessionId && activeSession?.feedbackQuestions
+              ? async (feedback, expectedRevision) => {
+                  const saved = await saveFeedbackMutation.mutateAsync({
+                    expectedRevision,
+                    responses: mapFeedbackDraftToAnswerInputs(feedback),
+                  });
+                  return saved.feedbackAnswers?.revision ?? expectedRevision + 1;
+                }
+              : undefined
+          }
+          onSubmit={async (feedback, expectedRevision) => {
             if (completeSessionMutation.isPending) {
               return;
             }
@@ -856,6 +873,7 @@ export function ActiveWorkoutPage() {
             const completedAtIso = new Date(completedAt).toISOString();
             const duration = Math.floor(getElapsedSeconds(startTime, completedAt) / 60);
             const feedbackNotes = extractFeedbackNotes(feedback);
+            const nativeFeedbackResponses = mapFeedbackDraftToAnswerInputs(feedback);
             const sessionSetInputs = buildSessionSetInputs(
               setDrafts,
               templateExerciseById,
@@ -874,6 +892,12 @@ export function ActiveWorkoutPage() {
                     ...mapFeedbackDraftToSessionFeedback(feedback),
                     notes: feedbackNotes ?? undefined,
                   },
+                  ...(nativeFeedbackResponses.length > 0
+                    ? {
+                        feedbackResponses: nativeFeedbackResponses,
+                        feedbackExpectedRevision: expectedRevision,
+                      }
+                    : {}),
                   name: session.workoutName,
                   sets: sessionSetInputs,
                   startedAt: new Date(startTime).getTime(),
@@ -921,6 +945,12 @@ export function ActiveWorkoutPage() {
                   ...mapFeedbackDraftToSessionFeedback(feedback),
                   notes: feedbackNotes ?? undefined,
                 },
+                ...(nativeFeedbackResponses.length > 0
+                  ? {
+                      feedbackResponses: nativeFeedbackResponses,
+                      feedbackExpectedRevision: expectedRevision,
+                    }
+                  : {}),
                 // Existing session sets and notes were persisted while logging. Completion
                 // attaches feedback without replacing their identities, timestamps or notes.
               },
@@ -2153,6 +2183,29 @@ function toWorkoutSessionFeedbackResponse(
     ...(field.answerState ? { state: field.answerState } : {}),
     ...(field.notes === undefined ? {} : { notes: field.notes }),
   };
+}
+
+function mapFeedbackDraftToAnswerInputs(
+  draft: ActiveWorkoutFeedbackDraft,
+): WorkoutFeedbackAnswerInput[] {
+  return draft
+    .filter((field) => field.definitionVersion !== undefined)
+    .map((field) => {
+      const clearedText = field.type === 'text' && (field.value ?? '').trim().length === 0;
+      const value = clearedText ? undefined : field.value;
+      const state = clearedText
+        ? 'unanswered'
+        : (field.answerState ??
+          (value === null || value === undefined ? 'unanswered' : 'answered'));
+
+      return {
+        questionId: field.id,
+        definitionVersion: field.definitionVersion ?? 1,
+        state,
+        ...(value === undefined || value === null ? {} : { value }),
+        ...(field.notes === undefined ? {} : { notes: field.notes }),
+      };
+    });
 }
 
 function extractFeedbackNotes(draft: ActiveWorkoutFeedbackDraft) {

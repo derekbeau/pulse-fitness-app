@@ -1,4 +1,4 @@
-import { classifyNativeFeedback } from '@pulse/shared';
+import { classifyNativeFeedback, createSystemWorkoutFeedbackQuestions } from '@pulse/shared';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { WorkoutSession, WorkoutSessionListItem } from '@pulse/shared';
 import { MemoryRouter } from 'react-router';
@@ -740,6 +740,137 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Yes')).toBeInTheDocument();
     expect(screen.getByText('Mild right knee discomfort during split squats.')).toBeInTheDocument();
     expect(screen.getByText('Felt strong overall.')).toBeInTheDocument();
+  });
+
+  it('renders exact native answer history and submits a feedback-only immutable correction', async () => {
+    const definitions = [
+      ...createSystemWorkoutFeedbackQuestions('2026-09-08T12:00:00.000Z'),
+      {
+        id: 'tib-response',
+        version: 1,
+        revisionId: 'tib-r1',
+        priorRevisionId: null,
+        prompt: 'What did the left lower leg do?',
+        type: 'multi_select' as const,
+        optional: true,
+        timing: 'post_session' as const,
+        config: { options: ['No issue', 'Pain', 'Tightness'], exclusiveOption: 'No issue' },
+        sourceKind: 'agent_token' as const,
+        sourceActorId: 'agent-a',
+        sourceActorName: 'Coach A',
+        authoredAt: '2026-09-08T12:00:00.000Z',
+        exerciseNameSnapshot: 'Tibialis Raise',
+        bodyRegion: 'lower leg',
+        laterality: 'left' as const,
+      },
+    ];
+    const answers = [
+      {
+        questionId: 'pain-discomfort',
+        definitionVersion: 1,
+        state: 'answered' as const,
+        value: false,
+        responseId: 'pain-response',
+        revision: 1,
+        priorRevisionId: null,
+        answeredAt: '2026-09-08T12:30:00.000Z',
+        timing: 'post_session' as const,
+        respondentSource: 'user' as const,
+        respondentActorId: 'user-1',
+      },
+      {
+        questionId: 'tib-response',
+        definitionVersion: 1,
+        state: 'skipped' as const,
+        responseId: 'tib-response-id',
+        revision: 1,
+        priorRevisionId: null,
+        answeredAt: '2026-09-08T12:30:00.000Z',
+        timing: 'post_session' as const,
+        respondentSource: 'user' as const,
+        respondentActorId: 'user-1',
+        notes: 'Original immutable observation.',
+        exerciseNameSnapshot: 'Tibialis Raise',
+        bodyRegion: 'lower leg',
+        laterality: 'left' as const,
+      },
+    ];
+    const currentSession = createSession({
+      id: 'session-native-feedback',
+      feedbackQuestions: { revision: 1, source: 'scheduled_override', questions: definitions },
+      feedbackAnswers: { revision: 1, current: answers, history: answers },
+    });
+    const correctedSession = createSession({
+      ...currentSession,
+      feedbackAnswers: {
+        revision: 2,
+        current: [
+          answers[0],
+          {
+            ...answers[1],
+            state: 'answered',
+            value: ['Pain'],
+            revision: 2,
+            priorRevisionId: 'tib-answer-row-1',
+            respondentSource: 'agent_token',
+            respondentActorId: 'agent-a',
+          },
+        ],
+        history: [
+          answers[0],
+          answers[1],
+          {
+            ...answers[1],
+            state: 'answered',
+            value: ['Pain'],
+            revision: 2,
+            priorRevisionId: 'tib-answer-row-1',
+            respondentSource: 'agent_token',
+            respondentActorId: 'agent-a',
+          },
+        ],
+      },
+    });
+    const onCorrectionRequest = vi.fn();
+    mockSessionDetailRequests({
+      sessionId: currentSession.id,
+      session: currentSession,
+      correctedSession,
+      onCorrectionRequest,
+      sessions: [createSessionListItem({ id: currentSession.id })],
+    });
+
+    renderSessionDetail(currentSession.id);
+
+    expect(await screen.findByText('What did the left lower leg do?')).toBeInTheDocument();
+    const history = screen.getByText(/Immutable answer history/).closest('details');
+    expect(history).not.toBeNull();
+    if (!history) throw new Error('Expected immutable answer history details');
+    expect(within(history).getByText('Original immutable observation.')).toBeInTheDocument();
+    expect(screen.getByText('Skipped')).toBeInTheDocument();
+    expect(screen.getAllByText(/Question v1 · post session · answer r1, user/)).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Correct feedback' }));
+    fireEvent.click(
+      within(
+        screen.getByRole('group', { name: 'What did the left lower leg do? options' }),
+      ).getByRole('button', { name: 'Pain' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save correction' }));
+
+    await waitFor(() =>
+      expect(onCorrectionRequest).toHaveBeenCalledWith({
+        feedbackExpectedRevision: 1,
+        feedbackResponses: expect.arrayContaining([
+          expect.objectContaining({ questionId: 'pain-discomfort', value: false }),
+          expect.objectContaining({
+            questionId: 'tib-response',
+            state: 'answered',
+            value: ['Pain'],
+          }),
+        ]),
+      }),
+    );
+    expect(screen.queryByRole('button', { name: 'Save correction' })).not.toBeInTheDocument();
   });
 
   it('hides the reps stat card for time-only sessions', async () => {

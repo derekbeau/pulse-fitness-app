@@ -12,6 +12,11 @@ import type {
 } from '@pulse/shared';
 
 import { exercises, templateExercises, workoutTemplates } from '../../db/schema/index.js';
+import {
+  readQuestionList,
+  writeAuthoredQuestionList,
+  type FeedbackMutationActor,
+} from '../workout-feedback/store.js';
 
 const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'supplemental', 'cooldown'];
 
@@ -125,6 +130,7 @@ const buildTemplateSections = (rows: TemplateExerciseRecord[]): WorkoutTemplateS
 const buildTemplate = (
   template: TemplateRecord,
   rows: TemplateExerciseRecord[],
+  feedbackQuestions: WorkoutTemplate['feedbackQuestions'],
 ): WorkoutTemplate => ({
   id: template.id,
   userId: template.userId,
@@ -134,6 +140,7 @@ const buildTemplate = (
   sections: buildTemplateSections(rows),
   createdAt: template.createdAt,
   updatedAt: template.updatedAt,
+  feedbackQuestions,
 });
 
 const flattenSections = (templateId: string, sections: CreateWorkoutTemplateInput['sections']) =>
@@ -271,12 +278,14 @@ export const listWorkoutTemplates = async (
     userId,
     templates.map((template) => template.id),
   );
+  const { db } = await import('../../db/index.js');
 
   return {
     data: templates.map((template) =>
       buildTemplate(
         template,
         exerciseRows.filter((row) => row.templateId === template.id),
+        readQuestionList(db, userId, 'template', template.id),
       ),
     ),
     meta: {
@@ -325,7 +334,7 @@ export const findWorkoutTemplateById = async (
     )
     .all();
 
-  return buildTemplate(template, rows);
+  return buildTemplate(template, rows, readQuestionList(db, userId, 'template', id));
 };
 
 export const findWorkoutTemplateByName = async ({
@@ -371,7 +380,7 @@ export const findWorkoutTemplateByName = async ({
     )
     .all();
 
-  return buildTemplate(template, rows);
+  return buildTemplate(template, rows, readQuestionList(db, userId, 'template', template.id));
 };
 
 export const allTemplateExercisesAccessible = async ({
@@ -410,10 +419,12 @@ export const createWorkoutTemplate = async ({
   id,
   userId,
   input,
+  actor,
 }: {
   id: string;
   userId: string;
   input: CreateWorkoutTemplateInput;
+  actor: FeedbackMutationActor;
 }): Promise<WorkoutTemplate> => {
   const { db } = await import('../../db/index.js');
   const nestedRows = flattenSections(id, input.sections);
@@ -432,6 +443,15 @@ export const createWorkoutTemplate = async ({
     if (nestedRows.length > 0) {
       tx.insert(templateExercises).values(nestedRows).run();
     }
+    writeAuthoredQuestionList(tx, {
+      userId,
+      scopeKind: 'template',
+      scopeId: id,
+      source: 'template_defaults',
+      expectedRevision: input.feedbackQuestionsExpectedRevision ?? 0,
+      questions: input.feedbackQuestions ?? [],
+      actor,
+    });
   });
 
   const createdTemplate = await findWorkoutTemplateById(id, userId);
@@ -446,10 +466,18 @@ export const updateWorkoutTemplate = async ({
   id,
   userId,
   input,
+  actor,
 }: {
   id: string;
   userId: string;
-  input: CreateWorkoutTemplateInput;
+  input: Omit<
+    CreateWorkoutTemplateInput,
+    'feedbackQuestions' | 'feedbackQuestionsExpectedRevision'
+  > & {
+    feedbackQuestions?: CreateWorkoutTemplateInput['feedbackQuestions'];
+    feedbackQuestionsExpectedRevision?: number;
+  };
+  actor: FeedbackMutationActor;
 }): Promise<WorkoutTemplate | undefined> => {
   const { db } = await import('../../db/index.js');
   const nestedRows = flattenSections(id, input.sections);
@@ -479,6 +507,18 @@ export const updateWorkoutTemplate = async ({
 
     if (nestedRows.length > 0) {
       tx.insert(templateExercises).values(nestedRows).run();
+    }
+
+    if (input.feedbackQuestions !== undefined) {
+      writeAuthoredQuestionList(tx, {
+        userId,
+        scopeKind: 'template',
+        scopeId: id,
+        source: 'template_defaults',
+        expectedRevision: input.feedbackQuestionsExpectedRevision ?? 0,
+        questions: input.feedbackQuestions,
+        actor,
+      });
     }
 
     return true;

@@ -877,6 +877,11 @@ describe('scheduled workout routes', () => {
         sessionId: null,
         createdAt: expect.any(Number),
         updatedAt: expect.any(Number),
+        feedbackQuestions: {
+          revision: 1,
+          source: 'template_snapshot',
+          questions: [],
+        },
         exercises: [
           {
             exerciseId: 'exercise-press',
@@ -3049,6 +3054,11 @@ describe('scheduled workout routes', () => {
         templateId: 'template-1',
         date: '2026-03-13',
         sessionId: null,
+        feedbackQuestions: {
+          revision: 0,
+          source: 'template_snapshot',
+          questions: [],
+        },
         createdAt: expect.any(Number),
         updatedAt: expect.any(Number),
       },

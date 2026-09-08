@@ -28,3 +28,4 @@ export * from './agent-tokens.js';
 export * from './feedback-submission-audit.js';
 
 export * from './feedback-provenance-audit.js';
+export * from './workout-feedback.js';

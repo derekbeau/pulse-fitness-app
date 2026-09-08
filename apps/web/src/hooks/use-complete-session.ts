@@ -4,6 +4,7 @@ import {
   type WorkoutSession,
   type WorkoutSessionListItem,
   type WorkoutSessionFeedback,
+  type WorkoutFeedbackAnswerInput,
   updateWorkoutSessionInputSchema,
   workoutSessionSchema,
 } from '@pulse/shared';
@@ -28,6 +29,8 @@ type CompleteSessionInput = {
   feedback: WorkoutSessionFeedback;
   notes?: string | null;
   sets?: SessionSetInput[];
+  feedbackResponses?: WorkoutFeedbackAnswerInput[];
+  feedbackExpectedRevision?: number;
 };
 
 async function completeSession(sessionId: string, input: CompleteSessionInput) {
@@ -35,6 +38,8 @@ async function completeSession(sessionId: string, input: CompleteSessionInput) {
     completedAt: input.completedAt ?? Date.now(),
     duration: input.duration ?? null,
     feedback: input.feedback,
+    feedbackResponses: input.feedbackResponses,
+    feedbackExpectedRevision: input.feedbackExpectedRevision,
     exerciseNotes: input.exerciseNotes,
     notes: input.notes,
     sets: input.sets,

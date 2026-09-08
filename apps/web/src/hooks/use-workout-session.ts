@@ -6,6 +6,7 @@ import {
   type WorkoutTemplateSectionType,
   type WorkoutSessionTimeSegment,
   type WorkoutSession,
+  type WorkoutFeedbackAnswerInput,
   updateWorkoutSessionTimeSegmentsInputSchema,
   updateWorkoutSessionInputSchema,
   workoutSessionSchema,
@@ -43,6 +44,12 @@ type ReorderSessionExercisesRequest = ReorderWorkoutSessionExercisesInput;
 type DeleteSessionResult = {
   success: boolean;
 };
+type SaveWorkoutFeedbackRequest = {
+  expectedRevision: number;
+  responses: WorkoutFeedbackAnswerInput[];
+};
+
+type CorrectWorkoutFeedbackRequest = SaveWorkoutFeedbackRequest;
 
 async function getWorkoutSession(sessionId: string) {
   const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${sessionId}`);
@@ -136,6 +143,29 @@ async function deleteSession(sessionId: string) {
   });
 }
 
+async function saveWorkoutFeedback(sessionId: string, input: SaveWorkoutFeedbackRequest) {
+  const parsedInput = updateWorkoutSessionInputSchema.parse({
+    feedbackExpectedRevision: input.expectedRevision,
+    feedbackResponses: input.responses,
+  });
+  const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${sessionId}`, {
+    body: JSON.stringify(parsedInput),
+    method: 'PATCH',
+  });
+  return workoutSessionResponseSchema.parse({ data }).data;
+}
+
+async function correctWorkoutFeedback(sessionId: string, input: CorrectWorkoutFeedbackRequest) {
+  const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${sessionId}/corrections`, {
+    body: JSON.stringify({
+      feedbackExpectedRevision: input.expectedRevision,
+      feedbackResponses: input.responses,
+    }),
+    method: 'PATCH',
+  });
+  return workoutSessionResponseSchema.parse({ data }).data;
+}
+
 function getSessionStatusSuccessMessage(status: WorkoutSession['status']) {
   if (status === 'paused') {
     return 'Workout paused';
@@ -210,6 +240,44 @@ export function useStartSession() {
         ),
       ]);
       toast.success('Workout started');
+    },
+  });
+}
+
+export function useSaveWorkoutFeedback(sessionId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const normalizedSessionId = sessionId?.trim() ?? '';
+  return useMutation<WorkoutSession, Error, SaveWorkoutFeedbackRequest>({
+    mutationFn: (input) => {
+      if (!normalizedSessionId) throw new Error('Session id is required to save feedback');
+      return saveWorkoutFeedback(normalizedSessionId, input);
+    },
+    onSuccess: async (session) => {
+      syncSessionMutationCache(queryClient, session);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: workoutSessionQueryKeys.detail(session.id) }),
+        queryClient.invalidateQueries({ queryKey: workoutQueryKeys.session(session.id) }),
+      ]);
+    },
+  });
+}
+
+export function useCorrectWorkoutFeedback(sessionId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const normalizedSessionId = sessionId?.trim() ?? '';
+
+  return useMutation<WorkoutSession, Error, CorrectWorkoutFeedbackRequest>({
+    mutationFn: (input) => correctWorkoutFeedback(normalizedSessionId, input),
+    onSuccess: async (session) => {
+      syncSessionMutationCache(queryClient, session);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: workoutSessionQueryKeys.detail(normalizedSessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: workoutQueryKeys.session(normalizedSessionId),
+        }),
+      ]);
     },
   });
 }
