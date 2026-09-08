@@ -1,9 +1,27 @@
 import { randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
+import { isAbsolute, resolve } from 'node:path';
 import type { Exercise, ExerciseTrackingType, WorkoutSession } from '@pulse/shared';
 
-export const RELATED_HISTORY_API = 'http://127.0.0.1:3154';
-export const RELATED_HISTORY_DATABASE = resolve(__dirname, '../../../data/issue-154/browser.db');
+const usesAcceptanceWrapper = process.env.PULSE_ACCEPTANCE_LANE === 'pulse154';
+const wrapperDatabase = process.env.E2E_DATABASE_URL;
+if (
+  usesAcceptanceWrapper &&
+  (!wrapperDatabase ||
+    !isAbsolute(wrapperDatabase) ||
+    !wrapperDatabase.endsWith('/fixtures/pulse154/pulse-e2e.db'))
+) {
+  throw new Error('Pulse154 wrapper requires its dedicated fixture database');
+}
+export const RELATED_HISTORY_API = usesAcceptanceWrapper
+  ? 'http://127.0.0.1:3155'
+  : 'http://127.0.0.1:3154';
+export const RELATED_HISTORY_WEB = usesAcceptanceWrapper
+  ? 'http://127.0.0.1:5255'
+  : 'http://127.0.0.1:5254';
+export const RELATED_HISTORY_DATABASE =
+  usesAcceptanceWrapper && wrapperDatabase
+    ? resolve(wrapperDatabase)
+    : resolve(__dirname, '../../../data/issue-154/browser.db');
 
 /** Fictional data only, opt-in to the dedicated issue-154 acceptance database. */
 export async function seedRelatedHistoryFixture(baseURL: string) {

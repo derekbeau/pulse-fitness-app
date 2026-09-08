@@ -2349,7 +2349,7 @@ describe('SessionExerciseList', () => {
         .getByRole('heading', { level: 3, name: 'Row Erg' })
         .closest('[data-slot="card"]') as HTMLElement;
       expect(within(card).getByText(/Mar 1 · 30s/)).toBeInTheDocument();
-      expect(within(card).getAllByRole('button', { name: 'View all', exact: true })).toHaveLength(
+      expect(within(card).getAllByRole('button', { name: /^View all$/ })).toHaveLength(
         1,
       );
       expect(within(card).queryByText('Related history')).not.toBeInTheDocument();

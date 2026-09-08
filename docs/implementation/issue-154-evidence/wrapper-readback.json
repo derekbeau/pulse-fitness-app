@@ -1,0 +1,11 @@
+{
+  "quickCheck": [
+    [
+      "ok"
+    ]
+  ],
+  "foreignKeyViolations": [],
+  "database": "/Users/meridian/Projects/qa-reports/pulse-parallel-networking/fixtures/pulse154/pulse-e2e.db",
+  "readOnly": true,
+  "time": "2026-09-08T00:47:43.247688+00:00"
+}

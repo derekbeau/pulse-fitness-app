@@ -1,0 +1,30 @@
+{
+  "command": [
+    "env",
+    "PULSE_ACCEPTANCE_LANE=pulse154",
+    "API_PORT=3155",
+    "E2E_PORT=5255",
+    "BASE_URL=http://127.0.0.1:5255",
+    "API_BASE_URL=http://127.0.0.1:3155",
+    "E2E_DATABASE_URL=/Users/meridian/Projects/qa-reports/pulse-parallel-networking/fixtures/pulse154/pulse-e2e.db",
+    "VITE_API_PROXY_TARGET=http://127.0.0.1:3155",
+    "pnpm",
+    "--filter",
+    "@pulse/web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.related-history.config.ts",
+    "--output",
+    "../../artifacts/issue-154/browser-3"
+  ],
+  "head": "27afa252b7a7739bd0cfbf1e0b9b74503f2de08a",
+  "trackedDiffSha256": "3c66a61e5de2cdb1a40f1f5ba2f8935a784ab1154265517d03e290513335fa26",
+  "startedAt": "2026-09-08T00:46:16.776665+00:00",
+  "finishedAt": "2026-09-08T00:46:29.637416+00:00",
+  "seconds": 12.86,
+  "exitCode": 0,
+  "log": "browser-3.log",
+  "logSha256": "c978e4a28af894f32038c84fe5f788045e80192ee150fc3b74160abc741211f2"
+}

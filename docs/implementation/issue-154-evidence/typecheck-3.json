@@ -1,0 +1,15 @@
+{
+  "command": [
+    "pnpm",
+    "typecheck",
+    "--force"
+  ],
+  "head": "27afa252b7a7739bd0cfbf1e0b9b74503f2de08a",
+  "trackedDiffSha256": "3c66a61e5de2cdb1a40f1f5ba2f8935a784ab1154265517d03e290513335fa26",
+  "startedAt": "2026-09-08T00:47:19.699867+00:00",
+  "finishedAt": "2026-09-08T00:47:30.244911+00:00",
+  "seconds": 10.55,
+  "exitCode": 0,
+  "log": "typecheck-3.log",
+  "logSha256": "fd5afd9c375796652240d3ea24f3c3c93574e999c20203de0a7e9f367cb7a66a"
+}

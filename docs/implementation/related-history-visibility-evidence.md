@@ -1,6 +1,6 @@
-# Issue #154 implementation checkpoint
+# Issue #154 implementation and acceptance evidence
 
-Status: **READY_FOR_FINAL_GATES**. This is implementation evidence, not independent acceptance.
+Status: **Ready for independent acceptance**. Implementation and executor gates passed; no independent acceptance, merge, or deployment is claimed.
 
 ## Identity and boundaries
 
@@ -21,7 +21,7 @@ The frontend filters both rows and sets before rendering the related disclosure.
 
 ## Focused verification
 
-All commands ran inside the worktree. No full lint/typecheck/test/build command or browser acceptance was run.
+The initial checkpoint completed the following focused checks inside the worktree. Final full gates and browser checks are recorded below.
 
 | Check                                                                                                            | Result                    |
 | ---------------------------------------------------------------------------------------------------------------- | ------------------------- |
@@ -52,16 +52,40 @@ Early attempts were non-passing: the new tests needed to await query notificatio
 
 Luna medium completed a consolidated read-only review. No implementation findings remained. Its browser-setup review identified a missing Vite proxy-target guard; the dedicated config now requires `VITE_API_PROXY_TARGET` to equal the isolated API URL. Model/effort/Fast UI proof remains user-owned. No native Codex UI was inspected.
 
-## Pending parent gates
+## Final gates
 
-The serialized heavy slot has not been granted. Full lint, typecheck, test, build, and browser acceptance remain pending. Repository pre-commit hooks invoke the reserved full typecheck/test gates; the local checkpoint commit bypasses those hooks only to honor the slot restriction. This does not count as passing those gates.
+The planner explicitly removed the serialized-slot restriction and authorized final gates, isolated browser acceptance, push, and draft PR creation. Actual capacity was checked before heavy work: 10 CPU cores, 16 GiB RAM, 39 GiB disk available; a later pre-browser sample showed 73.58% CPU idle and 65% memory available. No concrete resource conflict was found. Suites ran serially where appropriate.
 
-Browser coverage is prepared in:
+| Gate | Genuine result | Receipt |
+| --- | --- | --- |
+| `pnpm lint --force` | Passed; 6 existing React Refresh warnings in unchanged files | [lint-2](issue-154-evidence/lint-2.json) |
+| `pnpm typecheck --force` | Passed across all 3 packages | [typecheck-3](issue-154-evidence/typecheck-3.json) |
+| `pnpm test --concurrency=1 --force -- --maxWorkers=1` | 15 repository-script tests plus 3,268 Vitest tests passed: shared 707, API 1,149, web 1,412 | [test-1](issue-154-evidence/test-1.json) |
+| `pnpm build --force` | Passed all 3 packages; Vite reports its advisory for a chunk over 500 kB | [build-1](issue-154-evidence/build-1.json) |
+| Dedicated Playwright config, 1 worker, no retries | 3 passed: 375px, 1280px, loading/503 recovery | [browser-3](issue-154-evidence/browser-3.json) |
 
-- `apps/web/e2e/related-history-fixture.ts`
-- `apps/web/e2e/related-history-visibility.spec.ts`
-- `apps/web/playwright.related-history.config.ts`
+All Turbo tasks were executed with cache bypass. Gate metadata includes timestamps, raw-log hashes, implementation HEAD, and the tracked patch hash. [Raw receipts](issue-154-evidence/README.md) include failed attempts rather than replacing them with passing output.
 
-After an explicit grant, use Codex's built-in browser first. Verify 375px and 1280px presentation, keyboard disclosure interaction, absence of empty layout, direct and related View all navigation, notes and native zero RIR, and console/network behavior. The synthetic fixture and browser config require API `http://127.0.0.1:3154`, frontend `http://127.0.0.1:5254`, proxy target `http://127.0.0.1:3154`, and the absolute disposable database path `<worktree>/data/issue-154/browser.db`. No services have been started and no browser fixture has been seeded at this checkpoint. Ensure the launched frontend uses the same proxy target before acceptance. The standard browser suite skips these opt-in tests outside this lane.
+The first full typecheck caught an unsupported React Testing Library `exact` query option. It was replaced with an anchored accessible-name regex, preserving the assertion. The full suite then passed. A browser evidence writer subsequently failed because its callback omitted `testInfo`; the callback was corrected without weakening assertions. Screenshot capture now waits for closed dialogs and disables animations. The final browser run passed with clean screenshots. Earlier screenshots and the failed attempt remain under `artifacts/issue-154/`.
 
-No browser evidence is claimed. Push and draft PR (`Fixes #154`) remain for substantive acceptance under the launcher; no independent acceptance is claimed. No unresolved product ambiguity was identified.
+The implementation checkpoint is `27afa252b7a7739bd0cfbf1e0b9b74503f2de08a`. [Source receipt](issue-154-evidence/source-receipt.json) and the archived patch bind final source files to the gate runs. All application, Vitest, and repository-script inputs exactly match the passing full test run; subsequent edits affected only the dedicated Playwright fixture/harness and evidence. Final lint/typecheck/build/browser receipts cover that harness revision. Commit hooks need not duplicate the full gates already executed and retained here.
+
+## Browser acceptance
+
+Codex's built-in browser was used first in an owned tab, with a synthetic fixture on the original isolated 3154/5254 services. Manual checks covered 375px and 1280px, Enter/Space disclosure interaction, absent related UI for empty data, valid-row previews, notes and native zero RIR details, direct/related View all navigation, no horizontal overflow, and an empty warning/error console. API readback showed all three fixture sessions unchanged; SQLite quick-check passed with no foreign-key violations.
+
+After the networking handoff arrived, the active Playwright attempt was allowed to finish. The next run sourced `/Users/meridian/Projects/qa-reports/pulse-parallel-networking/pulse154-acceptance-env.sh`. It used API **3155**, web **5255**, and `/Users/meridian/Projects/qa-reports/pulse-parallel-networking/fixtures/pulse154/pulse-e2e.db`. Before startup, both assigned ports were free and the dedicated database was absent. After startup, actual listener PIDs and working directories matched this worktree, and the API was the sole owner of the regular, non-symlink database. No other task's services or fixtures were inspected, reset, or stopped.
+
+Final Chromium **151.0.7922.34** browser evidence:
+
+- [375px assertions](../../artifacts/issue-154/browser-3/related-history-visibility-c38bb-n-and-never-mutates-history/acceptance.json): no console/network errors, scroll width 375, three sessions unchanged.
+- [1280px assertions](../../artifacts/issue-154/browser-3/related-history-visibility-7069f-n-and-never-mutates-history/acceptance.json): no console/network errors, scroll width 1280, three sessions unchanged.
+- [Retry assertions](../../artifacts/issue-154/browser-3/related-history-visibility-2dda4-rom-an-empty-related-result/retry.json): one injected 503, exactly two attempts, recovery with valid related history and direct History visible during loading.
+- [Mobile mixed rows](../../artifacts/issue-154/browser-3/related-history-visibility-c38bb-n-and-never-mutates-history/mixed-related.png) and [desktop mixed rows](../../artifacts/issue-154/browser-3/related-history-visibility-7069f-n-and-never-mutates-history/mixed-related.png), visually inspected after dialog animations completed.
+- [Mobile empty related history](../../artifacts/issue-154/browser-3/related-history-visibility-c38bb-n-and-never-mutates-history/empty-8b4beead-c2de-41e9-9f1b-6d5598adc9b2.png). The existing form-cue container is independent of related history; no related disclosure or placeholder occupies space.
+
+The built-in tab was closed, and only the four verified issue-154 server processes were stopped after acceptance. Both synthetic fixture databases are preserved. No native Codex UI was inspected. User-owned model/Fast UI proof was not treated as an executor gate.
+
+## Handoff
+
+The final candidate is intended for a draft PR with `Fixes #154`. Implementation, full gates, and browser verification are complete for executor handoff. Independent acceptance remains with the parent/user. No unresolved product ambiguity was identified. Production, protected instructions, the frozen contract, and migration files remain unchanged; no merge or deployment was performed.

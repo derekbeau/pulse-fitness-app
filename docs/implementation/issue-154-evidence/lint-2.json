@@ -1,0 +1,15 @@
+{
+  "command": [
+    "pnpm",
+    "lint",
+    "--force"
+  ],
+  "head": "27afa252b7a7739bd0cfbf1e0b9b74503f2de08a",
+  "trackedDiffSha256": "3c66a61e5de2cdb1a40f1f5ba2f8935a784ab1154265517d03e290513335fa26",
+  "startedAt": "2026-09-08T00:46:46.094885+00:00",
+  "finishedAt": "2026-09-08T00:46:57.645315+00:00",
+  "seconds": 11.55,
+  "exitCode": 0,
+  "log": "lint-2.log",
+  "logSha256": "90bc3fb68bf89df3ec1c01dbdb1d512aad2c442a24565120f47e450853f565d7"
+}

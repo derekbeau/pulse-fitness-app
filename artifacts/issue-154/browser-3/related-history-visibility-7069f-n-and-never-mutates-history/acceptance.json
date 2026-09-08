@@ -1,0 +1,21 @@
+{
+  "width": 1280,
+  "browserVersion": "151.0.7922.34",
+  "consoleAndNetworkErrors": [],
+  "scrollWidth": 1280,
+  "unchangedSessionIds": [
+    "7416d801-ea76-4d25-a9c5-ce0b7d61227e",
+    "41e3be48-b1ad-40a7-9250-c15de418b8a4",
+    "dddd01b1-a869-40a6-8b07-93aaafd092b5"
+  ],
+  "assertions": [
+    "empty disclosure absent",
+    "qualifying rows only",
+    "older performance selected",
+    "native zero RIR and notes",
+    "keyboard Enter and Space",
+    "direct and related View all",
+    "no horizontal overflow",
+    "sessions unchanged"
+  ]
+}

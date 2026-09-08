@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import type { Exercise, WorkoutSession } from '@pulse/shared';
 import { setAuthenticatedSession } from './auth-session';
@@ -62,7 +63,10 @@ for (const width of [375, 1280]) {
         );
         // Session notes is the only remaining details element: no empty related box/gap.
         await expect(emptyPanel.locator('details')).toHaveCount(1);
-        await emptyPanel.screenshot({ path: testInfo.outputPath(`empty-${exercise.id}.png`) });
+        await emptyPanel.screenshot({
+          path: testInfo.outputPath(`empty-${exercise.id}.png`),
+          animations: 'disabled',
+        });
       }
       const mixedPanel = await panel(page, fixture.mixed);
       const disclosure = mixedPanel
@@ -96,6 +100,7 @@ for (const width of [375, 1280]) {
       await disclosure.getByRole('button', { name: 'View notes', exact: true }).first().click();
       await expect(page.getByText('Preserved historical note.', { exact: true })).toBeVisible();
       await page.keyboard.press('Escape');
+      await expect(page.getByText('Preserved historical note.', { exact: true })).toBeHidden();
       await disclosure
         .getByRole('button', { name: 'Effort details: History, 2026-09-01', exact: true })
         .first()
@@ -104,7 +109,11 @@ for (const width of [375, 1280]) {
         'Stored RIR: 0',
       );
       await page.keyboard.press('Escape');
-      await mixedPanel.screenshot({ path: testInfo.outputPath('mixed-related.png') });
+      await expect(page.getByRole('dialog', { name: 'Effort details', exact: true })).toBeHidden();
+      await mixedPanel.screenshot({
+        path: testInfo.outputPath('mixed-related.png'),
+        animations: 'disabled',
+      });
       await disclosure.getByRole('button', { name: 'View all', exact: true }).first().click();
       await expect(page.getByRole('dialog')).toContainText(fixture.related[0].name);
       await expect(
@@ -128,13 +137,37 @@ for (const width of [375, 1280]) {
           session,
         );
       expect(errors).toEqual([]);
+      writeFileSync(
+        testInfo.outputPath('acceptance.json'),
+        JSON.stringify(
+          {
+            width,
+            browserVersion: page.context().browser()?.version(),
+            consoleAndNetworkErrors: errors,
+            scrollWidth: await page.evaluate(() => document.documentElement.scrollWidth),
+            unchangedSessionIds: [fixture.older.id, fixture.newer.id, fixture.active.id],
+            assertions: [
+              'empty disclosure absent',
+              'qualifying rows only',
+              'older performance selected',
+              'native zero RIR and notes',
+              'keyboard Enter and Space',
+              'direct and related View all',
+              'no horizontal overflow',
+              'sessions unchanged',
+            ],
+          },
+          null,
+          2,
+        ) + '\n',
+      );
     });
   });
 }
 
 test('keeps loading and retryable errors separate from an empty related result', async ({
   page,
-}) => {
+}, testInfo) => {
   const fixture = await seedRelatedHistoryFixture(apiBaseURL);
   let release!: () => void;
   const pending = new Promise<void>((resolve) => {
@@ -164,4 +197,18 @@ test('keeps loading and retryable errors separate from an empty related result',
   release();
   await expect(mixedPanel.getByText('Related history', { exact: true })).toBeVisible();
   expect(requests).toBe(2);
+  writeFileSync(
+    testInfo.outputPath('retry.json'),
+    JSON.stringify(
+      {
+        injectedStatus: 503,
+        requests,
+        recovered: true,
+        directHistoryVisibleDuringLoading: true,
+        fabricatedEmptyDisclosure: false,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
 });
