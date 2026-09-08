@@ -208,10 +208,11 @@ Saved matches expose `reason` and `evidence` categories: `exact_normalized`, `al
 matched field and literal value; recent evidence also identifies the owned meal item.
 `ambiguity: multiple_candidates` means multiple foods share that evidence tier, computed
 before `limitFoods`. Ranking orders these categories in the listed order, then usage count
-descending, normalized name, brand, and food ID in ascending code-point order. The retained
-legacy `score` is only `1 / rank` for saved matches; frequent-food scores retain their
-existing usage representation. Neither value is confidence. Never show them as confidence,
-use a numeric binding threshold, or treat a first-ranked result as permission to link.
+descending, normalized name, brand, and food ID in ascending code-point order. Saved matches,
+frequent foods, and nested promotion matches expose only categorical ranking evidence and
+ambiguity; no numeric rank, confidence, or binding threshold is serialized. A first-ranked
+result is advisory and never permission to link. Shorthand-expansion scoring is a separate,
+unchanged contract.
 
 Names normalize to lowercase, remove straight/curly apostrophes, and replace remaining
 punctuation/whitespace with spaces while preserving Unicode letters and numbers. A bare
@@ -289,3 +290,11 @@ Food definitions planned by AgentToken meal writes are created inside the same t
 the current meal/items and usage projection. Exact reuse is rechecked inside that transaction
 so concurrent current writes reuse the first committed definition; any persistence failure
 rolls back the new definition together with the meal. No history is relinked.
+
+Current meal creation (preferred and date-scoped) and append-items acquire SQLite's writer
+with `BEGIN IMMEDIATE` before the final owned-food identity recheck. Food creation, current
+meal/items, and usage projection commit or roll back together. Transient SQLite busy/locked
+errors retry the entire transaction at most four times, with 25/50/100ms backoff and no
+blocking busy wait inside an attempt. Exhaustion returns the existing server error; other
+persistence errors are not retried. Created outcomes are published only after commit.
+Legacy duplicate identities remain representable and fail closed; no history is relinked.

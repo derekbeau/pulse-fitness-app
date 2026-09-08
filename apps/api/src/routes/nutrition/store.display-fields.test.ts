@@ -23,6 +23,7 @@ const testState = vi.hoisted(() => {
 
 vi.mock('../../db/index.js', () => ({
   db: testState.db,
+  sqlite: { pragma: vi.fn(() => 5000) },
 }));
 
 const createTxForMealInsert = (returnedItems: Array<Record<string, unknown>>) => {

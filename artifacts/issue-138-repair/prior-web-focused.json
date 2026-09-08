@@ -1,0 +1,5 @@
+{
+  "command": "pnpm --filter @pulse/web exec vitest run src/features/foods/components/food-list.test.tsx src/pages/active-workout.test.tsx --maxWorkers=1 -t 'preserves filter and sort state|keeps the session active after the last set|renders the active workout UI'",
+  "exitCode": 0,
+  "elapsedSeconds": 6.3
+}

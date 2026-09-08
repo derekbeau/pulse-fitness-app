@@ -34,11 +34,12 @@ export const materializeMealFood = <T extends { name: string; amount: number }>(
   tx: Transaction,
   userId: string,
   item: T,
+  afterCommit: (effect: () => void) => void,
 ): T => {
   const plan = plans.get(item);
   if (!plan) return item;
   if (plan.userId !== userId) throw new Error('Meal food plan owner mismatch');
-  // A synchronous transaction rechecks after prior writers and rolls creation back with the meal.
+  // runMealWrite acquires BEGIN IMMEDIATE before this final owner-local recheck.
   const owned = tx
     .select()
     .from(foods)
@@ -59,7 +60,8 @@ export const materializeMealFood = <T extends { name: string; amount: number }>(
       .returning()
       .get();
     if (!food) throw new Error('Failed to persist planned food');
-    plan.createdFoodIds.add(food.id);
+    const createdId = food.id;
+    afterCommit(() => plan.createdFoodIds.add(createdId));
   }
   return {
     ...item,

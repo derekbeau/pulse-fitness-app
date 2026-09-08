@@ -254,7 +254,6 @@ const loggingContext = {
         createdAt: 1_699_000_000_000,
         updatedAt: 1_700_000_000_000,
       },
-      score: 0.86,
       reason: 'alias_exact',
       evidence: [{ category: 'alias_exact' as const, field: 'name' as const, value: 'preserves' }],
       ambiguity: 'none' as const,

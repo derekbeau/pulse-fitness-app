@@ -140,11 +140,6 @@ export const nutritionLoggingContextQuerySchema = z.object({
 
 export const nutritionFoodMatchSchema = z.object({
   food: foodSchema,
-  score: z
-    .number()
-    .min(0)
-    .max(1)
-    .describe('Deprecated ordinal ranking value, not confidence; never use for binding'),
   evidence: z.array(
     z.object({
       category: z.enum([

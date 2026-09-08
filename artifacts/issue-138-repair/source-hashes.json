@@ -1,0 +1,16 @@
+{
+  "apps/api/src/routes/foods/reuse-policy.ts": "e6e4e156190aa39373ae861f334b015c64f44a212b1d1136a7ef6bdd557096dd",
+  "apps/api/src/routes/meals/food-plans.ts": "fb31df7bd73040a5759b1465333347f94e5abba916ae0455e3108ffcf06156b5",
+  "apps/api/src/routes/meals/write-transaction.ts": "5b4acca3ec24fc389ff2d5e08338d7b169fe429790b4c571fc4bea1efe49e040",
+  "apps/api/src/routes/nutrition/__tests__/food-reuse-worker.ts": "2490873fe3ac6f5872e6e72e3a80cbf446f977ceb0c389297aa42171625b02ab",
+  "apps/api/src/routes/nutrition/food-reuse-process.integration.test.ts": "464878830918c32941f90c0761debecc4696bf73f15219ee963fef612bbf1159",
+  "apps/api/src/routes/nutrition/index.test.ts": "1f3a7677955f716f7cb4ff3d81d7beab5604118ebf6ef736952ad7b8485e5dc5",
+  "apps/api/src/routes/nutrition/logging-context.integration.test.ts": "cd69a2b89aa681e73e9220f6af820bbc6187f22296f6d9327f63f12f7205248d",
+  "apps/api/src/routes/nutrition/ranked-food-reuse.integration.test.ts": "fac0b6813a1318d08c661d0e32756b97356924b423add33bc788ad57fd681d0c",
+  "apps/api/src/routes/nutrition/store.display-fields.test.ts": "f05190c463895c9ea7950d0028c246555d41245cce03669748970b54ed02922b",
+  "apps/api/src/routes/nutrition/store.ts": "0f0738ce3cfce448d195411ff996c10eec72153543a54d76e54c47eaf9feeffc",
+  "docs/agents/foods-api.md": "381f84a553ee04f27c4f578d51860701e7e5eeb25e9d8cbc3f89cb050663f793",
+  "docs/conventions/agent-integration.md": "46f23d012e7ed256bded665b4459c3c49c84bee73004bd12e7b2bc6619e15c33",
+  "packages/shared/src/schemas/nutrition.test.ts": "f1f5cdf32870225d035a77500ff1d24e7cecbf039f82dfa6c1f92bd0a63d898c",
+  "packages/shared/src/schemas/nutrition.ts": "151c251f417b3076d255a00256e1bbd5e6fc32c85d0fcb2405458d575f47e836"
+}

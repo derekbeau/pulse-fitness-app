@@ -1,0 +1,12 @@
+$ pnpm --filter @pulse/web exec vitest run src/features/workouts/components/session-exercise-list.test.tsx -t 'keeps section open state manual' --maxWorkers=1
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/web
+
+ ✓ src/features/workouts/components/session-exercise-list.test.tsx (34 tests | 33 skipped) 599ms
+     ✓ keeps section open state manual when workout progress moves into the next section  598ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 33 skipped (34)
+   Start at  20:07:11
+   Duration  2.59s (transform 742ms, setup 154ms, import 1.35s, tests 599ms, environment 361ms)
+

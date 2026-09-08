@@ -1,0 +1,76 @@
+$ pnpm --filter @pulse/api exec vitest run src/routes/nutrition/store.display-fields.test.ts src/routes/nutrition/store.food-usage.test.ts src/routes/nutrition/food-reuse-process.integration.test.ts --maxWorkers=1
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/api
+
+ ✓ src/routes/nutrition/store.food-usage.test.ts (11 tests) 13754ms
+     ✓ preserves exact links through append, metadata, all corrections, delete and retry  2554ms
+     ✓ rolls back create, append, correction and delete when usage persistence fails  3437ms
+     ✓ derives merge from links despite stale counters, with atomic restore and ownership failures  3278ms
+     ✓ keeps trashed food exact through linked-item edits, deletes, reconciliation and restore  827ms
+     ✓ rejects unprefixed agent tokens and rolls back date route create failures  905ms
+     ✓ falls back to the newest surviving timestamp and refuses foreign or partial purges  1753ms
+ ✓ src/routes/nutrition/food-reuse-process.integration.test.ts (7 tests) 1446ms
+ ❯ src/routes/nutrition/store.display-fields.test.ts (3 tests | 2 failed) 90ms
+     × persists displayQuantity/displayUnit when provided 88ms
+     × stores null display fields when omitted 0ms
+     ✓ returns display fields when reading daily nutrition, including nulls 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/nutrition/store.display-fields.test.ts > nutrition store display fields > persists displayQuantity/displayUnit when provided
+Error: [vitest] No "sqlite" export is defined on the "../../db/index.js" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+
+vi.mock(import("../../db/index.js"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    // your mocked methods
+  }
+})
+
+ ❯ runMealWrite src/routes/meals/write-transaction.ts:22:15
+     20|   write: (tx: Transaction, afterCommit: (effect: () => void) => void) …
+     21| ): Promise<T> => {
+     22|   const { db, sqlite } = await import('../../db/index.js');
+       |               ^
+     23|   for (let attempt = 0; ; attempt++) {
+     24|     const effects: Array<() => void> = [];
+ ❯ createMealForDate src/routes/nutrition/store.ts:449:19
+ ❯ src/routes/nutrition/store.display-fields.test.ts:148:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/routes/nutrition/store.display-fields.test.ts > nutrition store display fields > stores null display fields when omitted
+Error: [vitest] No "sqlite" export is defined on the "../../db/index.js" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+
+vi.mock(import("../../db/index.js"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    // your mocked methods
+  }
+})
+
+ ❯ runMealWrite src/routes/meals/write-transaction.ts:22:15
+     20|   write: (tx: Transaction, afterCommit: (effect: () => void) => void) …
+     21| ): Promise<T> => {
+     22|   const { db, sqlite } = await import('../../db/index.js');
+       |               ^
+     23|   for (let attempt = 0; ; attempt++) {
+     24|     const effects: Array<() => void> = [];
+ ❯ createMealForDate src/routes/nutrition/store.ts:449:19
+ ❯ src/routes/nutrition/store.display-fields.test.ts:203:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  2 failed | 19 passed (21)
+   Start at  20:06:28
+   Duration  16.38s (transform 644ms, setup 0ms, import 793ms, tests 15.29s, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-food-reuse/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/nutrition/store.display-fields.test.ts src/routes/nutrition/store.food-usage.test.ts src/routes/nutrition/food-reuse-process.integration.test.ts --maxWorkers=1

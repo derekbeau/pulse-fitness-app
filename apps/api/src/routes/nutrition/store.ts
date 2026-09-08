@@ -1,3 +1,4 @@
+import { runMealWrite } from '../meals/write-transaction.js';
 import { materializeMealFood } from '../meals/food-plans.js';
 import {
   FOOD_ALIAS_VERSION,
@@ -265,7 +266,6 @@ const listFrequentFoodMatches = async (
 
   return result.foods.map((food) => ({
     food,
-    score: clampToUnitRange(food.usageCount / 10),
     reason:
       food.usageCount > 0
         ? `Frequent saved food used ${food.usageCount} time${food.usageCount === 1 ? '' : 's'}.`
@@ -446,9 +446,7 @@ export const createMealForDate = async (
   date: string,
   input: CreateMealInput,
 ): Promise<{ meal: MealRecord; items: MealItemRecord[] }> => {
-  const { db } = await import('../../db/index.js');
-
-  const created = db.transaction((tx) => {
+  const created = await runMealWrite((tx, afterCommit) => {
     tx.insert(nutritionLogs)
       .values({
         userId,
@@ -487,7 +485,7 @@ export const createMealForDate = async (
     }
 
     const itemValues = (input.items as MealInputItemWithMacros[]).map((inputItem) => {
-      const item = materializeMealFood(tx, userId, inputItem);
+      const item = materializeMealFood(tx, userId, inputItem, afterCommit);
       return {
         mealId: meal.id,
         foodId: toNullable(item.foodId),
@@ -932,8 +930,6 @@ export const addItemsToMeal = async (
   mealId: string,
   items: MealInputItemWithMacros[],
 ): Promise<{ meal: MealRecord; items: MealItemRecord[] } | undefined> => {
-  const { db } = await import('../../db/index.js');
-
   const now = Date.now();
   type AddItemsToMealTransactionResult =
     | {
@@ -944,7 +940,7 @@ export const addItemsToMeal = async (
       }
     | undefined;
 
-  const updated: AddItemsToMealTransactionResult = db.transaction((tx) => {
+  const updated: AddItemsToMealTransactionResult = await runMealWrite((tx, afterCommit) => {
     const meal = tx
       .select(mealSelection)
       .from(meals)
@@ -958,7 +954,7 @@ export const addItemsToMeal = async (
     }
 
     const itemValues = items
-      .map((item) => materializeMealFood(tx, userId, item))
+      .map((item) => materializeMealFood(tx, userId, item, afterCommit))
       .map((item) => ({
         mealId: meal.id,
         foodId: toNullable(item.foodId),

@@ -1,0 +1,28 @@
+$ pnpm --filter @pulse/api exec vitest run src/routes/nutrition/food-reuse-process.integration.test.ts src/routes/foods/reuse-policy.test.ts src/routes/nutrition/ranked-food-reuse.integration.test.ts src/routes/nutrition/logging-context.integration.test.ts src/routes/meals/index.test.ts src/routes/nutrition/index.test.ts src/middleware/agent-transforms.test.ts src/middleware/agent-enrichment.test.ts src/routes/nutrition/store.food-usage.test.ts src/routes/nutrition/daily-notes.integration.test.ts src/routes/nutrition/store.display-fields.test.ts --maxWorkers=1
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/api
+
+ ✓ src/routes/nutrition/store.display-fields.test.ts (3 tests) 415ms
+     ✓ persists displayQuantity/displayUnit when provided  413ms
+ ✓ src/routes/nutrition/store.food-usage.test.ts (11 tests) 13715ms
+     ✓ preserves exact links through append, metadata, all corrections, delete and retry  3032ms
+     ✓ rolls back create, append, correction and delete when usage persistence fails  3301ms
+     ✓ derives merge from links despite stale counters, with atomic restore and ownership failures  3213ms
+     ✓ keeps trashed food exact through linked-item edits, deletes, reconciliation and restore  828ms
+     ✓ rejects unprefixed agent tokens and rolls back date route create failures  851ms
+     ✓ falls back to the newest surviving timestamp and refuses foreign or partial purges  1659ms
+ ✓ src/routes/nutrition/daily-notes.integration.test.ts (26 tests) 692ms
+ ✓ src/routes/nutrition/ranked-food-reuse.integration.test.ts (23 tests) 434ms
+ ✓ src/routes/nutrition/logging-context.integration.test.ts (3 tests) 312ms
+ ✓ src/routes/nutrition/index.test.ts (15 tests) 204ms
+ ✓ src/routes/meals/index.test.ts (15 tests) 201ms
+ ✓ src/routes/nutrition/food-reuse-process.integration.test.ts (7 tests) 1333ms
+ ✓ src/middleware/agent-transforms.test.ts (9 tests) 34ms
+ ✓ src/routes/foods/reuse-policy.test.ts (23 tests) 7ms
+ ✓ src/middleware/agent-enrichment.test.ts (9 tests) 4ms
+
+ Test Files  11 passed (11)
+      Tests  144 passed (144)
+   Start at  20:07:31
+   Duration  21.37s (transform 853ms, setup 0ms, import 2.94s, tests 17.35s, environment 1ms)
+

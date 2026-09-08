@@ -1,0 +1,42 @@
+$ pnpm lint --force
+
+> pulse@ lint /Users/meridian/Projects/pulse-food-reuse
+> turbo run lint --force
+
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running lint in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/web:lint: cache bypass, force executing f7733f339756d43f
+@pulse/shared:lint: cache bypass, force executing 7eeded3ccfd3898a
+@pulse/api:lint: cache bypass, force executing 232336cd0b59383e
+@pulse/api:lint: 
+@pulse/api:lint: > @pulse/api@0.0.0 lint /Users/meridian/Projects/pulse-food-reuse/apps/api
+@pulse/api:lint: > eslint .
+@pulse/api:lint: 
+@pulse/shared:lint: 
+@pulse/shared:lint: > @pulse/shared@0.0.0 lint /Users/meridian/Projects/pulse-food-reuse/packages/shared
+@pulse/shared:lint: > eslint .
+@pulse/shared:lint: 
+@pulse/web:lint: 
+@pulse/web:lint: > @pulse/web@0.0.0 lint /Users/meridian/Projects/pulse-food-reuse/apps/web
+@pulse/web:lint: > eslint .
+@pulse/web:lint: 
+@pulse/api:lint: 
+@pulse/api:lint: /Users/meridian/Projects/pulse-food-reuse/apps/api/src/routes/nutrition/__tests__/food-reuse-worker.ts
+@pulse/api:lint:   67:14  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+@pulse/api:lint: 
+@pulse/api:lint: ✖ 1 problem (1 error, 0 warnings)
+@pulse/api:lint: 
+@pulse/api:lint:  ELIFECYCLE  Command failed with exit code 1.
+@pulse/api:lint: ERROR: command finished with error: command (/Users/meridian/Projects/pulse-food-reuse/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run lint exited (1)
+@pulse/web:lint:  ELIFECYCLE  Command failed.
+@pulse/api#lint: command (/Users/meridian/Projects/pulse-food-reuse/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run lint exited (1)
+
+ Tasks:    1 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    5.872s 
+Failed:    @pulse/api#lint
+
+ ERROR  run failed: command  exited (1)
+ ELIFECYCLE  Command failed with exit code 1.

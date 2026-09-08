@@ -1,0 +1,5 @@
+{
+  "command": "pnpm --filter @pulse/api exec tsc --noEmit -p tsconfig.test.json",
+  "exitCode": 0,
+  "elapsedSeconds": 8.89
+}

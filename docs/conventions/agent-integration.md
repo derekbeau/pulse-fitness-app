@@ -341,8 +341,9 @@ Notes:
 `GET /api/v1/nutrition/logging-context` is a database-only, shared-auth read. Saved candidates
 include categorical evidence (`exact_normalized`, `alias_exact`, `brand_or_tag`, `token_order`,
 `recent_name`, `partial_name`), literal matched values, advisory alias version, and ambiguity
-computed before result limits. The legacy score is ordinal ranking, never confidence or a
-binding threshold. Only a unique normalized exact owned name can resolve automatically;
+computed before result limits. Ranked matches, frequent foods, and nested promotion matches
+serialize no numeric rank, confidence, or binding threshold. Only a unique normalized exact
+owned name can resolve automatically;
 an optional brand must also match exactly, and duplicated names remain unresolved.
 All other matches require an explicit owned `foodId` or an explicit ad hoc choice.
 

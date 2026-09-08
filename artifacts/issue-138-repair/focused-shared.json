@@ -1,0 +1,5 @@
+{
+  "command": "pnpm --filter @pulse/shared exec vitest run src/schemas/nutrition.test.ts src/schemas/foods.test.ts src/schemas/common.test.ts --maxWorkers=1",
+  "exitCode": 0,
+  "elapsedSeconds": 0.95
+}

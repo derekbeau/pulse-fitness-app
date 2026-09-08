@@ -125,7 +125,6 @@ export const rankFoodMatches = (
     return [
       {
         food,
-        score: 0,
         reason: best.category,
         matchedVariant: best.value,
         evidence,
@@ -143,10 +142,8 @@ export const rankFoodMatches = (
       compare(a.food.brand ?? '', b.food.brand ?? '') ||
       compare(a.food.id, b.food.id),
   );
-  return matches.map((match, index) => ({
+  return matches.map((match) => ({
     ...match,
-    // Legacy field is ordinal rank only, never confidence or an authorization threshold.
-    score: 1 / (index + 1),
     ambiguity:
       matches.filter((other) => other.reason === match.reason).length > 1
         ? 'multiple_candidates'

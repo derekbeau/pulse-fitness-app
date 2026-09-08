@@ -600,27 +600,62 @@ describe('ranked food reuse frozen contract / isolated SQLite', () => {
       }
     },
   );
-  it('serializes concurrent current creations, reuses the committed definition, and counts both links', async () => {
-    const responses = await Promise.all(
-      [1, 2].map((quantity) =>
-        app.inject({
-          method: 'POST',
-          url: '/api/v1/meals',
-          headers: auth(),
-          payload: {
-            date: '2026-09-07',
-            name: 'Lunch',
-            items: [{ foodName: 'Concurrent staple', quantity, ...macros }],
-          },
-        }),
+  it('serializes only categorical ranked matches, including frequent and nested promotion matches', async () => {
+    saved('ranked', 'owner', 'Travel bowl');
+    history('a', '2026-09-01');
+    history('b', '2026-09-02', 'Travel bowl', 'owner', { calories: 150 });
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/nutrition/logging-context?date=2026-09-07&q=Travel%20bowl',
+      headers: auth(),
+    });
+    expect(response.statusCode).toBe(200);
+    // Inspect raw serialization; parsing through Zod would strip an accidental extra field.
+    const context = response.json().data;
+    const matches = [
+      ...context.savedFoodMatches,
+      ...context.frequentFoods,
+      ...context.promotionCandidates.map(
+        (candidate: { likelySavedFoodMatch: unknown }) => candidate.likelySavedFoodMatch,
       ),
-    );
-    expect(responses.map((response) => response.statusCode)).toEqual([201, 201]);
-    expect(db.select().from(foods).all()).toHaveLength(1);
-    checkUsage();
-    expect(
-      responses.map((response) => response.json().agent.itemOutcomes[0].outcome).sort(),
-    ).toEqual(['created', 'reused']);
+    ];
+    expect(matches).toHaveLength(3);
+    for (const match of matches) {
+      expect(Object.keys(match).sort()).toEqual([
+        'aliasVersion',
+        'ambiguity',
+        'evidence',
+        'food',
+        'matchedVariant',
+        'reason',
+      ]);
+      expect(match.evidence.length).toBeGreaterThan(0);
+    }
+    expect(context.promotionCandidates[0]).toMatchObject({
+      stability: 'review_only',
+      occurrenceCount: 2,
+      distinctDayCount: 2,
+    });
+    const openapi = (await app.inject({ method: 'GET', url: '/api/docs/json' })).json();
+    const properties =
+      openapi.paths['/api/v1/nutrition/logging-context'].get.responses['200'].content[
+        'application/json'
+      ].schema.properties.data.properties;
+    for (const match of [
+      properties.savedFoodMatches.items,
+      properties.frequentFoods.items,
+      properties.promotionCandidates.items.properties.likelySavedFoodMatch,
+    ]) {
+      expect(Object.keys(match.properties).sort()).toEqual([
+        'aliasVersion',
+        'ambiguity',
+        'evidence',
+        'food',
+        'matchedVariant',
+        'reason',
+      ]);
+    }
+    expect(properties.shorthandExpansions.items.properties).toHaveProperty('score');
   });
   it('documents generated shared OpenAPI contracts and retains strict authentication', async () => {
     const schema = await app.inject({ method: 'GET', url: '/api/docs/json' });

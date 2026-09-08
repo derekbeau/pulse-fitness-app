@@ -1,0 +1,15 @@
+$ pnpm --filter @pulse/web exec vitest run src/features/foods/components/food-list.test.tsx src/pages/active-workout.test.tsx --maxWorkers=1 -t 'preserves filter and sort state|keeps the session active after the last set|renders the active workout UI'
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/web
+
+ ✓ src/pages/active-workout.test.tsx (39 tests | 37 skipped) 1523ms
+     ✓ renders the active workout UI and does not auto-focus any set after rest timer completion  513ms
+     ✓ keeps the session active after the last set until completion is explicitly confirmed  1008ms
+ ✓ src/features/foods/components/food-list.test.tsx (14 tests | 13 skipped) 422ms
+     ✓ preserves filter and sort state when switching between card and table views  421ms
+
+ Test Files  2 passed (2)
+      Tests  3 passed | 50 skipped (53)
+   Start at  19:56:35
+   Duration  5.43s (transform 848ms, setup 161ms, import 2.69s, tests 1.94s, environment 452ms)
+

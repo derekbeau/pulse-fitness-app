@@ -20,6 +20,8 @@ import {
   mealItemInputSchema,
   nutritionLoggingContextQuerySchema,
   nutritionLoggingContextSchema,
+  nutritionFoodMatchSchema,
+  nutritionShorthandExpansionSchema,
   nutritionLogStatusSchema,
   nutritionWeekSummarySchema,
   patchMealInputSchema,
@@ -844,5 +846,19 @@ describe('daily nutrition note PATCH schema', () => {
       expect(patchNutritionLogInputSchema.safeParse({ notes }).success).toBe(false);
     }
     expect(patchNutritionLogInputSchema.safeParse({ context: 'alias' }).success).toBe(false);
+  });
+});
+
+describe('categorical food-match contract', () => {
+  it('has no public numeric ranking while retaining the separate shorthand contract', () => {
+    expect(Object.keys(nutritionFoodMatchSchema.shape).sort()).toEqual([
+      'aliasVersion',
+      'ambiguity',
+      'evidence',
+      'food',
+      'matchedVariant',
+      'reason',
+    ]);
+    expect(nutritionShorthandExpansionSchema.shape).toHaveProperty('score');
   });
 });

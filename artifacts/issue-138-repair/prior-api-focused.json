@@ -1,0 +1,5 @@
+{
+  "command": "pnpm --filter @pulse/api exec vitest run src/scripts/seed-adaptive-tdee-preview.test.ts src/routes/nutrition/store.food-usage.test.ts --maxWorkers=1",
+  "exitCode": 0,
+  "elapsedSeconds": 20.88
+}

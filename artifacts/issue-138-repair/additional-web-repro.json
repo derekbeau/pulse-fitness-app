@@ -1,0 +1,5 @@
+{
+  "command": "pnpm --filter @pulse/web exec vitest run src/features/workouts/components/session-exercise-list.test.tsx -t 'keeps section open state manual' --maxWorkers=1",
+  "exitCode": 0,
+  "elapsedSeconds": 3.41
+}
