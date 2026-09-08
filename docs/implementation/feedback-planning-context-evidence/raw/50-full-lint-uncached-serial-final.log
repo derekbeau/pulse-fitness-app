@@ -1,0 +1,59 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 057f66765c996a09712f49af613e70e8ac6b08fa
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 1150363d231949bc70ec34942507b3d7b7afd9bcdd2e688160ab7aa4612e5a9a
+STARTED_UTC: 2026-09-08T20:47:34.266Z
+COMMAND_ARGV_JSON: ["pnpm","lint"]
+COMMAND: "pnpm" "lint"
+CACHE_CONTROLS_JSON: {"TURBO_FORCE":"true","TURBO_CONCURRENCY":"1","TURBO_ENV_MODE":"strict","CI":"true"}
+STDOUT_STDERR_BEGIN
+
+> pulse@ lint /Users/meridian/Projects/pulse-feedback-planning-context
+> turbo run lint
+
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running lint in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/shared:lint: cache bypass, force executing 21744d48d487c3d6
+@pulse/shared:lint: 
+@pulse/shared:lint: > @pulse/shared@0.0.0 lint /Users/meridian/Projects/pulse-feedback-planning-context/packages/shared
+@pulse/shared:lint: > eslint .
+@pulse/shared:lint: 
+@pulse/api:lint: cache bypass, force executing 400771f1c27edd7d
+@pulse/api:lint: 
+@pulse/api:lint: > @pulse/api@0.0.0 lint /Users/meridian/Projects/pulse-feedback-planning-context/apps/api
+@pulse/api:lint: > eslint .
+@pulse/api:lint: 
+@pulse/web:lint: cache bypass, force executing 3764fa6a5628ab3f
+@pulse/web:lint: 
+@pulse/web:lint: > @pulse/web@0.0.0 lint /Users/meridian/Projects/pulse-feedback-planning-context/apps/web
+@pulse/web:lint: > eslint .
+@pulse/web:lint: 
+@pulse/web:lint: 
+@pulse/web:lint: /Users/meridian/Projects/pulse-feedback-planning-context/apps/web/src/features/adaptive-nutrition/components/energy-balance-workspace.tsx
+@pulse/web:lint:   129:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+@pulse/web:lint:   158:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+@pulse/web:lint: 
+@pulse/web:lint: /Users/meridian/Projects/pulse-feedback-planning-context/apps/web/src/features/workouts/components/session-detail-exercise-card.tsx
+@pulse/web:lint:   352:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+@pulse/web:lint: 
+@pulse/web:lint: /Users/meridian/Projects/pulse-feedback-planning-context/apps/web/src/features/workouts/components/workout-exercise-card/index.tsx
+@pulse/web:lint:   23:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+@pulse/web:lint:   27:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+@pulse/web:lint: 
+@pulse/web:lint: /Users/meridian/Projects/pulse-feedback-planning-context/apps/web/src/pages/active-workout.tsx
+@pulse/web:lint:   2501:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+@pulse/web:lint: 
+@pulse/web:lint: ✖ 6 problems (0 errors, 6 warnings)
+@pulse/web:lint: 
+
+ Tasks:    3 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    15.436s 
+
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T20:47:50.139Z
+EXIT_CODE: 0

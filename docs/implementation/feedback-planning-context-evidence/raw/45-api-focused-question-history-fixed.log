@@ -1,0 +1,55 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 5cb0a04994da652a14e960471ecd7218dfee5176
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 277fc5f4d68fe17a5d331e87fa8721ed06c11930f66328a3f7106460c97aa84c
+STARTED_UTC: 2026-09-08T20:39:33.134Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","api","exec","vitest","run","src/routes/feedback-planning/index.test.ts","src/db/feedback-planning-context-migration.test.ts","--no-cache","--maxWorkers=1","--no-file-parallelism"]
+COMMAND: "pnpm" "--filter" "api" "exec" "vitest" "run" "src/routes/feedback-planning/index.test.ts" "src/db/feedback-planning-context-migration.test.ts" "--no-cache" "--maxWorkers=1" "--no-file-parallelism"
+CACHE_CONTROLS_JSON: {"CI":"true"}
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-planning-context/apps/api
+
+ ❯ src/routes/feedback-planning/index.test.ts (4 tests | 1 failed) 763ms
+     ✓ returns exact bounded evidence, separate history, open stale concerns, and owner-safe export 86ms
+     × applies only an explicit future-note decision, preserves safeguards, and invalidates on correction 104ms
+     ✓ fails closed for invalid query/auth, clinician guidance, foreign targets, and purge readback 40ms
+     ✓ publishes the bounded query and explicit decision contracts in OpenAPI 64ms
+ ✓ src/db/feedback-planning-context-migration.test.ts (3 tests) 182ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/feedback-planning/index.test.ts > source-linked feedback planning context > applies only an explicit future-note decision, preserves safeguards, and invalidates on correction
+AssertionError: {"error":{"code":"FEEDBACK_PLANNING_SOURCE_NOT_FOUND","message":"Current supporting feedback response was not found."}}: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ src/routes/feedback-planning/index.test.ts:1087:64
+    1085|       },
+    1086|     });
+    1087|     expect(beforeRecurrence.statusCode, beforeRecurrence.body).toBe(20…
+       |                                                                ^
+    1088|     const recurrenceStart = await app.inject({
+    1089|       method: 'POST',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 6 passed (7)
+   Start at  16:39:33
+   Duration  1.71s (transform 476ms, setup 0ms, import 611ms, tests 944ms, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-feedback-planning-context/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/feedback-planning/index.test.ts src/db/feedback-planning-context-migration.test.ts --no-cache --maxWorkers=1 --no-file-parallelism
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T20:39:35.410Z
+EXIT_CODE: 1
