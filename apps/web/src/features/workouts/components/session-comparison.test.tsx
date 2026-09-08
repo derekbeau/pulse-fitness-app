@@ -1,3 +1,4 @@
+import { classifyNativeFeedback } from '@pulse/shared';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { WorkoutSession } from '@pulse/shared';
@@ -22,11 +23,14 @@ function createSession(overrides: Partial<WorkoutSession>): WorkoutSession {
       cooldown: 0,
       supplemental: 0,
     },
-    feedback: {
-      energy: 4 as const,
-      recovery: 4 as const,
-      technique: 4 as const,
-    },
+    feedback: classifyNativeFeedback(
+      {
+        energy: 4 as const,
+        recovery: 4 as const,
+        technique: 4 as const,
+      },
+      { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+    ),
     notes: null,
     sets: [],
     createdAt: 1,

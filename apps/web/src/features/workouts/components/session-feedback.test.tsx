@@ -177,6 +177,7 @@ describe('SessionFeedback', () => {
 
     expect(onSubmit).toHaveBeenCalledWith([
       {
+        answerState: 'answered',
         id: 'session-rpe',
         label: 'Session RPE',
         max: 10,
@@ -187,6 +188,7 @@ describe('SessionFeedback', () => {
         value: 5,
       },
       {
+        answerState: 'answered',
         id: 'energy-post-workout',
         label: 'Energy post workout',
         notes: '',
@@ -196,6 +198,7 @@ describe('SessionFeedback', () => {
         value: '😐',
       },
       {
+        answerState: 'answered',
         id: 'pain-discomfort',
         label: 'Any pain or discomfort?',
         notes: '',
@@ -206,7 +209,7 @@ describe('SessionFeedback', () => {
     ]);
   });
 
-  it('drops legacy custom fields that overlap standard prompts', () => {
+  it('preserves custom wording even when labels resemble standard prompts', () => {
     const onSubmit = vi.fn();
 
     render(
@@ -240,10 +243,8 @@ describe('SessionFeedback', () => {
       />,
     );
 
-    expect(
-      screen.queryByRole('group', { name: 'Energy post workout rating' }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByRole('group', { name: 'Knee pain rating' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Energy post workout rating' })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Knee pain rating' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Energy post workout options' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Coach note' })).toBeInTheDocument();
   });

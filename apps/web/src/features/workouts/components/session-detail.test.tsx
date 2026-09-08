@@ -1,3 +1,4 @@
+import { classifyNativeFeedback } from '@pulse/shared';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { WorkoutSession, WorkoutSessionListItem } from '@pulse/shared';
 import { MemoryRouter } from 'react-router';
@@ -81,12 +82,15 @@ describe('SessionDetail', () => {
       id: 'session-current',
       templateId: 'template-upper-push',
       notes: 'Felt strong and stable today.',
-      feedback: {
-        energy: 4,
-        recovery: 4,
-        technique: 5,
-        notes: 'Great pacing and clean reps.',
-      },
+      feedback: classifyNativeFeedback(
+        {
+          energy: 4,
+          recovery: 4,
+          technique: 5,
+          notes: 'Great pacing and clean reps.',
+        },
+        { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+      ),
       sets: [
         createSet({
           id: 'set-row-1',
@@ -621,21 +625,24 @@ describe('SessionDetail', () => {
       templateId: 'template-upper-push',
       notes:
         '## Session focus\nLine one\nLine two\n\n- **Brace** before unrack\n- Keep a steady tempo\n\n<script>alert("xss")</script>',
-      feedback: {
-        energy: 4,
-        recovery: 4,
-        technique: 5,
-        notes: 'Reflection line one\nReflection line two',
-        responses: [
-          {
-            id: 'coach-note',
-            label: 'Coach note',
-            type: 'text',
-            value: 'Solid pace today.',
-            notes: 'Stay *conservative* on set 1.\n- Add a pause',
-          },
-        ],
-      },
+      feedback: classifyNativeFeedback(
+        {
+          energy: 4,
+          recovery: 4,
+          technique: 5,
+          notes: 'Reflection line one\nReflection line two',
+          responses: [
+            {
+              id: 'coach-note',
+              label: 'Coach note',
+              type: 'text',
+              value: 'Solid pace today.',
+              notes: 'Stay *conservative* on set 1.\n- Add a pause',
+            },
+          ],
+        },
+        { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+      ),
       sets: [
         createSet({
           id: 'set-markdown-note',
@@ -678,33 +685,36 @@ describe('SessionDetail', () => {
     const currentSession = createSession({
       id: 'session-structured-feedback',
       templateId: 'template-upper-push',
-      feedback: {
-        energy: 4,
-        recovery: 3,
-        technique: 4,
-        notes: 'Felt strong overall.',
-        responses: [
-          {
-            id: 'session-rpe',
-            label: 'Session RPE',
-            type: 'scale',
-            value: 8,
-          },
-          {
-            id: 'energy-post-workout',
-            label: 'Energy post workout',
-            type: 'emoji',
-            value: '💪',
-          },
-          {
-            id: 'pain-discomfort',
-            label: 'Any pain or discomfort?',
-            type: 'yes_no',
-            value: true,
-            notes: 'Mild right knee discomfort during split squats.',
-          },
-        ],
-      },
+      feedback: classifyNativeFeedback(
+        {
+          energy: 4,
+          recovery: 3,
+          technique: 4,
+          notes: 'Felt strong overall.',
+          responses: [
+            {
+              id: 'session-rpe',
+              label: 'Session RPE',
+              type: 'scale',
+              value: 8,
+            },
+            {
+              id: 'energy-post-workout',
+              label: 'Energy post workout',
+              type: 'emoji',
+              value: '💪',
+            },
+            {
+              id: 'pain-discomfort',
+              label: 'Any pain or discomfort?',
+              type: 'yes_no',
+              value: true,
+              notes: 'Mild right knee discomfort during split squats.',
+            },
+          ],
+        },
+        { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+      ),
     });
 
     mockSessionDetailRequests({

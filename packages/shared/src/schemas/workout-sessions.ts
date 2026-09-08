@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  provenanceSafeFeedbackSchema,
+  feedbackNoteReviewSchema,
+  nativeFeedbackResponseSchema,
+} from './feedback-provenance.js';
 
 import { dateSchema } from './common.js';
 import { exerciseTrackingTypeSchema } from './exercises.js';
@@ -8,15 +13,6 @@ import {
   nullableRpeSchema,
   validateMutuallyExclusiveWorkoutEffort,
 } from './workout-effort.js';
-
-const normalizeOptionalString = (value: unknown) => {
-  if (typeof value !== 'string') {
-    return value;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-};
 
 const normalizeNullableString = (value: unknown) => {
   if (value === null || value === undefined) {
@@ -36,10 +32,6 @@ const requiredLongStringSchema = z.string().trim().min(1).max(4000);
 const nullableShortStringSchema = z.preprocess(
   normalizeNullableString,
   requiredStringSchema.nullable(),
-);
-const optionalLongStringSchema = z.preprocess(
-  normalizeOptionalString,
-  requiredLongStringSchema.optional(),
 );
 const nullableLongStringSchema = z.preprocess(
   normalizeNullableString,
@@ -243,38 +235,7 @@ export const workoutSessionFeedbackResponseTypeSchema = z.enum([
   'multi_select',
 ]);
 
-const workoutSessionFeedbackResponseBaseSchema = z.object({
-  id: requiredStringSchema,
-  label: requiredStringSchema,
-  notes: optionalLongStringSchema.optional(),
-});
-
-export const workoutSessionFeedbackResponseSchema = z.discriminatedUnion('type', [
-  workoutSessionFeedbackResponseBaseSchema.extend({
-    type: z.literal('scale'),
-    value: z.number(),
-  }),
-  workoutSessionFeedbackResponseBaseSchema.extend({
-    type: z.literal('slider'),
-    value: z.number(),
-  }),
-  workoutSessionFeedbackResponseBaseSchema.extend({
-    type: z.literal('yes_no'),
-    value: z.boolean(),
-  }),
-  workoutSessionFeedbackResponseBaseSchema.extend({
-    type: z.literal('emoji'),
-    value: requiredStringSchema,
-  }),
-  workoutSessionFeedbackResponseBaseSchema.extend({
-    type: z.literal('text'),
-    value: nullableLongStringSchema,
-  }),
-  workoutSessionFeedbackResponseBaseSchema.extend({
-    type: z.literal('multi_select'),
-    value: z.array(requiredStringSchema).max(20),
-  }),
-]);
+export const workoutSessionFeedbackResponseSchema = nativeFeedbackResponseSchema;
 
 export const workoutSessionFeedbackResponseValueSchema = z.union([
   z.number(),
@@ -284,13 +245,22 @@ export const workoutSessionFeedbackResponseValueSchema = z.union([
   z.array(requiredStringSchema).max(20),
 ]);
 
-export const workoutSessionFeedbackSchema = z.object({
-  energy: workoutSessionFeedbackScoreSchema,
-  recovery: workoutSessionFeedbackScoreSchema,
-  technique: workoutSessionFeedbackScoreSchema,
-  notes: optionalLongStringSchema.optional(),
-  responses: z.array(workoutSessionFeedbackResponseSchema).max(50).optional(),
-});
+export const legacyWorkoutSessionFeedbackSchema = z
+  .object({
+    energy: workoutSessionFeedbackScoreSchema,
+    recovery: workoutSessionFeedbackScoreSchema,
+    technique: workoutSessionFeedbackScoreSchema,
+    notes: z.string().max(4000).optional(),
+    responses: z.array(workoutSessionFeedbackResponseSchema).max(50).optional(),
+  })
+  .strict();
+
+export const workoutSessionFeedbackSchema = provenanceSafeFeedbackSchema;
+export const workoutSessionFeedbackInputSchema = z.union([
+  provenanceSafeFeedbackSchema,
+  legacyWorkoutSessionFeedbackSchema,
+]);
+export type WorkoutSessionFeedbackInput = z.infer<typeof workoutSessionFeedbackInputSchema>;
 
 export const sessionSetSchema = z
   .object({
@@ -384,6 +354,7 @@ export const workoutSessionSchema = z
       defaultWorkoutSessionSectionDurations,
     ),
     feedback: workoutSessionFeedbackSchema.nullable(),
+    feedbackNoteReview: feedbackNoteReviewSchema.optional(),
     notes: nullableLongStringSchema,
     exercises: z.array(workoutSessionExerciseSchema).optional(),
     sets: z.array(sessionSetSchema).max(500),
@@ -526,7 +497,7 @@ const createWorkoutSessionInputObjectSchema = z.object({
   completedAt: z.number().int().nullable().optional().default(null),
   duration: nullableIntegerSchema.optional().default(null),
   timeSegments: validatedTimeSegmentsSchema.optional().default([]),
-  feedback: workoutSessionFeedbackSchema.nullable().optional().default(null),
+  feedback: workoutSessionFeedbackInputSchema.nullable().optional().default(null),
   notes: nullableLongStringSchema.optional().default(null),
   sets: z.array(sessionSetInputSchema).max(500).optional().default([]),
 });
@@ -570,7 +541,7 @@ export const updateWorkoutSessionInputSchema = z
     completedAt: z.number().int().nullable().optional(),
     duration: nullableIntegerSchema.optional(),
     timeSegments: validatedTimeSegmentsSchema.optional(),
-    feedback: workoutSessionFeedbackSchema.nullable().optional(),
+    feedback: workoutSessionFeedbackInputSchema.nullable().optional(),
     notes: nullableLongStringSchema.optional(),
     exerciseNotes: exerciseNotesInputSchema.optional(),
     sets: z.array(sessionSetInputSchema).max(500).optional(),

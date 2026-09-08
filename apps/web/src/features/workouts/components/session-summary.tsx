@@ -443,6 +443,8 @@ export function SessionSummary({
 }
 
 function formatFeedbackFieldValue(field: ActiveWorkoutFeedbackDraft[number]) {
+  if (field.answerState === 'skipped') return 'Skipped — unknown';
+  if (field.value === undefined) return 'Unanswered';
   switch (field.type) {
     case 'scale':
       return `${field.value ?? '-'} / ${field.max}`;

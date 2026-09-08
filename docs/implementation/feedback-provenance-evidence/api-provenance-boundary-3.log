@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+
+ ✓ src/routes/workout-sessions/index.test.ts (121 tests) 1496ms
+
+ Test Files  1 passed (1)
+      Tests  121 passed (121)
+   Start at  00:02:33
+   Duration  2.35s (transform 783ms, setup 0ms, import 734ms, tests 1.50s, environment 0ms)
+

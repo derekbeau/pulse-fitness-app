@@ -1,0 +1,37 @@
+
+> pulse@ typecheck /Users/meridian/Projects/pulse-feedback-provenance
+> turbo run typecheck
+
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running typecheck in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/web:typecheck: cache bypass, force executing 295b6e3b44960526
+@pulse/api:typecheck: cache bypass, force executing 3033e17ea7ec82c2
+@pulse/shared:typecheck: cache bypass, force executing b961c428b26f7927
+@pulse/api:typecheck: 
+@pulse/api:typecheck: > @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+@pulse/api:typecheck: > tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+@pulse/api:typecheck: 
+@pulse/web:typecheck: 
+@pulse/web:typecheck: > @pulse/web@0.0.0 typecheck /Users/meridian/Projects/pulse-feedback-provenance/apps/web
+@pulse/web:typecheck: > tsc --noEmit
+@pulse/web:typecheck: 
+@pulse/shared:typecheck: 
+@pulse/shared:typecheck: > @pulse/shared@0.0.0 typecheck /Users/meridian/Projects/pulse-feedback-provenance/packages/shared
+@pulse/shared:typecheck: > tsc --noEmit -p tsconfig.json
+@pulse/shared:typecheck: 
+@pulse/api:typecheck: src/routes/workout-sessions/store.ts(2189,33): error TS2345: Argument of type '{ provenance: { energy: { source: "unknown" | "explicit_user_response" | "explicit_agent_or_other_response" | "same_construct_documented_mapping" | "legacy_derived" | "legacy_unknown"; ... 7 more ...; classifiedAt: string; }; recovery: { ...; }; technique: { ...; }; }; ... 5 more ...; notes?: string | undefined; } |...' is not assignable to parameter of type '{ responses?: { type: "emoji" | "scale" | "slider" | "text" | "yes_no" | "multi_select"; id: string; label: string; value?: string | number | boolean | string[] | null | undefined; notes?: string | undefined; state?: "unknown" | ... 3 more ... | undefined; revisionId?: string | undefined; construct?: "energy" | ... ...'.
+@pulse/api:typecheck:   Type '{ id: string; state: "superseded" | "pending_review"; reason: string; field?: string | undefined; sourceKey?: string | null | undefined; actionable?: false | undefined; }[]' has no properties in common with type '{ responses?: { type: "emoji" | "scale" | "slider" | "text" | "yes_no" | "multi_select"; id: string; label: string; value?: string | number | boolean | string[] | null | undefined; notes?: string | undefined; state?: "unknown" | ... 3 more ... | undefined; revisionId?: string | undefined; construct?: "energy" | ... ...'.
+@pulse/api:typecheck:  ELIFECYCLE  Command failed with exit code 2.
+@pulse/api:typecheck: ERROR: command finished with error: command (/Users/meridian/Projects/pulse-feedback-provenance/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run typecheck exited (2)
+@pulse/web:typecheck:  ELIFECYCLE  Command failed.
+@pulse/api#typecheck: command (/Users/meridian/Projects/pulse-feedback-provenance/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run typecheck exited (2)
+
+ Tasks:    1 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    7.831s 
+Failed:    @pulse/api#typecheck
+
+ ERROR  run failed: command  exited (2)
+ ELIFECYCLE  Command failed with exit code 2.

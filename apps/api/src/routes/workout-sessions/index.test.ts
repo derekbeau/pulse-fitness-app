@@ -1,3 +1,4 @@
+import { classifyNativeFeedback } from '@pulse/shared';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -2196,6 +2197,155 @@ describe('workout session routes', () => {
     );
   });
 
+  it('quarantines legacy scores for JWT and AgentToken and owner-scopes exact raw audit', async () => {
+    const jwt = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const otherJwt = context.app.jwt.sign(
+      { sub: 'user-2', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const agent = seedAgentToken('user-1', 'synthetic-feedback-agent');
+    const otherAgent = seedAgentToken('user-2', 'synthetic-other-agent');
+    const raw = {
+      energy: 5,
+      recovery: 4,
+      technique: 4,
+      notes: '  private synthetic raw  ',
+      responses: [
+        { id: 'pain-discomfort', label: 'Pain?', type: 'yes_no', value: false },
+        { id: 'custom-zero', label: 'Zero', type: 'slider', value: 0 },
+        { id: 'session-rpe', label: 'Effort', type: 'scale', value: 8 },
+      ],
+    };
+    for (const headers of [createAuthorizationHeader(jwt), createAgentTokenHeader(agent)]) {
+      const created = await context.app.inject({
+        method: 'POST',
+        url: '/api/v1/workout-sessions',
+        headers,
+        payload: {
+          name: 'Synthetic provenance',
+          date: '2026-09-08',
+          startedAt: 100,
+          feedback: raw,
+        },
+      });
+      expect(created.statusCode).toBe(201);
+      const session = created.json().data;
+      expect(session.feedback).toMatchObject({
+        energy: null,
+        recovery: null,
+        technique: null,
+        responses: raw.responses,
+      });
+      const auditUrl = `/api/v1/workout-sessions/${session.id}/feedback-audit`;
+      const audit = await context.app.inject({ method: 'GET', url: auditUrl, headers });
+      expect(audit.statusCode).toBe(200);
+      expect(JSON.parse(audit.json().data.items[0].rawPayload)).toEqual(raw);
+      for (const otherHeaders of [
+        createAuthorizationHeader(otherJwt),
+        createAgentTokenHeader(otherAgent),
+      ])
+        expect(
+          (await context.app.inject({ method: 'GET', url: auditUrl, headers: otherHeaders }))
+            .statusCode,
+        ).toBe(404);
+      const canonical = classifyNativeFeedback(
+        {
+          responses: [
+            {
+              id: 'explicit-technique',
+              label: 'Technique',
+              type: 'scale',
+              construct: 'technique',
+              value: 2,
+            },
+          ],
+        },
+        { classifiedAt: '2026-09-08T00:00:00.000Z', actor: { kind: 'user', id: 'spoofed-actor' } },
+      );
+      canonical.technique = 5;
+      const updated = await context.app.inject({
+        method: 'PATCH',
+        url: `/api/v1/workout-sessions/${session.id}`,
+        headers,
+        payload: { feedback: canonical },
+      });
+      expect(updated.statusCode).toBe(200);
+      expect(updated.json().data.feedback.technique).toBe(2);
+      expect(updated.json().data.feedback.provenance.technique.actorId).not.toBe('spoofed-actor');
+    }
+  });
+
+  it('does not copy a confirmed superseded template interpretation into a new session', async () => {
+    const note = 'Technique rating 2 means reduce future load.';
+    seedTemplateExercise({
+      id: 'synthetic-contaminated-template-note',
+      templateId: 'template-1',
+      exerciseId: 'global-bench-press',
+      orderIndex: 0,
+      notes: note,
+    });
+    context.sqlite
+      .prepare(
+        `INSERT INTO feedback_note_dispositions
+      (id,user_id,kind,parent_id,source_id,field,source_key,note_checksum,raw_text,state,evidence_id,reason,classified_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      )
+      .run(
+        'synthetic-supersession',
+        'user-1',
+        'template',
+        'template-1',
+        'synthetic-source',
+        'notes',
+        'synthetic-contaminated-template-note',
+        createHash('sha256').update(note).digest('hex'),
+        note,
+        'superseded',
+        'synthetic-reviewed-link',
+        'Confirmed source-linked unsupported technique interpretation.',
+        '2026-09-08T00:00:00.000Z',
+      );
+    const jwt = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const created = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(jwt),
+      payload: { templateId: 'template-1', date: '2026-09-08', startedAt: 100 },
+    });
+    expect(created.statusCode).toBe(201);
+    expect(
+      created
+        .json()
+        .data.exercises.every(
+          (exercise: { programmingNotes: string | null }) => exercise.programmingNotes !== note,
+        ),
+    ).toBe(true);
+    expect(
+      context.sqlite
+        .prepare('SELECT notes FROM template_exercises WHERE id = ?')
+        .get('synthetic-contaminated-template-note'),
+    ).toEqual({ notes: note });
+  });
+
+  it('publishes nullable provenance and private audit in OpenAPI', async () => {
+    const response = await context.app.inject({ method: 'GET', url: '/api/docs/json' });
+    const paths = response.json().paths;
+    const responseSchema = JSON.stringify(paths['/api/v1/workout-sessions/{id}'].get.responses);
+    expect(responseSchema).toContain('legacy_derived');
+    expect(responseSchema).toContain('sourceResponseId');
+    expect(responseSchema).toContain('nullable');
+    expect(paths['/api/v1/workout-sessions/{id}/feedback-audit'].get.security).toEqual([
+      { bearerAuth: [] },
+      { agentToken: [] },
+    ]);
+  });
+
   it('publishes native RIR fields and AgentToken security in the workout-set OpenAPI contract', async () => {
     const response = await context.app.inject({ method: 'GET', url: '/api/docs/json' });
     expect(response.statusCode).toBe(200);
@@ -3611,10 +3761,10 @@ describe('workout session routes', () => {
       completedAt: 1_700_000_103_000,
       duration: 50,
       feedback: {
-        energy: 4,
-        recovery: 3,
-        technique: 5,
-        notes: 'Locked in',
+        energy: null,
+        recovery: null,
+        technique: null,
+        notes: ' Locked in ',
       },
       notes: 'Great pressing day',
       sets: [
@@ -6113,11 +6263,11 @@ describe('workout session routes', () => {
         startedAt: 1000,
         completedAt: 4000,
         duration: 0,
-        feedback: {
-          energy: 5,
-          recovery: 4,
-          technique: 4,
-        },
+        feedback: expect.objectContaining({
+          energy: null,
+          recovery: null,
+          technique: null,
+        }),
         notes: 'Strong day',
         sets: [
           expect.objectContaining({
@@ -7014,12 +7164,12 @@ describe('workout session routes', () => {
         startedAt: Date.parse('2026-03-12T10:05:00.000Z'),
         completedAt: Date.parse('2026-03-12T10:30:00.000Z'),
         duration: 1_500,
-        feedback: {
-          energy: 5,
-          recovery: 4,
-          technique: 4,
-          notes: 'Strong finish',
-        },
+        feedback: expect.objectContaining({
+          energy: null,
+          recovery: null,
+          technique: null,
+          notes: ' Strong finish ',
+        }),
       }),
       agent: expect.objectContaining({
         relatedState: expect.objectContaining({

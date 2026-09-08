@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/packages/shared
+
+ ✓ src/schemas/workout-sessions.test.ts (47 tests) 14ms
+
+ Test Files  1 passed (1)
+      Tests  47 passed (47)
+   Start at  23:46:13
+   Duration  237ms (transform 69ms, setup 0ms, import 97ms, tests 14ms, environment 0ms)
+

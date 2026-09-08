@@ -1,0 +1,290 @@
+
+> pulse@ test /Users/meridian/Projects/pulse-feedback-provenance
+> pnpm test:repo-scripts && turbo run test
+
+
+> pulse@ test:repo-scripts /Users/meridian/Projects/pulse-feedback-provenance
+> node --test scripts/dev-gate0-isolated.test.mjs scripts/api-container-entrypoint.test.mjs scripts/runtime-secrets-isolation.test.mjs scripts/init-worktree.test.mjs
+
+▶ API container migration-map preflight
+  ✔ starts fresh, legacy-empty, and already-canonical databases without a map (87.052542ms)
+  ✔ fails closed for non-empty legacy data without a secure map (195.938917ms)
+  ✔ accepts a regular mode-0600 map for non-empty legacy data (107.032083ms)
+✔ API container migration-map preflight (391.390292ms)
+▶ Gate 0 isolated development startup
+  ✔ enforces the isolated database and all three fixed port values (7.895083ms)
+  ✔ allows only loopback or an exact Tailscale IPv4 preview host (0.265708ms)
+  ✔ advertises the reachable Tailscale-hosted web origin to Swagger (0.650292ms)
+  ✔ rejects default, production, snapshot, and arbitrary database paths (1.119125ms)
+  ✔ rejects a missing, read-only, or symlinked isolated database (2.993792ms)
+✔ Gate 0 isolated development startup (13.736375ms)
+▶ worktree initializer
+  ✔ derives a deterministic sibling path from a slash-delimited branch (1.597958ms)
+  ✔ parses defaults and explicit overrides (3.694834ms)
+  ✔ rejects unknown options and unsafe port values (0.280167ms)
+  ✔ reads worktree paths and reserves generated environment ports (2.008625ms)
+  ✔ renders a localhost-only environment with an absolute database path (0.252916ms)
+  ✔ recognizes both normal and signal-based child process exits (0.0945ms)
+✔ worktree initializer (9.992ms)
+▶ runtime migration-map isolation
+  ✔ keeps the host-only map out of Git and the Docker build context (1126.976375ms)
+✔ runtime migration-map isolation (1127.756ms)
+ℹ tests 15
+ℹ suites 4
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1232.169292
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running test in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/shared:build: cache bypass, force executing 171be8d9140ac582
+@pulse/shared:build: 
+@pulse/shared:build: > @pulse/shared@0.0.0 build /Users/meridian/Projects/pulse-feedback-provenance/packages/shared
+@pulse/shared:build: > tsc -p tsconfig.json
+@pulse/shared:build: 
+@pulse/shared:test: cache bypass, force executing abe3ccc7492dcfc3
+@pulse/api:build: cache bypass, force executing ffed0782a99473ef
+@pulse/web:build: cache bypass, force executing fd9ed9d35c34b2d6
+@pulse/shared:test: 
+@pulse/shared:test: > @pulse/shared@0.0.0 test /Users/meridian/Projects/pulse-feedback-provenance/packages/shared
+@pulse/shared:test: > vitest run
+@pulse/shared:test: 
+@pulse/api:build: 
+@pulse/api:build: > @pulse/api@0.0.0 build /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+@pulse/api:build: > tsc
+@pulse/api:build: 
+@pulse/web:build: 
+@pulse/web:build: > @pulse/web@0.0.0 build /Users/meridian/Projects/pulse-feedback-provenance/apps/web
+@pulse/web:build: > tsc -b && vite build
+@pulse/web:build: 
+@pulse/shared:test: 
+@pulse/shared:test:  RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/packages/shared
+@pulse/shared:test: 
+@pulse/shared:test:  ✓ src/utils/workout-progression.test.ts (30 tests) 13ms
+@pulse/shared:test:  ✓ src/conventions-docs.test.ts (6 tests) 25ms
+@pulse/shared:test:  ✓ src/schemas/workout-templates.test.ts (19 tests) 13ms
+@pulse/shared:test:  ✓ src/schemas/nutrition.test.ts (45 tests) 28ms
+@pulse/shared:test:  ❯ src/schemas/workout-sessions.test.ts (47 tests | 3 failed) 42ms
+@pulse/shared:test:      × normalizes optional notes and infers the feedback type 7ms
+@pulse/shared:test:      ✓ rejects null values for non-text response types 2ms
+@pulse/shared:test:      ✓ applies defaults for optional set fields 2ms
+@pulse/shared:test:      ✓ rejects conflicting completion flags 0ms
+@pulse/shared:test:      ✓ accepts target fields for session set input and rejects invalid ranges 2ms
+@pulse/shared:test:      ✓ accepts exerciseName aliases and normalizes to exerciseId 1ms
+@pulse/shared:test:      ✓ accepts null exerciseId for historical sets from purged exercises 1ms
+@pulse/shared:test:      ✓ rejects persisted target weight ranges where min exceeds max 0ms
+@pulse/shared:test:      ✓ accepts partial correction updates 0ms
+@pulse/shared:test:      ✓ rejects corrections without any editable fields 0ms
+@pulse/shared:test:      ✓ accepts native RIR changes and presence-aware effort clears 1ms
+@pulse/shared:test:      ✓ requires at least one correction row 0ms
+@pulse/shared:test:      ✓ parses a correction request payload 0ms
+@pulse/shared:test:      ✓ accepts nullable per-exercise programming notes 9ms
+@pulse/shared:test:      ✓ preserves deleted exercise metadata in historical session responses 0ms
+@pulse/shared:test:      × parses a persisted workout session with nested sets 1ms
+@pulse/shared:test:      ✓ rejects inconsistent completion timing 0ms
+@pulse/shared:test:      × normalizes optional fields and infers the create input type 5ms
+@pulse/shared:test:      ✓ rejects completed sessions without completedAt 0ms
+@pulse/shared:test:      ✓ defaults empty time segments 0ms
+@pulse/shared:test:      ✓ accepts templateName convenience fields 0ms
+@pulse/shared:test:      ✓ accepts scheduled-workout starts without templateId or name 0ms
+@pulse/shared:test:      ✓ rejects payloads that combine multiple start modes 0ms
+@pulse/shared:test:      ✓ accepts section exercise reorder payloads 0ms
+@pulse/shared:test:      ✓ rejects blank exercise ids 0ms
+@pulse/shared:test:      ✓ accepts a replacement exercise id 0ms
+@pulse/shared:test:      ✓ rejects blank replacement ids 0ms
+@pulse/shared:test:      ✓ accepts paused and cancelled statuses 0ms
+@pulse/shared:test:      ✓ validates segment arrays 0ms
+@pulse/shared:test:      ✓ rejects invalid segment entries 0ms
+@pulse/shared:test:      ✓ accepts chronologically ordered, non-overlapping segments 0ms
+@pulse/shared:test:      ✓ rejects overlapping or out-of-order segments 0ms
+@pulse/shared:test:      ✓ rejects segments with end earlier than start 0ms
+@pulse/shared:test:      ✓ rejects overlapping segments across different sections 0ms
+@pulse/shared:test:      ✓ rejects multiple open segments across sections 0ms
+@pulse/shared:test:      ✓ accepts multi-section segments when globally ordered with a single open segment 0ms
+@pulse/shared:test:      ✓ allows nullable field clearing in partial updates 2ms
+@pulse/shared:test:      ✓ rejects empty updates 0ms
+@pulse/shared:test:      ✓ accepts unified exercise mutation fields 0ms
+@pulse/shared:test:      ✓ accepts exercise-level superset updates 0ms
+@pulse/shared:test:      ✓ accepts start/pause section timer actions 0ms
+@pulse/shared:test:      ✓ rejects unknown section timer actions 0ms
+@pulse/shared:test:      ✓ accepts an empty payload for default template metadata 0ms
+@pulse/shared:test:      ✓ normalizes and trims provided metadata fields 0ms
+@pulse/shared:test:      ✓ parses nullable template metadata in list items 0ms
+@pulse/shared:test:      ✓ parses optional range and filter params 0ms
+@pulse/shared:test:      ✓ rejects invalid ranges and limits 0ms
+@pulse/shared:test:  ✓ src/schemas/weight.test.ts (26 tests) 47ms
+@pulse/shared:test:  ✓ src/schemas/adaptive-nutrition.test.ts (18 tests) 64ms
+@pulse/shared:test:  ✓ src/schemas/exercises.test.ts (24 tests) 19ms
+@pulse/shared:test:  ✓ src/schemas/scheduled-workouts.test.ts (23 tests) 20ms
+@pulse/shared:test:  ✓ src/utils/adaptive-goal-trajectory.test.ts (37 tests) 92ms
+@pulse/shared:test:  ✓ src/schemas/dashboard.test.ts (15 tests) 38ms
+@pulse/shared:test:  ✓ src/utils/adaptive-tdee.test.ts (56 tests) 479ms
+@pulse/shared:test:  ✓ src/utils/energy-balance.test.ts (9 tests) 27ms
+@pulse/shared:test:  ✓ src/utils/adaptive-goal-progress.test.ts (8 tests) 51ms
+@pulse/shared:test:  ✓ src/utils/ewma.test.ts (14 tests) 97ms
+@pulse/shared:test:  ✓ src/schemas/adaptive-weekly-review.test.ts (6 tests) 67ms
+@pulse/shared:test:  ✓ src/schemas/data-quality-calendar.test.ts (8 tests) 129ms
+@pulse/shared:test:  ✓ src/schemas/workout-progression.test.ts (6 tests) 84ms
+@pulse/shared:test:  ✓ src/utils/adaptive-setup-projection.test.ts (15 tests) 9ms
+@pulse/shared:test:  ✓ src/schemas/health-conditions.test.ts (13 tests) 10ms
+@pulse/shared:test:  ✓ src/schemas/habits.test.ts (21 tests) 19ms
+@pulse/shared:test:  ✓ src/utils/daily-energy-adherence.test.ts (44 tests) 63ms
+@pulse/shared:test:  ✓ src/schemas/foods.test.ts (19 tests) 25ms
+@pulse/shared:test:  ✓ src/utils/protein-floor.test.ts (24 tests) 13ms
+@pulse/shared:test:  ✓ src/utils/chart-exploration.test.ts (19 tests) 98ms
+@pulse/shared:test:  ✓ src/schemas/session-set.test.ts (9 tests) 18ms
+@pulse/shared:test:  ✓ src/utils/food-analytics.test.ts (6 tests) 20ms
+@pulse/shared:test:  ✓ src/schemas/nutrition-targets.test.ts (7 tests) 22ms
+@pulse/shared:test:  ✓ src/schemas/feedback-provenance.test.ts (8 tests) 7ms
+@pulse/shared:test:  ✓ src/schemas/habit-entries.test.ts (12 tests) 17ms
+@pulse/shared:test:  ✓ src/unified-api-docs.test.ts (4 tests) 12ms
+@pulse/shared:test:  ✓ src/schemas/agent.test.ts (11 tests) 12ms
+@pulse/shared:test:  ✓ src/utils/habit-scheduling.test.ts (5 tests) 8ms
+@pulse/shared:test:  ✓ src/schemas/food-analytics.test.ts (4 tests) 38ms
+@pulse/shared:test:  ✓ src/schemas/dashboard-config.test.ts (8 tests) 12ms
+@pulse/shared:test:  ✓ src/monorepo-config.test.ts (2 tests) 91ms
+@pulse/shared:test:  ✓ src/schemas/workout-progression-compatibility.test.ts (19 tests) 18ms
+@pulse/shared:test:  ✓ src/schemas/energy-balance.test.ts (3 tests) 8ms
+@pulse/shared:test:  ✓ src/schemas/auth.test.ts (7 tests) 125ms
+@pulse/shared:test:  ✓ src/schemas/equipment.test.ts (5 tests) 14ms
+@pulse/shared:test:  ✓ src/schemas/common.test.ts (4 tests) 12ms
+@pulse/shared:test:  ✓ src/schemas/journal.test.ts (3 tests) 7ms
+@pulse/shared:test:  ✓ src/utils/related-history.test.ts (25 tests) 2ms
+@pulse/shared:test:  ✓ src/schemas/activities.test.ts (3 tests) 4ms
+@pulse/shared:test:  ✓ src/schemas/resources.test.ts (3 tests) 16ms
+@pulse/shared:test:  ✓ src/utils/weight-unit.test.ts (4 tests) 3ms
+@pulse/shared:test:  ✓ src/schemas/entity-links.test.ts (3 tests) 14ms
+@pulse/shared:test:  ✓ src/schemas/agent-tokens.test.ts (4 tests) 7ms
+@pulse/shared:test:  ✓ src/index.test.ts (5 tests) 9ms
+@pulse/shared:test: 
+@pulse/shared:test: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+@pulse/shared:test: 
+@pulse/shared:test:  FAIL  src/schemas/workout-sessions.test.ts > workoutSessionFeedbackSchema > normalizes optional notes and infers the feedback type
+@pulse/shared:test: ZodError: [
+@pulse/shared:test:   {
+@pulse/shared:test:     "code": "invalid_literal",
+@pulse/shared:test:     "expected": 2,
+@pulse/shared:test:     "path": [
+@pulse/shared:test:       "schemaVersion"
+@pulse/shared:test:     ],
+@pulse/shared:test:     "message": "Invalid literal value, expected 2"
+@pulse/shared:test:   },
+@pulse/shared:test:   {
+@pulse/shared:test:     "code": "invalid_type",
+@pulse/shared:test:     "expected": "object",
+@pulse/shared:test:     "received": "undefined",
+@pulse/shared:test:     "path": [
+@pulse/shared:test:       "provenance"
+@pulse/shared:test:     ],
+@pulse/shared:test:     "message": "Required"
+@pulse/shared:test:   }
+@pulse/shared:test: ]
+@pulse/shared:test:  ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+@pulse/shared:test:  ❯ ZodObject.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+@pulse/shared:test:  ❯ src/schemas/workout-sessions.test.ts:38:75
+@pulse/shared:test:      36| describe('workoutSessionFeedbackSchema', () => {
+@pulse/shared:test:      37|   it('normalizes optional notes and infers the feedback type', () => {
+@pulse/shared:test:      38|     const feedback: WorkoutSessionFeedback = workoutSessionFeedbackSch…
+@pulse/shared:test:        |                                                                           ^
+@pulse/shared:test:      39|       energy: 4,
+@pulse/shared:test:      40|       recovery: 3,
+@pulse/shared:test: 
+@pulse/shared:test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+@pulse/shared:test: 
+@pulse/shared:test:  FAIL  src/schemas/workout-sessions.test.ts > workoutSessionSchema > parses a persisted workout session with nested sets
+@pulse/shared:test: ZodError: [
+@pulse/shared:test:   {
+@pulse/shared:test:     "code": "invalid_literal",
+@pulse/shared:test:     "expected": 2,
+@pulse/shared:test:     "path": [
+@pulse/shared:test:       "feedback",
+@pulse/shared:test:       "schemaVersion"
+@pulse/shared:test:     ],
+@pulse/shared:test:     "message": "Invalid literal value, expected 2"
+@pulse/shared:test:   },
+@pulse/shared:test:   {
+@pulse/shared:test:     "code": "invalid_type",
+@pulse/shared:test:     "expected": "object",
+@pulse/shared:test:     "received": "undefined",
+@pulse/shared:test:     "path": [
+@pulse/shared:test:       "feedback",
+@pulse/shared:test:       "provenance"
+@pulse/shared:test:     ],
+@pulse/shared:test:     "message": "Required"
+@pulse/shared:test:   },
+@pulse/shared:test:   {
+@pulse/shared:test:     "code": "invalid_type",
+@pulse/shared:test:     "expected": "array",
+@pulse/shared:test:     "received": "undefined",
+@pulse/shared:test:     "path": [
+@pulse/shared:test:       "feedback",
+@pulse/shared:test:       "responses"
+@pulse/shared:test:     ],
+@pulse/shared:test:     "message": "Required"
+@pulse/shared:test:   }
+@pulse/shared:test: ]
+@pulse/shared:test:  ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+@pulse/shared:test:  ❯ ZodEffects.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+@pulse/shared:test:  ❯ src/schemas/workout-sessions.test.ts:465:58
+@pulse/shared:test:     463| 
+@pulse/shared:test:     464|   it('parses a persisted workout session with nested sets', () => {
+@pulse/shared:test:     465|     const session: WorkoutSession = workoutSessionSchema.parse({
+@pulse/shared:test:        |                                                          ^
+@pulse/shared:test:     466|       id: 'session-1',
+@pulse/shared:test:     467|       userId: 'user-1',
+@pulse/shared:test: 
+@pulse/shared:test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+@pulse/shared:test: 
+@pulse/shared:test:  FAIL  src/schemas/workout-sessions.test.ts > createWorkoutSessionInputSchema > normalizes optional fields and infers the create input type
+@pulse/shared:test: AssertionError: expected { templateId: 'template-1', …(10) } to deeply equal { templateId: 'template-1', …(10) }
+@pulse/shared:test: 
+@pulse/shared:test: - Expected
+@pulse/shared:test: + Received
+@pulse/shared:test: 
+@pulse/shared:test: @@ -2,11 +2,11 @@
+@pulse/shared:test:     "completedAt": 2600,
+@pulse/shared:test:     "date": "2026-03-13",
+@pulse/shared:test:     "duration": 45,
+@pulse/shared:test:     "feedback": {
+@pulse/shared:test:       "energy": 5,
+@pulse/shared:test: -     "notes": "Strong positions",
+@pulse/shared:test: +     "notes": " Strong positions ",
+@pulse/shared:test:       "recovery": 4,
+@pulse/shared:test:       "technique": 4,
+@pulse/shared:test:     },
+@pulse/shared:test:     "name": "Lower Body",
+@pulse/shared:test:     "notes": "Hit depth consistently",
+@pulse/shared:test: 
+@pulse/shared:test:  ❯ src/schemas/workout-sessions.test.ts:692:21
+@pulse/shared:test:     690|     });
+@pulse/shared:test:     691| 
+@pulse/shared:test:     692|     expect(payload).toEqual({
+@pulse/shared:test:        |                     ^
+@pulse/shared:test:     693|       templateId: 'template-1',
+@pulse/shared:test:     694|       name: 'Lower Body',
+@pulse/shared:test: 
+@pulse/shared:test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+@pulse/shared:test: 
+@pulse/shared:test: 
+@pulse/shared:test:  Test Files  1 failed | 48 passed (49)
+@pulse/shared:test:       Tests  3 failed | 713 passed (716)
+@pulse/shared:test:    Start at  23:44:54
+@pulse/shared:test:    Duration  2.90s (transform 2.52s, setup 0ms, import 6.21s, tests 2.07s, environment 8ms)
+@pulse/shared:test: 
+@pulse/shared:test:  ELIFECYCLE  Test failed. See above for more details.
+@pulse/shared:test: ERROR: command finished with error: command (/Users/meridian/Projects/pulse-feedback-provenance/packages/shared) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run test exited (1)
+@pulse/api:build:  ELIFECYCLE  Command failed.
+@pulse/web:build:  ELIFECYCLE  Command failed.
+@pulse/shared#test: command (/Users/meridian/Projects/pulse-feedback-provenance/packages/shared) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run test exited (1)
+
+ Tasks:    1 successful, 4 total
+Cached:    0 cached, 4 total
+  Time:    5.118s 
+Failed:    @pulse/shared#test
+
+ ERROR  run failed: command  exited (1)
+ ELIFECYCLE  Test failed. See above for more details.

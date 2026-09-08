@@ -1,3 +1,4 @@
+import { classifyNativeFeedback } from './feedback-provenance';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -34,95 +35,33 @@ import {
 } from './workout-sessions';
 
 describe('workoutSessionFeedbackSchema', () => {
-  it('normalizes optional notes and infers the feedback type', () => {
-    const feedback: WorkoutSessionFeedback = workoutSessionFeedbackSchema.parse({
-      energy: 4,
-      recovery: 3,
-      technique: 5,
+  it('preserves exact native values and notes with nullable classified ratings', () => {
+    const native = {
       notes: ' Strong focus today. ',
       responses: [
-        {
-          id: 'session-rpe',
-          label: 'Session RPE',
-          type: 'scale',
-          value: 8,
-        },
-        {
-          id: 'energy-post-workout',
-          label: 'Energy post workout',
-          type: 'emoji',
-          value: ' 🙂 ',
-        },
+        { id: 'session-rpe', label: 'Session RPE', type: 'scale' as const, value: 8 },
         {
           id: 'pain-discomfort',
-          label: 'Any pain or discomfort?',
-          type: 'yes_no',
-          value: true,
-          notes: ' Mild right knee discomfort on split squats. ',
+          label: 'Any pain?',
+          type: 'yes_no' as const,
+          value: false,
+          notes: ' exact ',
         },
+        { id: 'unknown', label: 'Unknown', type: 'scale' as const, value: null },
       ],
+    };
+    const classified = classifyNativeFeedback(native, {
+      classifiedAt: '2026-09-08T00:00:00.000Z',
+      legacy: true,
     });
-
-    expect(feedback).toEqual({
-      energy: 4,
-      recovery: 3,
-      technique: 5,
-      notes: 'Strong focus today.',
-      responses: [
-        {
-          id: 'session-rpe',
-          label: 'Session RPE',
-          type: 'scale',
-          value: 8,
-        },
-        {
-          id: 'energy-post-workout',
-          label: 'Energy post workout',
-          type: 'emoji',
-          value: '🙂',
-        },
-        {
-          id: 'pain-discomfort',
-          label: 'Any pain or discomfort?',
-          type: 'yes_no',
-          value: true,
-          notes: 'Mild right knee discomfort on split squats.',
-        },
-      ],
-    });
+    const feedback: WorkoutSessionFeedback = workoutSessionFeedbackSchema.parse(classified);
+    expect(feedback.responses).toEqual(native.responses);
+    expect(feedback.notes).toBe(native.notes);
+    expect([feedback.energy, feedback.recovery, feedback.technique]).toEqual([null, null, null]);
   });
-
-  it('rejects null values for non-text response types', () => {
+  it('rejects unclassified legacy payloads on the response contract', () => {
     expect(() =>
-      workoutSessionFeedbackSchema.parse({
-        energy: 4,
-        recovery: 3,
-        technique: 5,
-        responses: [
-          {
-            id: 'session-rpe',
-            label: 'Session RPE',
-            type: 'scale',
-            value: null,
-          },
-        ],
-      }),
-    ).toThrow();
-
-    expect(() =>
-      workoutSessionFeedbackSchema.parse({
-        energy: 4,
-        recovery: 3,
-        technique: 5,
-        responses: [
-          {
-            id: 'pain-discomfort',
-            label: 'Any pain or discomfort?',
-            type: 'yes_no',
-            value: null,
-          },
-        ],
-      }),
+      workoutSessionFeedbackSchema.parse({ energy: 4, recovery: 3, technique: 5 }),
     ).toThrow();
   });
 });
@@ -485,12 +424,10 @@ describe('workoutSessionSchema', () => {
         cooldown: 0,
         supplemental: 0,
       },
-      feedback: {
-        energy: 4,
-        recovery: 3,
-        technique: 5,
-        notes: ' Strong lockout ',
-      },
+      feedback: classifyNativeFeedback(
+        { notes: ' Strong lockout ' },
+        { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+      ),
       notes: ' Great session overall. ',
       exercises: [
         {
@@ -562,12 +499,10 @@ describe('workoutSessionSchema', () => {
         cooldown: 0,
         supplemental: 0,
       },
-      feedback: {
-        energy: 4,
-        recovery: 3,
-        technique: 5,
-        notes: 'Strong lockout',
-      },
+      feedback: classifyNativeFeedback(
+        { notes: ' Strong lockout ' },
+        { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+      ),
       notes: 'Great session overall.',
       exercises: [
         {
@@ -708,7 +643,7 @@ describe('createWorkoutSessionInputSchema', () => {
         energy: 5,
         recovery: 4,
         technique: 4,
-        notes: 'Strong positions',
+        notes: ' Strong positions ',
       },
       notes: 'Hit depth consistently',
       sets: [

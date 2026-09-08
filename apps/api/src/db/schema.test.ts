@@ -15,7 +15,6 @@ import type {
   JournalEntryType,
   ResourceType,
   WorkoutExerciseCategory,
-  WorkoutSessionFeedback,
   WorkoutSessionTimeSegment,
   WorkoutSessionStatus,
   WorkoutTemplateSectionType,
@@ -1550,22 +1549,22 @@ describe('JSON-backed string array helpers', () => {
 
 describe('workout session feedback helpers', () => {
   it('serializes and parses feedback objects for SQLite text columns', () => {
-    const feedback: WorkoutSessionFeedback = {
-      energy: 4,
-      recovery: 3,
-      technique: 5,
+    const feedback = {
+      energy: 4 as const,
+      recovery: 3 as const,
+      technique: 5 as const,
       notes: 'Moved well today.',
       responses: [
         {
           id: 'session-rpe',
           label: 'Session RPE',
-          type: 'scale',
+          type: 'scale' as const,
           value: 8,
         },
         {
           id: 'pain-discomfort',
           label: 'Any pain or discomfort?',
-          type: 'yes_no',
+          type: 'yes_no' as const,
           value: true,
           notes: 'Right knee discomfort during split squats.',
         },
@@ -1577,9 +1576,30 @@ describe('workout session feedback helpers', () => {
     expect(serialized).toBe(
       '{"energy":4,"recovery":3,"technique":5,"notes":"Moved well today.","responses":[{"id":"session-rpe","label":"Session RPE","type":"scale","value":8},{"id":"pain-discomfort","label":"Any pain or discomfort?","type":"yes_no","value":true,"notes":"Right knee discomfort during split squats."}]}',
     );
-    expect(parseWorkoutSessionFeedback(serialized)).toEqual(feedback);
+    expect(parseWorkoutSessionFeedback(serialized)).toMatchObject({
+      energy: null,
+      recovery: null,
+      technique: null,
+      notes: feedback.notes,
+      responses: feedback.responses,
+      provenance: { recovery: { source: 'legacy_unknown', sourceKind: 'unknown' } },
+    });
     expect(parseWorkoutSessionFeedback(null)).toBeNull();
     expect(serializeWorkoutSessionFeedback(null)).toBeNull();
+  });
+
+  it('quarantines partial historical summaries without inventing absent ratings', () => {
+    expect(parseWorkoutSessionFeedback('{"energy":3,"responses":[]}')).toMatchObject({
+      energy: null,
+      recovery: null,
+      technique: null,
+      responses: [],
+    });
+    expect(parseWorkoutSessionFeedback('{}')).toMatchObject({
+      energy: null,
+      recovery: null,
+      technique: null,
+    });
   });
 
   it('rejects invalid feedback payloads', () => {

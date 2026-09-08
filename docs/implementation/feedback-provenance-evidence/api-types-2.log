@@ -1,0 +1,4 @@
+
+> @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+> tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+

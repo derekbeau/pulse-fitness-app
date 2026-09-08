@@ -1,3 +1,4 @@
+import { actionableFeedbackRating } from '@pulse/shared';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -65,7 +66,8 @@ const stableJson = (value: unknown): string => {
   return JSON.stringify(value) ?? 'null';
 };
 
-const fingerprint = (value: unknown) => sha256Hex(stableJson(value));
+const fingerprint = (value: unknown) =>
+  sha256Hex(stableJson({ feedbackEvidenceVersion: 2, value }));
 
 function parseRecommendationSnapshot(snapshot: unknown): WorkoutProgressionRecommendation {
   const current = workoutProgressionRecommendationSchema.safeParse(snapshot);
@@ -449,7 +451,8 @@ function buildEvidenceForScheduledWorkout(
       ? parseWorkoutSessionFeedback(latestSession.feedback)
       : null;
     const feedbackFacts: WorkoutProgressionEvidence['context']['facts'] = [];
-    if (feedback?.technique !== undefined && feedback.technique <= 2) {
+    const technique = feedback ? actionableFeedbackRating(feedback, 'technique') : null;
+    if (technique !== null && technique <= 2) {
       feedbackFacts.push({
         detail: 'Session feedback recorded technique or form failure.',
         source: 'session_feedback',
@@ -459,9 +462,8 @@ function buildEvidenceForScheduledWorkout(
     for (const response of feedback?.responses ?? []) {
       if (
         ['pain', 'pain-discomfort', 'symptoms'].includes(response.id) &&
-        response.value !== false &&
-        response.value !== null &&
-        response.value !== ''
+        response.type === 'yes_no' &&
+        response.value === true
       ) {
         feedbackFacts.push({
           detail: response.label,

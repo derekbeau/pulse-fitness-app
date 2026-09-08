@@ -1,3 +1,7 @@
+import {
+  feedbackNoteProjection,
+  projectFeedbackNoteEntity,
+} from '../../middleware/feedback-note-projection.js';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -611,8 +615,76 @@ const toIsoString = (value: number) => new Date(value).toISOString();
 
 export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
+  app.addHook('onSend', feedbackNoteProjection('session'));
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
+  typedApp.get(
+    '/:id/feedback-audit',
+    {
+      schema: {
+        params: idParamsSchema,
+        querystring: z.object({ offset: z.coerce.number().int().min(0).default(0) }),
+        response: {
+          200: apiDataResponseSchema(
+            z.object({
+              items: z.array(
+                z.object({
+                  id: z.string(),
+                  rawPayload: z.string(),
+                  classification: z.string(),
+                  receivedAt: z.number(),
+                }),
+              ),
+              total: z.number(),
+              hasMore: z.boolean(),
+            }),
+          ),
+          404: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        security: authSecurity,
+        summary: 'Read private non-actionable feedback audit for an owned session',
+      },
+    },
+    async (request, reply) => {
+      const { sqlite } = await import('../../db/index.js');
+      const owned = sqlite
+        .prepare('SELECT 1 FROM workout_sessions WHERE id = ? AND user_id = ?')
+        .get(request.params.id, request.userId);
+      if (!owned)
+        return sendError(reply, 404, 'WORKOUT_SESSION_NOT_FOUND', 'Workout session not found');
+      const query = `SELECT id,raw_payload AS rawPayload,classification,received_at AS receivedAt FROM feedback_submission_audit WHERE session_id = ? AND user_id = ?
+      UNION ALL SELECT source_checksum AS id,raw_payload AS rawPayload,reason AS classification,CAST(strftime('%s',classified_at) AS INTEGER)*1000 AS receivedAt FROM feedback_provenance_audit WHERE session_id = ? AND user_id = ?
+      UNION ALL SELECT id,json_object('rawText',raw_text,'originalActor',original_actor,'originalTimestamp',original_timestamp,'state',state,'evidenceId',evidence_id,'sourceSessionId',source_session_id,'sourceChecksum',source_checksum,'reason',reason,'rolledBackAt',rolled_back_at) AS rawPayload,reason AS classification,CAST(strftime('%s',classified_at) AS INTEGER)*1000 AS receivedAt FROM feedback_note_dispositions WHERE kind = 'session' AND parent_id = ? AND user_id = ?
+      UNION ALL SELECT 'unmigrated:' || id AS id,feedback AS rawPayload,'unmigrated_legacy_unknown' AS classification,updated_at AS receivedAt FROM workout_sessions WHERE id = ? AND user_id = ? AND feedback IS NOT NULL AND CASE WHEN json_valid(feedback) THEN COALESCE(json_extract(feedback,'$.schemaVersion'),0) <> 2 ELSE 1 END`;
+      const parameters = [
+        request.params.id,
+        request.userId,
+        request.params.id,
+        request.userId,
+        request.params.id,
+        request.userId,
+        request.params.id,
+        request.userId,
+      ];
+      const items = sqlite
+        .prepare(`${query} ORDER BY receivedAt,id LIMIT 50 OFFSET ?`)
+        .all(...parameters, request.query.offset) as {
+        id: string;
+        rawPayload: string;
+        classification: string;
+        receivedAt: number;
+      }[];
+      const total = (
+        sqlite.prepare(`SELECT count(*) AS total FROM (${query})`).get(...parameters) as {
+          total: number;
+        }
+      ).total;
+      return reply.send({
+        data: { items, total, hasMore: request.query.offset + items.length < total },
+      });
+    },
+  );
 
   typedApp.post(
     '/',
@@ -749,7 +821,12 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           replaceScheduledWorkoutSessionId = schedule.sessionId;
         }
 
-        const snapshot = await readSnapshot(schedule.id);
+        const snapshot = await projectFeedbackNoteEntity(
+          'scheduled',
+          request.userId,
+          { ...(await readSnapshot(schedule.id)), id: schedule.id },
+          { planningCopy: true },
+        );
         const staleExercises = await listStaleSnapshotExercises({
           snapshotExercises: snapshot.exercises,
           userId: request.userId,
@@ -843,6 +920,9 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           };
         }
 
+        await projectFeedbackNoteEntity('template', request.userId, template, {
+          planningCopy: true,
+        });
         programmingNotesByExerciseSection = buildTemplateProgrammingNotesSnapshot({
           templateSections: template.sections,
           sets: input.sets,
@@ -933,6 +1013,9 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           replaceScheduledWorkoutSessionId,
           setSnapshotFactsByKey,
           exercisePrescriptions,
+          feedbackActor: request.agentTokenId
+            ? { kind: 'agent_token', id: request.agentTokenId }
+            : { kind: 'user', id: request.userId },
         });
       } catch (error) {
         if (error instanceof SessionSetRirUnsupportedError) {
@@ -1980,6 +2063,20 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         userId: request.userId,
         input,
         replaceSetSnapshots: request.method === 'PUT' && body.sets !== undefined,
+        preserveSetRows:
+          body.feedback !== undefined &&
+          body.sets === undefined &&
+          body.addExercises === undefined &&
+          body.removeExercises === undefined &&
+          body.reorderExercises === undefined &&
+          body.exercises === undefined &&
+          body.exerciseNotes === undefined,
+        feedbackActor:
+          body.feedback === undefined
+            ? undefined
+            : request.agentTokenId
+              ? { kind: 'agent_token', id: request.agentTokenId }
+              : { kind: 'user', id: request.userId },
       });
     } catch (error) {
       if (error instanceof SessionSetRirUnsupportedError) {

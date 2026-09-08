@@ -1,3 +1,6 @@
+import { FeedbackNoteReviewNotice } from '@/features/workouts/components/feedback-audit';
+import { classifyNativeFeedback } from '@pulse/shared';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -730,6 +733,7 @@ export function ActiveWorkoutPage() {
 
   return (
     <section className="space-y-5 pb-8">
+      <FeedbackNoteReviewNotice reviews={activeSession?.feedbackNoteReview} />
       {showBackToSessionList ? (
         <Button asChild size="sm" type="button" variant="ghost">
           <Link to={returnToActiveListHref}>Back to session list</Link>
@@ -838,6 +842,11 @@ export function ActiveWorkoutPage() {
       {stage === 'feedback' ? (
         <SessionFeedback
           fields={workoutFeedbackFields}
+          draftKey={
+            activeSession
+              ? `pulse-feedback-v2:${activeSession.userId}:${activeSession.id}`
+              : undefined
+          }
           onSubmit={async (feedback) => {
             if (completeSessionMutation.isPending) {
               return;
@@ -889,6 +898,15 @@ export function ActiveWorkoutPage() {
                 clearStoredWorkoutSessionUiState(activeSessionId);
               }
               setSessionFeedback(feedback);
+              if (activeSession) {
+                try {
+                  localStorage.removeItem(
+                    `pulse-feedback-v2:${activeSession.userId}:${activeSession.id}`,
+                  );
+                } catch {
+                  /* No persisted draft to remove. */
+                }
+              }
               setSessionCompletedAt(completedAtIso);
               setStage('summary');
               return;
@@ -903,9 +921,8 @@ export function ActiveWorkoutPage() {
                   ...mapFeedbackDraftToSessionFeedback(feedback),
                   notes: feedbackNotes ?? undefined,
                 },
-                exerciseNotes,
-                notes: null,
-                sets: sessionSetInputs,
+                // Existing session sets and notes were persisted while logging. Completion
+                // attaches feedback without replacing their identities, timestamps or notes.
               },
               {
                 onError: (error) => {
@@ -920,6 +937,15 @@ export function ActiveWorkoutPage() {
                   clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
                   setCompletedSessionId(activeSessionId);
                   setSessionFeedback(feedback);
+                  if (activeSession) {
+                    try {
+                      localStorage.removeItem(
+                        `pulse-feedback-v2:${activeSession.userId}:${activeSession.id}`,
+                      );
+                    } catch {
+                      /* No persisted draft to remove. */
+                    }
+                  }
                   setSessionCompletedAt(completedAtIso);
                   setStage('summary');
                 },
@@ -2107,171 +2133,26 @@ function buildExerciseOrderIndexById(
 function mapFeedbackDraftToSessionFeedback(
   draft: ActiveWorkoutFeedbackDraft,
 ): WorkoutSessionFeedback {
-  const sessionRpeField = draft.find(
-    (field): field is Extract<ActiveWorkoutFeedbackDraft[number], { type: 'scale' }> =>
-      field.id === 'session-rpe' && field.type === 'scale',
+  return classifyNativeFeedback(
+    { responses: draft.map(toWorkoutSessionFeedbackResponse) },
+    {
+      classifiedAt: new Date().toISOString(),
+      actor: { kind: 'user', id: 'pending-server-attribution' },
+    },
   );
-  const energyEmojiField = draft.find(
-    (field): field is Extract<ActiveWorkoutFeedbackDraft[number], { type: 'emoji' }> =>
-      field.id === 'energy-post-workout' && field.type === 'emoji',
-  );
-  const painField = draft.find(
-    (field): field is Extract<ActiveWorkoutFeedbackDraft[number], { type: 'yes_no' }> =>
-      field.id === 'pain-discomfort' && field.type === 'yes_no',
-  );
-  const scaleEntries = draft.filter(
-    (
-      field,
-    ): field is Extract<
-      ActiveWorkoutFeedbackDraft[number],
-      { type: 'scale'; value?: number | null }
-    > => field.type === 'scale',
-  );
-
-  return {
-    energy: toFeedbackScore(
-      toEmojiFeedbackScore(energyEmojiField?.value) ??
-        scaleEntries.find((field) => field.id.toLowerCase().includes('energy'))?.value ??
-        scaleEntries.at(2)?.value ??
-        scaleEntries.at(0)?.value,
-    ),
-    recovery: toFeedbackScore(
-      toPainFeedbackScore(painField?.value) ??
-        scaleEntries.find((field) => field.id.toLowerCase().includes('recovery'))?.value ??
-        scaleEntries.at(0)?.value,
-    ),
-    technique: toFeedbackScore(
-      toRpeFeedbackScore(sessionRpeField?.value) ??
-        scaleEntries.find((field) => field.id.toLowerCase().includes('technique'))?.value ??
-        scaleEntries.at(1)?.value ??
-        scaleEntries.at(0)?.value,
-    ),
-    responses: draft
-      .map(toWorkoutSessionFeedbackResponse)
-      .filter((response): response is WorkoutSessionFeedbackResponse => response !== null),
-  };
 }
 
 function toWorkoutSessionFeedbackResponse(
   field: ActiveWorkoutCustomFeedbackField,
-): WorkoutSessionFeedbackResponse | null {
-  const notes = field.notes?.trim();
-  const base = {
+): WorkoutSessionFeedbackResponse {
+  return {
     id: field.id,
     label: field.label,
-    ...(notes ? { notes } : {}),
+    type: field.type,
+    ...(field.value === undefined ? {} : { value: field.value }),
+    ...(field.answerState ? { state: field.answerState } : {}),
+    ...(field.notes === undefined ? {} : { notes: field.notes }),
   };
-
-  switch (field.type) {
-    case 'scale':
-      if (field.value === null || field.value === undefined) {
-        return field.optional ? null : { ...base, type: 'scale', value: field.min };
-      }
-      return {
-        ...base,
-        type: 'scale',
-        value: field.value,
-      };
-    case 'slider':
-      if (field.value === null || field.value === undefined) {
-        return field.optional ? null : { ...base, type: 'slider', value: field.min };
-      }
-      return {
-        ...base,
-        type: 'slider',
-        value: field.value,
-      };
-    case 'text':
-      return {
-        ...base,
-        type: 'text',
-        value: field.value?.trim() ? field.value.trim() : null,
-      };
-    case 'yes_no':
-      if (field.value === null || field.value === undefined) {
-        return field.optional ? null : { ...base, type: 'yes_no', value: false };
-      }
-      return {
-        ...base,
-        type: 'yes_no',
-        value: field.value,
-      };
-    case 'emoji':
-      if (!field.value?.trim()) {
-        return field.optional ? null : { ...base, type: 'emoji', value: field.options[0] ?? '😐' };
-      }
-      return {
-        ...base,
-        type: 'emoji',
-        value: field.value.trim(),
-      };
-    case 'multi_select':
-      if ((field.value ?? []).length === 0) {
-        return field.optional ? null : { ...base, type: 'multi_select', value: [] };
-      }
-      return {
-        ...base,
-        type: 'multi_select',
-        value: field.value ?? [],
-      };
-    default:
-      return null;
-  }
-}
-
-function toFeedbackScore(value: number | null | undefined): 1 | 2 | 3 | 4 | 5 {
-  if (value === null || value === undefined || Number.isNaN(value)) {
-    return 3;
-  }
-
-  const rounded = Math.round(value);
-
-  if (rounded <= 1) {
-    return 1;
-  }
-
-  if (rounded >= 5) {
-    return 5;
-  }
-
-  return rounded as 1 | 2 | 3 | 4 | 5;
-}
-
-function toRpeFeedbackScore(value: number | null | undefined) {
-  if (value === null || value === undefined || Number.isNaN(value)) {
-    return null;
-  }
-
-  return Math.max(1, Math.min(5, Math.round(value / 2)));
-}
-
-function toEmojiFeedbackScore(value: string | null | undefined) {
-  switch (value) {
-    case '😫':
-      return 1;
-    case '😕':
-      return 2;
-    case '😐':
-      return 3;
-    case '🙂':
-      return 4;
-    case '💪':
-      return 5;
-    default:
-      return null;
-  }
-}
-
-function toPainFeedbackScore(value: boolean | null | undefined) {
-  if (value === true) {
-    return 2;
-  }
-
-  if (value === false) {
-    return 4;
-  }
-
-  return null;
 }
 
 function extractFeedbackNotes(draft: ActiveWorkoutFeedbackDraft) {
@@ -2284,7 +2165,7 @@ function extractFeedbackNotes(draft: ActiveWorkoutFeedbackDraft) {
   );
 
   if (painDetailsField) {
-    return painDetailsField.notes?.trim() ?? null;
+    return painDetailsField.notes ?? null;
   }
 
   const textField = draft.find(
@@ -2295,12 +2176,12 @@ function extractFeedbackNotes(draft: ActiveWorkoutFeedbackDraft) {
   );
 
   if (textField) {
-    return textField.value?.trim() ?? null;
+    return textField.value ?? null;
   }
 
   const fieldWithNotes = draft.find((field) => (field.notes ?? '').trim().length > 0);
 
-  return fieldWithNotes?.notes?.trim() ?? null;
+  return fieldWithNotes?.notes ?? null;
 }
 
 async function persistCompletedSessionNotes({

@@ -46,49 +46,7 @@ export type WorkoutSessionTimeSegment = {
   section: WorkoutTemplateSectionType;
 };
 
-export type WorkoutSessionFeedback = {
-  energy: 1 | 2 | 3 | 4 | 5;
-  recovery: 1 | 2 | 3 | 4 | 5;
-  technique: 1 | 2 | 3 | 4 | 5;
-  notes?: string;
-  responses?: Array<
-    | {
-        id: string;
-        label: string;
-        type: 'scale' | 'slider';
-        value: number;
-        notes?: string;
-      }
-    | {
-        id: string;
-        label: string;
-        type: 'yes_no';
-        value: boolean;
-        notes?: string;
-      }
-    | {
-        id: string;
-        label: string;
-        type: 'emoji';
-        value: string;
-        notes?: string;
-      }
-    | {
-        id: string;
-        label: string;
-        type: 'text';
-        value: string | null;
-        notes?: string;
-      }
-    | {
-        id: string;
-        label: string;
-        type: 'multi_select';
-        value: string[];
-        notes?: string;
-      }
-  >;
-};
+export type { WorkoutSessionFeedback } from '@pulse/shared';
 
 export type WorkoutSessionExerciseAgentNotesMeta = {
   author: string;

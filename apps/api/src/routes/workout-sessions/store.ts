@@ -14,7 +14,13 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm';
-import { canonicalizeWorkoutRepTarget, supportsRirTrackingType } from '@pulse/shared';
+import {
+  canonicalizeWorkoutRepTarget,
+  supportsRirTrackingType,
+  classifyNativeFeedback,
+  type FeedbackActor,
+  type WorkoutSessionFeedbackInput,
+} from '@pulse/shared';
 import type {
   BatchUpsertSetsInput,
   CreateSetInput,
@@ -32,6 +38,7 @@ import type {
 
 import {
   exercises,
+  feedbackSubmissionAudit,
   parseWorkoutSessionFeedback,
   parseWorkoutSessionExerciseProgrammingNotes,
   parseWorkoutSessionTimeSegments,
@@ -1437,6 +1444,7 @@ export const createWorkoutSession = async ({
   replaceScheduledWorkoutSessionId,
   exercisePrescriptions,
   setSnapshotFactsByKey = {},
+  feedbackActor,
 }: {
   id: string;
   userId: string;
@@ -1449,6 +1457,7 @@ export const createWorkoutSession = async ({
   replaceScheduledWorkoutSessionId?: string | null;
   exercisePrescriptions?: ExercisePrescriptions;
   setSnapshotFactsByKey?: Record<string, SessionSetSnapshotFact>;
+  feedbackActor?: FeedbackActor;
 }): Promise<WorkoutSession> => {
   const { db } = await import('../../db/index.js');
   const exerciseMetadata = db
@@ -1501,7 +1510,9 @@ export const createWorkoutSession = async ({
         completedAt: input.completedAt,
         duration: input.duration,
         timeSegments: serializeWorkoutSessionTimeSegments(input.timeSegments),
-        feedback: serializeWorkoutSessionFeedback(input.feedback),
+        feedback: serializeWorkoutSessionFeedback(
+          prepareFeedbackForPersistence(input.feedback, feedbackActor),
+        ),
         exerciseProgrammingNotes: serializeWorkoutSessionExerciseProgrammingNotes(
           programmingNotesByExerciseSection,
         ),
@@ -1514,6 +1525,21 @@ export const createWorkoutSession = async ({
 
     if (insertResult.changes !== 1) {
       throw new Error('Failed to persist workout session');
+    }
+    if (input.feedback && (feedbackActor || !('schemaVersion' in input.feedback))) {
+      tx.insert(feedbackSubmissionAudit)
+        .values({
+          id: randomUUID(),
+          userId,
+          sessionId: id,
+          rawPayload: JSON.stringify(input.feedback),
+          actorKind: feedbackActor?.kind ?? 'unknown',
+          actorId: feedbackActor?.id ?? null,
+          receivedAt: Date.now(),
+          classification:
+            'schemaVersion' in input.feedback ? 'native_submission' : 'legacy_unknown',
+        })
+        .run();
     }
 
     if (setRows.length > 0) {
@@ -1672,11 +1698,15 @@ export const updateWorkoutSession = async ({
   userId,
   input,
   replaceSetSnapshots = false,
+  preserveSetRows = false,
+  feedbackActor,
 }: {
   id: string;
   userId: string;
   input: CreateWorkoutSessionInput; // Full snapshot; the route merges the partial patch first.
   replaceSetSnapshots?: boolean;
+  preserveSetRows?: boolean;
+  feedbackActor?: FeedbackActor;
 }): Promise<WorkoutSession | undefined> => {
   const { db } = await import('../../db/index.js');
   const existingSets = db
@@ -1778,7 +1808,9 @@ export const updateWorkoutSession = async ({
         completedAt: input.completedAt,
         duration: input.duration,
         timeSegments: serializeWorkoutSessionTimeSegments(input.timeSegments),
-        feedback: serializeWorkoutSessionFeedback(input.feedback),
+        feedback: serializeWorkoutSessionFeedback(
+          prepareFeedbackForPersistence(input.feedback, feedbackActor),
+        ),
         notes: input.notes,
       })
       .where(
@@ -1793,17 +1825,34 @@ export const updateWorkoutSession = async ({
     if (updateResult.changes !== 1) {
       return false;
     }
+    if (input.feedback && (feedbackActor || !('schemaVersion' in input.feedback))) {
+      tx.insert(feedbackSubmissionAudit)
+        .values({
+          id: randomUUID(),
+          userId,
+          sessionId: id,
+          rawPayload: JSON.stringify(input.feedback),
+          actorKind: feedbackActor?.kind ?? 'unknown',
+          actorId: feedbackActor?.id ?? null,
+          receivedAt: Date.now(),
+          classification:
+            'schemaVersion' in input.feedback ? 'native_submission' : 'legacy_unknown',
+        })
+        .run();
+    }
 
-    tx.delete(sessionSets)
-      .where(
-        replaceSetSnapshots
-          ? eq(sessionSets.sessionId, id)
-          : and(eq(sessionSets.sessionId, id), isNotNull(sessionSets.exerciseId)),
-      )
-      .run();
+    if (!preserveSetRows) {
+      tx.delete(sessionSets)
+        .where(
+          replaceSetSnapshots
+            ? eq(sessionSets.sessionId, id)
+            : and(eq(sessionSets.sessionId, id), isNotNull(sessionSets.exerciseId)),
+        )
+        .run();
 
-    if (setRows.length > 0) {
-      tx.insert(sessionSets).values(setRows).run();
+      if (setRows.length > 0) {
+        tx.insert(sessionSets).values(setRows).run();
+      }
     }
 
     return true;
@@ -2130,3 +2179,15 @@ export const saveCompletedSessionAsTemplate = async ({
 
   return createdTemplate;
 };
+
+function prepareFeedbackForPersistence(
+  input: WorkoutSessionFeedbackInput | null,
+  actor?: FeedbackActor,
+) {
+  if (input === null) return null;
+  if ('schemaVersion' in input && !actor) return parseWorkoutSessionFeedback(JSON.stringify(input));
+  return classifyNativeFeedback(input, {
+    classifiedAt: new Date().toISOString(),
+    ...('schemaVersion' in input && actor ? { actor } : { legacy: true }),
+  });
+}

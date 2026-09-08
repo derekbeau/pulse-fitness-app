@@ -1,0 +1,11 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/apps/web
+
+ ✓ src/features/workouts/components/session-detail.test.tsx (22 tests) 1848ms
+     ✓ renders a not-found state for unknown sessions  1093ms
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+   Start at  23:55:56
+   Duration  3.27s (transform 525ms, setup 100ms, import 963ms, tests 1.85s, environment 237ms)
+

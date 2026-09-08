@@ -1,3 +1,7 @@
+import {
+  feedbackNoteProjection,
+  registerFeedbackNoteAudit,
+} from '../../middleware/feedback-note-projection.js';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -16,7 +20,10 @@ import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import { sendError } from '../../lib/reply.js';
-import { agentEnrichmentOnSend, setAgentEnrichmentContext } from '../../middleware/agent-enrichment.js';
+import {
+  agentEnrichmentOnSend,
+  setAgentEnrichmentContext,
+} from '../../middleware/agent-enrichment.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { agentRequestTransform } from '../../middleware/agent-transforms.js';
 import {
@@ -118,6 +125,8 @@ const resolveTemplateUpdateInput = ({
 
 export const workoutTemplateRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
+  app.addHook('onSend', feedbackNoteProjection('template'));
+  await registerFeedbackNoteAudit(app, 'template');
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
 

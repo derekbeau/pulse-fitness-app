@@ -1,0 +1,37 @@
+- main:
+  - text: Session complete
+  - heading "Workout summary" [level=1]
+  - paragraph: Logged, reflected, and ready to head back to the workouts overview.
+  - text: Total volume
+  - paragraph: 160 lbs
+  - text: Duration
+  - paragraph: 01:03
+  - text: Sets
+  - paragraph: 1/1
+  - text: Reps
+  - paragraph: "8"
+  - heading "Exercise results" [level=2]
+  - heading "Synthetic Dumbbell Row" [level=3]
+  - text: 1/1 sets Weight × Reps
+  - group: Show set values
+  - text: "Volume: 160 lbs Reps: 8"
+  - paragraph: Exact native set.
+  - text: 1 exercise logged
+  - heading "Session notes" [level=2]
+  - paragraph: What happened today? Anything notable about this session?
+  - textbox "Session notes":
+    - /placeholder: What happened today? Anything notable about this session?
+  - heading "Session feedback" [level=2]
+  - paragraph: Saved check-ins from the end of this workout.
+  - paragraph: Session RPE
+  - paragraph: 8 / 10
+  - paragraph: Energy post workout
+  - paragraph: 🙂
+  - paragraph: Any pain or discomfort?
+  - paragraph: "No"
+  - paragraph: Shoulder feel
+  - paragraph: Skipped — unknown
+  - paragraph: Coach note
+  - paragraph: Synthetic exact whitespace
+  - button "Save as Template"
+  - button "Done"

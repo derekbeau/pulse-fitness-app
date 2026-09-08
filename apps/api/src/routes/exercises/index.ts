@@ -1,3 +1,7 @@
+import {
+  feedbackNoteProjection,
+  registerFeedbackNoteAudit,
+} from '../../middleware/feedback-note-projection.js';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -146,6 +150,8 @@ const ensureOwnedMutableExercise = async ({
 
 export const exerciseRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
+  app.addHook('onSend', feedbackNoteProjection('exercise'));
+  await registerFeedbackNoteAudit(app, 'exercise');
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
 

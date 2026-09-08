@@ -1,3 +1,4 @@
+import { classifyNativeFeedback } from '@pulse/shared';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -102,12 +103,10 @@ const workoutSessionPayload = {
         section: 'main',
       },
     ],
-    feedback: {
-      energy: 4,
-      recovery: 4,
-      technique: 4,
-      notes: 'Solid session',
-    },
+    feedback: classifyNativeFeedback(
+      { notes: 'Solid session' },
+      { classifiedAt: '2026-03-09T00:00:00.000Z' },
+    ),
     notes: 'Felt good.',
     sets: [
       {

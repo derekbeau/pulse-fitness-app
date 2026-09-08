@@ -1,0 +1,28 @@
+
+> pulse@ typecheck /Users/meridian/Projects/pulse-feedback-provenance
+> turbo run typecheck
+
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running typecheck in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/web:typecheck: cache bypass, force executing d99aafc791252097
+@pulse/shared:typecheck: cache bypass, force executing fce85f8bd540d610
+@pulse/api:typecheck: cache bypass, force executing 26cb17f0409cb81b
+@pulse/shared:typecheck: 
+@pulse/shared:typecheck: > @pulse/shared@0.0.0 typecheck /Users/meridian/Projects/pulse-feedback-provenance/packages/shared
+@pulse/shared:typecheck: > tsc --noEmit -p tsconfig.json
+@pulse/shared:typecheck: 
+@pulse/web:typecheck: 
+@pulse/web:typecheck: > @pulse/web@0.0.0 typecheck /Users/meridian/Projects/pulse-feedback-provenance/apps/web
+@pulse/web:typecheck: > tsc --noEmit
+@pulse/web:typecheck: 
+@pulse/api:typecheck: 
+@pulse/api:typecheck: > @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+@pulse/api:typecheck: > tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+@pulse/api:typecheck: 
+
+ Tasks:    3 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    15.229s 
+

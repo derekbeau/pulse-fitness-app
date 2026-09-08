@@ -1,3 +1,4 @@
+import { classifyNativeFeedback } from '@pulse/shared';
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkoutSessionListItem } from '@pulse/shared';
@@ -46,12 +47,15 @@ const completedSessionResponse = {
     cooldown: 0,
     supplemental: 0,
   },
-  feedback: {
-    energy: 4,
-    recovery: 3,
-    technique: 5,
-    notes: 'Strong finish',
-  },
+  feedback: classifyNativeFeedback(
+    {
+      energy: 4,
+      recovery: 3,
+      technique: 5,
+      notes: 'Strong finish',
+    },
+    { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+  ),
   notes: 'Strong finish',
   sets: [],
   createdAt: 100,
@@ -106,11 +110,14 @@ describe('use-complete-session hook', () => {
       await result.current.mutateAsync({
         completedAt: 2_700_000,
         duration: 45,
-        feedback: {
-          energy: 4,
-          recovery: 3,
-          technique: 5,
-        },
+        feedback: classifyNativeFeedback(
+          {
+            energy: 4,
+            recovery: 3,
+            technique: 5,
+          },
+          { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+        ),
         exerciseNotes: {
           'incline-dumbbell-press': 'Keep shoulders packed',
         },
@@ -134,11 +141,14 @@ describe('use-complete-session hook', () => {
     expect(JSON.parse(String(request?.[1]?.body))).toEqual({
       completedAt: 2_700_000,
       duration: 45,
-      feedback: {
-        energy: 4,
-        recovery: 3,
-        technique: 5,
-      },
+      feedback: classifyNativeFeedback(
+        {
+          energy: 4,
+          recovery: 3,
+          technique: 5,
+        },
+        { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+      ),
       exerciseNotes: {
         'incline-dumbbell-press': 'Keep shoulders packed',
       },
@@ -237,11 +247,14 @@ describe('use-complete-session hook', () => {
 
     await act(async () => {
       await result.current.mutateAsync({
-        feedback: {
-          energy: 4,
-          recovery: 3,
-          technique: 5,
-        },
+        feedback: classifyNativeFeedback(
+          {
+            energy: 4,
+            recovery: 3,
+            technique: 5,
+          },
+          { classifiedAt: '2026-09-08T00:00:00.000Z', legacy: true },
+        ),
       });
     });
 

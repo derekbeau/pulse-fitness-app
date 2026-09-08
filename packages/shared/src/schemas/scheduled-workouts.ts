@@ -1,3 +1,4 @@
+import { feedbackNoteReviewSchema } from './feedback-provenance.js';
 import { z } from 'zod';
 
 import { dateSchema } from './common.js';
@@ -20,6 +21,7 @@ const nullableLongStringSchema = z.preprocess((value) => {
 }, requiredLongStringSchema.nullable());
 
 export const scheduledWorkoutSchema = z.object({
+  feedbackNoteReview: feedbackNoteReviewSchema.optional(),
   id: z.string(),
   userId: z.string(),
   templateId: z.string().nullable(),

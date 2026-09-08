@@ -1,0 +1,231 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+
+ ✓ src/db/schema.test.ts (47 tests) 28ms
+ ❯ src/routes/workout-sessions/index.test.ts (119 tests | 1 failed) 1847ms
+     ✓ requires auth for workout session and session-set routes 19ms
+     ✓ saves a completed session as a template and allows duplicate saves 27ms
+     ✓ round-trips programming notes in save-as-template and drops session-specific exercise notes 5ms
+     ✓ uses session programming-note snapshots when save-as-template runs after template edits or deletion 10ms
+     ✓ includes trackingType on each exercise in session detail responses 4ms
+     ✓ includes metadata from soft-deleted exercises in session detail responses 4ms
+     ✓ returns deleted exercise placeholders when session sets have null exerciseId values 8ms
+     ✓ keeps null exerciseId set groups distinct by section and order index 3ms
+     ✓ reorders active session exercises by updating set orderIndex while preserving set data 12ms
+     ✓ swaps a session exercise while preserving entered set data 5ms
+     ✓ rejects JWT and AgentToken swaps that would retain RIR on unsupported tracking 12ms
+     ✓ rejects swaps for completed sessions 6ms
+     ✓ returns 404 when swapping an exercise not present in the session 2ms
+     ✓ rejects swap targets that are not user-owned exercises 8ms
+     ✓ applies save-as-template metadata overrides when provided 3ms
+     ✓ returns a validation error for invalid save-as-template payload 2ms
+     ✓ creates, updates, lists, and batch-upserts sets for an active owned session 12ms
+     ✓ logs, replaces, clears, and rejects conflicting native effort atomically for JWT and AgentToken callers 21ms
+     ✓ rejects RIR for unsupported tracking types across set write paths 4ms
+     ✓ validates correction effort against persisted state and tracking type before writing 9ms
+     ✓ publishes native RIR fields and AgentToken security in the workout-set OpenAPI contract 85ms
+     ✓ deletes a set from an in-progress session and renumbers sibling sets 4ms
+     ✓ returns 409 when deleting a set from a completed session 2ms
+     ✓ returns 409 when deleting a set from a cancelled session 7ms
+     ✓ returns 404 when deleting a set that does not belong to the requested session 2ms
+     ✓ returns 404 when deleting a set from an unknown session 1ms
+     ✓ supports AgentToken auth and returns enrichment when deleting a set 3ms
+     ✓ returns 401 when deleting a set without auth 2ms
+     ✓ returns 404 when deleting the same set twice 9ms
+     ✓ batch-upserted sets inherit an exercise superset group from existing sets 3ms
+     ✓ enforces ownership, active-session writes, and set-level validation 4ms
+     ✓ batch upsert is atomic when one set id is invalid 3ms
+     ✓ applies workout session corrections to completed sessions and preserves session timing 9ms
+     ✓ rejects invalid workout session correction requests 4ms
+     ✓ snapshots template exercise notes into per-exercise programming notes when starting a session 4ms
+     ✓ stores null programming notes for template exercises that have null notes 9ms
+     ✓ returns null programming notes for ad-hoc sessions without a template 3ms
+     ✓ supports templateId-only and name-only start modes with null session agent notes 4ms
+     ✓ keeps session programming-note snapshots immutable after template notes change 5ms
+     ✓ creates, lists, and fetches workout sessions for the authenticated user 15ms
+     ✓ filters workout session listings by status and limit 7ms
+     ✓ includes sessions completed on the same-day range boundary 2ms
+     ✓ filters workout session listings by multiple statuses 2ms
+     ✓ keeps an independent template start separate from an unclaimed scheduled workout 5ms
+     ✓ starts a session from scheduled-workout snapshot and propagates programming and agent notes 9ms
+     ✓ preserves full DB/API snapshot provenance, nulls and notes (20-set visible parity=true) 16ms
+     ✓ preserves full DB/API snapshot provenance, nulls and notes (20-set visible parity=false) 10ms
+     ✓ retains a source exercise whose scheduled sets have all been removed 9ms
+     ✓ rejects invalid template materialization without consuming the schedule 5ms
+     ✓ rejects invalid template materialization without consuming the schedule 9ms
+     ✓ copies redundant legacy scheduled reps canonically while retaining source identity and source rows 7ms
+     ✓ rejects invalid stored snapshot targets {"targetSeconds":2147483647} before creating or linking any session 9ms
+     ✓ rejects invalid stored snapshot targets {"reps":8,"repsMin":6,"repsMax":8} before creating or linking any session 5ms
+     ✓ rejects invalid stored snapshot targets {"reps":8,"repsMin":8,"repsMax":10} before creating or linking any session 10ms
+     ✓ rejects invalid stored snapshot targets {"reps":null,"repsMin":10,"repsMax":6} before creating or linking any session 7ms
+     ✓ allows exactly one concurrent scheduled start and leaves no orphan session or sets 14ms
+     ✓ rolls back session and set inserts on injected sets failure, retaining cancelled link 14ms
+     ✓ rolls back session and set inserts on injected link failure, retaining cancelled link 14ms
+     ✓ rejects unauthorized or malformed scheduled selector (jwt) without writes 4ms
+     ✓ rejects unauthorized or malformed scheduled selector (agent) without writes 4ms
+     ✓ rejects unauthorized or malformed scheduled selector (missing) without writes 9ms
+     ✓ rejects unauthorized or malformed scheduled selector (malformed) without writes 4ms
+     ✓ fails closed for an unknown scheduled workout id without creating a template session 2ms
+     ✓ returns 409 when scheduled workout is already linked to a live session 2ms
+     ✓ restarts cancelled scheduled sessions by clearing stale links and creating a fresh session 8ms
+     ✓ returns stale-exercise 409 when snapshot exercises are deleted 2ms
+     ✓ skips stale exercises with force=true and includes warnings in the create response 3ms
+     ✓ clears scheduled_workouts.sessionId when a linked session is cancelled and preserves snapshot rows 4ms
+     ✓ cancel endpoint preserves non-scheduled sessions and marks them cancelled 8ms
+     ✓ does not open any section segment for legacy in-progress sessions with no time segments 2ms
+     ✓ backfills legacy stored time segments to main section on read 2ms
+     ✓ does not open any section segment when starting a new in-progress session 3ms
+     ✓ pausing closes the current segment and resuming opens a new section segment 5ms
+     ✓ requires activeSection when transitioning to in-progress from paused 7ms
+     ✓ starts scheduled sessions only when activeSection is provided 4ms
+     ✓ rejects changing in-progress section via status patch without pausing first 2ms
+     ✓ cancelling closes open segment and marks session cancelled 4ms
+     ✓ completing closes the final segment and calculates duration from segments 7ms
+     ✓ starts and pauses section timers through the section-timer endpoint 3ms
+     ✓ rejects section-timer pause when section does not match the open segment 6ms
+     ✓ rejects section-timer updates when session is not in-progress 6ms
+     ✓ supports section-timer updates with JWT and AgentToken auth 3ms
+     ✓ returns per-section derived durations for multi-section sessions 2ms
+     ✓ validates chronological ordering when editing time segments 2ms
+     ✓ validates out-of-order time segments when editing 2ms
+     ✓ supports directly editing a segment end timestamp 8ms
+     ✓ supports segment deletion merge and additional split edits 4ms
+     ✓ round-trips section-tagged time segments through time-segments updates 3ms
+     ✓ updates owned workout sessions by replacing nested set rows 8ms
+     ✓ patches workout session startedAt and rejects invalid, too-old, or future timestamps 4ms
+     ✓ patches session notes and exercise notes on an existing completed session 3ms
+     ✓ rejects reverting a completed session back to in-progress 4ms
+     ✓ does not overwrite first-set notes when exerciseNotes are normalized to null 8ms
+     ✓ soft-deletes owned workout sessions 4ms
+     ✓ rejects inaccessible templates, unavailable exercises, and invalid merged updates 4ms
+     ✓ preserves immutable orphaned sets when patching after an exercise is force-purged 8ms
+     ✓ rejects invalid list queries and malformed payloads 3ms
+     ✓ creates sessions with AgentToken auth using templateName resolution 3ms
+     ✓ returns 404 when AgentToken templateName cannot be resolved 3ms
+     ✓ rejects templateName for JWT callers 7ms
+     ✓ patches sessions with agent exercise mutations and auto-creates missing exercises 4ms
+     × allows agent PATCH updates for duration, name, feedback, and timestamps 17ms
+     ✓ supports set upserts via exerciseId (JWT) and exerciseName (AgentToken) 12ms
+     ✓ honors skipped=true in session set patch updates 3ms
+     ✓ honors completed=false in session set patch updates 3ms
+     ✓ defaults omitted completed to true for logged set updates 3ms
+     ✓ preserves skipped/completed when patching notes only 8ms
+     ✓ round-trips notes and supersetGroup in session set patch updates 5ms
+     ✓ accepts session set target fields on patch 3ms
+     ✓ creates missing sets in patch updates and preserves provided structural fields 5ms
+     ✓ applies addExercises/removeExercises/reorderExercises for both JWT and AgentToken callers 8ms
+     ✓ preserves duration targets and effort fields when adding exercises 3ms
+     ✓ adds duplicate exercise ids in different sections and keeps section-local set numbering 9ms
+     ✓ removes exercises by exerciseId and section tuple 8ms
+     ✓ requires force to remove exercises that already have logged sets 9ms
+     ✓ removes exercises without force when no sets are logged yet 2ms
+     ✓ only checks logged sets within the removed section tuple 3ms
+     ✓ updates exercise superset groups and returns grouped exercise metadata 4ms
+     ✓ treats omitted supersetGroup in exercise updates as no-op 8ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/workout-sessions/index.test.ts > workout session routes > allows agent PATCH updates for duration, name, feedback, and timestamps
+AssertionError: expected { data: { …(17) }, agent: { …(3) } } to deeply equal { data: ObjectContaining{…}, …(1) }
+
+- Expected
++ Received
+
+@@ -17,17 +17,76 @@
+        "Review notes and confirm the session status is final.",
+      ],
+    },
+    "data": {
+      "completedAt": 1773311400000,
++     "createdAt": 1788837678000,
++     "date": "2026-03-12",
+      "duration": 1500,
++     "exercises": [],
+      "feedback": {
+        "energy": null,
+-       "notes": "Strong finish",
++       "notes": " Strong finish ",
++       "provenance": {
++         "energy": {
++           "actorId": null,
++           "classifiedAt": "2026-09-08T03:21:18.975Z",
++           "mappingVersion": null,
++           "reason": "Source actor is not evidenced; numeric summaries cannot prove provenance.",
++           "schemaVersion": 2,
++           "source": "legacy_unknown",
++           "sourceKind": "unknown",
++           "sourceResponseId": null,
++           "sourceRevisionId": null,
++         },
++         "recovery": {
++           "actorId": null,
++           "classifiedAt": "2026-09-08T03:21:18.975Z",
++           "mappingVersion": null,
++           "reason": "Source actor is not evidenced; numeric summaries cannot prove provenance.",
++           "schemaVersion": 2,
++           "source": "legacy_unknown",
++           "sourceKind": "unknown",
++           "sourceResponseId": null,
++           "sourceRevisionId": null,
++         },
++         "technique": {
++           "actorId": null,
++           "classifiedAt": "2026-09-08T03:21:18.975Z",
++           "mappingVersion": null,
++           "reason": "Source actor is not evidenced; numeric summaries cannot prove provenance.",
++           "schemaVersion": 2,
++           "source": "legacy_unknown",
++           "sourceKind": "unknown",
++           "sourceResponseId": null,
++           "sourceRevisionId": null,
++         },
++       },
+        "recovery": null,
++       "responses": [],
++       "schemaVersion": 2,
+        "technique": null,
+      },
+      "id": "session-agent-standard-fields",
+      "name": "Updated Session",
++     "notes": null,
++     "sectionDurations": {
++       "cooldown": 0,
++       "main": 900000,
++       "supplemental": 0,
++       "warmup": 0,
++     },
++     "sets": [],
+      "startedAt": 1773309900000,
++     "status": "completed",
++     "templateId": "template-1",
++     "timeSegments": [
++       {
++         "end": "2026-03-12T10:20:00.000Z",
++         "section": "main",
++         "start": "2026-03-12T10:05:00.000Z",
++       },
++     ],
++     "updatedAt": 1788837678975,
++     "userId": "user-1",
+    },
+  }
+
+ ❯ src/routes/workout-sessions/index.test.ts:7010:29
+    7008| 
+    7009|     expect(response.statusCode).toBe(200);
+    7010|     expect(response.json()).toEqual({
+       |                             ^
+    7011|       data: expect.objectContaining({
+    7012|         id: 'session-agent-standard-fields',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 165 passed (166)
+   Start at  23:21:16
+   Duration  2.90s (transform 1.44s, setup 0ms, import 1.79s, tests 1.88s, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-feedback-provenance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/workout-sessions/index.test.ts src/db/schema.test.ts

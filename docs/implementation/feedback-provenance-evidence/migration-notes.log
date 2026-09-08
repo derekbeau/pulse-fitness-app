@@ -1,0 +1,15 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+
+ ✓ src/db/feedback-note-remediation.test.ts (1 test) 1485ms
+     ✓ preserves originals, queues uncertain prose, and supersedes only an owned exact causal link  1484ms
+ ✓ src/db/feedback-provenance-migration.test.ts (6 tests) 4285ms
+     ✓ dry-run writes nothing and reconciles owner/global counts  1453ms
+     ✓ preserves raw payloads/native performance and makes second apply a no-op  1337ms
+     ✓ forced first-batch failure preserves original database exactly  1253ms
+
+ Test Files  2 passed (2)
+      Tests  7 passed (7)
+   Start at  23:32:24
+   Duration  4.93s (transform 656ms, setup 0ms, import 944ms, tests 5.77s, environment 0ms)
+

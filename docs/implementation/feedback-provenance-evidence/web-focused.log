@@ -1,0 +1,153 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-provenance/apps/web
+
+ ✓ src/hooks/use-complete-session.test.tsx (2 tests) 30ms
+ ❯ src/features/workouts/components/session-feedback.test.tsx (7 tests | 2 failed) 346ms
+     ✓ renders standard questions first and supports richer question types 172ms
+     × allows completion without pain details when pain is no 50ms
+     × drops legacy custom fields that overlap standard prompts 15ms
+     ✓ keeps custom fields whose ids include pain/discomfort substrings 15ms
+     ✓ clears incoming field values to avoid stale prefills and uses coach-note guidance copy 15ms
+     ✓ shows session RPE guidance anchors in the help dialog 39ms
+     ✓ marks selected option controls with pressed state 38ms
+ ✓ src/features/workouts/components/session-detail.test.tsx (22 tests) 1881ms
+     ✓ renders a not-found state for unknown sessions  1076ms
+ ✓ src/pages/active-workout.test.tsx (39 tests) 6164ms
+     ✓ renders the active workout UI and does not auto-focus any set after rest timer completion  790ms
+     ✓ moves from session logging to feedback, summary, and back to workouts  1680ms
+     ✓ keeps the session active after the last set until completion is explicitly confirmed  1686ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/workouts/components/session-feedback.test.tsx > SessionFeedback > allows completion without pain details when pain is no
+AssertionError: expected "vi.fn()" to be called with arguments: [ [ …(3) ] ]
+
+Received: 
+
+  1st vi.fn() call:
+
+@@ -1,18 +1,20 @@
+  [
+    [
+      {
++       "answerState": "answered",
+        "id": "session-rpe",
+        "label": "Session RPE",
+        "max": 10,
+        "min": 1,
+        "notes": "",
+        "optional": false,
+        "type": "scale",
+        "value": 5,
+      },
+      {
++       "answerState": "answered",
+        "id": "energy-post-workout",
+        "label": "Energy post workout",
+        "notes": "",
+        "optional": false,
+        "options": [
+@@ -24,10 +26,11 @@
+        ],
+        "type": "emoji",
+        "value": "😐",
+      },
+      {
++       "answerState": "answered",
+        "id": "pain-discomfort",
+        "label": "Any pain or discomfort?",
+        "notes": "",
+        "optional": false,
+        "type": "yes_no",
+
+
+Number of calls: 1
+
+ ❯ src/features/workouts/components/session-feedback.test.tsx:178:22
+    176|     fireEvent.click(finalizeButton);
+    177| 
+    178|     expect(onSubmit).toHaveBeenCalledWith([
+       |                      ^
+    179|       {
+    180|         id: 'session-rpe',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/features/workouts/components/session-feedback.test.tsx > SessionFeedback > drops legacy custom fields that overlap standard prompts
+Error: expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <div
+  aria-label="Energy post workout rating"
+  class="flex flex-wrap gap-2"
+  role="group"
+>
+  <button
+    aria-pressed="false"
+    class="inline-flex min-h-[44px] shrink-0 cursor-pointer items-center justify-center text-sm font-medium whitespace-nowrap outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 shadow-xs hover:border-accent-foreground/25 active:border-accent-foreground/35 active:bg-accent/80 active:text-accent-foreground dark:border-input dark:bg-input/25 dark:hover:border-foreground/35 dark:hover:bg-input/70 dark:hover:text-foreground dark:active:border-foreground/45 dark:active:bg-input/80 dark:active:text-foreground h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5 min-w-11 border transition-all active:scale-[0.98] border-border bg-background text-foreground hover:bg-accent/70 hover:text-accent-foreground"
+    data-size="sm"
+    data-slot="button"
+    data-variant="outline"
+    type="button"
+  >
+    1
+  </button>
+  <button
+    aria-pressed="false"
+    class="inline-flex min-h-[44px] shrink-0 cursor-pointer items-center justify-center text-sm font-medium whitespace-nowrap outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 shadow-xs hover:border-accent-foreground/25 active:border-accent-foreground/35 active:bg-accent/80 active:text-accent-foreground dark:border-input dark:bg-input/25 dark:hover:border-foreground/35 dark:hover:bg-input/70 dark:hover:text-foreground dark:active:border-foreground/45 dark:active:bg-input/80 dark:active:text-foreground h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5 min-w-11 border transition-all active:scale-[0.98] border-border bg-background text-foreground hover:bg-accent/70 hover:text-accent-foreground"
+    data-size="sm"
+    data-slot="button"
+    data-variant="outline"
+    type="button"
+  >
+    2
+  </button>
+  <button
+    aria-pressed="false"
+    class="inline-flex min-h-[44px] shrink-0 cursor-pointer items-center justify-center text-sm font-medium whitespace-nowrap outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 shadow-xs hover:border-accent-foreground/25 active:border-accent-foreground/35 active:bg-accent/80 active:text-accent-foreground dark:border-input dark:bg-input/25 dark:hover:border-foreground/35 dark:hover:bg-input/70 dark:hover:text-foreground dark:active:border-foreground/45 dark:active:bg-input/80 dark:active:text-foreground h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5 min-w-11 border transition-all active:scale-[0.98] border-border bg-background text-foreground hover:bg-accent/70 hover:text-accent-foreground"
+    data-size="sm"
+    data-slot="button"
+    data-variant="outline"
+    type="button"
+  >
+    3
+  </button>
+  <button
+    aria-pressed="false"
+    class="inline-flex min-h-[44px] shrink-0 cursor-pointer items-center justify-center text-sm font-medium whitespace-nowrap outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 shadow-xs hover:border-accent-foreground/25 active:border-accent-foreground/35 active:bg-accent/80 active:text-accent-foreground dark:border-input dark:bg-input/25 dark:hover:border-foreground/35 dark:hover:bg-input/70 dark:hover:text-foreground dark:active:border-foreground/45 dark:active:bg-input/80 dark:active:text-foreground h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5 min-w-11 border transition-all active:scale-[0.98] border-border bg-background text-foreground hover:bg-accent/70 hover:text-accent-foreground"
+    data-size="sm"
+    data-slot="button"
+    data-variant="outline"
+    type="button"
+  >
+    4
+  </button>
+  <button
+    aria-pressed="false"
+    class="inline-flex min-h-[44px] shrink-0 cursor-pointer items-center justify-center text-sm font-medium whitespace-nowrap outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 shadow-xs hover:border-accent-foreground/25 active:border-accent-foreground/35 active:bg-accent/80 active:text-accent-foreground dark:border-input dark:bg-input/25 dark:hover:border-foreground/35 dark:hover:bg-input/70 dark:hover:text-foreground dark:active:border-foreground/45 dark:active:bg-input/80 dark:active:text-foreground h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5 min-w-11 border transition-all active:scale-[0.98] border-border bg-background text-foreground hover:bg-accent/70 hover:text-accent-foreground"
+    data-size="sm"
+    data-slot="button"
+    data-variant="outline"
+    type="button"
+  >
+    5
+  </button>
+</div> instead
+ ❯ src/features/workouts/components/session-feedback.test.tsx:245:11
+    243|     expect(
+    244|       screen.queryByRole('group', { name: 'Energy post workout rating'…
+    245|     ).not.toBeInTheDocument();
+       |           ^
+    246|     expect(screen.queryByRole('group', { name: 'Knee pain rating' })).…
+    247|     expect(screen.getByRole('group', { name: 'Energy post workout opti…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  2 failed | 68 passed (70)
+   Start at  23:24:23
+   Duration  10.64s (transform 2.38s, setup 807ms, import 6.21s, tests 8.42s, environment 1.83s)
+
+undefined
+/Users/meridian/Projects/pulse-feedback-provenance/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/features/workouts/components/session-feedback.test.tsx src/features/workouts/components/session-detail.test.tsx src/pages/active-workout.test.tsx src/hooks/use-complete-session.test.tsx

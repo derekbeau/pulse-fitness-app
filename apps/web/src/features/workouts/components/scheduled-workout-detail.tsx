@@ -1,3 +1,4 @@
+import { FeedbackAudit, FeedbackNoteReviewNotice } from './feedback-audit';
 import { buildScheduledStartPayload } from '../lib/scheduled-start';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
@@ -480,6 +481,14 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
   return (
     <div className="space-y-4">
       {bannerSlot}
+      <FeedbackNoteReviewNotice reviews={scheduledWorkout?.feedbackNoteReview} />
+      {scheduledWorkout?.feedbackNoteReview?.length && scheduledWorkout.userId ? (
+        <FeedbackAudit
+          sessionId={scheduledWorkout.id}
+          userId={scheduledWorkout.userId}
+          resource="scheduled-workouts"
+        />
+      ) : null}
 
       <ScheduledWorkoutBanners
         onReviewStale={() => setIsRecoveryModalOpen(true)}

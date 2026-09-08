@@ -1,0 +1,50 @@
+
+> pulse@ lint /Users/meridian/Projects/pulse-feedback-provenance
+> turbo run lint
+
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running lint in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/api:lint: cache bypass, force executing 6a1ecce43c5892bb
+@pulse/web:lint: cache bypass, force executing 8b6295e9737b576a
+@pulse/shared:lint: cache bypass, force executing 8a5c9f836de4b66f
+@pulse/api:lint: 
+@pulse/api:lint: > @pulse/api@0.0.0 lint /Users/meridian/Projects/pulse-feedback-provenance/apps/api
+@pulse/api:lint: > eslint .
+@pulse/api:lint: 
+@pulse/shared:lint: 
+@pulse/shared:lint: > @pulse/shared@0.0.0 lint /Users/meridian/Projects/pulse-feedback-provenance/packages/shared
+@pulse/shared:lint: > eslint .
+@pulse/shared:lint: 
+@pulse/web:lint: 
+@pulse/web:lint: > @pulse/web@0.0.0 lint /Users/meridian/Projects/pulse-feedback-provenance/apps/web
+@pulse/web:lint: > eslint .
+@pulse/web:lint: 
+@pulse/api:lint: 
+@pulse/api:lint: /Users/meridian/Projects/pulse-feedback-provenance/apps/api/src/db/feedback-note-remediation.test.ts
+@pulse/api:lint:   42:22  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+@pulse/api:lint: 
+@pulse/api:lint: /Users/meridian/Projects/pulse-feedback-provenance/apps/api/src/db/feedback-provenance-migration.ts
+@pulse/api:lint:   202:43  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+@pulse/api:lint: 
+@pulse/api:lint: /Users/meridian/Projects/pulse-feedback-provenance/apps/api/src/middleware/feedback-note-projection.ts
+@pulse/api:lint:   53:76  error  Do not delete dynamically computed property keys  @typescript-eslint/no-dynamic-delete
+@pulse/api:lint: 
+@pulse/api:lint: /Users/meridian/Projects/pulse-feedback-provenance/apps/api/src/scripts/migrate-feedback-synthetic.ts
+@pulse/api:lint:   27:56  error  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+@pulse/api:lint: 
+@pulse/api:lint: ✖ 4 problems (4 errors, 0 warnings)
+@pulse/api:lint: 
+@pulse/api:lint:  ELIFECYCLE  Command failed with exit code 1.
+@pulse/api:lint: ERROR: command finished with error: command (/Users/meridian/Projects/pulse-feedback-provenance/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run lint exited (1)
+@pulse/web:lint:  ELIFECYCLE  Command failed.
+@pulse/api#lint: command (/Users/meridian/Projects/pulse-feedback-provenance/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run lint exited (1)
+
+ Tasks:    1 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    8.559s 
+Failed:    @pulse/api#lint
+
+ ERROR  run failed: command  exited (1)
+ ELIFECYCLE  Command failed with exit code 1.

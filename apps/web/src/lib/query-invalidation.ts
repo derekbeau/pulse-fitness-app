@@ -109,6 +109,8 @@ export const crossFeatureInvalidationMap = {
     [dashboardSnapshotQueryKeys.all] as const satisfies readonly QueryKey[],
   workoutSessionChange: () =>
     [
+      adaptiveNutritionQueryKey,
+      ['workout-progression'],
       dashboardSnapshotQueryKeys.all,
       dataQualityQueryKey,
       recentWorkoutQueryKeys.all,
