@@ -156,6 +156,7 @@ const seedSessionSet = (values: {
   rir?: number | null;
   notes?: string | null;
   completed?: boolean;
+  skipped?: boolean;
 }) =>
   context.db
     .insert(sessionSets)
@@ -171,7 +172,7 @@ const seedSessionSet = (values: {
       rpe: values.rpe ?? null,
       rir: values.rir ?? null,
       completed: values.completed ?? false,
-      skipped: false,
+      skipped: values.skipped ?? false,
       section: 'main',
       notes: values.notes ?? null,
     })
@@ -1007,6 +1008,7 @@ describe('exercise routes', () => {
     });
     seedSessionSet({
       id: 'set-incline-1',
+      completed: true,
       sessionId: 'session-incline',
       exerciseId: 'incline-bench',
       setNumber: 1,
@@ -1070,6 +1072,204 @@ describe('exercise routes', () => {
         ],
       },
     });
+  });
+
+  describe('related history visibility', () => {
+    const metricCases: Array<
+      [WorkoutExerciseTrackingType, Partial<Parameters<typeof seedSessionSet>[0]>]
+    > = [
+      ['weight_reps', { weight: 0, reps: 8, rir: 0 }],
+      ['bodyweight_reps', { weight: null, reps: 8, rir: 0 }],
+      ['reps_only', { reps: 0 }],
+      ['weight_seconds', { weight: 0, seconds: 0 }],
+      ['reps_seconds', { reps: 5, seconds: 0 }],
+      ['seconds_only', { seconds: 0 }],
+      ['duration', { seconds: 0 }],
+      ['distance', { distance: 0 }],
+      ['cardio', { seconds: 0, distance: 0, rpe: 3 }],
+    ];
+    it.each(metricCases)(
+      'selects older meaningful %s before newer unusable history',
+      async (trackingType, metrics) => {
+        const relatedIds = [
+          'empty',
+          'valid',
+          'unstarted',
+          'skipped',
+          'foreign',
+          'deleted',
+          'valid',
+        ];
+        for (const id of ['primary', ...new Set(relatedIds)]) {
+          seedExercise({
+            id,
+            userId: id === 'foreign' ? 'user-2' : 'user-1',
+            name: id,
+            muscleGroups: [],
+            equipment: 'none',
+            category: 'compound',
+            trackingType,
+            relatedExerciseIds: id === 'primary' ? relatedIds : [],
+          });
+        }
+        context.db
+          .update(exercises)
+          .set({ deletedAt: '2026-09-01T00:00:00Z' })
+          .where(eq(exercises.id, 'deleted'))
+          .run();
+        const variants = [
+          { id: 'old', completed: true, ...metrics, notes: 'Keep the historical note.' },
+          { id: 'empty', completed: true },
+          { id: 'effort-only', completed: true, rir: 0 },
+          {
+            id: 'wrong-metric',
+            completed: true,
+            ...(trackingType === 'weight_reps' ||
+            trackingType === 'bodyweight_reps' ||
+            trackingType === 'reps_only'
+              ? { seconds: 30 }
+              : { weight: 20 }),
+          },
+          { id: 'unstarted', completed: false, ...metrics },
+          { id: 'skipped', completed: false, skipped: true, ...metrics },
+        ];
+        variants.forEach((variant, index) => {
+          seedWorkoutSession({
+            id: variant.id,
+            userId: 'user-1',
+            name: 'Synthetic history',
+            date: '2026-09-01',
+            status: 'completed',
+            startedAt: index + 1,
+            completedAt: index + 2,
+          });
+          seedSessionSet({
+            ...variant,
+            id: `set-${variant.id}`,
+            sessionId: variant.id,
+            exerciseId: 'valid',
+            setNumber: 1,
+          });
+        });
+        for (const id of ['empty', 'unstarted', 'skipped']) {
+          seedSessionSet({
+            id: `only-${id}`,
+            sessionId: id,
+            exerciseId: id,
+            setNumber: 1,
+            ...(id === 'empty'
+              ? { completed: true }
+              : { ...metrics, completed: false, skipped: id === 'skipped' }),
+          });
+        }
+        // Even newer usable sets in another user's session, a deleted session, or an
+        // in-progress session cannot replace the qualifying completed performance.
+        for (const [index, id] of ['other-user', 'deleted-session', 'active-session'].entries()) {
+          seedWorkoutSession({
+            id,
+            userId: id === 'other-user' ? 'user-2' : 'user-1',
+            name: id,
+            date: '2026-09-02',
+            status: id === 'active-session' ? 'in-progress' : 'completed',
+            startedAt: 100 + index,
+            completedAt: 200 + index,
+          });
+          seedSessionSet({
+            id: `set-${id}`,
+            sessionId: id,
+            exerciseId: id === 'other-user' ? 'foreign' : 'valid',
+            setNumber: 1,
+            completed: true,
+            ...metrics,
+          });
+          if (id === 'deleted-session')
+            context.db
+              .update(workoutSessions)
+              .set({ deletedAt: '2026-09-02T00:00:00Z' })
+              .where(eq(workoutSessions.id, id))
+              .run();
+        }
+        // A second valid definition verifies authored ordering survives filtering.
+        seedExercise({
+          id: 'second',
+          userId: 'user-1',
+          name: 'Second',
+          muscleGroups: [],
+          equipment: 'none',
+          category: 'compound',
+          trackingType,
+        });
+        context.db
+          .update(exercises)
+          .set({ relatedExerciseIds: ['second', ...relatedIds] })
+          .where(eq(exercises.id, 'primary'))
+          .run();
+        seedSessionSet({
+          id: 'second-set',
+          sessionId: 'old',
+          exerciseId: 'second',
+          setNumber: 1,
+          completed: true,
+          ...metrics,
+        });
+        // The direct history path deliberately retains its existing semantics.
+        seedSessionSet({
+          id: 'direct-set',
+          sessionId: 'old',
+          exerciseId: 'primary',
+          setNumber: 1,
+          completed: false,
+          ...metrics,
+        });
+        const before = {
+          sets: context.db.select().from(sessionSets).all(),
+          sessions: context.db.select().from(workoutSessions).all(),
+          exercises: context.db.select().from(exercises).all(),
+        };
+        const token = context.app.jwt.sign(
+          { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+          { expiresIn: '7d' },
+        );
+        const response = await context.app.inject({
+          method: 'GET',
+          url: '/api/v1/exercises/primary/last-performance?includeRelated=true',
+          headers: createAuthorizationHeader(token),
+        });
+        expect(response.statusCode).toBe(200);
+        const data = response.json().data;
+        expect(data.history.sessionId).toBe('old');
+        expect(data.related.map((entry: { exerciseId: string }) => entry.exerciseId)).toEqual([
+          'second',
+          'empty',
+          'valid',
+          'unstarted',
+          'skipped',
+        ]);
+        expect(
+          data.related
+            .filter((entry: { history: unknown }) => entry.history !== null)
+            .map((entry: { exerciseId: string }) => entry.exerciseId),
+        ).toEqual(['second', 'valid']);
+        expect(
+          data.related.find((entry: { exerciseId: string }) => entry.exerciseId === 'valid')
+            .history,
+        ).toMatchObject({
+          sessionId: 'old',
+          notes: 'Keep the historical note.',
+          sets: [{ ...metrics, setNumber: 1 }],
+        });
+        const agentResponse = await context.app.inject({
+          method: 'GET',
+          url: '/api/v1/exercises/primary/last-performance?includeRelated=true',
+          headers: createAgentTokenHeader(seedAgentToken('user-1')),
+        });
+        expect(agentResponse.statusCode).toBe(200);
+        expect(agentResponse.json().data).toEqual(data);
+        expect(context.db.select().from(sessionSets).all()).toEqual(before.sets);
+        expect(context.db.select().from(workoutSessions).all()).toEqual(before.sessions);
+        expect(context.db.select().from(exercises).all()).toEqual(before.exercises);
+      },
+    );
   });
 
   it('excludes soft-deleted related exercises from includeRelated history results', async () => {

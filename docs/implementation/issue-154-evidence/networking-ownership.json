@@ -1,0 +1,31 @@
+{
+  "ports": [
+    {
+      "port": 3154,
+      "exit": 0,
+      "listeners": "COMMAND   PID     USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME\nnode    71464 meridian   26u  IPv4 0xfdae37a50f45b7b3      0t0  TCP 127.0.0.1:3154 (LISTEN)\n"
+    },
+    {
+      "port": 5254,
+      "exit": 0,
+      "listeners": "COMMAND   PID     USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME\nnode    72013 meridian   22u  IPv4 0x650c8da7939cff07      0t0  TCP 127.0.0.1:5254 (LISTEN)\n"
+    },
+    {
+      "port": 3155,
+      "exit": 1,
+      "listeners": ""
+    },
+    {
+      "port": 5255,
+      "exit": 1,
+      "listeners": ""
+    }
+  ],
+  "currentDatabase": "/Users/meridian/Projects/pulse-related-history-visibility/data/issue-154/browser.db",
+  "databaseIsSymlink": false,
+  "databaseResolvedPath": "/Users/meridian/Projects/pulse-related-history-visibility/data/issue-154/browser.db",
+  "databaseOpenBy": "COMMAND   PID     USER   FD   TYPE DEVICE SIZE/OFF     NODE NAME\nnode    71464 meridian   20u   REG   1,14   970752 80512326 /Users/meridian/Projects/pulse-related-history-visibility/data/issue-154/browser.db\n",
+  "networkingHandoffRead": true,
+  "activeRunKept": true,
+  "nextRunWrapper": "/Users/meridian/Projects/qa-reports/pulse-parallel-networking/pulse154-acceptance-env.sh"
+}

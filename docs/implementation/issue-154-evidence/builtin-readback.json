@@ -1,0 +1,25 @@
+{
+  "builtInFixture": [
+    {
+      "session": "older",
+      "id": "dfd18f89-10d6-4808-8534-194b2f1e821c",
+      "unchanged": true
+    },
+    {
+      "session": "newer",
+      "id": "fab1be3e-1033-49db-99cf-012748db4835",
+      "unchanged": true
+    },
+    {
+      "session": "active",
+      "id": "e6a0bb6f-1a22-4e9a-a5bd-d0a10c07b778",
+      "unchanged": true
+    }
+  ],
+  "quickCheck": [
+    [
+      "ok"
+    ]
+  ],
+  "foreignKeyViolations": []
+}

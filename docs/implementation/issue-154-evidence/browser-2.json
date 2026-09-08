@@ -1,0 +1,27 @@
+{
+  "command": [
+    "env",
+    "BASE_URL=http://127.0.0.1:5254",
+    "API_BASE_URL=http://127.0.0.1:3154",
+    "VITE_API_PROXY_TARGET=http://127.0.0.1:3154",
+    "E2E_DATABASE_URL=/Users/meridian/Projects/pulse-related-history-visibility/data/issue-154/browser.db",
+    "pnpm",
+    "--filter",
+    "@pulse/web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.related-history.config.ts",
+    "--output",
+    "../../artifacts/issue-154/browser-2"
+  ],
+  "head": "27afa252b7a7739bd0cfbf1e0b9b74503f2de08a",
+  "trackedDiffSha256": "8c12b735a1f4102d98c6aba80d3f81de712f50718e779c24839252ded9bc358a",
+  "startedAt": "2026-09-08T00:41:37.042580+00:00",
+  "finishedAt": "2026-09-08T00:41:51.881799+00:00",
+  "seconds": 14.84,
+  "exitCode": 1,
+  "log": "browser-2.log",
+  "logSha256": "a1a6d84fb7b223802f38cd9545163d466f802fd4796662ab619233004dd49c2a"
+}

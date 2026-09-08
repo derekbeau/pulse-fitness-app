@@ -1,0 +1,15 @@
+{
+  "command": [
+    "pnpm",
+    "build",
+    "--force"
+  ],
+  "head": "27afa252b7a7739bd0cfbf1e0b9b74503f2de08a",
+  "trackedDiffSha256": "3c66a61e5de2cdb1a40f1f5ba2f8935a784ab1154265517d03e290513335fa26",
+  "startedAt": "2026-09-08T00:47:57.319859+00:00",
+  "finishedAt": "2026-09-08T00:48:09.112781+00:00",
+  "seconds": 11.79,
+  "exitCode": 0,
+  "log": "build-1.log",
+  "logSha256": "2ee04e5621939fc9418117dd6520dfd8692101b670497323153135199f296223"
+}

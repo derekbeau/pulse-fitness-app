@@ -1,0 +1,7 @@
+{
+  "original": "artifacts/issue-154/browser-2/related-history-visibility-2dda4-rom-an-empty-related-result/error-context.md",
+  "archive": "artifacts/issue-154/browser-2/related-history-visibility-2dda4-rom-an-empty-related-result/error-context.md.gz",
+  "uncompressedBytes": 17209,
+  "sha256": "393027320b60d15667ca50511b7b64e128d6b52d4fa043748310e9392b9412d3",
+  "reason": "Lossless archive retains generated code-frame whitespace without introducing trailing whitespace in the review diff."
+}

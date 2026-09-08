@@ -1,0 +1,20 @@
+{
+  "time": "2026-09-08T00:46:06.975425+00:00",
+  "wrapper": "/Users/meridian/Projects/qa-reports/pulse-parallel-networking/pulse154-acceptance-env.sh",
+  "database": "/Users/meridian/Projects/qa-reports/pulse-parallel-networking/fixtures/pulse154/pulse-e2e.db",
+  "databaseIsSymlink": false,
+  "3155": {
+    "pid": "79412",
+    "cwd": "/Users/meridian/Projects/pulse-related-history-visibility/apps/api",
+    "status": 200
+  },
+  "5255": {
+    "pid": "79462",
+    "cwd": "/Users/meridian/Projects/pulse-related-history-visibility/apps/web",
+    "status": 200
+  },
+  "databaseOwnerPids": [
+    "79412"
+  ],
+  "capacity": "Processes: 545 total, 4 running, 541 sleeping, 4230 threads \n2026/09/07 20:46:07\nLoad Avg: 7.06, 9.02, 8.25 \nCPU usage: 30.5% user, 13.69% sys, 56.25% idle \nSharedLibs: 338M resident, 83M data, 74M linkedit.\nMemRegions: 466950 total, 4349M resident, 109M private, 2818M shared.\nPhysMem: 14G used (2467M wired, 2919M compressor), 1420M unused.\nVM: 257T vsize, 6144M framework vsize, 9680996(0) swapins, 11718034(0) swapouts.\nNetworks: packets: 215007992/333G in, 326734030/344G out.\nDisks: 1646974094/30T read, 1237013243/15T written.\n\n\n"
+}

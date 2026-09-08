@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { isMeaningfulCompletedSet } from '@pulse/shared';
 import type {
   CreateExerciseInput,
   Exercise,
@@ -1086,83 +1087,30 @@ export const findExercisePerformanceHistory = async ({
   });
 };
 
-const findExercisesLastPerformanceById = async ({
-  exerciseIds,
+const findRelatedExercisesLastPerformanceById = async ({
+  relatedExercises,
   userId,
 }: {
-  exerciseIds: string[];
+  relatedExercises: Array<{ id: string; trackingType: ExerciseTrackingType }>;
   userId: string;
 }): Promise<Map<string, ExerciseLastPerformance>> => {
-  const uniqueExerciseIds = [...new Set(exerciseIds)];
-  if (uniqueExerciseIds.length === 0) {
-    return new Map();
-  }
+  const trackingTypes = new Map(
+    relatedExercises.map((exercise) => [exercise.id, exercise.trackingType]),
+  );
+  if (trackingTypes.size === 0) return new Map();
 
   const { db } = await import('../../db/index.js');
-  const latestSessionCandidates = await db
+  // Read complete candidates before selecting a session: a newer unusable set must
+  // never mask an older performance. The same predicate drives the UI selector.
+  const candidates = await db
     .select({
       exerciseId: sessionSets.exerciseId,
       sessionId: workoutSessions.id,
       date: workoutSessions.date,
-    })
-    .from(sessionSets)
-    .innerJoin(workoutSessions, eq(workoutSessions.id, sessionSets.sessionId))
-    .where(
-      and(
-        inArray(sessionSets.exerciseId, uniqueExerciseIds),
-        eq(workoutSessions.userId, userId),
-        isNull(workoutSessions.deletedAt),
-        eq(workoutSessions.status, 'completed'),
-        sessionSetHasPerformanceValue(),
-      ),
-    )
-    .groupBy(
-      sessionSets.exerciseId,
-      workoutSessions.id,
-      workoutSessions.date,
-      workoutSessions.completedAt,
-      workoutSessions.startedAt,
-      workoutSessions.createdAt,
-    )
-    .orderBy(
-      desc(workoutSessions.completedAt),
-      desc(workoutSessions.startedAt),
-      desc(workoutSessions.createdAt),
-    )
-    .all();
-
-  const latestSessionByExerciseId = new Map<
-    string,
-    {
-      sessionId: string;
-      date: string;
-    }
-  >();
-
-  for (const row of latestSessionCandidates) {
-    if (row.exerciseId === null) {
-      continue;
-    }
-
-    if (!latestSessionByExerciseId.has(row.exerciseId)) {
-      latestSessionByExerciseId.set(row.exerciseId, {
-        sessionId: row.sessionId,
-        date: row.date,
-      });
-    }
-  }
-
-  const latestSessionIds = [
-    ...new Set([...latestSessionByExerciseId.values()].map((row) => row.sessionId)),
-  ];
-  if (latestSessionIds.length === 0) {
-    return new Map();
-  }
-
-  const latestSets = await db
-    .select({
-      exerciseId: sessionSets.exerciseId,
-      sessionId: sessionSets.sessionId,
+      sessionNotes: workoutSessions.notes,
+      notes: sessionSets.notes,
+      completed: sessionSets.completed,
+      skipped: sessionSets.skipped,
       setNumber: sessionSets.setNumber,
       weight: sessionSets.weight,
       reps: sessionSets.reps,
@@ -1170,70 +1118,51 @@ const findExercisesLastPerformanceById = async ({
       distance: sessionSets.distance,
       rpe: sessionSets.rpe,
       rir: sessionSets.rir,
-      createdAt: sessionSets.createdAt,
     })
     .from(sessionSets)
     .innerJoin(workoutSessions, eq(workoutSessions.id, sessionSets.sessionId))
     .where(
       and(
-        inArray(sessionSets.exerciseId, uniqueExerciseIds),
-        inArray(sessionSets.sessionId, latestSessionIds),
+        inArray(sessionSets.exerciseId, [...trackingTypes.keys()]),
         eq(workoutSessions.userId, userId),
         isNull(workoutSessions.deletedAt),
+        eq(workoutSessions.status, 'completed'),
+        eq(sessionSets.completed, true),
+        eq(sessionSets.skipped, false),
         sessionSetHasPerformanceValue(),
       ),
     )
-    .orderBy(asc(sessionSets.exerciseId), asc(sessionSets.setNumber), asc(sessionSets.createdAt))
+    .orderBy(
+      desc(workoutSessions.completedAt),
+      desc(workoutSessions.startedAt),
+      desc(workoutSessions.createdAt),
+      asc(workoutSessions.id),
+      asc(sessionSets.setNumber),
+      asc(sessionSets.createdAt),
+      asc(sessionSets.id),
+    )
     .all();
 
-  const historyByExerciseId = new Map<
-    string,
-    {
-      sessionId: string;
-      date: string;
-      sets: Array<{
-        distance?: number | null;
-        reps: number | null;
-        seconds?: number | null;
-        setNumber: number;
-        weight: number | null;
-        rpe?: number | null;
-        rir?: number | null;
-      }>;
-    }
-  >();
-
-  for (const set of latestSets) {
-    if (set.exerciseId === null) {
+  const histories = new Map<string, ExerciseLastPerformance>();
+  const setNotes = new Map<string, string>();
+  for (const set of candidates) {
+    const trackingType = set.exerciseId === null ? undefined : trackingTypes.get(set.exerciseId);
+    if (
+      set.exerciseId === null ||
+      trackingType === undefined ||
+      !isMeaningfulCompletedSet(set, trackingType)
+    )
       continue;
-    }
 
-    const latestSession = latestSessionByExerciseId.get(set.exerciseId);
-    if (!latestSession || latestSession.sessionId !== set.sessionId) {
-      continue;
-    }
+    const history: ExerciseLastPerformance = histories.get(set.exerciseId) ?? {
+      sessionId: set.sessionId,
+      date: set.date,
+      ...(normalizeSetNote(set.sessionNotes) ? { notes: normalizeSetNote(set.sessionNotes) } : {}),
+      sets: [],
+    };
+    if (history.sessionId !== set.sessionId) continue;
 
-    const existing = historyByExerciseId.get(set.exerciseId);
-    if (!existing) {
-      historyByExerciseId.set(set.exerciseId, {
-        sessionId: set.sessionId,
-        date: latestSession.date,
-        sets: [
-          {
-            setNumber: set.setNumber,
-            weight: set.weight,
-            reps: set.reps,
-            ...(set.seconds !== null ? { seconds: set.seconds } : {}),
-            ...(set.distance !== null ? { distance: set.distance } : {}),
-            ...(set.rpe !== null ? { rpe: set.rpe } : {}),
-            ...(set.rir !== null ? { rir: set.rir } : {}),
-          },
-        ],
-      });
-      continue;
-    }
-
-    existing.sets.push({
+    history.sets.push({
       setNumber: set.setNumber,
       weight: set.weight,
       reps: set.reps,
@@ -1242,18 +1171,14 @@ const findExercisesLastPerformanceById = async ({
       ...(set.rpe !== null ? { rpe: set.rpe } : {}),
       ...(set.rir !== null ? { rir: set.rir } : {}),
     });
+    const note = normalizeSetNote(set.notes);
+    if (note !== null && !setNotes.has(set.exerciseId)) {
+      setNotes.set(set.exerciseId, note);
+      history.notes = note;
+    }
+    histories.set(set.exerciseId, history);
   }
-
-  return new Map(
-    [...historyByExerciseId.entries()].map(([id, history]) => [
-      id,
-      {
-        sessionId: history.sessionId,
-        date: history.date,
-        sets: history.sets,
-      },
-    ]),
-  );
+  return histories;
 };
 
 export const findExerciseHistoryWithRelated = async ({
@@ -1310,12 +1235,12 @@ export const findExerciseHistoryWithRelated = async ({
     ];
   });
 
-  const historiesByExerciseId = await findExercisesLastPerformanceById({
-    exerciseIds: [exerciseId, ...orderedRelated.map((relatedExercise) => relatedExercise.id)],
+  const historiesByExerciseId = await findRelatedExercisesLastPerformanceById({
+    relatedExercises: orderedRelated,
     userId,
   });
-
-  const history = historiesByExerciseId.get(exerciseId) ?? null;
+  // Direct history keeps its existing selection and navigation semantics.
+  const [history] = await findExerciseLastPerformance({ exerciseId, userId, limit: 1 });
   const relatedHistory: RelatedExerciseLastPerformance[] = orderedRelated.map(
     (relatedExercise) => ({
       exerciseId: relatedExercise.id,
@@ -1326,7 +1251,7 @@ export const findExerciseHistoryWithRelated = async ({
   );
 
   return {
-    history,
+    history: history ?? null,
     related: relatedHistory,
   };
 };

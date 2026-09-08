@@ -1,0 +1,33 @@
+{
+  "baseline": "ae9ce0de93127a2fa270fc12b18902f24d5ed3a8",
+  "implementationCommit": "27afa252b7a7739bd0cfbf1e0b9b74503f2de08a",
+  "candidatePatch": "verified-candidate.patch.gz",
+  "candidatePatchSha256": "3c66a61e5de2cdb1a40f1f5ba2f8935a784ab1154265517d03e290513335fa26",
+  "fullTestInputPatchSha256": "9be133c4828cd516ead57576a54f9dc6d04e68619580f21290f8cef6d8750b6a",
+  "fullTestInputsUnchanged": true,
+  "afterFullTestChanges": [
+    "apps/web/e2e/related-history-fixture.ts",
+    "apps/web/e2e/related-history-visibility.spec.ts",
+    "apps/web/playwright.related-history.config.ts"
+  ],
+  "afterFullTestScope": "Opt-in Playwright fixture/harness only; web Vitest include is src/**/*.{test,spec}.{ts,tsx}. All product code and Vitest/repo-script inputs match test-1 exactly.",
+  "sourceFiles": {
+    "apps/api/src/routes/exercises/index.test.ts": "52aeb88a61d4aa208b3016a9048abbe6fb414a8cb71fe7f576164e33d6986979",
+    "apps/api/src/routes/exercises/store.ts": "fd4d1b1ffc133da010f48e6dcd3b0027caf04257fe0b75750716f4e4c5e7ed63",
+    "apps/web/e2e/related-history-fixture.ts": "2f83e1cd0176e4874767a3fa4060e6a4aba5b78284073f41a1ed1f860f96afcc",
+    "apps/web/e2e/related-history-visibility.spec.ts": "6533b80209f21d1b13d76a2b8e3eb5cbb4f0172e0a1425cdfbe8f089381c5436",
+    "apps/web/playwright.related-history.config.ts": "d93cb6e651e7c406bc1a3caa781454a3186f66017d6698313e271a792319e413",
+    "apps/web/src/features/workouts/components/session-exercise-list.test.tsx": "dabe736aa8a7880d471dd8b58470a7cdda0151146dfa7414c0b32ecb84f60bf2",
+    "apps/web/src/features/workouts/components/session-exercise-list.tsx": "2f1e8696beb0015726b3f97c161f249e4190879413fe60901a387d55702e7eba",
+    "apps/web/src/features/workouts/lib/related-history.test.ts": "ee2815d8cce2674e2d95a63483a3aeec6bfb37e4d604fff803abdc9f5115010e",
+    "apps/web/src/features/workouts/lib/related-history.ts": "a9fe7aec63fb48584b81c77861d097554327f445339c574de66ee92c3be3e466",
+    "apps/web/src/features/workouts/types.ts": "26e5b511ba5461b420b2b55a36dd1200fbeed9a5d8dfdb066538111c8203f34d",
+    "apps/web/src/hooks/use-last-performance.test.tsx": "081393f4ae57a9a30ea2522b64803e3b14222be5af20592157583f10fb5c1ca8",
+    "apps/web/src/hooks/use-last-performance.ts": "a91b5cfeb4649624b5ed5db48ed574a5de567fc99b7edbab5e02f8410235ed5b",
+    "packages/shared/src/index.ts": "0223954855a2a1a27a01b5e23ef95e45d7d96db5351c694fdca11ff311f4ca56",
+    "packages/shared/src/schemas/exercises.ts": "fe1c6453c633a1a833d9189122e80be2e3b60fe3000a3f58e330058e6956737c",
+    "packages/shared/src/utils/related-history.test.ts": "bdfc460975bad4db82706b95bf6b8ab3c779d400e5e10160f26770874ab8b343",
+    "packages/shared/src/utils/related-history.ts": "8a577c41aa08456f28b4d10de00edc0907d0fe1f259980ff456e7c57996ee4e9"
+  },
+  "candidatePatchSha256AppliesTo": "uncompressed patch bytes"
+}

@@ -1,0 +1,25 @@
+{
+  "stoppedOwnServices": [
+    {
+      "port": 3154,
+      "pid": 71464,
+      "verifiedCwd": "/Users/meridian/Projects/pulse-related-history-visibility/apps/api"
+    },
+    {
+      "port": 5254,
+      "pid": 72013,
+      "verifiedCwd": "/Users/meridian/Projects/pulse-related-history-visibility/apps/web"
+    },
+    {
+      "port": 3155,
+      "pid": 79412,
+      "verifiedCwd": "/Users/meridian/Projects/pulse-related-history-visibility/apps/api"
+    },
+    {
+      "port": 5255,
+      "pid": 79462,
+      "verifiedCwd": "/Users/meridian/Projects/pulse-related-history-visibility/apps/web"
+    }
+  ],
+  "fixturesPreserved": true
+}

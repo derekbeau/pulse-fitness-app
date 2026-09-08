@@ -1,0 +1,92 @@
+[
+  {
+    "original": "api-server.log",
+    "archive": "api-server.log.gz",
+    "uncompressedBytes": 144619,
+    "sha256": "ee14e5399d66809508d5db93abd88f46a816da69020ba1aea54b08601175b827"
+  },
+  {
+    "original": "api-wrapper-server.log",
+    "archive": "api-wrapper-server.log.gz",
+    "uncompressedBytes": 40128,
+    "sha256": "6b315cc2e6122bb1ac4964d64205d29fc716d5ddec5efdfa6612ff45b0070c6a"
+  },
+  {
+    "original": "browser-1.log",
+    "archive": "browser-1.log.gz",
+    "uncompressedBytes": 694,
+    "sha256": "209575540c26dfea51bf41f16e8a6e5dd0d6a4d9e690599f604b8cc9bbe211ea"
+  },
+  {
+    "original": "browser-2.log",
+    "archive": "browser-2.log.gz",
+    "uncompressedBytes": 2385,
+    "sha256": "a1a6d84fb7b223802f38cd9545163d466f802fd4796662ab619233004dd49c2a"
+  },
+  {
+    "original": "browser-3.log",
+    "archive": "browser-3.log.gz",
+    "uncompressedBytes": 694,
+    "sha256": "c978e4a28af894f32038c84fe5f788045e80192ee150fc3b74160abc741211f2"
+  },
+  {
+    "original": "build-1.log",
+    "archive": "build-1.log.gz",
+    "uncompressedBytes": 14466,
+    "sha256": "2ee04e5621939fc9418117dd6520dfd8692101b670497323153135199f296223"
+  },
+  {
+    "original": "lint-1.log",
+    "archive": "lint-1.log.gz",
+    "uncompressedBytes": 3018,
+    "sha256": "a67fa2c449017102306e961ec5cad05e19c810a92fa43eaee521f26e23f355eb"
+  },
+  {
+    "original": "lint-2.log",
+    "archive": "lint-2.log.gz",
+    "uncompressedBytes": 3018,
+    "sha256": "90bc3fb68bf89df3ec1c01dbdb1d512aad2c442a24565120f47e450853f565d7"
+  },
+  {
+    "original": "test-1.log",
+    "archive": "test-1.log.gz",
+    "uncompressedBytes": 63634,
+    "sha256": "344979bcb9148f3e6a328d3826cee9712fedb81f3e3387a9a2c12be7850b0ba7"
+  },
+  {
+    "original": "typecheck-1.log",
+    "archive": "typecheck-1.log.gz",
+    "uncompressedBytes": 2605,
+    "sha256": "5ea11df119e5b086504ccb915f80cdc706add034636b83cd0972b0273483d6e6"
+  },
+  {
+    "original": "typecheck-2.log",
+    "archive": "typecheck-2.log.gz",
+    "uncompressedBytes": 1271,
+    "sha256": "2722c819b09fa572163b7ca2c87ba4f7c3df0542343385a5b680045758e1b1e0"
+  },
+  {
+    "original": "typecheck-3.log",
+    "archive": "typecheck-3.log.gz",
+    "uncompressedBytes": 1271,
+    "sha256": "fd5afd9c375796652240d3ea24f3c3c93574e999c20203de0a7e9f367cb7a66a"
+  },
+  {
+    "original": "verified-candidate.patch",
+    "archive": "verified-candidate.patch.gz",
+    "uncompressedBytes": 7402,
+    "sha256": "3c66a61e5de2cdb1a40f1f5ba2f8935a784ab1154265517d03e290513335fa26"
+  },
+  {
+    "original": "web-server.log",
+    "archive": "web-server.log.gz",
+    "uncompressedBytes": 231,
+    "sha256": "caae2be205c4a389b2d2a4d7d616095fbaf7cf33d076e8fa9072b2715f810f80"
+  },
+  {
+    "original": "web-wrapper-server.log",
+    "archive": "web-wrapper-server.log.gz",
+    "uncompressedBytes": 231,
+    "sha256": "113e67191de5483e0a59a24b00d964a0b8fd87016ec8f0b5c945a0e2b1b66b23"
+  }
+]

@@ -19,7 +19,7 @@ import {
   getWorkoutExerciseStorageKey,
   getWorkoutSectionStorageKey,
 } from '../lib/session-persistence';
-import type { ActiveWorkoutSessionData } from '../types';
+import type { ActiveWorkoutLastPerformance, ActiveWorkoutSessionData } from '../types';
 import { SessionExerciseList } from './session-exercise-list';
 
 vi.mock('@/components/ui/dropdown-menu', () => ({
@@ -2121,6 +2121,12 @@ describe('SessionExerciseList', () => {
             options?.enabled === true
               ? [
                   {
+                    exerciseId: 'empty-related',
+                    exerciseName: 'Empty Related',
+                    trackingType: 'weight_reps',
+                    history: null,
+                  },
+                  {
                     exerciseId: 'incline-bench',
                     exerciseName: 'Incline Bench Press',
                     trackingType: 'weight_reps',
@@ -2128,7 +2134,10 @@ describe('SessionExerciseList', () => {
                       date: '2026-03-08',
                       notes: 'Keep shoulder packed.',
                       sessionId: 'session-8',
-                      sets: [{ completed: true, reps: 8, setNumber: 1, weight: 60 }],
+                      sets: [
+                        { completed: false, reps: 99, setNumber: 1, weight: 99 },
+                        { completed: true, reps: 8, setNumber: 2, weight: 0, rir: 0 },
+                      ],
                     },
                   },
                 ]
@@ -2195,11 +2204,24 @@ describe('SessionExerciseList', () => {
       throw new Error('Expected related exercise history card.');
     }
 
-    expect(within(relatedExerciseCard).getByText(/Mar 8 · 60x8/)).toBeInTheDocument();
+    expect(within(relatedExerciseCard).getByText(/Mar 8 · 0x8 \(0 RIR\)/)).toBeInTheDocument();
     expect(
       within(relatedExerciseCard).getByRole('button', { name: 'View notes' }),
     ).toBeInTheDocument();
 
+    expect(within(rowErgCard as HTMLElement).queryByText('Empty Related')).not.toBeInTheDocument();
+    expect(within(relatedExerciseCard).queryByText(/99x99/)).not.toBeInTheDocument();
+    fireEvent.click(
+      within(relatedExerciseCard).getByRole('button', {
+        name: 'Effort details: History, 2026-03-08',
+      }),
+    );
+    const effortDialog = screen.getByRole('dialog', { name: 'Effort details' });
+    expect(effortDialog).toHaveTextContent('Stored RIR: 0');
+    fireEvent.keyDown(effortDialog, { key: 'Escape' });
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Effort details' })).not.toBeInTheDocument(),
+    );
     fireEvent.click(within(relatedExerciseCard).getByRole('button', { name: 'View all' }));
 
     const dialog = await screen.findByRole('dialog');
@@ -2211,45 +2233,128 @@ describe('SessionExerciseList', () => {
     useLastPerformanceSpy.mockRestore();
   });
 
-  it('hides related history section when no related exercises are configured', () => {
-    if (!activeTemplate) {
-      throw new Error('Expected upper-push template in mock data.');
-    }
+  it.each([
+    ['no definitions', undefined],
+    ['null history', null],
+    ['no sets', []],
+    ['unstarted', [{ completed: false, reps: 8, setNumber: 1, weight: 0 }]],
+    ['skipped', [{ completed: false, skipped: true, reps: 8, setNumber: 1, weight: 0 }]],
+    ['empty completed set', [{ completed: true, reps: null, setNumber: 1, weight: null }]],
+    ['effort alone', [{ completed: true, reps: null, setNumber: 1, weight: null, rir: 0 }]],
+    ['wrong metric', [{ completed: true, reps: null, setNumber: 1, weight: null, seconds: 30 }]],
+  ] as Array<[string, ActiveWorkoutLastPerformance['sets'] | null | undefined]>)(
+    'omits the whole related disclosure for %s',
+    (_label, sets) => {
+      if (!activeTemplate) {
+        throw new Error('Expected upper-push template in mock data.');
+      }
 
-    const useLastPerformanceSpy = vi.spyOn(lastPerformanceHooks, 'useLastPerformance');
-    useLastPerformanceSpy.mockReturnValue({
-      data: {
-        history: null,
-        historyEntries: [],
-        related: [],
-      },
-    } as unknown as ReturnType<typeof lastPerformanceHooks.useLastPerformance>);
+      const useLastPerformanceSpy = vi.spyOn(lastPerformanceHooks, 'useLastPerformance');
+      useLastPerformanceSpy.mockReturnValue({
+        data: {
+          history: null,
+          historyEntries: [],
+          related:
+            sets === undefined
+              ? []
+              : [
+                  {
+                    exerciseId: 'empty-related',
+                    exerciseName: 'Empty Related',
+                    trackingType: 'weight_reps',
+                    history:
+                      sets === null
+                        ? null
+                        : { date: '2026-03-01', sessionId: 'empty-session', sets },
+                  },
+                ],
+        },
+      } as unknown as ReturnType<typeof lastPerformanceHooks.useLastPerformance>);
 
-    const session = buildActiveWorkoutSession(
-      activeTemplate,
-      createInitialWorkoutSetDrafts(activeTemplate, new Set()),
-    );
+      const session = buildActiveWorkoutSession(
+        activeTemplate,
+        createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+      );
 
-    renderWithQueryClient(
-      <SessionExerciseList
-        enableApiLastPerformance
-        onAddSet={vi.fn()}
-        onExerciseNotesChange={vi.fn()}
-        onRemoveSet={vi.fn()}
-        onSetUpdate={vi.fn()}
-        session={session}
-      />,
-    );
+      renderWithQueryClient(
+        <SessionExerciseList
+          enableApiLastPerformance
+          onAddSet={vi.fn()}
+          onExerciseNotesChange={vi.fn()}
+          onRemoveSet={vi.fn()}
+          onSetUpdate={vi.fn()}
+          session={session}
+        />,
+      );
 
-    const rowErgCard = screen
-      .getByRole('heading', { level: 3, name: 'Row Erg' })
-      .closest('[data-slot="card"]');
-    expect(rowErgCard).not.toBeNull();
-    expect(within(rowErgCard as HTMLElement).getByText('History')).toBeInTheDocument();
-    expect(
-      within(rowErgCard as HTMLElement).queryByText('Related history'),
-    ).not.toBeInTheDocument();
+      const rowErgCard = screen
+        .getByRole('heading', { level: 3, name: 'Row Erg' })
+        .closest('[data-slot="card"]');
+      expect(rowErgCard).not.toBeNull();
+      expect(within(rowErgCard as HTMLElement).getByText('History')).toBeInTheDocument();
+      expect(
+        within(rowErgCard as HTMLElement).queryByText('Related history'),
+      ).not.toBeInTheDocument();
 
-    useLastPerformanceSpy.mockRestore();
-  });
+      const card = rowErgCard as HTMLElement;
+      fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
+      expect(within(card).queryByText('Related')).not.toBeInTheDocument();
+      expect(within(card).queryByText('Empty Related')).not.toBeInTheDocument();
+      expect(within(card).queryByText('No completed sets yet.')).not.toBeInTheDocument();
+      expect([...card.querySelectorAll('details')].map((details) => details.id)).toEqual([
+        'exercise-notes-row-erg',
+      ]);
+      expect(within(card).getAllByRole('button', { name: 'View all' })).toHaveLength(1);
+      useLastPerformanceSpy.mockRestore();
+    },
+  );
+  it.each(['pending', 'error'] as const)(
+    'preserves the direct History card during related %s',
+    (status) => {
+      if (!activeTemplate) throw new Error('Missing active template fixture');
+      const history = {
+        date: '2026-03-01',
+        sessionId: 'direct-session',
+        sets: [{ completed: true, setNumber: 1, reps: null, weight: null, seconds: 30 }],
+      };
+      const spy = vi.spyOn(lastPerformanceHooks, 'useLastPerformance').mockImplementation(
+        (_, options) =>
+          ({
+            ...(options?.includeRelated
+              ? {
+                  data: undefined,
+                  status,
+                  isPending: status === 'pending',
+                  isError: status === 'error',
+                }
+              : { data: { history, historyEntries: [history], related: [] }, status: 'success' }),
+          }) as ReturnType<typeof lastPerformanceHooks.useLastPerformance>,
+      );
+      const session = buildActiveWorkoutSession(
+        activeTemplate,
+        createInitialWorkoutSetDrafts(activeTemplate, new Set()),
+      );
+      renderWithQueryClient(
+        <SessionExerciseList
+          enableApiLastPerformance
+          onAddSet={vi.fn()}
+          onExerciseNotesChange={vi.fn()}
+          onRemoveSet={vi.fn()}
+          onSetUpdate={vi.fn()}
+          session={session}
+        />,
+      );
+      fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
+      const card = screen
+        .getByRole('heading', { level: 3, name: 'Row Erg' })
+        .closest('[data-slot="card"]') as HTMLElement;
+      expect(within(card).getByText(/Mar 1 · 30s/)).toBeInTheDocument();
+      expect(within(card).getAllByRole('button', { name: /^View all$/ })).toHaveLength(
+        1,
+      );
+      expect(within(card).queryByText('Related history')).not.toBeInTheDocument();
+      expect(within(card).queryByText('No completed sets yet.')).not.toBeInTheDocument();
+      spy.mockRestore();
+    },
+  );
 });

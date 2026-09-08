@@ -1,0 +1,18 @@
+{
+  "command": [
+    "pnpm",
+    "test",
+    "--concurrency=1",
+    "--force",
+    "--",
+    "--maxWorkers=1"
+  ],
+  "head": "27afa252b7a7739bd0cfbf1e0b9b74503f2de08a",
+  "trackedDiffSha256": "9be133c4828cd516ead57576a54f9dc6d04e68619580f21290f8cef6d8750b6a",
+  "startedAt": "2026-09-08T00:37:03.794758+00:00",
+  "finishedAt": "2026-09-08T00:42:20.396467+00:00",
+  "seconds": 316.6,
+  "exitCode": 0,
+  "log": "test-1.log",
+  "logSha256": "344979bcb9148f3e6a328d3826cee9712fedb81f3e3387a9a2c12be7850b0ba7"
+}
