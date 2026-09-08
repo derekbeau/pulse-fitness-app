@@ -1,0 +1,6 @@
+$ pnpm exec playwright test --config artifacts/issue-138-final/acceptance.config.mjs
+[WebServer] (node:84592) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] node: ../../.env: not found
+Error: Process from config.webServer was not able to start. Exit code: 9
+

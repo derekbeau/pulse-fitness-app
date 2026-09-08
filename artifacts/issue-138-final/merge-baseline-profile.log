@@ -1,0 +1,12 @@
+$ pnpm --filter @pulse/api exec vitest run src/routes/nutrition/store.food-usage.test.ts -t 'derives merge from links' --maxWorkers=1 --execArgv=--cpu-prof --execArgv=--cpu-prof-dir=/Users/meridian/Projects/pulse-food-reuse/artifacts/issue-138-final/profiles
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/api
+
+ ✓ src/routes/nutrition/store.food-usage.test.ts (11 tests | 10 skipped) 4229ms
+     ✓ derives merge from links despite stale counters, with atomic restore and ownership failures  3311ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 10 skipped (11)
+   Start at  20:36:00
+   Duration  4.68s (transform 586ms, setup 0ms, import 334ms, tests 4.23s, environment 0ms)
+

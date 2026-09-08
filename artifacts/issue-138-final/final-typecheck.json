@@ -1,0 +1,10 @@
+{
+  "command": "pnpm typecheck --force",
+  "cwd": "/Users/meridian/Projects/pulse-food-reuse",
+  "head": "89828ac5e2d4828c447016d0093e60a5aa1cb8d3",
+  "branch": "feat/ranked-food-reuse",
+  "startedAt": "2026-09-08T00:49:56.116610+00:00",
+  "exitCode": 0,
+  "elapsedSeconds": 10.24,
+  "finishedAt": "2026-09-08T00:50:06.340232+00:00"
+}

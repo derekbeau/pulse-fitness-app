@@ -1,0 +1,5 @@
+{
+  "command": "pnpm lint --force",
+  "exitCode": 0,
+  "elapsedSeconds": 11.41
+}

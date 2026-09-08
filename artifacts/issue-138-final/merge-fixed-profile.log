@@ -1,0 +1,11 @@
+$ pnpm --filter @pulse/api exec vitest run src/routes/nutrition/store.food-usage.test.ts -t 'derives merge from links' --maxWorkers=1 --execArgv=--cpu-prof --execArgv=--cpu-prof-dir=/Users/meridian/Projects/pulse-food-reuse/artifacts/issue-138-final/profiles
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/api
+
+ ✓ src/routes/nutrition/store.food-usage.test.ts (12 tests | 11 skipped) 908ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 11 skipped (12)
+   Start at  20:40:37
+   Duration  1.35s (transform 596ms, setup 0ms, import 331ms, tests 908ms, environment 0ms)
+

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { dateSchema } from './common.js';
-import { foodSchema } from './foods.js';
+import { foodSchema, foodProvenanceSchema } from './foods.js';
 import { proteinFloorProgressSchema } from './protein-floor.js';
 
 const requiredText = (maxLength = 255) => z.string().trim().min(1).max(maxLength);
@@ -140,7 +140,24 @@ export const nutritionLoggingContextQuerySchema = z.object({
 
 export const nutritionFoodMatchSchema = z.object({
   food: foodSchema,
-  score: z.number().min(0).max(1),
+  evidence: z.array(
+    z.object({
+      category: z.enum([
+        'exact_normalized',
+        'alias_exact',
+        'brand_or_tag',
+        'token_order',
+        'recent_name',
+        'partial_name',
+        'frequent',
+      ]),
+      field: z.enum(['name', 'brand', 'tag', 'recent_item', 'usage']),
+      value: z.string(),
+      mealItemId: z.string().optional(),
+    }),
+  ),
+  ambiguity: z.enum(['none', 'multiple_candidates']),
+  aliasVersion: z.string(),
   reason: z.string().min(1),
   matchedVariant: z.string().min(1).nullable(),
 });
@@ -152,6 +169,24 @@ export const nutritionRecentMealItemSchema = z.object({
   mealTime: mealTimeSchema.nullable(),
   item: nutritionMealItemSchema,
 });
+
+export const nutritionPromotionCandidateSchema = z.object({
+  normalizedName: z.string(),
+  displayName: z.string(),
+  occurrenceCount: z.number().int().min(2),
+  distinctDayCount: z.number().int().min(2),
+  mostRecentDate: dateSchema,
+  snapshots: z.array(nutritionRecentMealItemSchema).min(2),
+  stability: z.enum(['stable_exact', 'review_only']),
+  stabilityReason: z.enum([
+    'IDENTICAL_SNAPSHOTS',
+    'SNAPSHOT_DIFFERENCE',
+    'INCOMPLETE_SERVING_OR_MACROS',
+  ]),
+  likelySavedFoodMatch: nutritionFoodMatchSchema.nullable(),
+  reason: z.enum(['REPEATED_ADHOC', 'EXACT_SAVED_MATCH', 'POSSIBLE_SAVED_MATCH']),
+});
+export type NutritionPromotionCandidate = z.infer<typeof nutritionPromotionCandidateSchema>;
 
 export const nutritionShorthandExpansionItemSchema = z.object({
   foodName: z.string().min(1),
@@ -196,6 +231,7 @@ export const nutritionLoggingContextSchema = z.object({
   }),
   recentMealItems: z.array(nutritionRecentMealItemSchema),
   savedFoodMatches: z.array(nutritionFoodMatchSchema),
+  promotionCandidates: z.array(nutritionPromotionCandidateSchema),
   frequentFoods: z.array(nutritionFoodMatchSchema),
   shorthandExpansions: z.array(nutritionShorthandExpansionSchema),
   waterHabit: nutritionWaterHabitStateSchema,
@@ -220,6 +256,7 @@ export const deleteMealResultSchema = z.object({
 
 export const mealItemInputSchema = z
   .object({
+    ...foodProvenanceSchema.shape,
     foodId: z.string().trim().min(1).nullable().optional(),
     foodName: requiredText().optional(),
     name: requiredText().optional(),
@@ -238,6 +275,13 @@ export const mealItemInputSchema = z
     saveToFoods: z.boolean().optional(),
   })
   .superRefine((value, ctx) => {
+    if ((value.adhoc === true || value.saveToFoods === false) && value.foodId != null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['foodId'],
+        message: 'ADHOC_FOOD_ID_CONFLICT: ad-hoc items cannot specify a foodId',
+      });
+    }
     if (value.adhoc === true && value.saveToFoods === true) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

@@ -1,8 +1,10 @@
+import { planMealFood, trackFoodCreation } from '../routes/meals/food-plans.js';
 import { randomUUID } from 'node:crypto';
 
 import type { ExerciseCategory, ExerciseTrackingType } from '@pulse/shared';
 import type { FastifyRequest, preHandlerHookHandler } from 'fastify';
 
+import { sendError } from '../lib/reply.js';
 import { isAgentRequest } from './auth.js';
 import {
   createExercise,
@@ -11,7 +13,8 @@ import {
   type ExerciseDedupCandidate,
   findExerciseDedupCandidates,
 } from '../routes/exercises/store.js';
-import { createFood, findFoodByName } from '../routes/foods/store.js';
+import { findFoodById, findFoodByName } from '../routes/foods/store.js';
+import { findMealById } from '../routes/nutrition/store.js';
 import { findWorkoutTemplateByName } from '../routes/workout-templates/store.js';
 
 const DEFAULT_EXERCISE_CATEGORY: ExerciseCategory = 'compound';
@@ -20,18 +23,6 @@ const DEFAULT_EXERCISE_TRACKING_TYPE: ExerciseTrackingType = 'weight_reps';
 type ResolvedFood = NonNullable<Awaited<ReturnType<typeof findFoodByName>>>;
 type ResolvedExercise = NonNullable<Awaited<ReturnType<typeof findVisibleExerciseByName>>>;
 type MutableRecord = Record<string, unknown>;
-
-type FoodAutoCreateInput = {
-  name: string;
-  brand?: string | null;
-  servingSize?: string | null;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  source?: string | null;
-  notes?: string | null;
-};
 
 type ExerciseAutoCreateInput = {
   name: string;
@@ -113,6 +104,8 @@ const applyResolvedFoodMacros = ({
   item.protein = food.protein * amount;
   item.carbs = food.carbs * amount;
   item.fat = food.fat * amount;
+  item.fiber = food.fiber == null ? undefined : food.fiber * amount;
+  item.sugar = food.sugar == null ? undefined : food.sugar * amount;
 };
 
 // This intentionally accepts several non-rep fields because some valid
@@ -163,11 +156,6 @@ export async function resolveByName(entityType: 'food' | 'exercise', name: strin
 }
 
 export function autoCreateIfMissing(
-  entityType: 'food',
-  data: FoodAutoCreateInput,
-  userId: string,
-): Promise<{ created: boolean; entity: ResolvedFood }>;
-export function autoCreateIfMissing(
   entityType: 'exercise',
   data: ExerciseAutoCreateInput,
   userId: string,
@@ -177,51 +165,10 @@ export function autoCreateIfMissing(
   possibleDuplicates: ExerciseDedupCandidate[];
 }>;
 export async function autoCreateIfMissing(
-  entityType: 'food' | 'exercise',
-  data: FoodAutoCreateInput | ExerciseAutoCreateInput,
+  entityType: 'exercise',
+  data: ExerciseAutoCreateInput,
   userId: string,
 ) {
-  if (entityType === 'food') {
-    const foodData = data as FoodAutoCreateInput;
-    const existingFood = await findFoodByName(userId, foodData.name);
-    if (existingFood) {
-      return { created: false, entity: existingFood };
-    }
-
-    const createdFood = await createFood({
-      id: randomUUID(),
-      userId,
-      name: foodData.name,
-      brand: foodData.brand ?? null,
-      servingSize: foodData.servingSize ?? null,
-      servingGrams: null,
-      calories: foodData.calories,
-      protein: foodData.protein,
-      carbs: foodData.carbs,
-      fat: foodData.fat,
-      fiber: null,
-      sugar: null,
-      verified: false,
-      source: foodData.source ?? null,
-      notes: foodData.notes ?? null,
-      tags: [],
-    });
-
-    return {
-      created: true,
-      entity: {
-        id: createdFood.id,
-        name: createdFood.name,
-        brand: createdFood.brand,
-        servingSize: createdFood.servingSize,
-        calories: createdFood.calories,
-        protein: createdFood.protein,
-        carbs: createdFood.carbs,
-        fat: createdFood.fat,
-      },
-    };
-  }
-
   const exerciseData = data as ExerciseAutoCreateInput;
   const existingExercise = await findVisibleExerciseByName({ name: exerciseData.name, userId });
   if (existingExercise) {
@@ -316,63 +263,58 @@ const resolveExerciseIdFromName = async ({
   return created.entity.id;
 };
 
-const transformFoodItem = async ({ item, userId }: { item: MutableRecord; userId: string }) => {
+const transformFoodItem = async ({
+  item,
+  userId,
+  createdFoodIds,
+}: {
+  item: MutableRecord;
+  userId: string;
+  createdFoodIds: Set<string>;
+}) => {
   const foodName = trimNonEmptyString(item.foodName);
-  if (!foodName) {
-    return;
-  }
-
   const amount = resolveMealAmount(item);
-  if (amount === undefined) {
+  if (amount === undefined) return;
+  if (item.adhoc === true || item.saveToFoods === false) {
+    // Contradictions are rejected by the shared schema before this pre-handler.
+    if (item.foodId == null) item.foodId = null;
     return;
   }
-
-  if (trimNonEmptyString(item.unit) === undefined) {
-    item.unit = 'serving';
-  }
-
-  if (trimNonEmptyString(item.name) === undefined) {
-    item.name = foodName;
-  }
-
-  const isAdhoc = item.adhoc === true || item.saveToFoods === false;
-  if (isAdhoc) {
-    if (typeof item.foodId !== 'string') {
-      item.foodId = null;
-    }
+  if (typeof item.foodId === 'string') {
+    const food = await findFoodById(item.foodId, userId);
+    if (food) applyResolvedFoodMacros({ item, amount, food });
     return;
   }
-
-  if (typeof item.foodId !== 'string') {
-    if (hasInlineFoodMacros(item)) {
-      const created = await autoCreateIfMissing(
-        'food',
-        {
-          name: foodName,
-          servingSize: trimNonEmptyString(item.unit) ?? null,
-          calories: item.calories,
-          protein: item.protein,
-          carbs: item.carbs,
-          fat: item.fat,
-        },
-        userId,
-      );
-      applyResolvedFoodMacros({
-        item,
-        amount,
-        food: created.entity,
-      });
-      return;
-    }
-
-    const resolved = await resolveByName('food', foodName, userId);
-    if (resolved) {
-      applyResolvedFoodMacros({
-        item,
-        amount,
-        food: resolved,
-      });
-    }
+  if (!foodName) return;
+  if (trimNonEmptyString(item.unit) === undefined) item.unit = 'serving';
+  if (trimNonEmptyString(item.name) === undefined) item.name = foodName;
+  const brand = trimNonEmptyString(item.brand);
+  const resolved = await findFoodByName(userId, foodName, brand);
+  if (resolved) {
+    applyResolvedFoodMacros({ item, amount, food: resolved });
+    return;
+  }
+  if (hasInlineFoodMacros(item)) {
+    planMealFood(item, {
+      userId,
+      createdFoodIds,
+      food: {
+        name: foodName,
+        brand,
+        servingSize: trimNonEmptyString(item.servingSize) ?? trimNonEmptyString(item.unit),
+        servingGrams: isFiniteNumber(item.servingGrams) ? item.servingGrams : null,
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat,
+        fiber: isFiniteNumber(item.fiber) ? item.fiber : null,
+        sugar: isFiniteNumber(item.sugar) ? item.sugar : null,
+        source: trimNonEmptyString(item.source),
+        notes: trimNonEmptyString(item.notes),
+        verified: item.verified === true,
+        tags: toStringArray(item.tags) ?? [],
+      },
+    });
   }
 };
 
@@ -388,8 +330,7 @@ const transformExerciseMutation = async ({
   const currentExerciseId = trimNonEmptyString(input.exerciseId);
   if (
     exerciseName &&
-    (typeof input.exerciseId !== 'string' ||
-      currentExerciseId === exerciseName)
+    (typeof input.exerciseId !== 'string' || currentExerciseId === exerciseName)
   ) {
     const resolvedId = await resolveExerciseIdFromName({
       name: exerciseName,
@@ -403,7 +344,12 @@ const transformExerciseMutation = async ({
 
   const isSetUpsertInput = isFiniteNumber(input.setNumber);
   const isExerciseMutationInput = isFiniteNumber(input.sets);
-  if (!exerciseName && !namedExercise && currentExerciseId && (isSetUpsertInput || isExerciseMutationInput)) {
+  if (
+    !exerciseName &&
+    !namedExercise &&
+    currentExerciseId &&
+    (isSetUpsertInput || isExerciseMutationInput)
+  ) {
     const existingById = await findVisibleExerciseById({
       id: currentExerciseId,
       userId,
@@ -488,9 +434,10 @@ export const transformAgentRequestBody = async ({
   body: unknown;
   userId: string;
 }): Promise<void> => {
+  const createdFoodIds = isRecord(body) ? trackFoodCreation(body) : new Set<string>();
   const visit = async (value: unknown): Promise<void> => {
     if (Array.isArray(value)) {
-      await Promise.all(value.map(visit));
+      for (const entry of value) await visit(entry);
       return;
     }
 
@@ -498,7 +445,7 @@ export const transformAgentRequestBody = async ({
       return;
     }
 
-    await transformFoodItem({ item: value, userId });
+    await transformFoodItem({ item: value, userId, createdFoodIds });
     await transformExerciseMutation({ input: value, userId });
     await transformTemplateReference({ input: value, userId });
 
@@ -512,13 +459,74 @@ export const transformAgentRequestBody = async ({
 
 export const agentRequestTransform: preHandlerHookHandler = async (
   request: FastifyRequest,
+  reply,
 ): Promise<void> => {
   if (!isAgentRequest(request)) {
     return;
   }
 
-  await transformAgentRequestBody({
-    body: request.body,
-    userId: request.userId,
-  });
+  try {
+    if (
+      request.method === 'POST' &&
+      request.routeOptions.url?.endsWith('/:id/items') &&
+      isRecord(request.params) &&
+      typeof request.params.id === 'string'
+    ) {
+      if (!(await findMealById(request.userId, request.params.id))) {
+        throw Object.assign(new Error('Meal not found'), {
+          statusCode: 404,
+          code: 'MEAL_NOT_FOUND',
+        });
+      }
+    }
+    if (isRecord(request.body) && Array.isArray(request.body.items)) {
+      for (const item of request.body.items) {
+        if (!isRecord(item)) continue;
+        if (typeof item.foodId === 'string' && !(await findFoodById(item.foodId, request.userId))) {
+          throw Object.assign(new Error('One or more meal items reference unavailable foods'), {
+            statusCode: 422,
+            code: 'INVALID_MEAL_ITEMS',
+          });
+        }
+        if (
+          item.foodId == null &&
+          item.adhoc !== true &&
+          item.saveToFoods !== false &&
+          typeof item.foodName === 'string'
+        ) {
+          const exact = await findFoodByName(
+            request.userId,
+            item.foodName,
+            trimNonEmptyString(item.brand),
+          );
+          if (!exact && !hasInlineFoodMacros(item))
+            throw Object.assign(
+              new Error(
+                'Could not resolve food; specify an owned foodId or complete inline macros',
+              ),
+              { statusCode: 422, code: 'UNRESOLVED_FOODS' },
+            );
+        }
+      }
+    }
+    await transformAgentRequestBody({
+      body: request.body,
+      userId: request.userId,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      ['UNRESOLVED_FOODS', 'INVALID_MEAL_ITEMS', 'MEAL_NOT_FOUND'].includes(String(error.code))
+    ) {
+      sendError(
+        reply,
+        error.code === 'MEAL_NOT_FOUND' ? 404 : 422,
+        String(error.code),
+        error.message,
+      );
+      return;
+    }
+    throw error;
+  }
 };

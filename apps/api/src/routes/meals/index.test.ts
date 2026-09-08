@@ -626,34 +626,12 @@ describe('meal routes', () => {
     }
   });
 
-  it('creates and links foods when saveToFoods is requested', async () => {
+  it('passes explicit food creation to the atomic meal store', async () => {
     vi.mocked(findAgentTokenByHash).mockResolvedValue({
       id: 'agent-token-1',
       userId: 'user-1',
     });
     vi.mocked(findFoodByName).mockResolvedValueOnce(undefined);
-    vi.mocked(createFood).mockResolvedValue({
-      id: 'food-2',
-      userId: 'user-1',
-      name: 'Rice Bowl',
-      brand: null,
-      servingSize: 'bowl',
-      servingGrams: null,
-      calories: 400,
-      protein: 10,
-      carbs: 70,
-      fat: 8,
-      fiber: null,
-      sugar: null,
-      verified: false,
-      source: null,
-      notes: null,
-      usageCount: 0,
-      tags: [],
-      lastUsedAt: null,
-      createdAt: 1,
-      updatedAt: 1,
-    });
     vi.mocked(createMealForDate).mockResolvedValue({
       meal: {
         id: 'meal-1',
@@ -713,17 +691,7 @@ describe('meal routes', () => {
       });
 
       expect(response.statusCode).toBe(201);
-      expect(vi.mocked(createFood)).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: 'user-1',
-          name: 'Rice Bowl',
-          servingSize: 'bowl',
-          calories: 400,
-          protein: 10,
-          carbs: 70,
-          fat: 8,
-        }),
-      );
+      expect(vi.mocked(createFood)).not.toHaveBeenCalled();
       expect(vi.mocked(createMealForDate)).toHaveBeenCalledWith('user-1', '2026-03-09', {
         name: 'Lunch',
         summary: 'Rice Bowl',
@@ -731,13 +699,13 @@ describe('meal routes', () => {
         notes: undefined,
         items: [
           expect.objectContaining({
-            foodId: 'food-2',
+            foodId: null,
             name: 'Rice Bowl',
             amount: 2,
-            calories: 800,
-            protein: 20,
-            carbs: 140,
-            fat: 16,
+            calories: 400,
+            protein: 10,
+            carbs: 70,
+            fat: 8,
           }),
         ],
       });
@@ -932,6 +900,17 @@ describe('meal routes', () => {
           createdAt: 2,
         },
       ],
+    });
+
+    vi.mocked(findMealById).mockResolvedValue({
+      id: 'meal-1',
+      nutritionLogId: 'log-1',
+      name: 'Lunch',
+      summary: null,
+      time: null,
+      notes: null,
+      createdAt: 1,
+      updatedAt: 1,
     });
 
     const app = buildServer();

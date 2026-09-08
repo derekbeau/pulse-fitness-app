@@ -1,0 +1,5 @@
+{
+  "command": "pnpm exec playwright test --config artifacts/issue-138-final/acceptance.config.mjs --list",
+  "exitCode": 0,
+  "elapsedSeconds": 0.73
+}

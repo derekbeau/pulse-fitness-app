@@ -1,0 +1,29 @@
+2026-09-08T00:50:29.008999+00:00
+$ uptime
+20:50  up 19 days,  4:52, 2 users, load averages: 3.45 5.73 6.95
+$ memory_pressure -Q
+The system has 17179869184 (1048576 pages with a page size of 16384).
+System-wide memory free percentage: 72%
+$ sysctl -n hw.logicalcpu hw.memsize
+10
+17179869184
+$ df -h .
+Filesystem      Size    Used   Avail Capacity iused ifree %iused  Mounted on
+/dev/disk3s5   228Gi   148Gi    39Gi    80%    2.1M  409M    1%   /System/Volumes/Data
+$ ps -A -o pid,pcpu,pmem,comm -r
+  PID  %CPU %MEM COMM
+82508 100.4  2.6 /opt/homebrew/Cellar/node@24/24.15.0/bin/node
+  165  32.0  0.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22601   4.2  0.2 /Applications/DaisyDisk.app/Contents/MacOS/DaisyDisk
+56211   2.8  0.5 /Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/152.0.7977.64/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)
+56251   1.8  5.1 /Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/152.0.7977.64/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)
+43142   1.2  1.0 /Users/meridian/.hermes/hermes-agent/apps/desktop/release/mac-arm64/Hermes.app/Contents/Frameworks/Hermes Helper (Renderer).app/Contents/MacOS/Hermes Helper (Renderer)
+ 1221   1.0  0.1 /Applications/Caffeine.app/Contents/MacOS/Caffeine
+59396   0.7  1.1 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/152.0.7977.77/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer)
+43187   0.6  1.8 /Users/meridian/.hermes/hermes-agent/venv/bin/python
+56175   0.4  1.8 /Applications/ChatGPT.app/Contents/MacOS/ChatGPT
+  452   0.3  0.3 /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder
+56241   0.3  2.8 /Applications/ChatGPT.app/Contents/Resources/codex
+42984   0.1  0.3 /Users/meridian/.hermes/hermes-agent/venv/bin/python
+17333   0.1  0.2 /Applications/Raycast.app/Contents/MacOS/Raycast
+56212   0.1  0.3 /Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/152.0.7977.64/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)

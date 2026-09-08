@@ -12,7 +12,13 @@ const isValidIsoDate = (value: string) => {
 
 export const dateSchema = z.string().refine(isValidIsoDate, 'Invalid date');
 
+export const agentMealItemOutcomeSchema = z.object({
+  itemId: z.string(),
+  foodId: z.string().nullable(),
+  outcome: z.enum(['reused', 'created', 'adhoc']),
+});
 export const agentEnrichmentSchema = z.object({
+  itemOutcomes: z.array(agentMealItemOutcomeSchema).optional(),
   hints: z.array(z.string().min(1)).min(1).optional(),
   suggestedActions: z.array(z.string().min(1)).min(1).optional(),
   relatedState: z.record(z.string(), z.unknown()).optional(),

@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/api
+
+ ✓ src/routes/nutrition/ranked-food-reuse.integration.test.ts (23 tests) 1060ms
+
+ Test Files  1 passed (1)
+      Tests  23 passed (23)
+   Start at  19:28:37
+   Duration  1.80s (transform 706ms, setup 0ms, import 615ms, tests 1.06s, environment 0ms)
+

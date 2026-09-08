@@ -384,7 +384,8 @@ describe('nutrition logging context integration', () => {
         recentMealItems: Array<{ date: string; item: { id: string; name: string } }>;
         savedFoodMatches: Array<{
           food: { id: string; userId: string };
-          score: number;
+          evidence: Array<{ category: string }>;
+          ambiguity: string;
           reason: string;
           matchedVariant: string | null;
         }>;
@@ -403,7 +404,10 @@ describe('nutrition logging context integration', () => {
       },
       matchedVariant: expect.stringMatching(/preserves|Trader Joe/),
     });
-    expect(body.data.savedFoodMatches[0]?.score).toBeGreaterThanOrEqual(0.74);
+    expect(body.data.savedFoodMatches[0]?.evidence).toEqual(
+      expect.arrayContaining([expect.objectContaining({ category: 'alias_exact' })]),
+    );
+    expect(body.data.savedFoodMatches[0]).not.toHaveProperty('score');
     expect(body.data.savedFoodMatches.map((match) => match.food.id)).not.toContain(
       'food-other-user',
     );

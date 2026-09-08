@@ -68,6 +68,24 @@ describe('buildAgentEnrichment', () => {
     });
   });
 
+  it('does not mistake a meal synopsis for an embedded daily summary', () => {
+    const enrichment = buildAgentEnrichment(
+      createRequest('agent-token'),
+      {
+        id: 'meal',
+        name: 'Lunch',
+        summary: 'Soup and bread',
+      },
+      { endpoint: 'meal.update' },
+    );
+    expect(enrichment?.hints).toContain(
+      'Use the day nutrition summary to judge what macros remain before the next meal.',
+    );
+    expect(enrichment?.suggestedActions).toContain(
+      "Review today's nutrition summary if you need remaining macro targets.",
+    );
+  });
+
   it('treats protein as a nonfinal minimum in nutrition summary enrichment', () => {
     const enrichment = buildAgentEnrichment(
       createRequest('agent-token'),

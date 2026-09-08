@@ -1,10 +1,18 @@
+import { runMealWrite } from '../meals/write-transaction.js';
+import { materializeMealFood } from '../meals/food-plans.js';
+import {
+  FOOD_ALIAS_VERSION,
+  foodQueryVariants,
+  rankFoodMatches,
+  buildPromotionCandidates,
+} from '../foods/reuse-policy.js';
+import { listOwnedFoodsForReuse } from '../foods/store.js';
 import { refreshFoodUsage } from '../foods/store.js';
 import { and, asc, between, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 
 import { type ProteinFloorProgress } from '@pulse/shared';
 import type {
   CreateMealInput,
-  Food,
   NutritionFoodMatch,
   NutritionLoggingContext,
   NutritionLoggingContextQuery,
@@ -203,24 +211,6 @@ const normalizeSearchText = (value: string) =>
     .trim()
     .replace(/\s+/g, ' ');
 
-const uniqueTextValues = (values: string[]) => {
-  const seen = new Set<string>();
-  const uniqueValues: string[] = [];
-
-  for (const value of values) {
-    const trimmed = value.trim();
-    const normalized = normalizeSearchText(trimmed);
-    if (!trimmed || !normalized || seen.has(normalized)) {
-      continue;
-    }
-
-    seen.add(normalized);
-    uniqueValues.push(trimmed);
-  }
-
-  return uniqueValues;
-};
-
 const STANDARD_SHAKE_EXPANSION: NutritionShorthandExpansion = {
   phrase: 'standard shake',
   label: 'Standard shake',
@@ -246,45 +236,7 @@ const STANDARD_SHAKE_EXPANSION: NutritionShorthandExpansion = {
   ],
 };
 
-export const buildNutritionLoggingContextVariants = (query: string | undefined): string[] => {
-  if (!query) {
-    return [];
-  }
-
-  const normalizedQuery = normalizeSearchText(query);
-  const variants = [query];
-
-  if (/\btj\b/.test(normalizedQuery) || normalizedQuery.includes('trader joe')) {
-    variants.push('tj', 'Trader Joe', "Trader Joe's");
-  }
-
-  if (
-    normalizedQuery.includes('jam') ||
-    normalizedQuery.includes('jelly') ||
-    normalizedQuery.includes('preserve') ||
-    normalizedQuery.includes('raspberry')
-  ) {
-    variants.push('jam', 'preserves', 'jelly', 'raspberry');
-  }
-
-  if (normalizedQuery.includes('standard shake') || normalizedQuery.includes('protein shake')) {
-    variants.push(
-      'standard shake',
-      'Orgain',
-      'Orgain Chocolate Protein Powder',
-      "Anthony's",
-      "Anthony's Premium Pea Protein",
-      'pea protein',
-      'protein powder',
-    );
-  }
-
-  if (normalizedQuery.includes('bread') || normalizedQuery.includes('toast')) {
-    variants.push('bread', 'toast', 'sourdough', 'slice');
-  }
-
-  return uniqueTextValues(variants);
-};
+export const buildNutritionLoggingContextVariants = foodQueryVariants;
 
 export const getNutritionShorthandExpansions = (
   query: string | undefined,
@@ -301,111 +253,6 @@ export const getNutritionShorthandExpansions = (
   return [];
 };
 
-const buildFoodHaystack = (food: Food) =>
-  normalizeSearchText(
-    [food.name, food.brand, food.servingSize, food.tags.join(' ')]
-      .filter((value): value is string => typeof value === 'string' && value.length > 0)
-      .join(' '),
-  );
-
-const scoreFoodAgainstVariants = (
-  food: Food,
-  query: string | undefined,
-  variants: string[],
-): Omit<NutritionFoodMatch, 'food'> => {
-  const haystack = buildFoodHaystack(food);
-  const normalizedQuery = query ? normalizeSearchText(query) : '';
-  let bestMatch: Omit<NutritionFoodMatch, 'food'> = {
-    score: 0.5,
-    reason: 'Matched saved food search.',
-    matchedVariant: variants[0] ?? null,
-  };
-
-  for (const variant of variants) {
-    const normalizedVariant = normalizeSearchText(variant);
-    if (!normalizedVariant || !haystack.includes(normalizedVariant)) {
-      continue;
-    }
-
-    const score =
-      normalizedVariant === normalizedQuery ? 1 : normalizedVariant.includes(' ') ? 0.86 : 0.74;
-    if (score > bestMatch.score) {
-      bestMatch = {
-        score,
-        reason:
-          normalizedVariant === normalizedQuery
-            ? `Matched query "${variant}".`
-            : `Matched synonym or alias "${variant}".`,
-        matchedVariant: variant,
-      };
-    }
-  }
-
-  return bestMatch;
-};
-
-const mergeFoodMatches = (matches: NutritionFoodMatch[], limit: number) => {
-  const matchesByFoodId = new Map<string, NutritionFoodMatch>();
-
-  for (const match of matches) {
-    const existing = matchesByFoodId.get(match.food.id);
-    if (!existing || match.score > existing.score) {
-      matchesByFoodId.set(match.food.id, match);
-    }
-  }
-
-  return [...matchesByFoodId.values()]
-    .sort((left, right) => {
-      if (left.score !== right.score) {
-        return right.score - left.score;
-      }
-
-      if (left.food.usageCount !== right.food.usageCount) {
-        return right.food.usageCount - left.food.usageCount;
-      }
-
-      return left.food.name.localeCompare(right.food.name, undefined, { sensitivity: 'base' });
-    })
-    .slice(0, limit);
-};
-
-const listSavedFoodMatches = async ({
-  userId,
-  query,
-  variants,
-  limit,
-}: {
-  userId: string;
-  query: string | undefined;
-  variants: string[];
-  limit: number;
-}): Promise<NutritionFoodMatch[]> => {
-  if (variants.length === 0) {
-    return [];
-  }
-
-  const { listFoods } = await import('../foods/store.js');
-  const results = await Promise.all(
-    variants.map((variant) =>
-      listFoods(userId, {
-        q: variant,
-        sort: 'recently-updated',
-        page: 1,
-        limit,
-      }),
-    ),
-  );
-
-  const matches = results.flatMap((result) =>
-    result.foods.map<NutritionFoodMatch>((food) => ({
-      food,
-      ...scoreFoodAgainstVariants(food, query, variants),
-    })),
-  );
-
-  return mergeFoodMatches(matches, limit);
-};
-
 const listFrequentFoodMatches = async (
   userId: string,
   limit: number,
@@ -419,12 +266,14 @@ const listFrequentFoodMatches = async (
 
   return result.foods.map((food) => ({
     food,
-    score: clampToUnitRange(food.usageCount / 10),
     reason:
       food.usageCount > 0
         ? `Frequent saved food used ${food.usageCount} time${food.usageCount === 1 ? '' : 's'}.`
         : 'Saved food available for quick logging.',
     matchedVariant: null,
+    evidence: [{ category: 'frequent', field: 'usage', value: String(food.usageCount) }],
+    ambiguity: 'none',
+    aliasVersion: FOOD_ALIAS_VERSION,
   }));
 };
 
@@ -437,7 +286,7 @@ const listRecentMealItems = async ({
   userId: string;
   date: string;
   days: number;
-  limit: number;
+  limit?: number;
 }): Promise<NutritionRecentMealItem[]> => {
   const { db } = await import('../../db/index.js');
   const fromDate = addUtcDateKeyDays(date, -days);
@@ -469,8 +318,13 @@ const listRecentMealItems = async ({
     .innerJoin(meals, eq(meals.nutritionLogId, nutritionLogs.id))
     .innerJoin(mealItems, eq(mealItems.mealId, meals.id))
     .where(and(eq(nutritionLogs.userId, userId), between(nutritionLogs.date, fromDate, toDate)))
-    .orderBy(desc(nutritionLogs.date), desc(meals.createdAt), desc(mealItems.createdAt))
-    .limit(limit)
+    .orderBy(
+      desc(nutritionLogs.date),
+      desc(meals.createdAt),
+      desc(mealItems.createdAt),
+      asc(mealItems.id),
+    )
+    .limit(limit ?? -1)
     .all();
 
   return rows.map((row) => ({
@@ -592,9 +446,7 @@ export const createMealForDate = async (
   date: string,
   input: CreateMealInput,
 ): Promise<{ meal: MealRecord; items: MealItemRecord[] }> => {
-  const { db } = await import('../../db/index.js');
-
-  const created = db.transaction((tx) => {
+  const created = await runMealWrite((tx, afterCommit) => {
     tx.insert(nutritionLogs)
       .values({
         userId,
@@ -632,7 +484,8 @@ export const createMealForDate = async (
       throw new Error('Failed to persist meal');
     }
 
-    const itemValues = (input.items as MealInputItemWithMacros[]).map((item) => {
+    const itemValues = (input.items as MealInputItemWithMacros[]).map((inputItem) => {
+      const item = materializeMealFood(tx, userId, inputItem, afterCommit);
       return {
         mealId: meal.id,
         foodId: toNullable(item.foodId),
@@ -845,23 +698,16 @@ export const getNutritionLoggingContext = async (
   const limitFoods = input.limitFoods ?? 10;
   const limitRecentItems = input.limitRecentItems ?? 50;
 
-  const [
-    nutrition,
-    summary,
-    recentMealItems,
-    savedFoodMatches,
-    frequentFoods,
-    shorthandExpansions,
-    waterHabit,
-  ] = await Promise.all([
-    getDailyNutritionForDate(userId, date),
-    getDailyNutritionSummaryForDate(userId, date),
-    listRecentMealItems({ userId, date, days, limit: limitRecentItems }),
-    listSavedFoodMatches({ userId, query, variants, limit: limitFoods }),
-    listFrequentFoodMatches(userId, limitFoods),
-    Promise.resolve(getNutritionShorthandExpansions(query)),
-    getWaterHabitState(userId, date),
-  ]);
+  const [nutrition, summary, history, ownedFoods, frequentFoods, shorthandExpansions, waterHabit] =
+    await Promise.all([
+      getDailyNutritionForDate(userId, date),
+      getDailyNutritionSummaryForDate(userId, date),
+      listRecentMealItems({ userId, date, days: 30 }),
+      listOwnedFoodsForReuse(userId),
+      listFrequentFoodMatches(userId, limitFoods),
+      Promise.resolve(getNutritionShorthandExpansions(query)),
+      getWaterHabitState(userId, date),
+    ]);
 
   return {
     date,
@@ -873,8 +719,15 @@ export const getNutritionLoggingContext = async (
       nutrition,
       summary,
     },
-    recentMealItems,
-    savedFoodMatches,
+    recentMealItems: history
+      .filter((entry) => entry.date >= addUtcDateKeyDays(date, -days))
+      .slice(0, limitRecentItems),
+    savedFoodMatches: rankFoodMatches(
+      ownedFoods,
+      query,
+      history.filter((entry) => entry.date >= addUtcDateKeyDays(date, -days)),
+    ).slice(0, limitFoods),
+    promotionCandidates: buildPromotionCandidates(history, ownedFoods),
     frequentFoods,
     shorthandExpansions,
     waterHabit,
@@ -1077,8 +930,6 @@ export const addItemsToMeal = async (
   mealId: string,
   items: MealInputItemWithMacros[],
 ): Promise<{ meal: MealRecord; items: MealItemRecord[] } | undefined> => {
-  const { db } = await import('../../db/index.js');
-
   const now = Date.now();
   type AddItemsToMealTransactionResult =
     | {
@@ -1089,7 +940,7 @@ export const addItemsToMeal = async (
       }
     | undefined;
 
-  const updated: AddItemsToMealTransactionResult = db.transaction((tx) => {
+  const updated: AddItemsToMealTransactionResult = await runMealWrite((tx, afterCommit) => {
     const meal = tx
       .select(mealSelection)
       .from(meals)
@@ -1102,21 +953,23 @@ export const addItemsToMeal = async (
       return undefined;
     }
 
-    const itemValues = items.map((item) => ({
-      mealId: meal.id,
-      foodId: toNullable(item.foodId),
-      name: item.name,
-      amount: item.amount,
-      unit: item.unit,
-      displayQuantity: toNullable(item.displayQuantity),
-      displayUnit: toNullable(item.displayUnit),
-      calories: item.calories,
-      protein: item.protein,
-      carbs: item.carbs,
-      fat: item.fat,
-      fiber: toNullable(item.fiber),
-      sugar: toNullable(item.sugar),
-    }));
+    const itemValues = items
+      .map((item) => materializeMealFood(tx, userId, item, afterCommit))
+      .map((item) => ({
+        mealId: meal.id,
+        foodId: toNullable(item.foodId),
+        name: item.name,
+        amount: item.amount,
+        unit: item.unit,
+        displayQuantity: toNullable(item.displayQuantity),
+        displayUnit: toNullable(item.displayUnit),
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat,
+        fiber: toNullable(item.fiber),
+        sugar: toNullable(item.sugar),
+      }));
 
     const foodIds = [...new Set(itemValues.map((item) => item.foodId).filter(isTrackedFoodId))];
     if (foodIds.length > 0) {

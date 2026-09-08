@@ -1,3 +1,4 @@
+import { transferMealFoodPlan, FoodReuseConflictError } from './food-plans.js';
 import {
   addMealItemsInputSchema,
   apiDataResponseSchema,
@@ -106,14 +107,14 @@ const hasInlineMacros = (
   item.carbs !== undefined &&
   item.fat !== undefined;
 
-const normalizeMealItemForCreate = async (
+export const normalizeMealItemForCreate = async (
   item: MealCreateItemInput,
   userId: string,
 ): Promise<{ ok: true; item: PersistedMealCreateItem } | { ok: false; unresolvedName: string }> => {
   if (hasInlineMacros(item)) {
     return {
       ok: true,
-      item: {
+      item: transferMealFoodPlan(item, {
         foodId: item.foodId ?? null,
         name: item.name,
         amount: item.amount,
@@ -126,7 +127,7 @@ const normalizeMealItemForCreate = async (
         fat: item.fat,
         fiber: item.fiber,
         sugar: item.sugar,
-      },
+      }),
     };
   }
 
@@ -169,6 +170,8 @@ export const mealRoutes: FastifyPluginAsync = async (app) => {
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
   app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof FoodReuseConflictError)
+      return sendError(reply, 422, 'UNRESOLVED_FOODS', error.message);
     if (error instanceof Error && error.name === 'MealFoodOwnershipError') {
       return sendError(
         reply,

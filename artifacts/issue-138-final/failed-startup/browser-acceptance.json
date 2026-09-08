@@ -1,0 +1,10 @@
+{
+  "command": "pnpm exec playwright test --config artifacts/issue-138-final/acceptance.config.mjs",
+  "cwd": "/Users/meridian/Projects/pulse-food-reuse",
+  "head": "89828ac5e2d4828c447016d0093e60a5aa1cb8d3",
+  "branch": "feat/ranked-food-reuse",
+  "startedAt": "2026-09-08T00:53:11.709337+00:00",
+  "exitCode": 1,
+  "elapsedSeconds": 1.21,
+  "finishedAt": "2026-09-08T00:53:12.902352+00:00"
+}

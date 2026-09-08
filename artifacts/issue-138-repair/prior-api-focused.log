@@ -1,0 +1,20 @@
+$ pnpm --filter @pulse/api exec vitest run src/scripts/seed-adaptive-tdee-preview.test.ts src/routes/nutrition/store.food-usage.test.ts --maxWorkers=1
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/api
+
+ ✓ src/routes/nutrition/store.food-usage.test.ts (11 tests) 12561ms
+     ✓ preserves exact links through append, metadata, all corrections, delete and retry  2287ms
+     ✓ rolls back create, append, correction and delete when usage persistence fails  3113ms
+     ✓ derives merge from links despite stale counters, with atomic restore and ownership failures  3129ms
+     ✓ keeps trashed food exact through linked-item edits, deletes, reconciliation and restore  783ms
+     ✓ rejects unprefixed agent tokens and rolls back date route create failures  800ms
+     ✓ falls back to the newest surviving timestamp and refuses foreign or partial purges  1572ms
+ ✓ src/scripts/seed-adaptive-tdee-preview.test.ts (3 tests) 6929ms
+     ✓ rebuilds every Coach state and keeps goal completion explicit  4696ms
+     ✓ matches the independent 2026-08-23 fixture contract across all repaired domains  2228ms
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  19:56:14
+   Duration  20.30s (transform 550ms, setup 0ms, import 610ms, tests 19.49s, environment 0ms)
+

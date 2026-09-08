@@ -1,0 +1,84 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/api
+
+ ❯ src/routes/nutrition/ranked-food-reuse.integration.test.ts (14 tests | 5 failed) 744ms
+     × proves context auth parity, all window boundaries, recurrence floor and read-only owner isolation 30ms
+     ✓ marks materially ambiguous matches even when response limit is one; foreign high usage cannot change the rank 6ms
+     ✓ uses owned recent linked names as evidence without truncating by the presentation limit 5ms
+     ✓ classifies reuse/create/adhoc and preserves all provenance on preferred 10ms
+     ✓ classifies reuse/create/adhoc and preserves all provenance on date 7ms
+     ✓ classifies reuse/create/adhoc and preserves all provenance on append 5ms
+     × rejects contradictions before writes on preferred with either auth mode 4ms
+     × rejects contradictions before writes on date with either auth mode 3ms
+     × rejects contradictions before writes on append with either auth mode 3ms
+     ✓ never automatically binds fuzzy, alias, token-order, recent, ambiguous or brand-mismatched candidates 12ms
+     ✓ preserves explicit ad hoc and saveToFoods false even for an exact saved match 3ms
+     ✓ fails closed on foreign ids and append targets without creating or changing any food 2ms
+     ✓ keeps note-only writes equivalent for snapshots, usage, recurrence, summary totals and learning facts 10ms
+     × documents generated shared OpenAPI contracts and retains strict authentication 57ms
+ ✓ src/routes/foods/reuse-policy.test.ts (23 tests) 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/nutrition/ranked-food-reuse.integration.test.ts > ranked food reuse frozen contract / isolated SQLite > proves context auth parity, all window boundaries, recurrence floor and read-only owner isolation
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ ❯ readContext src/routes/nutrition/ranked-food-reuse.integration.test.ts:86:31
+     84|     headers: auth('owner', mode),
+     85|   });
+     86|   expect(response.statusCode).toBe(200);
+       |                               ^
+     87|   return nutritionLoggingContextSchema.parse(response.json().data);
+     88| };
+ ❯ src/routes/nutrition/ranked-food-reuse.integration.test.ts:161:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/routes/nutrition/ranked-food-reuse.integration.test.ts > ranked food reuse frozen contract / isolated SQLite > rejects contradictions before writes on preferred with either auth mode
+ FAIL  src/routes/nutrition/ranked-food-reuse.integration.test.ts > ranked food reuse frozen contract / isolated SQLite > rejects contradictions before writes on date with either auth mode
+ FAIL  src/routes/nutrition/ranked-food-reuse.integration.test.ts > ranked food reuse frozen contract / isolated SQLite > rejects contradictions before writes on append with either auth mode
+AssertionError: {"error":{"code":"UNAUTHORIZED","message":"Authentication required"}}: expected 401 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 401
+
+ ❯ src/routes/nutrition/ranked-food-reuse.integration.test.ts:342:54
+    340|             },
+    341|           });
+    342|           expect(response.statusCode, response.body).toBe(400);
+       |                                                      ^
+    343|           if ('foodId' in contradiction) expect(response.body).toConta…
+    344|         }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/routes/nutrition/ranked-food-reuse.integration.test.ts > ranked food reuse frozen contract / isolated SQLite > documents generated shared OpenAPI contracts and retains strict authentication
+AssertionError: the given combination of arguments (undefined and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ src/routes/nutrition/ranked-food-reuse.integration.test.ts:480:24
+    478|     ]) {
+    479|       const contract = JSON.stringify(paths[route]);
+    480|       expect(contract).toContain('itemOutcomes');
+       |                        ^
+    481|       expect(contract).toContain('servingGrams');
+    482|       expect(contract).toContain('agentToken');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  5 failed | 32 passed (37)
+   Start at  19:19:04
+   Duration  1.49s (transform 529ms, setup 0ms, import 556ms, tests 750ms, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-food-reuse/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/foods/reuse-policy.test.ts src/routes/nutrition/ranked-food-reuse.integration.test.ts --maxWorkers=1

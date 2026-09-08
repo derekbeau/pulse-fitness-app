@@ -1,0 +1,1079 @@
+$ pnpm test --force
+
+> pulse@ test /Users/meridian/Projects/pulse-food-reuse
+> pnpm test:repo-scripts && turbo run test --force
+
+
+> pulse@ test:repo-scripts /Users/meridian/Projects/pulse-food-reuse
+> node --test scripts/dev-gate0-isolated.test.mjs scripts/api-container-entrypoint.test.mjs scripts/runtime-secrets-isolation.test.mjs scripts/init-worktree.test.mjs
+
+▶ API container migration-map preflight
+  ✔ starts fresh, legacy-empty, and already-canonical databases without a map (60.175709ms)
+  ✔ fails closed for non-empty legacy data without a secure map (146.889416ms)
+  ✔ accepts a regular mode-0600 map for non-empty legacy data (74.174083ms)
+✔ API container migration-map preflight (281.835958ms)
+▶ Gate 0 isolated development startup
+  ✔ enforces the isolated database and all three fixed port values (2.375542ms)
+  ✔ allows only loopback or an exact Tailscale IPv4 preview host (0.274ms)
+  ✔ advertises the reachable Tailscale-hosted web origin to Swagger (0.710875ms)
+  ✔ rejects default, production, snapshot, and arbitrary database paths (0.765125ms)
+  ✔ rejects a missing, read-only, or symlinked isolated database (2.0975ms)
+✔ Gate 0 isolated development startup (7.091667ms)
+▶ worktree initializer
+  ✔ derives a deterministic sibling path from a slash-delimited branch (1.131166ms)
+  ✔ parses defaults and explicit overrides (0.198167ms)
+  ✔ rejects unknown options and unsafe port values (0.590875ms)
+  ✔ reads worktree paths and reserves generated environment ports (2.000125ms)
+  ✔ renders a localhost-only environment with an absolute database path (0.253667ms)
+  ✔ recognizes both normal and signal-based child process exits (0.091292ms)
+✔ worktree initializer (4.935542ms)
+▶ runtime migration-map isolation
+  ✔ keeps the host-only map out of Git and the Docker build context (735.141167ms)
+✔ runtime migration-map isolation (735.834375ms)
+ℹ tests 15
+ℹ suites 4
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 815.779375
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running test in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/shared:build: cache bypass, force executing 71d99d871ea51217
+@pulse/shared:build: 
+@pulse/shared:build: > @pulse/shared@0.0.0 build /Users/meridian/Projects/pulse-food-reuse/packages/shared
+@pulse/shared:build: > tsc -p tsconfig.json
+@pulse/shared:build: 
+@pulse/shared:test: cache bypass, force executing 52e0aae1a98d1334
+@pulse/web:build: cache bypass, force executing 5ebfb532651007b7
+@pulse/api:build: cache bypass, force executing b72114033a698d86
+@pulse/api:build: 
+@pulse/api:build: > @pulse/api@0.0.0 build /Users/meridian/Projects/pulse-food-reuse/apps/api
+@pulse/api:build: > tsc
+@pulse/api:build: 
+@pulse/shared:test: 
+@pulse/shared:test: > @pulse/shared@0.0.0 test /Users/meridian/Projects/pulse-food-reuse/packages/shared
+@pulse/shared:test: > vitest run
+@pulse/shared:test: 
+@pulse/web:build: 
+@pulse/web:build: > @pulse/web@0.0.0 build /Users/meridian/Projects/pulse-food-reuse/apps/web
+@pulse/web:build: > tsc -b && vite build
+@pulse/web:build: 
+@pulse/shared:test: 
+@pulse/shared:test:  RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/packages/shared
+@pulse/shared:test: 
+@pulse/shared:test:  ✓ src/utils/ewma.test.ts (14 tests) 82ms
+@pulse/shared:test:  ✓ src/utils/chart-exploration.test.ts (19 tests) 29ms
+@pulse/shared:test:  ✓ src/schemas/workout-progression.test.ts (6 tests) 23ms
+@pulse/shared:test:  ✓ src/schemas/food-analytics.test.ts (4 tests) 27ms
+@pulse/shared:test:  ✓ src/schemas/auth.test.ts (7 tests) 20ms
+@pulse/shared:test:  ✓ src/utils/daily-energy-adherence.test.ts (44 tests) 24ms
+@pulse/shared:test:  ✓ src/schemas/adaptive-nutrition.test.ts (18 tests) 24ms
+@pulse/shared:test:  ✓ src/schemas/data-quality-calendar.test.ts (8 tests) 30ms
+@pulse/shared:test:  ✓ src/schemas/habit-entries.test.ts (12 tests) 13ms
+@pulse/shared:test:  ✓ src/schemas/adaptive-weekly-review.test.ts (6 tests) 38ms
+@pulse/shared:test:  ✓ src/schemas/habits.test.ts (21 tests) 10ms
+@pulse/shared:test:  ✓ src/utils/protein-floor.test.ts (24 tests) 3ms
+@pulse/shared:test:  ✓ src/schemas/workout-sessions.test.ts (47 tests) 46ms
+@pulse/shared:test:  ✓ src/schemas/session-set.test.ts (9 tests) 15ms
+@pulse/shared:test:  ✓ src/utils/adaptive-goal-trajectory.test.ts (37 tests) 59ms
+@pulse/shared:test:  ✓ src/schemas/exercises.test.ts (24 tests) 9ms
+@pulse/shared:test:  ✓ src/utils/adaptive-tdee.test.ts (56 tests) 392ms
+@pulse/shared:test:  ✓ src/schemas/weight.test.ts (26 tests) 83ms
+@pulse/shared:test:  ✓ src/unified-api-docs.test.ts (4 tests) 33ms
+@pulse/shared:test:  ✓ src/schemas/workout-progression-compatibility.test.ts (19 tests) 53ms
+@pulse/shared:test:  ✓ src/schemas/scheduled-workouts.test.ts (23 tests) 14ms
+@pulse/shared:test:  ✓ src/utils/adaptive-setup-projection.test.ts (15 tests) 43ms
+@pulse/shared:test:  ✓ src/schemas/journal.test.ts (3 tests) 4ms
+@pulse/shared:test:  ✓ src/schemas/dashboard.test.ts (15 tests) 9ms
+@pulse/shared:test:  ✓ src/schemas/equipment.test.ts (5 tests) 4ms
+@pulse/shared:test:  ✓ src/schemas/workout-templates.test.ts (19 tests) 24ms
+@pulse/shared:test:  ✓ src/utils/adaptive-goal-progress.test.ts (8 tests) 51ms
+@pulse/shared:test:  ✓ src/monorepo-config.test.ts (2 tests) 26ms
+@pulse/shared:test:  ✓ src/conventions-docs.test.ts (6 tests) 38ms
+@pulse/shared:test:  ✓ src/schemas/nutrition-targets.test.ts (7 tests) 13ms
+@pulse/shared:test:  ✓ src/schemas/resources.test.ts (3 tests) 6ms
+@pulse/shared:test:  ✓ src/utils/food-analytics.test.ts (6 tests) 9ms
+@pulse/shared:test:  ✓ src/schemas/agent-tokens.test.ts (4 tests) 3ms
+@pulse/shared:test:  ✓ src/schemas/energy-balance.test.ts (3 tests) 6ms
+@pulse/shared:test:  ✓ src/schemas/agent.test.ts (11 tests) 26ms
+@pulse/shared:test:  ✓ src/schemas/activities.test.ts (3 tests) 4ms
+@pulse/shared:test:  ✓ src/utils/energy-balance.test.ts (9 tests) 74ms
+@pulse/shared:test:  ✓ src/schemas/nutrition.test.ts (45 tests) 12ms
+@pulse/shared:test:  ✓ src/schemas/health-conditions.test.ts (13 tests) 9ms
+@pulse/shared:test:  ✓ src/utils/workout-progression.test.ts (30 tests) 9ms
+@pulse/shared:test:  ✓ src/schemas/common.test.ts (4 tests) 6ms
+@pulse/shared:test:  ✓ src/utils/habit-scheduling.test.ts (5 tests) 2ms
+@pulse/shared:test:  ✓ src/schemas/foods.test.ts (19 tests) 11ms
+@pulse/shared:test:  ✓ src/schemas/dashboard-config.test.ts (8 tests) 5ms
+@pulse/shared:test:  ✓ src/schemas/entity-links.test.ts (3 tests) 3ms
+@pulse/shared:test:  ✓ src/utils/weight-unit.test.ts (4 tests) 3ms
+@pulse/shared:test:  ✓ src/index.test.ts (5 tests) 5ms
+@pulse/shared:test: 
+@pulse/shared:test:  Test Files  47 passed (47)
+@pulse/shared:test:       Tests  683 passed (683)
+@pulse/shared:test:    Start at  20:04:07
+@pulse/shared:test:    Duration  1.75s (transform 1.50s, setup 0ms, import 3.88s, tests 1.43s, environment 9ms)
+@pulse/shared:test: 
+@pulse/api:test: cache bypass, force executing 442d9d9ba6421ec8
+@pulse/api:test: 
+@pulse/api:test: > @pulse/api@0.0.0 test /Users/meridian/Projects/pulse-food-reuse/apps/api
+@pulse/api:test: > vitest run
+@pulse/api:test: 
+@pulse/api:test: 
+@pulse/api:test:  RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/api
+@pulse/api:test: 
+@pulse/api:test:  ✓ src/routes/workout-progression/store.integration.test.ts (27 tests) 6791ms
+@pulse/api:test:      ✓ keeps a legacy recommendation {"action":"accept","both":false} after material canonicalization  495ms
+@pulse/api:test:      ✓ isolates conflicting current evidence and blocks material actions  308ms
+@pulse/api:test:      ✓ isolates conflicting historical evidence and blocks material actions  364ms
+@pulse/web:build: vite v7.3.1 building client environment for production...
+@pulse/web:build: transforming...
+@pulse/api:test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: Skipping duplicate food "Large Eggs" for user user-1.
+@pulse/api:test: Foods migration summary: inserted 2, skipped 1, lastUsedAt updated 0.
+@pulse/api:test: 
+@pulse/api:test: stderr | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: Missing food reference for "Mystery Food" on 2026-03-05; item imported without linked foodId.
+@pulse/api:test: Missing habit reference for "Unknown Habit" on 2026-03-05; entry skipped for this day.
+@pulse/api:test: 
+@pulse/api:test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: Processed 2026-03-05: 2 meals, 2 habit entries, weight: 181.9
+@pulse/api:test: Processed 2026-03-06: 1 meals, 1 habit entries, weight: 180.8
+@pulse/api:test: Processed 2026-03-07: 0 meals, 0 habit entries, weight: 181.1
+@pulse/api:test: Migration summary: processed 3 day(s), failed 0, meals 3, habit entries 3, weight entries 3.
+@pulse/api:test: 
+@pulse/api:test: stderr | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: Missing food reference for "Mystery Food" on 2026-03-05; item imported without linked foodId.
+@pulse/api:test: Missing habit reference for "Unknown Habit" on 2026-03-05; entry skipped for this day.
+@pulse/api:test: 
+@pulse/api:test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: Processed 2026-03-05: 2 meals, 2 habit entries, weight: 181.9
+@pulse/api:test: Processed 2026-03-06: 1 meals, 1 habit entries, weight: 180.8
+@pulse/api:test: Processed 2026-03-07: 0 meals, 0 habit entries, weight: 181.1
+@pulse/api:test: Migration summary: processed 3 day(s), failed 0, meals 3, habit entries 3, weight entries 3.
+@pulse/api:test: 
+@pulse/api:test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: Skipping duplicate food "Greek Yogurt" (Fage) for user user-1.
+@pulse/api:test: Skipping duplicate food "Oat Bran" for user user-1.
+@pulse/api:test: Skipping duplicate food "Large Eggs" for user user-1.
+@pulse/api:test: Foods migration summary: inserted 0, skipped 3, lastUsedAt updated 0.
+@pulse/api:test: 
+@pulse/api:test:  ✓ src/db/nutrition-target-event-migration.test.ts (78 tests) 13441ms
+@pulse/api:test:      ✓ excludes valid keep, decline, and defer actions from target-event construction  326ms
+@pulse/api:test:      ✓ relies on real 0050 composite ownership to reject a revision from another goal and user  316ms
+@pulse/api:test:      ✓ installs the complete journal on a fresh database  311ms
+@pulse/api:test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > is idempotent for foods migration when re-run
+@pulse/api:test: Skipping duplicate food "Large Eggs" for user user-1.
+@pulse/api:test: Foods migration summary: inserted 2, skipped 1, lastUsedAt updated 0.
+@pulse/api:test: 
+@pulse/api:test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > is idempotent for foods migration when re-run
+@pulse/api:test: Skipping duplicate food "Greek Yogurt" (Fage) for user user-1.
+@pulse/api:test: Skipping duplicate food "Oat Bran" for user user-1.
+@pulse/api:test: Skipping duplicate food "Large Eggs" for user user-1.
+@pulse/api:test: Foods migration summary: inserted 0, skipped 3, lastUsedAt updated 0.
+@pulse/api:test: 
+@pulse/api:test:  ✓ src/scripts/migrate-static.test.ts (8 tests) 5974ms
+@pulse/api:test:      ✓ migrates daily logs with nutrition, habits, and merged body weight history  605ms
+@pulse/api:test:      ✓ migrates workout templates and sessions with template linking and set preservation  325ms
+@pulse/api:test:      ✓ is idempotent for workout templates and sessions when re-run  312ms
+@pulse/api:test:      ✓ migrates foods from foods.json, skipping duplicates without inventing usage  338ms
+@pulse/api:test:      ✓ derives food usage from imported links and preserves exact usage on reimport  3576ms
+@pulse/api:test:  ✓ src/routes/data-quality/store.integration.test.ts (18 tests) 16630ms
+@pulse/api:test:      ✓ uses a fixed number of selects for a dense 42-day range  441ms
+@pulse/api:test:      ✓ projects nutrition and weight corrections as stale through the authoritative review store  588ms
+@pulse/api:test:      ✓ keeps a deferred weekly review on its retained review date  384ms
+@pulse/api:test:      ✓ reduces large revision and action histories before Data Quality materialization  9332ms
+@pulse/api:test:      ✓ returns deterministic bounded truth instead of failing strict response caps on dense days  303ms
+@pulse/api:test:      ✓ preserves every date cap and exact omission count across a fully dense 42-day range  979ms
+@pulse/api:test:      ✓ preserves per-date context and event caps across a fully dense 42-day range  2393ms
+@pulse/api:test:  ✓ src/__tests__/habits-weight-targets.test.ts (6 tests) 18044ms
+@pulse/api:test:      ✓ logs weight, supports range and latest reads, and scopes results per user  4242ms
+@pulse/api:test:      ✓ filters weight entries by days lookback  1195ms
+@pulse/api:test:      ✓ upserts weight entries by user and date without leaking across users  2350ms
+@pulse/api:test:      ✓ deletes weight entries, updates latest/list reads, and enforces ownership  2664ms
+@pulse/api:test:      ✓ returns the current nutrition target based on the latest effective date on or before today  3369ms
+@pulse/api:test:      ✓ upserts nutrition targets by user and effective date without crossing user boundaries  4223ms
+@pulse/api:test:  ✓ src/routes/adaptive-nutrition/review-store.integration.test.ts (78 tests) 18596ms
+@pulse/api:test:      ✓ uses context only for clarification while preserving quantitative review truth  394ms
+@pulse/api:test:      ✓ makes matched context edits and deletion stale, then refreshes deterministically  551ms
+@pulse/api:test:      ✓ persists 20 kcal learning with target continuity and next-prior provenance  319ms
+@pulse/api:test:      ✓ serializes simultaneous accepts in separate processes into one transition  1890ms
+@pulse/api:test:      ✓ rejects model-only acceptance after source mismatch with no writes  496ms
+@pulse/api:test:      ✓ refreshes corrected source data into a new immutable review and supersedes the old one  344ms
+@pulse/api:test:      ✓ never revives a terminal declined review through refresh  344ms
+@pulse/api:test:      ✓ rejects refresh for fresh pending and deferred reviews  586ms
+@pulse/api:test:      ✓ rejects refresh while a fresh review is awaiting clarification  660ms
+@pulse/api:test:      ✓ atomically allows one stale refresh and rejects a concurrent retry  656ms
+@pulse/api:test:      ✓ resurfaces an evidence-deferred review exactly when the next weigh-in exists  410ms
+@pulse/api:test:      ✓ waits through the completed-day cutoff before refreshing deferred nutrition evidence  384ms
+@pulse/api:test:      ✓ keeps same-day training sessions chronological and isolates exercise trends  314ms
+@pulse/api:test:  ✓ src/routes/workout-sessions/index.test.ts (119 tests) 4500ms
+@pulse/api:test:      ✓ publishes native RIR fields and AgentToken security in the workout-set OpenAPI contract  313ms
+@pulse/api:test:  ✓ src/routes/workout-progression/muscle-store.integration.test.ts (9 tests) 5994ms
+@pulse/api:test:      ✓ distinguishes planned, completed, primary, and secondary exposure with exact sources  1208ms
+@pulse/api:test:      ✓ uses the requested IANA zone for a live inclusive range and does not leak users  691ms
+@pulse/api:test:      ✓ keeps dense 90-day totals exact while bounding source references  1949ms
+@pulse/api:test:      ✓ does not fulfill a plan from a linked but non-qualifying completion  314ms
+@pulse/api:test:      ✓ resolves contribution revisions on the requested local date  415ms
+@pulse/api:test:      ✓ uses planned contribution factors when attribution changes before fulfillment  441ms
+@pulse/api:test:      ✓ reconciles only exact linked plan sets and excludes cancelled plans  325ms
+@pulse/api:test:      ✓ keeps completed history stable after mutable exercise metadata changes and deletion  393ms
+@pulse/api:test:  ✓ src/routes/foods/analytics-store.integration.test.ts (11 tests) 3315ms
+@pulse/api:test:      ✓ reconciles selected-range snapshots without attributing same-name or foreign items  405ms
+@pulse/api:test:      ✓ applies every filter, sort, tag intersection, and tie breaker before pagination  320ms
+@pulse/api:test:      ✓ reconciles snapshot corrections, item deletion, meal deletion, and food trash state  326ms
+@pulse/api:test:      ✓ keeps bounded presets insensitive to 100,000 old linked occurrences  584ms
+@pulse/api:test:      ✓ selects one indexed program revision and fails closed when the latest projection is missing  431ms
+@pulse/api:test:  ✓ src/scripts/seed-adaptive-tdee-preview.test.ts (3 tests) 21580ms
+@pulse/api:test:      ✓ rebuilds every Coach state and keeps goal completion explicit  14131ms
+@pulse/api:test:      ✓ matches the independent 2026-08-23 fixture contract across all repaired domains  7442ms
+@pulse/web:build: ✓ 3912 modules transformed.
+@pulse/api:test:  ✓ src/routes/weight/trend-store.integration.test.ts (8 tests) 2608ms
+@pulse/api:test:      ✓ returns one range-invariant canonical series with a visible raw spike  681ms
+@pulse/api:test:      ✓ keeps expired stale evidence honest and permits older display points around scale-only current data  363ms
+@pulse/api:test:      ✓ resolves historical loss, maintenance, and gain goals with distinct pace and position  422ms
+@pulse/api:test:  ✓ src/routes/adaptive-nutrition/goal-trajectory-store.integration.test.ts (16 tests) 2431ms
+@pulse/api:test:  ✓ src/routes/auth/index.test.ts (6 tests) 4349ms
+@pulse/api:test:      ✓ registers a new user, normalizes the username, hashes the password, and returns a 7-day JWT  1798ms
+@pulse/api:test:      ✓ logs in a user and returns the auth envelope  1126ms
+@pulse/api:test:      ✓ returns INVALID_CREDENTIALS for incorrect passwords  1211ms
+@pulse/api:test:  ✓ src/routes/scheduled-workouts/index.test.ts (44 tests) 1815ms
+@pulse/web:build: rendering chunks...
+@pulse/web:build: computing gzip size...
+@pulse/web:build: dist/index.html                                         2.15 kB │ gzip:   0.76 kB
+@pulse/web:build: dist/assets/index-DeVSiqxV.css                        174.22 kB │ gzip:  25.11 kB
+@pulse/web:build: dist/assets/query-polling-CWrVhzp4.js                   0.09 kB │ gzip:   0.09 kB
+@pulse/web:build: dist/assets/plus-CoApFexL.js                            0.15 kB │ gzip:   0.15 kB
+@pulse/web:build: dist/assets/arrow-up-98W1kpP5.js                        0.16 kB │ gzip:   0.16 kB
+@pulse/web:build: dist/assets/clock-3-CMoMgpvV.js                         0.17 kB │ gzip:   0.16 kB
+@pulse/web:build: dist/assets/arrow-right-BnnOrusp.js                     0.17 kB │ gzip:   0.16 kB
+@pulse/web:build: dist/assets/search-D2znfMHr.js                          0.17 kB │ gzip:   0.17 kB
+@pulse/web:build: dist/assets/circle-check-D2LXWHDV.js                    0.17 kB │ gzip:   0.17 kB
+@pulse/web:build: dist/assets/trending-up-D8NjleMB.js                     0.18 kB │ gzip:   0.17 kB
+@pulse/web:build: dist/assets/gauge-BSXpn8XO.js                           0.18 kB │ gzip:   0.17 kB
+@pulse/web:build: dist/assets/trending-down-DG1bBVGY.js                   0.18 kB │ gzip:   0.17 kB
+@pulse/web:build: dist/assets/flame-DFQ7diRM.js                           0.20 kB │ gzip:   0.18 kB
+@pulse/web:build: dist/assets/info-gFkPDJ2m.js                            0.20 kB │ gzip:   0.18 kB
+@pulse/web:build: dist/assets/rotate-ccw-naRUd1_g.js                      0.20 kB │ gzip:   0.18 kB
+@pulse/web:build: dist/assets/useThemeContext-D25lGSN5.js                 0.23 kB │ gzip:   0.19 kB
+@pulse/web:build: dist/assets/history-CmWNVhYW.js                         0.24 kB │ gzip:   0.20 kB
+@pulse/web:build: dist/assets/timer-CD5Q78ez.js                           0.24 kB │ gzip:   0.19 kB
+@pulse/web:build: dist/assets/circle-question-mark-DDXOcnPl.js            0.24 kB │ gzip:   0.21 kB
+@pulse/web:build: dist/assets/arrow-up-down-DDt0Vfvi.js                   0.25 kB │ gzip:   0.19 kB
+@pulse/web:build: dist/assets/route-DpBf_jE_.js                           0.25 kB │ gzip:   0.20 kB
+@pulse/web:build: dist/assets/circle-alert-CAjLYtWv.js                    0.25 kB │ gzip:   0.19 kB
+@pulse/web:build: dist/assets/chart-column-DjjiWvRV.js                    0.25 kB │ gzip:   0.20 kB
+@pulse/web:build: dist/assets/heart-C9ShVOI5.js                           0.26 kB │ gzip:   0.22 kB
+@pulse/web:build: dist/assets/pencil-Dg1m1fhq.js                          0.28 kB │ gzip:   0.23 kB
+@pulse/web:build: dist/assets/book-open-BGUQR-yt.js                       0.28 kB │ gzip:   0.21 kB
+@pulse/web:build: dist/assets/arrow-up-right-Cyg8fGa4.js                  0.29 kB │ gzip:   0.21 kB
+@pulse/web:build: dist/assets/pencil-line-CCeUZEb2.js                     0.32 kB │ gzip:   0.24 kB
+@pulse/web:build: dist/assets/refresh-cw-Cg9KMRix.js                      0.32 kB │ gzip:   0.22 kB
+@pulse/web:build: dist/assets/trash-2-Dx5jm4oc.js                         0.33 kB │ gzip:   0.22 kB
+@pulse/web:build: dist/assets/program-local-midnight-D4s8hZBf.js          0.33 kB │ gzip:   0.27 kB
+@pulse/web:build: dist/assets/scale-C3nX9zMc.js                           0.33 kB │ gzip:   0.22 kB
+@pulse/web:build: dist/assets/grip-vertical-zxgDPLdl.js                   0.37 kB │ gzip:   0.19 kB
+@pulse/web:build: dist/assets/calendar-clock-CqDB-irq.js                  0.37 kB │ gzip:   0.25 kB
+@pulse/web:build: dist/assets/label-DSdtJgqp.js                           0.37 kB │ gzip:   0.28 kB
+@pulse/web:build: dist/assets/use-today-key-CG44cgN_.js                   0.39 kB │ gzip:   0.27 kB
+@pulse/web:build: dist/assets/index-D4hvhrTo.js                           0.43 kB │ gzip:   0.29 kB
+@pulse/web:build: dist/assets/template-tags-Ce0Nr_b0.js                   0.43 kB │ gzip:   0.29 kB
+@pulse/web:build: dist/assets/accent-card-styles-juGWYX3b.js              0.48 kB │ gzip:   0.21 kB
+@pulse/web:build: dist/assets/calendar-days-f_73A8w6.js                   0.50 kB │ gzip:   0.27 kB
+@pulse/web:build: dist/assets/sparkles-etN0UUS6.js                        0.50 kB │ gzip:   0.28 kB
+@pulse/web:build: dist/assets/date-utils-hJv2Zwft.js                      0.52 kB │ gzip:   0.30 kB
+@pulse/web:build: dist/assets/workout-session-sets-CqGuqGnY.js            0.57 kB │ gzip:   0.34 kB
+@pulse/web:build: dist/assets/circle-dashed-D3RBTIsi.js                   0.58 kB │ gzip:   0.29 kB
+@pulse/web:build: dist/assets/textarea-DSDNKLVy.js                        0.64 kB │ gzip:   0.39 kB
+@pulse/web:build: dist/assets/markdown-note-CyIX6Rv7.js                   0.65 kB │ gzip:   0.39 kB
+@pulse/web:build: dist/assets/chart-range-control-XH5wrT28.js             0.66 kB │ gzip:   0.41 kB
+@pulse/web:build: dist/assets/empty-state-BgNe8MsJ.js                     0.69 kB │ gzip:   0.42 kB
+@pulse/web:build: dist/assets/superset-utils-CtC4-7UV.js                  0.70 kB │ gzip:   0.42 kB
+@pulse/web:build: dist/assets/save-B3U5Ng48.js                            0.70 kB │ gzip:   0.34 kB
+@pulse/web:build: dist/assets/format-utils-Bsyxf4FY.js                    0.73 kB │ gzip:   0.35 kB
+@pulse/web:build: dist/assets/wrench-DxUt7XG4.js                          0.74 kB │ gzip:   0.38 kB
+@pulse/web:build: dist/assets/separator-D630Lbib.js                       0.78 kB │ gzip:   0.43 kB
+@pulse/web:build: dist/assets/chart-legend-MGruvUI6.js                    0.85 kB │ gzip:   0.49 kB
+@pulse/web:build: dist/assets/markdown-aUL2GTqK.js                        0.87 kB │ gzip:   0.43 kB
+@pulse/web:build: dist/assets/page-header-xHy05oE2.js                     0.90 kB │ gzip:   0.42 kB
+@pulse/web:build: dist/assets/rename-exercise-dialog-Ba8w2rHC.js          0.94 kB │ gzip:   0.56 kB
+@pulse/web:build: dist/assets/input-BKrQi7vL.js                           0.95 kB │ gzip:   0.54 kB
+@pulse/web:build: dist/assets/use-date-authority-BDDq47q4.js              0.96 kB │ gzip:   0.53 kB
+@pulse/web:build: dist/assets/trend-weight-date-vlormCn4.js               1.00 kB │ gzip:   0.50 kB
+@pulse/web:build: dist/assets/progress-bar-CyyDPG4q.js                    1.04 kB │ gzip:   0.58 kB
+@pulse/web:build: dist/assets/progress-ring-By9X-T3K.js                   1.21 kB │ gzip:   0.64 kB
+@pulse/web:build: dist/assets/index-B2vKJhtH.js                           1.31 kB │ gzip:   0.66 kB
+@pulse/web:build: dist/assets/use-debounced-callback-DoX5UMhQ.js          1.32 kB │ gzip:   0.61 kB
+@pulse/web:build: dist/assets/badge-T92kluJm.js                           1.34 kB │ gzip:   0.64 kB
+@pulse/web:build: dist/assets/preview-banner-juk6Sne9.js                  1.40 kB │ gzip:   0.77 kB
+@pulse/web:build: dist/assets/progression-Tdtwc_tC.js                     1.47 kB │ gzip:   0.73 kB
+@pulse/web:build: dist/assets/chart-exploration-CIVsEJBu.js               1.70 kB │ gzip:   0.76 kB
+@pulse/web:build: dist/assets/adaptive-weekly-review-D4UPU8Ai.js          1.80 kB │ gzip:   0.96 kB
+@pulse/web:build: dist/assets/stat-card-Ztfu4pHG.js                       2.30 kB │ gzip:   1.08 kB
+@pulse/web:build: dist/assets/chart-tooltip-DQuoDvxy.js                   2.49 kB │ gzip:   1.04 kB
+@pulse/web:build: dist/assets/help-icon-En6DZXyr.js                       2.66 kB │ gzip:   1.06 kB
+@pulse/web:build: dist/assets/dialog-CKSabhZu.js                          2.79 kB │ gzip:   1.07 kB
+@pulse/web:build: dist/assets/login-E2vnGuyA.js                           3.12 kB │ gzip:   1.30 kB
+@pulse/web:build: dist/assets/chart-summary-B8TPBXRk.js                   3.16 kB │ gzip:   1.38 kB
+@pulse/web:build: dist/assets/journal-entry-DLvJmXGn.js                   3.45 kB │ gzip:   1.37 kB
+@pulse/web:build: dist/assets/habit-chain-dot-BbYuMskE.js                 3.45 kB │ gzip:   1.62 kB
+@pulse/web:build: dist/assets/mock-data-C5acpO0F.js                       3.71 kB │ gzip:   1.57 kB
+@pulse/web:build: dist/assets/profile-CHHH4TH7.js                         4.10 kB │ gzip:   1.63 kB
+@pulse/web:build: dist/assets/register-HSPptGRb.js                        4.17 kB │ gzip:   1.53 kB
+@pulse/web:build: dist/assets/resources-CBx-NUYe.js                       4.22 kB │ gzip:   1.73 kB
+@pulse/web:build: dist/assets/swap-exercise-dialog-DV4o-aVQ.js            4.43 kB │ gzip:   1.81 kB
+@pulse/web:build: dist/assets/journal-DbdEUz6S.js                         5.46 kB │ gzip:   2.07 kB
+@pulse/web:build: dist/assets/resource-detail-BK_EB2lm.js                 5.60 kB │ gzip:   1.80 kB
+@pulse/web:build: dist/assets/popover-D79cXxdL.js                         6.04 kB │ gzip:   2.18 kB
+@pulse/web:build: dist/assets/use-dashboard-config-yby-dNJN.js            6.31 kB │ gzip:   2.06 kB
+@pulse/web:build: dist/assets/nutrition-day-status-control-CFYrNHVc.js    7.40 kB │ gzip:   2.51 kB
+@pulse/web:build: dist/assets/view-toggle-BHRKNBoI.js                     8.76 kB │ gzip:   3.22 kB
+@pulse/web:build: dist/assets/injuries-BAWccHUd.js                        9.27 kB │ gzip:   3.25 kB
+@pulse/web:build: dist/assets/weight-history-DmSXHxpg.js                  9.86 kB │ gzip:   3.55 kB
+@pulse/web:build: dist/assets/design-system-DLUy9vBP.js                   9.94 kB │ gzip:   3.14 kB
+@pulse/web:build: dist/assets/mock-data-B0NZZZjj.js                      10.15 kB │ gzip:   4.27 kB
+@pulse/web:build: dist/assets/mock-data-C2F0F2C7.js                      14.00 kB │ gzip:   4.60 kB
+@pulse/web:build: dist/assets/equipment-C8wuME9Z.js                      15.22 kB │ gzip:   4.76 kB
+@pulse/web:build: dist/assets/activity-BJzQXAOf.js                       16.18 kB │ gzip:   5.24 kB
+@pulse/web:build: dist/assets/trend-weight-workspace-XxbAr_Fy.js         17.30 kB │ gzip:   5.29 kB
+@pulse/web:build: dist/assets/workouts-C3KyfE6f.js                       19.70 kB │ gzip:   4.74 kB
+@pulse/web:build: dist/assets/select-DKMdKQGN.js                         20.60 kB │ gzip:   7.29 kB
+@pulse/web:build: dist/assets/active-session-COkvpo6z.js                 21.20 kB │ gzip:   6.52 kB
+@pulse/web:build: dist/assets/dropdown-menu-CxGfOJ00.js                  21.90 kB │ gzip:   6.83 kB
+@pulse/web:build: dist/assets/energy-balance-i_nLwmrb.js                 21.98 kB │ gzip:   6.58 kB
+@pulse/web:build: dist/assets/injury-detail-C1HAZvfy.js                  23.40 kB │ gzip:   7.27 kB
+@pulse/web:build: dist/assets/workout-template-detail-CAZBIfJj.js        24.78 kB │ gzip:   7.74 kB
+@pulse/web:build: dist/assets/data-quality-wOy_A0uL.js                   24.95 kB │ gzip:   7.73 kB
+@pulse/web:build: dist/assets/settings-1TQBtiSg.js                       29.75 kB │ gzip:   8.12 kB
+@pulse/web:build: dist/assets/zod-DXL12IUs.js                            29.90 kB │ gzip:  10.78 kB
+@pulse/web:build: dist/assets/goal-trajectory-DrVXKaf3.js                30.30 kB │ gzip:   8.65 kB
+@pulse/web:build: dist/assets/workout-session-detail-CWMc5fIk.js         32.61 kB │ gzip:   9.71 kB
+@pulse/web:build: dist/assets/weekly-decision-review-5gKdDDHy.js         32.94 kB │ gzip:   8.62 kB
+@pulse/web:build: dist/assets/vendor-router-D-aEi-ws.js                  37.19 kB │ gzip:  13.40 kB
+@pulse/web:build: dist/assets/scheduled-workout-detail-CSqh60p1.js       37.62 kB │ gzip:  11.62 kB
+@pulse/web:build: dist/assets/habits-BnYA6PgW.js                         39.34 kB │ gzip:  11.79 kB
+@pulse/web:build: dist/assets/vendor-query-Y28iZGx7.js                   45.14 kB │ gzip:  13.84 kB
+@pulse/web:build: dist/assets/sortable.esm-CaVFjQnh.js                   51.01 kB │ gzip:  17.09 kB
+@pulse/web:build: dist/assets/use-workout-session-DJ1Ubv1W.js            52.96 kB │ gzip:  15.40 kB
+@pulse/web:build: dist/assets/vendor-zod-CxxuDTfS.js                     57.83 kB │ gzip:  13.48 kB
+@pulse/web:build: dist/assets/workouts-DKlM5Dsl.js                       67.54 kB │ gzip:  18.35 kB
+@pulse/web:build: dist/assets/dashboard-Btsv0TSv.js                      69.23 kB │ gzip:  20.12 kB
+@pulse/web:build: dist/assets/goal-editor-dialog-D2L99ax_.js             69.87 kB │ gzip:  20.12 kB
+@pulse/web:build: dist/assets/schedule-workout-dialog-Cq9cRGNm.js        71.22 kB │ gzip:  21.27 kB
+@pulse/web:build: dist/assets/active-workout-D2ODMN_V.js                107.86 kB │ gzip:  30.61 kB
+@pulse/web:build: dist/assets/nutrition-C907WTfg.js                     153.12 kB │ gzip:  41.27 kB
+@pulse/web:build: dist/assets/vendor-recharts-vi3UUqYC.js               397.49 kB │ gzip: 115.25 kB
+@pulse/web:build: dist/assets/index-BZJ76bi3.js                         518.76 kB │ gzip: 154.26 kB
+@pulse/web:build: 
+@pulse/web:build: (!) Some chunks are larger than 500 kB after minification. Consider:
+@pulse/web:build: - Using dynamic import() to code-split the application
+@pulse/web:build: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+@pulse/web:build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+@pulse/web:build: ✓ built in 15.16s
+@pulse/api:test:  ✓ src/__tests__/auth.test.ts (20 tests) 24458ms
+@pulse/api:test:      ✓ registers a user, returns a JWT, and stores a hashed password  3269ms
+@pulse/api:test:      ✓ rejects duplicate usernames with a 409 conflict  585ms
+@pulse/api:test:      ✓ logs in with valid credentials and returns a JWT  1185ms
+@pulse/api:test:      ✓ returns INVALID_CREDENTIALS for the wrong password  1115ms
+@pulse/api:test:      ✓ accepts a valid JWT on a protected route  1472ms
+@pulse/api:test:      ✓ rejects expired JWTs on protected routes  1254ms
+@pulse/api:test:      ✓ rejects JWTs without the required type claim  1645ms
+@pulse/api:test:      ✓ rejects JWTs with the wrong type claim  1913ms
+@pulse/api:test:      ✓ rejects JWTs without the required issuer claim  1638ms
+@pulse/api:test:      ✓ creates and lists agent tokens without exposing stored hashes  2699ms
+@pulse/api:test:      ✓ authenticates unified /api/v1 routes with an agent token and updates lastUsedAt  1590ms
+@pulse/api:test:      ✓ rejects expired agent tokens on unified /api/v1 routes  1702ms
+@pulse/api:test:      ✓ accepts agent tokens with null expiresAt for backward compatibility  1385ms
+@pulse/api:test:      ✓ extends expiring agent tokens from the new rotation time  1223ms
+@pulse/api:test:      ✓ rejects deleted agent tokens on subsequent use  1380ms
+@pulse/web:test: cache bypass, force executing 340a36ba63c7d7ce
+@pulse/web:test: 
+@pulse/web:test: > @pulse/web@0.0.0 test /Users/meridian/Projects/pulse-food-reuse/apps/web
+@pulse/web:test: > vitest run
+@pulse/web:test: 
+@pulse/api:test:  ✓ src/routes/exercises/index.test.ts (40 tests) 1605ms
+@pulse/api:test:  ✓ src/index.test.ts (8 tests) 1216ms
+@pulse/api:test:      ✓ serves an OpenAPI 3.1 document with Pulse security schemes  354ms
+@pulse/web:test: 
+@pulse/web:test:  RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/web
+@pulse/web:test: 
+@pulse/api:test:  ✓ src/__tests__/foods-nutrition.test.ts (4 tests) 2308ms
+@pulse/api:test:      ✓ covers foods CRUD, search, deletion, and recency sorting  1546ms
+@pulse/api:test:      ✓ creates daily nutrition with multiple meals and deletes a meal with nested items  314ms
+@pulse/api:test:  ✓ src/routes/foods/store.test.ts (6 tests) 1410ms
+@pulse/api:test:      ✓ creates a food and normalizes omitted optional fields to null  1399ms
+@pulse/api:test:  ✓ src/routes/nutrition/daily-energy-store.integration.test.ts (23 tests) 2410ms
+@pulse/api:test:      ✓ uses constant-row indexed lookups across dense pre-date revision history  1502ms
+@pulse/api:test:  ✓ src/db/adaptive-program-revision-causal-migration.test.ts (10 tests) 3401ms
+@pulse/api:test:      ✓ upgrades a real 0046 database and repairs an already-applied 0047 ledger  388ms
+@pulse/api:test:      ✓ atomically rejects 0056 when 'a program snapshot is not a full stri…'  456ms
+@pulse/api:test:      ✓ atomically rejects 0056 when 'a later revision has a decreasing tim…'  514ms
+@pulse/api:test:      ✓ rolls back an injected interruption before 0056 commits and retries cleanly  372ms
+@pulse/api:test:      ✓ retries cleanly after an operator corrects a rejected source ledger  458ms
+@pulse/api:test:      ✓ installs the full journal on a fresh empty database through the canonical runner  336ms
+@pulse/api:test:  ✓ src/routes/adaptive-nutrition/store.integration.test.ts (35 tests) 3803ms
+@pulse/api:test:      ✓ makes a held preview the current read state after changed data invalidates a pending recommendation  358ms
+@pulse/api:test:  ✓ src/routes/adaptive-nutrition/index.test.ts (20 tests) 2672ms
+@pulse/api:test:      ✓ allows JWT and AgentToken reads and previews with response-schema validation  499ms
+@pulse/api:test:      ✓ validates analytics queries before the store and documents both read auth schemes  455ms
+@pulse/api:test:      ✓ validates goal trajectory queries and maps bounded date errors without writes  437ms
+@pulse/api:test:  ✓ src/routes/v1/dashboard-store.integration.test.ts (6 tests) 2753ms
+@pulse/api:test:      ✓ uses all daily entries in the inclusive trailing 30-calendar-day window  711ms
+@pulse/api:test:      ✓ prevents sparse measurements from prior months or other users from pulling the trend  330ms
+@pulse/api:test:      ✓ anchors a historical snapshot window to the requested date instead of today  553ms
+@pulse/api:test:      ✓ returns no trend when the latest scale weight is outside the window  394ms
+@pulse/api:test:      ✓ returns no weight snapshot when the user has never logged weight  522ms
+@pulse/api:test:  ✓ src/routes/workout-sessions/store.test.ts (9 tests) 1875ms
+@pulse/api:test:  ✓ src/routes/auth/starter-habits.test.ts (1 test) 2794ms
+@pulse/api:test:      ✓ seeds five starter habits on register and returns them from GET /api/v1/habits  1279ms
+@pulse/api:test:  ✓ src/__tests__/workouts.test.ts (4 tests) 2071ms
+@pulse/api:test: {"level":30,"time":1788825886174,"pid":48015,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","req":{"method":"POST","url":"/api/v1/habits","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+@pulse/api:test: {"level":30,"time":1788825886179,"pid":48015,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","res":{"statusCode":401},"responseTime":0.7855420112609863,"msg":"request completed"}
+@pulse/api:test: {"level":30,"time":1788825886241,"pid":48015,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","req":{"method":"GET","url":"/api/v1/habits","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+@pulse/api:test: {"level":30,"time":1788825886241,"pid":48015,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","res":{"statusCode":200},"responseTime":0.6843340396881104,"msg":"request completed"}
+@pulse/api:test:  ✓ src/routes/foods/index.test.ts (27 tests) 2950ms
+@pulse/api:test:      ✓ returns identical server-owned analytics facts for JWT and AgentToken callers  583ms
+@pulse/api:test:  ✓ src/routes/workout-templates/index.test.ts (14 tests) 2587ms
+@pulse/api:test:  ✓ src/routes/habits/index.test.ts (14 tests) 1785ms
+@pulse/api:test:      ✓ creates a habit for the authenticated user with the next sort order  650ms
+@pulse/api:test:  ✓ src/db/adaptive-goal-migration.test.ts (11 tests) 2176ms
+@pulse/api:test:      ✓ creates the constrained goal domain and preserves fresh-database integrity  306ms
+@pulse/api:test:      ✓ backfills lose, gain, maintenance-retained, scale-fallback, and blocked users idempotently  537ms
+@pulse/api:test:      ✓ rolls back only the failing user and enforces active/revision/check/immutability guards  460ms
+@pulse/api:test:      ✓ makes the database apply exactly one matching next strategy revision  352ms
+@pulse/api:test:      ✓ serializes competing connections and converges on one goal and revision  451ms
+@pulse/api:test:  ✓ src/db/workout-progression-migration.test.ts (4 tests) 2000ms
+@pulse/api:test:      ✓ upgrades populated 0053 audit facts without blocking source lifecycle operations  595ms
+@pulse/api:test:      ✓ upgrades populated 0052 data with deterministic contributions and immutable guards  483ms
+@pulse/api:test:      ✓ backfills immutable recommendation priority from the 0054 programming configuration  548ms
+@pulse/api:test:      ✓ installs cleanly from the complete journal and permits scoped account deletion  363ms
+@pulse/api:test:  ✓ src/routes/adaptive-nutrition/analytics-store.integration.test.ts (17 tests) 2681ms
+@pulse/api:test:  ✓ src/routes/trash/index.test.ts (4 tests) 2380ms
+@pulse/api:test:  ✓ src/routes/adaptive-nutrition/goal-store.integration.test.ts (4 tests) 2014ms
+@pulse/api:test:      ✓ returns current, paginated history, revision detail, and linked accepted check-ins  545ms
+@pulse/api:test:      ✓ uses persisted canonical endpoints for closed-goal detail and net change  598ms
+@pulse/api:test:      ✓ keeps historical progress revision-effective and uses the canonical maintenance range  456ms
+@pulse/api:test:      ✓ fails cross-user and missing current reads closed  413ms
+@pulse/api:test:  ✓ src/routes/agent/context-store.test.ts (9 tests) 2242ms
+@pulse/api:test:      ✓ returns user profile name when user exists  2225ms
+@pulse/web:test:  ✓ src/features/adaptive-nutrition/components/adaptive-setup-form.test.tsx (11 tests) 8160ms
+@pulse/web:test:      ✓ submits manual setup exactly once with an entered pound weight and maintenance rate  1066ms
+@pulse/web:test:      ✓ offers a recent saved kg entry while converting entered-weight defaults and protein presets  681ms
+@pulse/web:test:      ✓ compares a saved kg weight with a pound target in canonical kilograms  622ms
+@pulse/web:test:      ✓ rejects an old saved weight and a loss target above current weight  575ms
+@pulse/web:test:      ✓ updates a recommended gain projection live without mutating  674ms
+@pulse/web:test:      ✓ explains a custom gain rate outside the recommended band without blocking it  991ms
+@pulse/web:test:      ✓ updates protein and fat/carbohydrate results from accessible presets  921ms
+@pulse/web:test:      ✓ preserves an existing non-preset protein target as Custom  327ms
+@pulse/web:test:      ✓ removes stale numbers when a valid target becomes directionally invalid  913ms
+@pulse/web:test:      ✓ discloses loss floor and deficit guardrails in the live plan  1046ms
+@pulse/web:test:      ✓ exposes named radio groups and focusable preset controls for keyboard users  323ms
+@pulse/api:test:  ✓ src/db/adaptive-weekly-review-migration.test.ts (3 tests) 1469ms
+@pulse/api:test:      ✓ upgrades a populated real 0048 database and enforces ownership and revision guards  470ms
+@pulse/api:test:      ✓ upgrades populated 0049 review data without inventing structured resolution semantics  641ms
+@pulse/api:test:      ✓ installs the full journal cleanly on a fresh database  357ms
+@pulse/api:test:  ✓ src/routes/weight/index.test.ts (17 tests) 2470ms
+@pulse/api:test:      ✓ returns identical strict Trend Weight facts to JWT and AgentToken callers  531ms
+@pulse/api:test:      ✓ returns 200 when updating an existing body weight entry  311ms
+@pulse/api:test:  ✓ src/routes/workout-progression/index.test.ts (6 tests) 1706ms
+@pulse/api:test:      ✓ returns the same strict recommendation and muscle facts to JWT and AgentToken callers  834ms
+@pulse/api:test:  ✓ src/routes/habit-entries/store.test.ts (4 tests) 1696ms
+@pulse/api:test:      ✓ inserts a new habit entry when no entry exists for the habit and date  1675ms
+@pulse/web:test:  ✓ src/pages/weight-history.test.tsx (10 tests) 8871ms
+@pulse/web:test:      ✓ renders maintenance semantics and off-measurement annotations from server facts  1399ms
+@pulse/web:test:      ✓ shows the chart, lists entries in reverse chronological order, and deletes with confirmation  1084ms
+@pulse/web:test:      ✓ adds a new weight entry from the quick-add form  1034ms
+@pulse/web:test:      ✓ defaults a new entry to the local calendar date near a UTC day boundary  557ms
+@pulse/web:test:      ✓ supports editing a weight value and note inline  924ms
+@pulse/web:test:      ✓ shows validation feedback when saving an invalid inline weight edit  631ms
+@pulse/web:test:      ✓ keeps response units while using the active kg preference for new entries  1318ms
+@pulse/web:test:      ✓ keeps the entry ledger separate from the server-owned exact trend table  700ms
+@pulse/web:test:      ✓ shows empty state when no entries are available  634ms
+@pulse/web:test:      ✓ shows contextual help for weight history  581ms
+@pulse/api:test:  ✓ src/routes/v1/dashboard.test.ts (12 tests) 2089ms
+@pulse/api:test:      ✓ returns the dashboard snapshot for an explicit date  811ms
+@pulse/api:test:      ✓ upserts dashboard config via PUT and POST  310ms
+@pulse/web:test:  ✓ src/pages/settings.test.tsx (11 tests) 10709ms
+@pulse/web:test:      ✓ renders defaults and loads dashboard config from API  1974ms
+@pulse/web:test:      ✓ reflects persisted widget visibility choices from dashboard config  958ms
+@pulse/web:test:      ✓ saves nutrition targets and dashboard config via API  1379ms
+@pulse/web:test:      ✓ shows a partial failure message when dashboard config save fails  1130ms
+@pulse/web:test:      ✓ shows a partial failure message when nutrition target save fails  1009ms
+@pulse/web:test:      ✓ shows the user profile with real data from the API  857ms
+@pulse/web:test:      ✓ saves profile changes via PATCH /api/v1/users/me  773ms
+@pulse/web:test:      ✓ saves weight unit changes via PATCH /api/v1/users/me  1105ms
+@pulse/web:test:      ✓ allows users without a display name to save weight unit changes  515ms
+@pulse/web:test:      ✓ shows an error message when profile save fails  811ms
+@pulse/api:test:  ✓ src/lib/habit-resolvers.test.ts (4 tests) 1828ms
+@pulse/api:test:      ✓ returns completed for weight resolver when a body weight row exists for the date  1825ms
+@pulse/api:test:  ❯ src/routes/nutrition/food-reuse-process.integration.test.ts (7 tests | 7 skipped) 6457ms
+@pulse/api:test:      ↓ rechecks after actual busy contention on preferred, replays safely and isolates owners
+@pulse/api:test:      ↓ rechecks after actual busy contention on date, replays safely and isolates owners
+@pulse/api:test:      ↓ rechecks after actual busy contention on append, replays safely and isolates owners
+@pulse/api:test:      ↓ bounds exhausted locks at four attempts and rolls back without publishing outcomes
+@pulse/api:test:      ↓ keeps legacy duplicates fail-closed and rolls back planned creation after usage failure on preferred
+@pulse/api:test:      ↓ keeps legacy duplicates fail-closed and rolls back planned creation after usage failure on date
+@pulse/api:test:      ↓ keeps legacy duplicates fail-closed and rolls back planned creation after usage failure on append
+@pulse/api:test:  ✓ src/routes/scheduled-workouts/snapshot-store.test.ts (2 tests) 877ms
+@pulse/api:test:      ✓ writeSnapshot copies template exercises, sets, and stores templateVersion hash  490ms
+@pulse/api:test:      ✓ deleteSnapshot removes all snapshot rows for a scheduled workout  385ms
+@pulse/api:test:  ✓ src/routes/nutrition/status-store.test.ts (3 tests) 2090ms
+@pulse/api:test:      ✓ writes every explicit status with an audit timestamp in user scope  745ms
+@pulse/api:test:      ✓ rejects future completion in the user local date while allowing exclusion statuses  625ms
+@pulse/api:test:      ✓ requires an owned nutrition log for any status mutation  705ms
+@pulse/api:test:  ✓ src/scripts/backtest-adaptive-tdee.test.ts (10 tests) 1406ms
+@pulse/api:test:      ✓ preserves the presence and bytes of a WAL-mode source database family  1007ms
+@pulse/api:test:  ✓ src/routes/habit-entries/index.test.ts (9 tests) 1538ms
+@pulse/api:test:      ✓ upserts a habit entry for a habit within the authenticated user scope  741ms
+@pulse/api:test:      ✓ returns not found when posting or querying entries for a habit outside the user scope  318ms
+@pulse/api:test:  ✓ src/routes/nutrition/ranked-food-reuse.integration.test.ts (23 tests) 4196ms
+@pulse/api:test:      ✓ classifies reuse/create/adhoc and preserves all provenance on date  326ms
+@pulse/api:test:      ✓ serializes only categorical ranked matches, including frequent and nested promotion matches  776ms
+@pulse/api:test:  ✓ src/routes/agent-tokens/index.test.ts (9 tests) 1172ms
+@pulse/api:test:      ✓ creates an agent token, stores only its SHA-256 hash, and returns the plain token once  654ms
+@pulse/api:test:  ✓ src/routes/data-quality/index.test.ts (3 tests) 675ms
+@pulse/api:test:      ✓ returns identical strict data for JWT and AgentToken callers  369ms
+@pulse/api:test:  ✓ src/routes/users/index.test.ts (8 tests) 1136ms
+@pulse/api:test:      ✓ GET /api/v1/users/me returns the authenticated user  553ms
+@pulse/web:test:  ✓ src/features/workouts/components/exercise-library.test.tsx (16 tests) 14325ms
+@pulse/web:test:      ✓ filters exercises by case-insensitive name search and syncs q to the URL  1050ms
+@pulse/web:test:      ✓ filters exercises by muscle group, equipment, and category together  1111ms
+@pulse/web:test:      ✓ shows paginated results and updates the page query param  945ms
+@pulse/web:test:      ✓ persists per-page in the URL and resets to page 1 when changed  702ms
+@pulse/web:test:      ✓ persists sort selection in URL search params and sends it to the API  938ms
+@pulse/web:test:      ✓ toggles between card and table layouts  1242ms
+@pulse/web:test:      ✓ opens the trend dialog from a table row in table view  657ms
+@pulse/web:test:      ✓ toggles exercise table columns with the shared column picker  680ms
+@pulse/web:test:      ✓ does not write the initial view preference to localStorage on mount  581ms
+@pulse/web:test:      ✓ persists the selected view in localStorage  1054ms
+@pulse/web:test:      ✓ renders exercise tags as muted chips in the library cards  548ms
+@pulse/web:test:      ✓ loads trend data from the exercise history API  809ms
+@pulse/web:test:      ✓ renames an exercise from the card actions menu  1585ms
+@pulse/web:test:      ✓ shows an empty state and still supports the unified exercise detail modal  1282ms
+@pulse/web:test:      ✓ falls back to the no-results state when the exercises request fails  1031ms
+@pulse/api:test:  ✓ src/db/index.test.ts (3 tests) 997ms
+@pulse/api:test:      ✓ enables foreign key enforcement on the sqlite connection  914ms
+@pulse/api:test:  ✓ src/routes/nutrition/completeness-mutations.integration.test.ts (5 tests) 1420ms
+@pulse/api:test:      ✓ merges more owned occurrences than the SQLite variable limit without leaking ownership  491ms
+@pulse/api:test:  ✓ src/routes/v1/context.test.ts (2 tests) 457ms
+@pulse/api:test:      ✓ returns context for agent-token requests and 404s legacy /api/agent/context  428ms
+@pulse/api:test:  ✓ src/routes/nutrition-targets/provenance.integration.test.ts (4 tests) 724ms
+@pulse/api:test:  ✓ src/routes/scheduled-workouts/store.test.ts (13 tests) 1050ms
+@pulse/web:test:  ✓ src/pages/nutrition.test.tsx (33 tests) 15397ms
+@pulse/web:test:      ✓ renders log, Coach, foods, and trends tabs and syncs the active view to search params  1490ms
+@pulse/web:test:      ✓ loads tab content from a foods view search param  391ms
+@pulse/web:test:      ✓ loads tab content from a trends view search param  374ms
+@pulse/web:test:      ✓ advances the trends reference date while Nutrition stays open across program midnight  310ms
+@pulse/web:test:      ✓ uses the program-local Nutrition Log date in 'Detroit after the spring DST boundary'  431ms
+@pulse/web:test:      ✓ rolls a continuously visible today view at program-local midnight  393ms
+@pulse/web:test:      ✓ preserves an intentionally selected historical date across midnight  620ms
+@pulse/web:test:      ✓ never flashes a delayed prior-date energy response under a newer selected date  498ms
+@pulse/web:test:      ✓ adds a day note before meals, keeps it after reload, and discovers and clears it in historical navigation  1577ms
+@pulse/web:test:      ✓ loads today from API, shows empty state, and blocks future navigation  316ms
+@pulse/web:test:      ✓ renders week strip above meals section and updates selected date when a strip day is tapped  563ms
+@pulse/web:test:      ✓ replays a direct meal deep link through back and forward navigation and focuses once ready  672ms
+@pulse/web:test:      ✓ shows date-aware empty-state copy and today shortcuts on non-today dates  889ms
+@pulse/web:test:      ✓ renders selected-day meals sorted by time descending by default  353ms
+@pulse/web:test:      ✓ shows an accessible meal sort toggle and reverses order when toggled  905ms
+@pulse/web:test:      ✓ persists meal sort preference while navigating dates in the same session  757ms
+@pulse/web:test:      ✓ shows grouped food rows and deletes a meal via the API mutation  610ms
+@pulse/web:test:      ✓ renames a meal inline and keeps the updated name after reloading the page  748ms
+@pulse/web:test:      ✓ marks a past day complete and shows the automatic partial downgrade after a meal edit  681ms
+@pulse/web:test:      ✓ does not call rename mutation when editing is cancelled or name is empty  396ms
+@pulse/api:test:  ✓ src/db/canonical-weight-migration.test.ts (16 tests) 491ms
+@pulse/api:test:      ✓ applies the complete migration chain to a fresh database  439ms
+@pulse/api:test:  ✓ src/routes/nutrition-targets/index.test.ts (5 tests) 771ms
+@pulse/api:test:      ✓ upserts a nutrition target for the authenticated user  355ms
+@pulse/api:test:  ✓ src/middleware/auth.test.ts (19 tests) 295ms
+@pulse/web:test:  ✓ src/pages/dashboard.test.tsx (23 tests) 16834ms
+@pulse/web:test:      ✓ renders the dashboard title, greeting, and responsive column layout with API snapshot data  1267ms
+@pulse/web:test:      ✓ uses the server-authoritative user timezone when adaptive setup is required  353ms
+@pulse/web:test:      ✓ opens contextual dashboard help from the page header  377ms
+@pulse/web:test:      ✓ renders stat-card skeletons while the dashboard snapshot request is pending  642ms
+@pulse/web:test:      ✓ updates snapshot when a new calendar day is selected via the date popover  1492ms
+@pulse/web:test:      ✓ edits a logged weight entry and refreshes the body weight card  932ms
+@pulse/web:test:      ✓ shows a log weight CTA for days without an entry and opens the inline form  1473ms
+@pulse/web:test:      ✓ renders only configured habit chains and trend metrics  602ms
+@pulse/web:test:      ✓ renders habit daily cards from dashboard config and coexists with habit chains  382ms
+@pulse/web:test:      ✓ hides the weight trend widget when it is excluded from visible widgets  407ms
+@pulse/web:test:      ✓ enters inline dashboard edit mode when edit is clicked  947ms
+@pulse/web:test:      ✓ moves widgets to hidden in edit mode and saves via PUT  1263ms
+@pulse/web:test:      ✓ shows habit daily cards when the grouped widget is moved to active  1200ms
+@pulse/web:test:      ✓ updates visibleWidgets order when drag reorder completes in edit mode  1306ms
+@pulse/web:test:      ✓ keeps cross-container drop insertion position when dropping onto target widget  1008ms
+@pulse/web:test:      ✓ cancels inline edit changes without saving  948ms
+@pulse/web:test:      ✓ keeps inline edit mode open on save failure  994ms
+@pulse/web:test:      ✓ does not fabricate snapshot facts after an initial failure and recovers on retry  503ms
+@pulse/web:test:      ✓ retains exact snapshot facts with a stale warning when background refresh fails  314ms
+@pulse/web:test:  ✓ src/features/adaptive-nutrition/components/adaptive-coach.test.tsx (33 tests) 7128ms
+@pulse/web:test:      ✓ renders the baseline Coach state  506ms
+@pulse/web:test:      ✓ renders the updating Coach state  315ms
+@pulse/web:test:      ✓ renders gain progress in the preferred unit  462ms
+@pulse/web:test:      ✓ renders maintenance as a range without percent-complete language  362ms
+@pulse/web:test:      ✓ prefills edit, reviews it, and requires explicit pending replacement confirmation  546ms
+@pulse/web:test:      ✓ requires a different direction and final confirmation for a new goal  384ms
+@pulse/web:test:      ✓ confirms same-date replacement before accepting and supports decline  340ms
+@pulse/web:test:      ✓ recovers from a stale acceptance by generating a fresh preview  318ms
+@pulse/web:test:      ✓ recovers a stale baseline by explicitly rebaselining the existing program  352ms
+@pulse/web:test:      ✓ renders immutable goal history, revisions, linked check-ins, and chart text equivalents  355ms
+@pulse/web:test:      ✓ fails stale completion closed and exposes a retry-safe action  378ms
+@pulse/api:test:  ❯ src/routes/nutrition/store.display-fields.test.ts (3 tests | 2 failed) 340ms
+@pulse/api:test:      × persists displayQuantity/displayUnit when provided 336ms
+@pulse/api:test:      × stores null display fields when omitted 1ms
+@pulse/api:test:      ✓ returns display fields when reading daily nutrition, including nulls 3ms
+@pulse/api:test:  ✓ src/db/rir-migration.test.ts (1 test) 492ms
+@pulse/api:test:      ✓ preserves populated 0058 session sets and every relational guard  491ms
+@pulse/web:test:  ✓ src/features/workouts/components/session-detail.test.tsx (22 tests) 4694ms
+@pulse/web:test:      ✓ renders a not-found state for unknown sessions  1155ms
+@pulse/web:test:      ✓ replaces legacy RPE with native RIR in a completed-set correction  311ms
+@pulse/web:test:      ✓ clears native effort explicitly from a completed-set correction  352ms
+@pulse/web:test:      ✓ keeps the correction draft open when a native RIR save fails  369ms
+@pulse/api:test:  ✓ src/db/adaptive-nutrition-migration.test.ts (3 tests) 451ms
+@pulse/api:test:      ✓ applies the complete migration chain to a fresh database  376ms
+@pulse/api:test:  ✓ src/db/backfill/scheduled-workout-snapshots.test.ts (1 test) 596ms
+@pulse/api:test:      ✓ backfills snapshots for live templates and skips soft-deleted templates with warnings  595ms
+@pulse/web:test:  ✓ src/pages/equipment.test.tsx (6 tests) 6364ms
+@pulse/web:test:      ✓ renders the inventory summary and collapsed location cards  722ms
+@pulse/web:test:      ✓ adds a new location from the dialog into local state  1611ms
+@pulse/web:test:      ✓ adds an item to the selected category within a location card  1690ms
+@pulse/web:test:      ✓ supports inline editing for an equipment item name and details  695ms
+@pulse/web:test:      ✓ confirms before removing an equipment item and updates local state  1134ms
+@pulse/web:test:      ✓ uses the responsive grid classes for the location layout  486ms
+@pulse/api:test:  ✓ src/routes/nutrition/store.test.ts (6 tests) 559ms
+@pulse/api:test:      ✓ returns a daily summary using aggregated actuals and effective target macros  551ms
+@pulse/web:test:  ✓ src/App.test.tsx (25 tests) 9253ms
+@pulse/web:test:      ✓ renders 'Welcome back' page for '/login' when signed out  496ms
+@pulse/web:test:      ✓ renders 'Create account' page for '/register' when signed out  390ms
+@pulse/web:test:      ✓ renders 'Dashboard' page for '/' when signed in  611ms
+@pulse/web:test:      ✓ renders 'Design System' page for '/design-system' when signed in  650ms
+@pulse/web:test:      ✓ renders 'Workouts' page for '/workouts' when signed in  365ms
+@pulse/web:test:      ✓ renders 'No active workout' page for '/workouts/active' when signed in  385ms
+@pulse/web:test:      ✓ renders 'Upper Push' page for '/workouts/session/session-upper-push-…' when signed in  439ms
+@pulse/web:test:      ✓ renders 'Upper Push' page for '/workouts/template/upper-push' when signed in  373ms
+@pulse/web:test:      ✓ renders 'Nutrition' page for '/nutrition' when signed in  335ms
+@pulse/web:test:      ✓ renders 'Energy Balance & Expenditure' page for '/nutrition/energy-balance' when signed in  336ms
+@pulse/web:test:      ✓ renders 'Habits' page for '/habits' when signed in  342ms
+@pulse/web:test:      ✓ renders 'Activity' page for '/activity' when signed in  418ms
+@pulse/web:test:      ✓ renders 'Journal' page for '/journal' when signed in  368ms
+@pulse/web:test:      ✓ renders 'Trend Weight' page for '/weight' when signed in  321ms
+@pulse/web:test:      ✓ renders 'Profile' page for '/profile' when signed in  330ms
+@pulse/web:test:      ✓ renders 'Equipment' page for '/profile/equipment' when signed in  339ms
+@pulse/web:test:      ✓ renders 'Health Tracking' page for '/profile/injuries' when signed in  403ms
+@pulse/web:test:      ✓ renders 'Resources' page for '/profile/resources' when signed in  362ms
+@pulse/web:test:      ✓ renders 'McGill Big 3' page for '/profile/resources/mcgill-big-3' when signed in  360ms
+@pulse/web:test:      ✓ renders 'Settings' page for '/settings' when signed in  384ms
+@pulse/web:test:      ✓ redirects /foods to /nutrition?view=foods when signed in  352ms
+@pulse/web:test:      ✓ renders navigation links for all app routes  650ms
+@pulse/web:test:  ✓ src/features/workouts/components/template-detail.test.tsx (23 tests) 12043ms
+@pulse/web:test:      ✓ renders the selected template with real API data and exercise metadata  1007ms
+@pulse/web:test:      ✓ renders supplemental template sections before cooldown  622ms
+@pulse/web:test:      ✓ edits template exercise prescription fields from the exercise menu  553ms
+@pulse/web:test:      ✓ renders add exercise button for each section and adds to selected section  407ms
+@pulse/web:test:      ✓ creates a workout session before navigating to the active workout page  345ms
+@pulse/web:test:      ✓ renders tracking-type-specific prescriptions and set targets in template detail  391ms
+@pulse/web:test:      ✓ schedules a workout from the template detail view  870ms
+@pulse/web:test:      ✓ shows duplicate warning before starting when the day already has workouts  309ms
+@pulse/web:test:      ✓ does not start after date authority locks while duplicate confirmation is open  338ms
+@pulse/web:test:      ✓ does not schedule after date authority locks while duplicate confirmation is open  889ms
+@pulse/web:test:      ✓ opens swap dialog from template exercise menu and swaps to a related exercise  496ms
+@pulse/web:test:      ✓ creates and removes supersets from selected exercises  1054ms
+@pulse/web:test:      ✓ opens unified exercise detail modal from template exercise history actions  436ms
+@pulse/web:test:      ✓ renders a fallback state when the template request returns 404  1024ms
+@pulse/web:test:      ✓ treats legacy slug template IDs as not found when the request fails  1018ms
+@pulse/web:test:      ✓ keeps generic error messaging for UUID template IDs on non-404 failures  1028ms
+@pulse/api:test:  ✓ src/routes/nutrition/daily-notes.integration.test.ts (26 tests) 5915ms
+@pulse/api:test:      ✓ preserves all meal, food, target, energy, and adaptive facts on a populated complete day  363ms
+@pulse/api:test:      ✓ preserves all meal, food, target, energy, and adaptive facts on a populated complete day  375ms
+@pulse/api:test:    ✓ publishes unified generated OpenAPI schemas and an explicit nullable daily response  376ms
+@pulse/api:test:      ✓ keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear  390ms
+@pulse/api:test:      ✓ keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear  381ms
+@pulse/api:test:      ✓ preserves existing 'partial' empty-day meaning (explicit=null, meal=false)  362ms
+@pulse/api:test:  ✓ src/routes/weight/store.test.ts (10 tests) 941ms
+@pulse/api:test:      ✓ upserts by user and date and returns the persisted entry  869ms
+@pulse/api:test:  ✓ src/db/migrations.test.ts (19 tests) 339ms
+@pulse/api:test:  ✓ src/routes/nutrition/logging-context.integration.test.ts (3 tests) 4120ms
+@pulse/api:test: stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > restores original parent IDs transactionally without rewriting child links
+@pulse/api:test: {
+@pulse/api:test:   alreadyAppliedCount: 0,
+@pulse/api:test:   dryRun: false,
+@pulse/api:test:   foreignKeyViolationCountBefore: 2,
+@pulse/api:test:   mapSha256: '4225ccbe5c1e2df09de67991dcd8d4a42826fb5dd199d51de7908071820e0f92',
+@pulse/api:test:   missingExerciseCount: 2,
+@pulse/api:test:   orphanLinkCount: 2,
+@pulse/api:test:   proposedRepairCount: 2,
+@pulse/api:test:   remainingForeignKeyViolationCount: 0,
+@pulse/api:test:   sessionSetOrphanCount: 1,
+@pulse/api:test:   templateExerciseOrphanCount: 1,
+@pulse/api:test:   unresolvedExerciseCount: 0
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: 
+@pulse/api:test: stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > is replayable and makes no changes after the map has already been applied
+@pulse/api:test: {
+@pulse/api:test:   alreadyAppliedCount: 0,
+@pulse/api:test:   dryRun: false,
+@pulse/api:test:   foreignKeyViolationCountBefore: 1,
+@pulse/api:test:   mapSha256: 'a2c728a915f6c0ad2db9373de9439e7b0f824d01471cb380e065562a53720c01',
+@pulse/api:test:   missingExerciseCount: 1,
+@pulse/api:test:   orphanLinkCount: 1,
+@pulse/api:test:   proposedRepairCount: 1,
+@pulse/api:test:   remainingForeignKeyViolationCount: 0,
+@pulse/api:test:   sessionSetOrphanCount: 1,
+@pulse/api:test:   templateExerciseOrphanCount: 0,
+@pulse/api:test:   unresolvedExerciseCount: 0
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: {
+@pulse/api:test:   alreadyAppliedCount: 1,
+@pulse/api:test:   dryRun: false,
+@pulse/api:test:   foreignKeyViolationCountBefore: 0,
+@pulse/api:test:   mapSha256: 'a2c728a915f6c0ad2db9373de9439e7b0f824d01471cb380e065562a53720c01',
+@pulse/api:test:   missingExerciseCount: 0,
+@pulse/api:test:   orphanLinkCount: 0,
+@pulse/api:test:   proposedRepairCount: 0,
+@pulse/api:test:   remainingForeignKeyViolationCount: 0,
+@pulse/api:test:   sessionSetOrphanCount: 0,
+@pulse/api:test:   templateExerciseOrphanCount: 0,
+@pulse/api:test:   unresolvedExerciseCount: 0
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: 
+@pulse/api:test: stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > relinks an exact canonical match while preserving the template row
+@pulse/api:test: {
+@pulse/api:test:   alreadyAppliedCount: 0,
+@pulse/api:test:   dryRun: false,
+@pulse/api:test:   foreignKeyViolationCountBefore: 1,
+@pulse/api:test:   mapSha256: 'ffcfe1cb7e1acf87f0122d2cd063cd1cf035d8759838991951bc94f4a49483ba',
+@pulse/api:test:   missingExerciseCount: 1,
+@pulse/api:test:   orphanLinkCount: 1,
+@pulse/api:test:   proposedRepairCount: 1,
+@pulse/api:test:   remainingForeignKeyViolationCount: 0,
+@pulse/api:test:   sessionSetOrphanCount: 0,
+@pulse/api:test:   templateExerciseOrphanCount: 1,
+@pulse/api:test:   unresolvedExerciseCount: 0
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: {
+@pulse/api:test:   alreadyAppliedCount: 1,
+@pulse/api:test:   dryRun: false,
+@pulse/api:test:   foreignKeyViolationCountBefore: 0,
+@pulse/api:test:   mapSha256: 'ffcfe1cb7e1acf87f0122d2cd063cd1cf035d8759838991951bc94f4a49483ba',
+@pulse/api:test:   missingExerciseCount: 0,
+@pulse/api:test:   orphanLinkCount: 0,
+@pulse/api:test:   proposedRepairCount: 0,
+@pulse/api:test:   remainingForeignKeyViolationCount: 0,
+@pulse/api:test:   sessionSetOrphanCount: 0,
+@pulse/api:test:   templateExerciseOrphanCount: 0,
+@pulse/api:test:   unresolvedExerciseCount: 0
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: 
+@pulse/api:test:  ✓ src/routes/v1/dashboard-store.test.ts (16 tests) 562ms
+@pulse/api:test:      ✓ aggregates all dashboard snapshot sections from scoped query results  550ms
+@pulse/api:test: stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > refuses ambiguous ownership, incomplete maps, and unrelated violations
+@pulse/api:test: {
+@pulse/api:test:   alreadyAppliedCount: 0,
+@pulse/api:test:   dryRun: true,
+@pulse/api:test:   foreignKeyViolationCountBefore: 2,
+@pulse/api:test:   mapSha256: '33363e5be74a423945de2208b335fe01d3bf19d2aecc820f91829b839b3ea2b1',
+@pulse/api:test:   missingExerciseCount: 1,
+@pulse/api:test:   orphanLinkCount: 2,
+@pulse/api:test:   proposedRepairCount: 0,
+@pulse/api:test:   remainingForeignKeyViolationCount: 2,
+@pulse/api:test:   sessionSetOrphanCount: 1,
+@pulse/api:test:   templateExerciseOrphanCount: 1,
+@pulse/api:test:   unresolvedExerciseCount: 1
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: 
+@pulse/api:test:  ✓ src/scripts/repair-workout-exercise-links.test.ts (7 tests) 287ms
+@pulse/api:test:  ✓ src/db/adaptive-program-revision-projection.test.ts (2 tests) 15ms
+@pulse/api:test:  ✓ src/db/scheduled-session-prescriptions-migration.test.ts (1 test) 878ms
+@pulse/api:test:      ✓ upgrades populated legacy sessions without changing history and is idempotent  876ms
+@pulse/api:test:  ✓ src/db/adaptive-program-revision-migration.test.ts (1 test) 172ms
+@pulse/api:test:  ✓ src/lib/user-time-zone.test.ts (4 tests) 35ms
+@pulse/api:test:  ✓ src/routes/meals/index.test.ts (15 tests) 3204ms
+@pulse/api:test:      ✓ creates a standard meal via JWT at /api/v1/meals  1356ms
+@pulse/api:test:      ✓ returns UNRESOLVED_FOODS when a referenced foodId cannot be loaded  373ms
+@pulse/api:test:      ✓ creates ad-hoc meal items without saving foods  316ms
+@pulse/api:test:      ✓ adds multiple items for agent callers and returns enrichment  398ms
+@pulse/api:test:  ✓ src/db/integrity.test.ts (5 tests) 21ms
+@pulse/api:test:  ✓ src/routes/workout-sessions/time-segments.test.ts (10 tests) 6ms
+@pulse/api:test:  ✓ src/db/schema.test.ts (47 tests) 190ms
+@pulse/api:test:  ✓ src/scripts/rehearse-adaptive-goal-migration.test.ts (1 test) 11ms
+@pulse/api:test:  ✓ src/routes/nutrition/index.test.ts (15 tests) 3451ms
+@pulse/api:test:      ✓ updates nutrition status for JWT and AgentToken callers  1124ms
+@pulse/web:test:  ✓ src/pages/activity.test.tsx (6 tests) 6623ms
+@pulse/web:test:      ✓ renders the activity list sorted newest first with formatted metadata  1679ms
+@pulse/web:test:      ✓ filters the activity cards by type  1230ms
+@pulse/web:test:      ✓ opens the add activity form with smart defaults and previews  1081ms
+@pulse/web:test:      ✓ prepends a submitted activity to the list and shows a success message  1169ms
+@pulse/web:test:      ✓ keeps the list in date order when a past activity is submitted  888ms
+@pulse/web:test:      ✓ closes the form without adding an activity when cancelled  572ms
+@pulse/api:test:  ✓ src/__tests__/placeholder.test.ts (1 test) 8ms
+@pulse/api:test:  ✓ src/routes/foods/reuse-policy.test.ts (23 tests) 123ms
+@pulse/api:test:  ✓ src/routes/nutrition-targets/store.test.ts (4 tests) 140ms
+@pulse/api:test:  ✓ src/middleware/agent-transforms.test.ts (9 tests) 323ms
+@pulse/api:test:  ✓ src/routes/workout-sessions/session-set-utils.test.ts (5 tests) 9ms
+@pulse/api:test:  ✓ src/scripts/run-migration.test.ts (6 tests) 6ms
+@pulse/api:test:  ✓ src/middleware/agent-enrichment.test.ts (9 tests) 6ms
+@pulse/web:test:  ✓ src/features/workouts/components/scheduled-workout-detail.test.tsx (14 tests) 7526ms
+@pulse/web:test:      ✓ disables rescheduling while date authority is stale  1617ms
+@pulse/web:test:      ✓ does not reschedule after date authority locks while the dialog is open  616ms
+@pulse/web:test:      ✓ renders supplemental sections before cooldown  781ms
+@pulse/web:test:      ✓ removes stale snapshot exercises from recovery modal via scheduled swap mutation  601ms
+@pulse/web:test:      ✓ opens swap flow from stale recovery modal with the correct stale exercise context  664ms
+@pulse/web:test:      ✓ opens stale recovery modal when start-session returns STALE_SNAPSHOT_EXERCISES  416ms
+@pulse/web:test:      ✓ starts anyway from stale recovery modal by re-posting session start with force true  436ms
+@pulse/web:test:      ✓ reorders scheduled exercises with move controls and sends the expected order payload  764ms
+@pulse/web:test:      ✓ edits set targets through the set editor modal and saves to exercise-sets  463ms
+@pulse/web:test:      ✓ shows mutation errors and rolls optimistic superset updates back  325ms
+@pulse/web:test:  ✓ src/features/data-quality/components/data-quality-calendar-workspace.test.tsx (6 tests) 3456ms
+@pulse/web:test:      ✓ renders the authoritative bootstrap month without a browser-local range request  1178ms
+@pulse/web:test:      ✓ renders honest cross-domain facts, provenance, and exact algorithm treatment  906ms
+@pulse/web:test:      ✓ supports keyboard domain filtering without removing the calendar date truth  510ms
+@pulse/web:test:      ✓ submits bounded date context through the shared form schema  644ms
+@pulse/web:test:  ✓ src/features/adaptive-nutrition/components/energy-balance-workspace.test.tsx (15 tests) 4824ms
+@pulse/web:test:      ✓ renders transparent matched-day signs, provenance, and cutoff semantics  1525ms
+@pulse/web:test:      ✓ uses pressed range and comparison controls with real button semantics  1233ms
+@pulse/web:test:      ✓ exposes a baseline expenditure without accepted-check-in provenance  458ms
+@pulse/web:test:  ✓ src/features/dashboard/components/habit-chain.test.tsx (18 tests) 4025ms
+@pulse/web:test:      ✓ renders all habits with 30 day squares each when API data is provided  1700ms
+@pulse/web:test:      ✓ keeps 0%, partial, and 100% numeric states visually distinct  402ms
+@pulse/api:test:  ❯ src/routes/nutrition/store.food-usage.test.ts (11 tests | 1 failed) 61199ms
+@pulse/api:test:      ✓ counts every linked row through preferred JWT and AgentToken creation 92ms
+@pulse/api:test:      ✓ counts every linked row through date-scoped JWT and AgentToken creation 23ms
+@pulse/api:test:      ✓ preserves exact links through append, metadata, all corrections, delete and retry  6665ms
+@pulse/api:test:      ✓ rolls back create, append, correction and delete when usage persistence fails  13092ms
+@pulse/api:test:      × derives merge from links despite stale counters, with atomic restore and ownership failures 15687ms
+@pulse/api:test:      ✓ serializes concurrent and retry-shaped creates, appends, corrections and deletes without lost projection 159ms
+@pulse/api:test:      ✓ keeps trashed food exact through linked-item edits, deletes, reconciliation and restore  5470ms
+@pulse/api:test:      ✓ uses authenticated Bearer append, metadata, correction, delete, merge and trash routes 217ms
+@pulse/api:test:      ✓ uses authenticated AgentToken append, metadata, correction, delete, merge and trash routes  510ms
+@pulse/api:test:      ✓ rejects unprefixed agent tokens and rolls back date route create failures  4441ms
+@pulse/api:test:      ✓ falls back to the newest surviving timestamp and refuses foreign or partial purges  13499ms
+@pulse/web:test:  ✓ src/features/adaptive-nutrition/components/goal-trajectory-workspace.test.tsx (15 tests) 3660ms
+@pulse/web:test:      ✓ renders server-owned loss pace, ETA, consent, revisions, and honest weekly evidence  1341ms
+@pulse/web:test:      ✓ keeps chart range separate from the selected pace lookback  639ms
+@pulse/web:test:  ✓ src/features/workouts/components/session-summary.test.tsx (4 tests) 984ms
+@pulse/web:test:      ✓ renders condensed shared-card exercise results and preserves summary actions  924ms
+@pulse/web:test:  ✓ src/pages/workouts.test.tsx (13 tests) 4007ms
+@pulse/web:test:      ✓ switches between the workouts views  1233ms
+@pulse/web:test:      ✓ opens contextual workouts help from the page header  306ms
+@pulse/web:test:      ✓ shows onboarding for users with no completed workouts and persists dismissal  638ms
+@pulse/web:test:  ✓ src/features/workouts/components/template-browser.test.tsx (11 tests) 3521ms
+@pulse/web:test:      ✓ persists template sort selection in URL search params  317ms
+@pulse/web:test:      ✓ opens schedule dialog from template actions and submits selected date  722ms
+@pulse/web:test:      ✓ warns before scheduling another workout on an occupied day  896ms
+@pulse/web:test:  ✓ src/features/adaptive-nutrition/components/weekly-decision-review.test.tsx (16 tests) 2965ms
+@pulse/web:test:      ✓ defaults defer to the next program-local date and preserves date submission  418ms
+@pulse/web:test:      ✓ defers until user-selected evidence with accessible validation and one in-flight action  526ms
+@pulse/web:test:  ✓ src/features/habits/components/habit-form-dialog.test.tsx (8 tests) 2697ms
+@pulse/web:test:      ✓ creates a habit in add mode and closes on success  752ms
+@pulse/web:test:      ✓ uses edit mode defaults and calls update mutation  364ms
+@pulse/web:test:      ✓ hides target and unit fields for boolean tracking type  327ms
+@pulse/web:test:      ✓ shows specific-day toggles and submits selected weekdays  380ms
+@pulse/web:test:  ❯ src/features/workouts/components/session-exercise-list.test.tsx (34 tests | 1 failed) 36367ms
+@pulse/web:test:      ✓ renders prescribed set targets from session set data  982ms
+@pulse/web:test:      ✓ shows editable set rows and renders an inline rest timer after the completed set  2571ms
+@pulse/web:test:      ✓ applies distinct section badge styles for complete, partial, and zero-complete sections  1294ms
+@pulse/web:test:      ✓ debounces exercise notes updates until typing pauses  717ms
+@pulse/web:test:      ✓ renders programming notes separately from editable session notes  866ms
+@pulse/web:test:      ✓ renders agent notes inline beneath programming notes on active workout cards  1061ms
+@pulse/web:test:      ✓ does not render a programming notes block when programmingNotes is null  1010ms
+@pulse/web:test:      ✓ flushes pending exercise notes update on blur  726ms
+@pulse/web:test:      ✓ opens exercise menu actions and disables remove when only one set remains  567ms
+@pulse/web:test:      ✓ triggers remove exercise from the exercise actions menu  640ms
+@pulse/web:test:      ✓ opens rename dialog from the exercise actions menu  1069ms
+@pulse/web:test:      ✓ toggles exercise expansion when clicking the exercise title text  910ms
+@pulse/web:test:      ✓ opens swap dialog from the exercise actions menu and calls session swap endpoint  957ms
+@pulse/web:test:      ✓ opens exercise details from the kebab menu without toggling the exercise card  755ms
+@pulse/web:test:      ✓ shows move up/down actions and calls onReorderExercises for active workout lists  505ms
+@pulse/web:test:      ✓ still renders template form cues and omits injury warnings when enhanced injury data is unavailable  705ms
+@pulse/web:test:      ✓ renders superset rest timers between exercises in the superset group  524ms
+@pulse/web:test:      ✓ collapses superset exercises independently  1112ms
+@pulse/web:test:      ✓ supports grouping and ungrouping supersets from workout sections  1662ms
+@pulse/web:test:      ✓ shows completed exercises with strike-through treatment  942ms
+@pulse/web:test:      ✓ keeps non-current completed exercises expanded by default  1176ms
+@pulse/web:test:      × keeps section open state manual when workout progress moves into the next section 5497ms
+@pulse/web:test:      ✓ persists section and exercise collapse state across remounts for the same session id  2894ms
+@pulse/web:test:      ✓ scopes persisted section state by session id  1557ms
+@pulse/web:test:      ✓ collapses sections, toggles exercise details, and focuses the requested next set input  1361ms
+@pulse/web:test:      ✓ formats reps-seconds last performance as reps when seconds are unavailable in history 28ms
+@pulse/web:test:      ✓ formats API reps-seconds quick history as reps times seconds and guards note icons 235ms
+@pulse/web:test:      ✓ renders a compact subtitle for time-based exercises 36ms
+@pulse/web:test:      ✓ renders bodyweight reps exercises without a weight input 40ms
+@pulse/web:test:      ✓ shows all sets in the inline history preview for the latest session 138ms
+@pulse/web:test:      ✓ renders up to 3 inline history entries when API history is enabled  870ms
+@pulse/web:test:      ✓ opens and closes full history modal from active workout exercise rows  1573ms
+@pulse/web:test:      ✓ renders related history collapsed by default and expands on demand  1004ms
+@pulse/web:test:      ✓ hides related history section when no related exercises are configured  378ms
+@pulse/web:test:  ✓ src/pages/habits.test.tsx (6 tests) 1939ms
+@pulse/web:test:      ✓ shows inline add controls when there are no habits  830ms
+@pulse/web:test:      ✓ lets users pick a past day and loads that day entries  705ms
+@pulse/web:test:  ✓ src/features/nutrition/components/daily-nutrition-note.test.tsx (7 tests) 1400ms
+@pulse/web:test:      ✓ adds an empty historical day, trims edges, preserves lines safely, and restores focus  425ms
+@pulse/web:test:  ✓ src/features/habits/components/daily-habits.test.tsx (8 tests) 1193ms
+@pulse/web:test:      ✓ renders a menu trigger for every habit card  385ms
+@pulse/web:test:      ✓ opens add habit dialog from the inline button  301ms
+@pulse/web:test:  ✓ src/features/workouts/components/exercise-trend-chart.test.tsx (17 tests) 1315ms
+@pulse/web:test:      ✓ renders metric selector and switches metric values  641ms
+@pulse/web:test:      ✓ filters chart history by date range  331ms
+@pulse/web:test:  ✓ src/features/workouts/components/workout-calendar.test.tsx (8 tests) 1870ms
+@pulse/web:test:      ✓ disables rescheduling while date authority is stale  661ms
+@pulse/web:test:      ✓ does not reschedule after date authority locks while the dialog is open  334ms
+@pulse/web:test:  ✓ src/features/workouts/components/rir-picker.test.tsx (14 tests) 1103ms
+@pulse/web:test:      ✓ selects 0 exactly once, closes, and restores trigger focus  368ms
+@pulse/web:test:  ✓ src/features/workouts/components/scheduled-start-surfaces.test.tsx (14 tests) 2717ms
+@pulse/web:test:      ✓ uses only schedule identity for normal starts without fetching the template  420ms
+@pulse/web:test:      ✓ aborts stale confirmation when authoritative day changes to 2026-09-07  327ms
+@pulse/web:test:  ✓ src/features/nutrition/components/nutrition-trends.test.tsx (5 tests) 1341ms
+@pulse/web:test:      ✓ renders synchronized averages, gaps, and exact keyboard-operable rows  892ms
+@pulse/web:test:      ✓ uses the shared calendar contract when the range changes  418ms
+@pulse/web:test:  ✓ src/pages/workout-session-detail.test.tsx (7 tests) 2011ms
+@pulse/web:test:      ✓ renders not-found state for unknown sessionId  1229ms
+@pulse/web:test:  ✓ src/features/workouts/components/set-row.test.tsx (26 tests) 758ms
+@pulse/web:test:      ✓ logs native RIR without completing the set and returns focus after selection  302ms
+@pulse/web:test:  ✓ src/features/workouts/components/workout-list.test.tsx (13 tests) 1325ms
+@pulse/web:test:      ✓ renders sections in order and includes in-progress actions  548ms
+@pulse/web:test:  ✓ src/features/foods/components/food-analytics-workspace.test.tsx (5 tests) 1341ms
+@pulse/web:test:      ✓ labels selected-range contribution denominators and keeps current definitions separate  498ms
+@pulse/web:test:      ✓ opens exact immutable occurrence evidence and links to its date and meal  341ms
+@pulse/web:test:  ✓ src/features/dashboard/components/weight-trend-chart.test.tsx (5 tests) 1238ms
+@pulse/web:test:      ✓ uses the server-owned analytics endpoint and selected historical date  496ms
+@pulse/web:test:      ✓ keeps every compact plotted value keyboard-accessible through an exact table  379ms
+@pulse/web:test:  ✓ src/features/weight/api/weight.test.tsx (17 tests) 825ms
+@pulse/web:test:  ✓ src/features/habits/components/habit-card-menu.test.tsx (12 tests) 1280ms
+@pulse/web:test:  ✓ src/features/workouts/components/session-feedback.test.tsx (7 tests) 1336ms
+@pulse/web:test:      ✓ renders standard questions first and supports richer question types  724ms
+@pulse/web:test:  ✓ src/features/habits/components/habit-history.test.tsx (4 tests) 1590ms
+@pulse/web:test:      ✓ loads a 90-day range from API hooks and renders history grids  616ms
+@pulse/web:test:      ✓ shows schedule-aware completion rate text  423ms
+@pulse/web:test:      ✓ shows row-level empty state when a habit has no entries  544ms
+@pulse/web:test:  ✓ src/features/adaptive-nutrition/api/adaptive-nutrition.test.tsx (8 tests) 327ms
+@pulse/web:test:  ✓ src/pages/active-workout.remove-set.test.tsx (2 tests) 1902ms
+@pulse/web:test:      ✓ calls delete with session/set ids, removes optimistically, and stays removed after refetch  1401ms
+@pulse/web:test:      ✓ rolls back optimistic set removal and shows an error when delete fails  500ms
+@pulse/web:test:  ✓ src/features/workouts/components/exercise-detail-modal.test.tsx (12 tests) 1323ms
+@pulse/web:test:      ✓ renders overview tab with exercise details  458ms
+@pulse/web:test:  ✓ src/features/workouts/components/workout-progression-review.test.tsx (14 tests) 1460ms
+@pulse/web:test:      ✓ shows exact evidence and never applies a target merely by rendering  317ms
+@pulse/web:test:  ✓ src/pages/design-system.test.tsx (3 tests) 1147ms
+@pulse/web:test:      ✓ switches themes live using light, dark, and midnight controls  585ms
+@pulse/web:test:      ✓ renders token swatches with resolved hex values for each design token  335ms
+@pulse/web:test:  ✓ src/__tests__/components/daily-habits.test.tsx (8 tests) 984ms
+@pulse/web:test:  ✓ src/features/injuries/components/severity-chart.test.tsx (6 tests) 659ms
+@pulse/web:test:      ✓ renders a responsive chart with exact ordinary and event point inspection  520ms
+@pulse/api:test:  ✓ src/__tests__/food-usage-reconciliation.test.ts (22 tests) 79383ms
+@pulse/api:test:      ✓ defaults to a byte-identical dry run, isolates hostile links and deleted foods, then applies idempotently  10633ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"mode":"invalid"} without writes  3937ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"mode":null} without writes  3210ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"limit":0} without writes  2712ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"limit":501} without writes  2652ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"limit":1.5} without writes  3889ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"limit":"1"} without writes  4467ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"cursor":"anything"} without writes  5627ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"userId":"user-2"} without writes  5462ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"allUsers":true} without writes  3856ms
+@pulse/api:test:      ✓ rejects malformed or broadened scope {"foodId":"foreign"} without writes  7538ms
+@pulse/api:test:      ✓ fails closed on excessive scope, missing users and invalid JWT claims  5896ms
+@pulse/api:test:      ✓ rolls back earlier target writes when a later update fails  3866ms
+@pulse/api:test:      ✓ rejects query selectors and explicit null bodies without writes  3759ms
+@pulse/api:test:      ✓ previews and repairs malformed stored count -1 without a post-commit serialization error  3449ms
+@pulse/api:test:      ✓ previews and repairs malformed stored count 1.5 without a post-commit serialization error  3294ms
+@pulse/api:test:      ✓ rolls back all apply writes if a malformed source timestamp cannot produce a valid response  3656ms
+@pulse/api:test: 
+@pulse/api:test: ⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+@pulse/api:test: 
+@pulse/api:test:  FAIL  src/routes/nutrition/food-reuse-process.integration.test.ts > independent API processes serialize owner-local food creation
+@pulse/api:test: Error: Worker 48072 timeout waiting online/undefined: [] 
+@pulse/api:test:  ❯ Timeout._onTimeout src/routes/nutrition/food-reuse-process.integration.test.ts:67:11
+@pulse/api:test:      65|         this.listeners.delete(check);
+@pulse/api:test:      66|         reject(
+@pulse/api:test:      67|           new Error(
+@pulse/api:test:        |           ^
+@pulse/api:test:      68|             `Worker ${this.child.pid} timeout waiting ${kind}/${id}: $…
+@pulse/api:test:      69|           ),
+@pulse/api:test: 
+@pulse/api:test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+@pulse/api:test: 
+@pulse/api:test: 
+@pulse/api:test: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+@pulse/api:test: 
+@pulse/api:test:  FAIL  src/routes/nutrition/store.display-fields.test.ts > nutrition store display fields > persists displayQuantity/displayUnit when provided
+@pulse/api:test: Error: [vitest] No "sqlite" export is defined on the "../../db/index.js" mock. Did you forget to return it from "vi.mock"?
+@pulse/api:test: If you need to partially mock a module, you can use "importOriginal" helper inside:
+@pulse/api:test: 
+@pulse/api:test: vi.mock(import("../../db/index.js"), async (importOriginal) => {
+@pulse/api:test:   const actual = await importOriginal()
+@pulse/api:test:   return {
+@pulse/api:test:     ...actual,
+@pulse/api:test:     // your mocked methods
+@pulse/api:test:   }
+@pulse/api:test: })
+@pulse/api:test: 
+@pulse/api:test:  ❯ runMealWrite src/routes/meals/write-transaction.ts:22:15
+@pulse/api:test:      20|   write: (tx: Transaction, afterCommit: (effect: () => void) => void) …
+@pulse/api:test:      21| ): Promise<T> => {
+@pulse/api:test:      22|   const { db, sqlite } = await import('../../db/index.js');
+@pulse/api:test:        |               ^
+@pulse/api:test:      23|   for (let attempt = 0; ; attempt++) {
+@pulse/api:test:      24|     const effects: Array<() => void> = [];
+@pulse/api:test:  ❯ createMealForDate src/routes/nutrition/store.ts:449:19
+@pulse/api:test:  ❯ src/routes/nutrition/store.display-fields.test.ts:148:20
+@pulse/api:test: 
+@pulse/api:test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+@pulse/api:test: 
+@pulse/api:test:  FAIL  src/routes/nutrition/store.display-fields.test.ts > nutrition store display fields > stores null display fields when omitted
+@pulse/api:test: Error: [vitest] No "sqlite" export is defined on the "../../db/index.js" mock. Did you forget to return it from "vi.mock"?
+@pulse/api:test: If you need to partially mock a module, you can use "importOriginal" helper inside:
+@pulse/api:test: 
+@pulse/api:test: vi.mock(import("../../db/index.js"), async (importOriginal) => {
+@pulse/api:test:   const actual = await importOriginal()
+@pulse/api:test:   return {
+@pulse/api:test:     ...actual,
+@pulse/api:test:     // your mocked methods
+@pulse/api:test:   }
+@pulse/api:test: })
+@pulse/api:test: 
+@pulse/api:test:  ❯ runMealWrite src/routes/meals/write-transaction.ts:22:15
+@pulse/api:test:      20|   write: (tx: Transaction, afterCommit: (effect: () => void) => void) …
+@pulse/api:test:      21| ): Promise<T> => {
+@pulse/api:test:      22|   const { db, sqlite } = await import('../../db/index.js');
+@pulse/api:test:        |               ^
+@pulse/api:test:      23|   for (let attempt = 0; ; attempt++) {
+@pulse/api:test:      24|     const effects: Array<() => void> = [];
+@pulse/api:test:  ❯ createMealForDate src/routes/nutrition/store.ts:449:19
+@pulse/api:test:  ❯ src/routes/nutrition/store.display-fields.test.ts:203:20
+@pulse/api:test: 
+@pulse/api:test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+@pulse/api:test: 
+@pulse/api:test:  FAIL  src/routes/nutrition/store.food-usage.test.ts > food usage lifecycle integrity > derives merge from links despite stale counters, with atomic restore and ownership failures
+@pulse/api:test: Error: Test timed out in 15000ms.
+@pulse/api:test: If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+@pulse/api:test:  ❯ src/routes/nutrition/store.food-usage.test.ts:345:3
+@pulse/api:test:     343|   });
+@pulse/api:test:     344| 
+@pulse/api:test:     345|   it('derives merge from links despite stale counters, with atomic res…
+@pulse/api:test:        |   ^
+@pulse/api:test:     346|     seedFood({
+@pulse/api:test:     347|       id: '11111111-1111-4111-8111-111111111111',
+@pulse/api:test: 
+@pulse/api:test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+@pulse/api:test: 
+@pulse/api:test: 
+@pulse/api:test:  Test Files  3 failed | 86 passed (89)
+@pulse/api:test:       Tests  3 failed | 1184 passed | 7 skipped (1194)
+@pulse/api:test:    Start at  20:04:13
+@pulse/api:test:    Duration  80.36s (transform 7.68s, setup 0ms, import 124.37s, tests 400.45s, environment 26ms)
+@pulse/api:test: 
+@pulse/api:test:  ELIFECYCLE  Test failed. See above for more details.
+@pulse/api:test: ERROR: command finished with error: command (/Users/meridian/Projects/pulse-food-reuse/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run test exited (1)
+@pulse/web:test:  ELIFECYCLE  Test failed. See above for more details.
+@pulse/api#test: command (/Users/meridian/Projects/pulse-food-reuse/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run test exited (1)
+
+ Tasks:    4 successful, 6 total
+Cached:    0 cached, 6 total
+  Time:    1m28.794s 
+Failed:    @pulse/api#test
+
+ ERROR  run failed: command  exited (1)
+ ELIFECYCLE  Test failed. See above for more details.

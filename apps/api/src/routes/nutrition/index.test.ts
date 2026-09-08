@@ -229,6 +229,7 @@ const loggingContext = {
       },
     },
   ],
+  promotionCandidates: [],
   savedFoodMatches: [
     {
       food: {
@@ -253,8 +254,10 @@ const loggingContext = {
         createdAt: 1_699_000_000_000,
         updatedAt: 1_700_000_000_000,
       },
-      score: 0.86,
-      reason: 'Matched synonym or alias "preserves".',
+      reason: 'alias_exact',
+      evidence: [{ category: 'alias_exact' as const, field: 'name' as const, value: 'preserves' }],
+      ambiguity: 'none' as const,
+      aliasVersion: '1',
       matchedVariant: 'preserves',
     },
   ],
@@ -546,6 +549,7 @@ describe('nutrition routes', () => {
             sugar: 0,
           },
           {
+            foodId: null,
             name: 'Olive Oil',
             amount: 1,
             unit: 'tbsp',

@@ -1,0 +1,29 @@
+$ pnpm typecheck --force
+
+> pulse@ typecheck /Users/meridian/Projects/pulse-food-reuse
+> turbo run typecheck --force
+
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running typecheck in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/api:typecheck: cache bypass, force executing 1b15df5e4db1f755
+@pulse/web:typecheck: cache bypass, force executing 055e7da7b029c09c
+@pulse/shared:typecheck: cache bypass, force executing a0cd02e3ddc4a5ba
+@pulse/web:typecheck: 
+@pulse/web:typecheck: > @pulse/web@0.0.0 typecheck /Users/meridian/Projects/pulse-food-reuse/apps/web
+@pulse/web:typecheck: > tsc --noEmit
+@pulse/web:typecheck: 
+@pulse/shared:typecheck: 
+@pulse/shared:typecheck: > @pulse/shared@0.0.0 typecheck /Users/meridian/Projects/pulse-food-reuse/packages/shared
+@pulse/shared:typecheck: > tsc --noEmit -p tsconfig.json
+@pulse/shared:typecheck: 
+@pulse/api:typecheck: 
+@pulse/api:typecheck: > @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-food-reuse/apps/api
+@pulse/api:typecheck: > tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+@pulse/api:typecheck: 
+
+ Tasks:    3 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    12.129s 
+

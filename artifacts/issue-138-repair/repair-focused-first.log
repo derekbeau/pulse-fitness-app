@@ -1,0 +1,54 @@
+$ pnpm --filter @pulse/api exec vitest run src/routes/nutrition/food-reuse-process.integration.test.ts src/routes/nutrition/ranked-food-reuse.integration.test.ts src/routes/foods/reuse-policy.test.ts --maxWorkers=1
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/api
+
+ ❯ src/routes/nutrition/ranked-food-reuse.integration.test.ts (23 tests | 1 failed) 790ms
+     ✓ proves context auth parity, all window boundaries, recurrence floor and read-only owner isolation 30ms
+     ✓ marks materially ambiguous matches even when response limit is one; foreign high usage cannot change the rank 5ms
+     ✓ uses owned recent linked names as evidence without truncating by the presentation limit 4ms
+     ✓ classifies reuse/create/adhoc and preserves all provenance on preferred 16ms
+     ✓ classifies reuse/create/adhoc and preserves all provenance on date 13ms
+     ✓ classifies reuse/create/adhoc and preserves all provenance on append 16ms
+     ✓ rejects contradictions before writes on preferred with either auth mode 4ms
+     ✓ rejects contradictions before writes on date with either auth mode 3ms
+     ✓ rejects contradictions before writes on append with either auth mode 3ms
+     ✓ never automatically binds fuzzy, alias, token-order, recent, ambiguous or brand-mismatched candidates 6ms
+     ✓ preserves explicit ad hoc and saveToFoods false even for an exact saved match 2ms
+     ✓ fails closed on foreign ids and append targets without creating or changing any food 2ms
+     ✓ keeps note-only writes equivalent for snapshots, usage, recurrence, summary totals and learning facts 10ms
+     ✓ creates one definition for repeated current items and preserves exact per-row usage 3ms
+     ✓ preserves JWT responses and owner validation for preferred 3ms
+     ✓ preserves JWT responses and owner validation for date 4ms
+     ✓ preserves JWT responses and owner validation for append 3ms
+     ✓ rejects incomplete inline macros before creation and ignores deleted definitions for matching 4ms
+     ✓ rolls back new food definitions and usage with failed preferred persistence 3ms
+     ✓ rolls back new food definitions and usage with failed date persistence 2ms
+     ✓ rolls back new food definitions and usage with failed append persistence 2ms
+     × serializes only categorical ranked matches, including frequent and nested promotion matches 62ms
+     ✓ documents generated shared OpenAPI contracts and retains strict authentication 15ms
+ ✓ src/routes/nutrition/food-reuse-process.integration.test.ts (7 tests) 1590ms
+ ✓ src/routes/foods/reuse-policy.test.ts (23 tests) 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/nutrition/ranked-food-reuse.integration.test.ts > ranked food reuse frozen contract / isolated SQLite > serializes only categorical ranked matches, including frequent and nested promotion matches
+TypeError: Cannot read properties of undefined (reading '0')
+ ❯ src/routes/nutrition/ranked-food-reuse.integration.test.ts:647:76
+    645|       properties.savedFoodMatches.items,
+    646|       properties.frequentFoods.items,
+    647|       properties.promotionCandidates.items.properties.likelySavedFoodM…
+       |                                                                            ^
+    648|     ]) {
+    649|       expect(Object.keys(match.properties).sort()).toEqual([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 52 passed (53)
+   Start at  19:59:17
+   Duration  3.42s (transform 515ms, setup 0ms, import 753ms, tests 2.39s, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-food-reuse/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/nutrition/food-reuse-process.integration.test.ts src/routes/nutrition/ranked-food-reuse.integration.test.ts src/routes/foods/reuse-policy.test.ts --maxWorkers=1

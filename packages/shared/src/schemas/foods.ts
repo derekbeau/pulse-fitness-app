@@ -99,6 +99,18 @@ const foodMutationFieldsSchema = z.object({
   tags: foodTagsSchema.optional(),
 });
 
+export const foodProvenanceSchema = foodMutationFieldsSchema
+  .pick({
+    brand: true,
+    servingSize: true,
+    servingGrams: true,
+    source: true,
+    notes: true,
+    verified: true,
+    tags: true,
+  })
+  .partial();
+
 const createFoodInputBaseSchema = foodMutationFieldsSchema
   .omit({ name: true })
   .extend({

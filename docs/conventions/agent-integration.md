@@ -240,8 +240,8 @@ Error notes:
 
 Logs a meal for a date from food-name references. Under AgentToken auth:
 
-- `foodName` values are resolved against the user's foods.
-- Foods can be auto-created when inline macros are provided.
+- `foodName` resolves only to one exact normalized active owned name, with an exact normalized brand when supplied; ambiguity fails closed.
+- Complete inline per-serving macros allow intentional current creation only after exact reuse is ruled out; explicit ad hoc choices always bypass reuse/create.
 - If any food name cannot be resolved, the API returns `422 UNRESOLVED_FOODS`.
 - The response may include an `agent` field with nutrition hints and `suggestedActions`.
 
@@ -335,6 +335,52 @@ Notes:
 
 - Response includes the full updated meal snapshot (all meal items), not only newly appended items.
 - Returns `404 MEAL_NOT_FOUND` if the meal does not exist for the authenticated user.
+
+### Ranked reuse and promotion contract
+
+`GET /api/v1/nutrition/logging-context` is a database-only, shared-auth read. Saved candidates
+include categorical evidence (`exact_normalized`, `alias_exact`, `brand_or_tag`, `token_order`,
+`recent_name`, `partial_name`), literal matched values, advisory alias version, and ambiguity
+computed before result limits. Ranked matches, frequent foods, and nested promotion matches
+serialize no numeric rank, confidence, or binding threshold. Only a unique normalized exact
+owned name can resolve automatically;
+an optional brand must also match exactly, and duplicated names remain unresolved.
+All other matches require an explicit owned `foodId` or an explicit ad hoc choice.
+
+`promotionCandidates` contains owned unlinked snapshots from the previous 30 nutrition-log
+calendar dates, excluding the selected date, with at least two distinct dates. Counts and
+all snapshots are retained even when evidence is `review_only`. `stable_exact` requires
+identical complete core macros, amount, unit and display identity (also fiber/sugar); there
+are no approximate conversions or numeric stability thresholds. Reasons distinguish
+`REPEATED_ADHOC`, `EXACT_SAVED_MATCH`, and `POSSIBLE_SAVED_MATCH`. Existing adequate definitions
+take precedence over new creation. Restaurant/composite suitability is an explicit agent
+decision, never a name heuristic. Server-owned aliases are versioned code, with no user
+alias schema or migration. See [the complete v1 food policy](../agents/foods-api.md#ranked-reuse-and-intentional-promotion-v1)
+for the literal alias groups, ordering, evidence shape, and current-write examples.
+
+All three meal write surfaces share schema validation and middleware, without auth-specific
+route schemas. `adhoc: true` plus non-null `foodId` is `400 VALIDATION_ERROR` with the stable
+issue message `ADHOC_FOOD_ID_CONFLICT`; `adhoc + saveToFoods: true` is also rejected.
+`saveToFoods: false` remains explicit ad hoc and cannot carry a saved link. Agent reuse writes
+resolved per-serving macros (including fiber/sugar), scaled by quantity, into the current
+snapshot. Creation retains supported brand, source, notes, fiber, sugar, serving grams/size,
+verification, and tags. Bare names without an adequate match or complete macros return
+`422 UNRESOLVED_FOODS`. Explicit links remain owner-validated.
+
+Agent responses identify persisted items through
+`agent.itemOutcomes: [{ itemId, foodId, outcome: "reused" | "created" | "adhoc" }]`.
+Append returns the full updated item list, including old linked items classified `reused`;
+`created` refers to a definition created during this request. JWT payload compatibility
+and canonical inline snapshot behavior remain unchanged. JWTs must retain `type: session`,
+`iss: pulse-api`, issuance and expiration claims; AgentToken clients must send the full
+`Authorization: AgentToken <token>` header, including OpenAPI-generated clients.
+
+Both create routes support `returnSummary: true`; when the daily summary is embedded,
+enrichment omits redundant summary-fetch/review guidance. Without it, existing guidance
+remains. No ranked or recurrent candidate can auto-promote, create, historically relink,
+backfill, or rewrite snapshots. Current creation is intentional; historical calories,
+protein, carbs, fat, fiber, sugar, amount and display values remain unchanged after later
+food edits. #143 usage projections and #133 note-only invariants remain in force.
 
 ### Exercises And Workouts
 
@@ -513,3 +559,8 @@ Returns the shared nutrition-summary schema (`date`, `meals`, `actual`, `target`
 - Expect the API to reject invalid JWTs that are missing Pulse session claims.
 - AgentToken auth is the switch for agent conveniences on unified routes.
 - No explicit rate-limit middleware is applied to agent-token traffic on `/api/v1/*` yet.
+
+Food definitions planned by AgentToken meal writes are created inside the same transaction as
+the current meal/items and usage projection. Exact reuse is rechecked inside that transaction
+so concurrent current writes reuse the first committed definition; any persistence failure
+rolls back the new definition together with the meal. No history is relinked.

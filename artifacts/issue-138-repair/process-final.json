@@ -1,0 +1,5 @@
+{
+  "command": "pnpm --filter @pulse/api exec vitest run src/routes/nutrition/food-reuse-process.integration.test.ts --maxWorkers=1",
+  "exitCode": 0,
+  "elapsedSeconds": 2.35
+}

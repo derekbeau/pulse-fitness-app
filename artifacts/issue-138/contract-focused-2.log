@@ -1,0 +1,140 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/api
+
+ ❯ src/routes/nutrition/index.test.ts (15 tests | 2 failed) 253ms
+     ✓ updates nutrition status for JWT and AgentToken callers 114ms
+     ✓ maps nutrition status domain errors and rejects invalid status values 13ms
+     × creates a meal for a date and updates referenced food recency 17ms
+     ✓ creates a meal with an updated daily summary when requested 8ms
+     × gets logging context for JWT and AgentToken callers 9ms
+     ✓ gets nested daily nutrition data or null for missing logs 9ms
+     ✓ returns week summary data for the requested center date 11ms
+     ✓ deletes an existing meal in user scope and returns not found otherwise 7ms
+     ✓ patches meals with partial payloads and returns 404 for out-of-scope meals 8ms
+     ✓ patches meal-item snapshots and returns 404 for out-of-scope items 11ms
+     ✓ gets a daily nutrition summary with actuals, target, and meal count 7ms
+     ✓ returns the same daily summary schema for JWT and AgentToken callers 7ms
+     ✓ returns identical accepted daily energy facts for JWT and AgentToken callers 10ms
+     ✓ validates date and meal payloads 13ms
+     ✓ requires auth for nutrition endpoints 7ms
+ ❯ src/routes/meals/index.test.ts (15 tests | 1 failed) 202ms
+     ✓ creates a standard meal via JWT at /api/v1/meals 70ms
+     ✓ rejects impossible calendar dates via shared schema validation 13ms
+     ✓ returns UNRESOLVED_FOODS when a referenced foodId cannot be loaded 13ms
+     ✓ returns INVALID_MEAL_ITEMS when creating a meal references foods outside user scope 9ms
+     ✓ preserves explicit item names when resolving macros from foodId 8ms
+     ✓ creates an agent meal via foodName resolution and appends enrichment 14ms
+     ✓ creates ad-hoc meal items without saving foods 7ms
+     ✓ creates and links foods when saveToFoods is requested 8ms
+     ✓ adds a single item to an existing meal via JWT 8ms
+     × adds multiple items for agent callers and returns enrichment 13ms
+     ✓ returns UNRESOLVED_FOODS when appended items cannot be resolved 7ms
+     ✓ returns INVALID_MEAL_ITEMS when appended items reference foods outside user scope 7ms
+     ✓ returns 404 when appending items to a missing meal 7ms
+     ✓ returns 404 when appending items to a meal owned by a different user 11ms
+     ✓ patches meal summary for both JWT and AgentToken callers 7ms
+ ✓ src/routes/nutrition/ranked-food-reuse.integration.test.ts (14 tests) 384ms
+ ✓ src/routes/foods/reuse-policy.test.ts (23 tests) 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/meals/index.test.ts > meal routes > adds multiple items for agent callers and returns enrichment
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ src/routes/meals/index.test.ts:965:35
+    963|       });
+    964| 
+    965|       expect(response.statusCode).toBe(200);
+       |                                   ^
+    966|       const body = response.json();
+    967|       expect(body.data.meal).toMatchObject({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/routes/nutrition/index.test.ts > nutrition routes > creates a meal for a date and updates referenced food recency
+AssertionError: expected "vi.fn()" to be called with arguments: [ 'user-1', '2026-03-09', …(1) ]
+
+Received: 
+
+  1st vi.fn() call:
+
+@@ -5,10 +5,12 @@
+      "items": [
+        {
+          "amount": 8,
+          "calories": 374,
+          "carbs": 0,
++         "displayQuantity": undefined,
++         "displayUnit": undefined,
+          "fat": 8,
+          "fiber": 0,
+          "foodId": "food-1",
+          "name": "Chicken Breast",
+          "protein": 70,
+@@ -17,13 +19,18 @@
+        },
+        {
+          "amount": 1,
+          "calories": 120,
+          "carbs": 0,
++         "displayQuantity": undefined,
++         "displayUnit": undefined,
+          "fat": 14,
++         "fiber": undefined,
++         "foodId": null,
+          "name": "Olive Oil",
+          "protein": 0,
++         "sugar": undefined,
+          "unit": "tbsp",
+        },
+      ],
+      "name": "Lunch",
+      "time": "12:30",
+
+
+Number of calls: 1
+
+ ❯ src/routes/nutrition/index.test.ts:532:44
+    530|         },
+    531|       });
+    532|       expect(vi.mocked(createMealForDate)).toHaveBeenCalledWith('user-…
+       |                                            ^
+    533|         name: 'Lunch',
+    534|         time: '12:30',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/routes/nutrition/index.test.ts > nutrition routes > gets logging context for JWT and AgentToken callers
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ src/routes/nutrition/index.test.ts:661:38
+    659|       ]);
+    660| 
+    661|       expect(jwtResponse.statusCode).toBe(200);
+       |                                      ^
+    662|       expect(jwtResponse.headers['cache-control']).toBe('private, no-c…
+    663|       expect(jwtResponse.json()).toEqual({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed | 2 passed (4)
+      Tests  3 failed | 64 passed (67)
+   Start at  19:20:41
+   Duration  3.18s (transform 725ms, setup 0ms, import 1.94s, tests 845ms, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-food-reuse/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/foods/reuse-policy.test.ts src/routes/nutrition/ranked-food-reuse.integration.test.ts src/routes/meals/index.test.ts src/routes/nutrition/index.test.ts --maxWorkers=1

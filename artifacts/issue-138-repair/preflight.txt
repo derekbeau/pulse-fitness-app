@@ -1,0 +1,27 @@
+2026-09-07T23:56:14.350746+00:00
+$ pwd
+/Users/meridian/Projects/pulse-food-reuse
+
+$ git worktree list --porcelain
+worktree /Users/meridian/Projects/pulse-fitness-app
+HEAD 9540148adefe886d78a353eaa0cc60e368c225a0
+branch refs/heads/main
+
+worktree /Users/meridian/Projects/pulse-food-reuse
+HEAD f9154993989c8aa3b1db59a3bbcf802d52975d7c
+branch refs/heads/feat/ranked-food-reuse
+
+worktree /Users/meridian/Projects/pulse-related-history-visibility
+HEAD ae9ce0de93127a2fa270fc12b18902f24d5ed3a8
+branch refs/heads/fix/related-history-visibility
+
+
+$ git branch --show-current
+feat/ranked-food-reuse
+
+$ git rev-parse HEAD
+f9154993989c8aa3b1db59a3bbcf802d52975d7c
+
+$ git status --short
+
+Intended edits: ranked-match schema/output/docs/tests; meals/food-plans.ts; new meals/write-transaction.ts; nutrition/store.ts; isolated two-process fixture/test; repair evidence. No migration or unrelated frontend/config edits planned.

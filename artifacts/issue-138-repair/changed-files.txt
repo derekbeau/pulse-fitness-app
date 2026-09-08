@@ -1,0 +1,14 @@
+apps/api/src/routes/foods/reuse-policy.ts
+apps/api/src/routes/meals/food-plans.ts
+apps/api/src/routes/meals/write-transaction.ts
+apps/api/src/routes/nutrition/__tests__/food-reuse-worker.ts
+apps/api/src/routes/nutrition/food-reuse-process.integration.test.ts
+apps/api/src/routes/nutrition/index.test.ts
+apps/api/src/routes/nutrition/logging-context.integration.test.ts
+apps/api/src/routes/nutrition/ranked-food-reuse.integration.test.ts
+apps/api/src/routes/nutrition/store.display-fields.test.ts
+apps/api/src/routes/nutrition/store.ts
+docs/agents/foods-api.md
+docs/conventions/agent-integration.md
+packages/shared/src/schemas/nutrition.test.ts
+packages/shared/src/schemas/nutrition.ts

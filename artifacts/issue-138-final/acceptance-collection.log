@@ -1,0 +1,4 @@
+$ pnpm exec playwright test --config artifacts/issue-138-final/acceptance.config.mjs --list
+Listing tests:
+  [chromium] › acceptance.spec.mjs:11:1 › ranked reuse: real browser, API, OpenAPI, isolated SQLite and rollback
+Total: 1 test in 1 file

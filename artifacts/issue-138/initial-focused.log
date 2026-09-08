@@ -1,0 +1,12 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-food-reuse/apps/api
+
+ ✓ src/routes/nutrition/logging-context.integration.test.ts (3 tests) 1084ms
+ ✓ src/middleware/agent-transforms.test.ts (9 tests) 33ms
+ ✓ src/middleware/agent-enrichment.test.ts (8 tests) 3ms
+
+ Test Files  3 passed (3)
+      Tests  20 passed (20)
+   Start at  19:17:02
+   Duration  2.24s (transform 574ms, setup 0ms, import 831ms, tests 1.12s, environment 0ms)
+

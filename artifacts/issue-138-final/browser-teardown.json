@@ -1,0 +1,33 @@
+{
+  "head": "56bec515b8bc1bf23585f62f3f7cab03e840cea4",
+  "runId": "452fe1dd-9b56-4f2a-a324-f913794a14f9",
+  "ports": {
+    "3160": "no listener after Playwright teardown",
+    "5260": "no listener after Playwright teardown"
+  },
+  "noOpenDatabaseHandles": true,
+  "removedOnlyOwnedFiles": [
+    {
+      "path": "/Users/meridian/Projects/qa-reports/pulse-parallel-networking/fixtures/pulse160/pulse-e2e.db",
+      "bytes": 4096,
+      "sha256": "2fb9e76bc8b8bb820a77e21342abe7b079f687749503315e13c0cf95106675e0"
+    },
+    {
+      "path": "/Users/meridian/Projects/qa-reports/pulse-parallel-networking/fixtures/pulse160/pulse-e2e.db-wal",
+      "bytes": 1260752,
+      "sha256": "e4b11bae0a046be0099b8a658eef6384f717b42e515dcd0ec204c63f57a186b2"
+    },
+    {
+      "path": "/Users/meridian/Projects/qa-reports/pulse-parallel-networking/fixtures/pulse160/pulse-e2e.db-shm",
+      "bytes": 32768,
+      "sha256": "6b723b4f1355083e2870ed9bf1edbf684024109055f15279225c777a7c214a54"
+    },
+    {
+      "path": "/Users/meridian/Projects/qa-reports/pulse-parallel-networking/fixtures/pulse160/pulse-e2e.db.owner.json",
+      "bytes": 2365,
+      "sha256": "031346cad2b3606c20c1cdf4d766512027a5c2f8a35b444a8d5713f286d1ddd6"
+    }
+  ],
+  "finishedAt": "2026-09-08T00:55:59.665142+00:00",
+  "result": "PASS"
+}

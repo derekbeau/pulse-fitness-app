@@ -1,0 +1,31 @@
+[
+  {
+    "command": "PORT=3160 DATABASE_URL=/Users/meridian/Projects/qa-reports/pulse-parallel-networking/fixtures/pulse160/pulse-e2e.db pnpm --filter api dev",
+    "cwd": "/Users/meridian/Projects/pulse-food-reuse",
+    "reuseExistingServer": true,
+    "url": "http://127.0.0.1:3160/health"
+  },
+  {
+    "command": "VITE_API_PORT=3160 pnpm --filter web dev --host 127.0.0.1 --port 5260",
+    "cwd": "/Users/meridian/Projects/pulse-food-reuse",
+    "reuseExistingServer": true,
+    "url": "http://127.0.0.1:5260"
+  },
+  {
+    "command": "PORT=3160 DATABASE_URL=/Users/meridian/Projects/qa-reports/pulse-parallel-networking/fixtures/pulse160/pulse-e2e.db pnpm --filter @pulse/api exec tsx src/index.ts",
+    "cwd": "/Users/meridian/Projects/pulse-food-reuse",
+    "reuseExistingServer": false,
+    "url": "http://127.0.0.1:3160/health",
+    "env": {
+      "NODE_ENV": "development",
+      "HOST": "127.0.0.1",
+      "JWT_SECRET": "pulse160-fictional-acceptance-only"
+    }
+  },
+  {
+    "command": "VITE_API_PORT=3160 pnpm --filter web dev --host 127.0.0.1 --port 5260",
+    "cwd": "/Users/meridian/Projects/pulse-food-reuse",
+    "reuseExistingServer": false,
+    "url": "http://127.0.0.1:5260"
+  }
+]

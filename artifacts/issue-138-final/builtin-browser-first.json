@@ -1,0 +1,15 @@
+{
+  "runId": "452fe1dd-9b56-4f2a-a324-f913794a14f9",
+  "head": "56bec515b8bc1bf23585f62f3f7cab03e840cea4",
+  "browser": "iab",
+  "tabId": "1",
+  "url": "http://127.0.0.1:5260/api/docs",
+  "observedSwagger": true,
+  "title": "Swagger UI",
+  "heading": "Pulse Fitness API 1.0.0 OAS 3.1",
+  "schemaLink": "http://127.0.0.1:5260/api/docs/json",
+  "observedAt": "2026-09-08T00:55:22.678867+00:00",
+  "evidence": "CUA createBrowserTab returned fresh AX tree; CUA getScreenshot visually confirmed Pulse Fitness API and owned 5260 schema URL before Playwright page fixture creation.",
+  "swaggerServerMetadata": "http://localhost:3001 (existing default; no Try it out action used)",
+  "nativeCodexUiInspected": false
+}

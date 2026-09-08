@@ -1,0 +1,5 @@
+{
+  "command": "zsh -c 'pnpm test:repo-scripts && pnpm exec turbo run test --concurrency=1 --force'",
+  "exitCode": 0,
+  "elapsedSeconds": 97.47
+}

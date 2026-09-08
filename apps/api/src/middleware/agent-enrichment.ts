@@ -10,6 +10,7 @@ import type {
 import { proteinFloorProgressSchema } from '@pulse/shared';
 import type { FastifyRequest, onSendHookHandler } from 'fastify';
 
+import { getCreatedFoodIds } from '../routes/meals/food-plans.js';
 import { isAgentRequest } from './auth.js';
 
 type MacroSummary = {
@@ -217,11 +218,15 @@ const buildMealEnrichment = (
       mealMacros
         ? `${mealName} adds ${formatNumber(mealMacros.calories)} kcal, ${formatNumber(mealMacros.protein)}g protein, ${formatNumber(mealMacros.carbs)}g carbs, and ${formatNumber(mealMacros.fat)}g fat.`
         : undefined,
-      'Use the day nutrition summary to judge what macros remain before the next meal.',
+      isNutritionSummary(record?.summary)
+        ? undefined
+        : 'Use the day nutrition summary to judge what macros remain before the next meal.',
     ]),
     suggestedActions: compactStrings([
       'Log the next meal or snack when it happens.',
-      "Review today's nutrition summary if you need remaining macro targets.",
+      isNutritionSummary(record?.summary)
+        ? undefined
+        : "Review today's nutrition summary if you need remaining macro targets.",
     ]),
     relatedState: compactRecord({
       date: context.mealDate,
@@ -661,6 +666,29 @@ const enrichResponseEnvelope = (
   }
 
   const agent = buildAgentEnrichment(request, envelope.data, context);
+  if (agent && (context.endpoint === 'meal.create' || context.endpoint === 'meal.update')) {
+    const data = envelope.data;
+    const items =
+      isRecord(data) && Array.isArray(data.items)
+        ? data.items
+        : isRecord(data) && typeof data.foodId !== 'undefined'
+          ? [data]
+          : [];
+    const created = getCreatedFoodIds(request.body);
+    agent.itemOutcomes = items
+      .filter(isRecord)
+      .filter((item) => typeof item.id === 'string')
+      .map((item) => ({
+        itemId: item.id as string,
+        foodId: typeof item.foodId === 'string' ? item.foodId : null,
+        outcome:
+          typeof item.foodId !== 'string'
+            ? 'adhoc'
+            : created.has(item.foodId)
+              ? 'created'
+              : 'reused',
+      }));
+  }
   return agent ? { ...envelope, agent } : envelope;
 };
 

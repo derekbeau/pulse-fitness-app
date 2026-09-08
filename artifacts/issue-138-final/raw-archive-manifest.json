@@ -1,0 +1,14 @@
+[
+  {
+    "file": "browser-api-sqlite.json.gz",
+    "rawBytes": 5027082,
+    "rawSha256": "a032bf237de814a6ed122deb688a27e90b827f25286b3ef325dc5eaaebb0fb04",
+    "compressedBytes": 199989
+  },
+  {
+    "file": "browser-openapi.json.gz",
+    "rawBytes": 4335141,
+    "rawSha256": "b8fc4e01651d2b17f41823b9b4e54be8a709d30e4f1ce7fc8fb7e49f5982faa5",
+    "compressedBytes": 181058
+  }
+]
