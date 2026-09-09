@@ -1,0 +1,27 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "bfcf849b4e6b1e35e928681c518916708c657602",
+  "branch": "feat/agent-reviewed-progression",
+  "worktree": "/Users/meridian/Projects/pulse-agent-reviewed-progression",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M apps/api/src/db/schema/workout-progression.ts\n M apps/api/src/routes/workout-progression/index.test.ts\n M apps/api/src/routes/workout-progression/index.ts\n M apps/api/src/routes/workout-progression/store.integration.test.ts\n M apps/api/src/routes/workout-progression/store.ts\n M apps/web/e2e/workout-progression.spec.ts\n M apps/web/src/features/workouts/components/workout-progression-review.test.tsx\n M apps/web/src/features/workouts/components/workout-progression-review.tsx\n M packages/shared/src/schemas/workout-progression.test.ts\n M packages/shared/src/schemas/workout-progression.ts\n?? docs/implementation/agent-reviewed-progression-evidence/",
+  "dirtyPatchSha256": "c4ed8489d50fd918a5939a89e49c0a7644cd7584c624d9b48345fb886313a560",
+  "argv": [
+    "pnpm",
+    "--filter",
+    "@pulse/web",
+    "exec",
+    "vitest",
+    "run",
+    "src/features/workouts/components/workout-progression-review.test.tsx",
+    "src/features/workouts/components/scheduled-start-surfaces.test.tsx"
+  ],
+  "command": "\"pnpm\" \"--filter\" \"@pulse/web\" \"exec\" \"vitest\" \"run\" \"src/features/workouts/components/workout-progression-review.test.tsx\" \"src/features/workouts/components/scheduled-start-surfaces.test.tsx\"",
+  "cacheControls": {},
+  "startedAt": "2026-09-09T20:27:35.369Z",
+  "endedAt": "2026-09-09T20:27:41.598Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "72923528602fecec0f713ce1b0d89f939db3dcab3761292b0bc1b0f194d16fe6",
+  "rawLog": "/Users/meridian/Projects/pulse-agent-reviewed-progression/docs/implementation/agent-reviewed-progression-evidence/raw/11-web-progression-review.log",
+  "rawLogSha256": "31f59ba2d1172f3fd54c8eb1da594227aaab7222919167ef4b73ff6902ffc92b"
+}

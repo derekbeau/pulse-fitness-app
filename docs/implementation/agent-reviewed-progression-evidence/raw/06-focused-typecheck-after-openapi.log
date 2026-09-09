@@ -1,0 +1,43 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: bfcf849b4e6b1e35e928681c518916708c657602
+BRANCH: feat/agent-reviewed-progression
+WORKTREE: /Users/meridian/Projects/pulse-agent-reviewed-progression
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 2a2583e6da088bfd4c9652eee9cdb55f6b5ffcd1d5b29d6c171932b71ce61715
+STARTED_UTC: 2026-09-09T20:20:36.125Z
+COMMAND_ARGV_JSON: ["pnpm","typecheck"]
+COMMAND: "pnpm" "typecheck"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+
+> pulse@ typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression
+> turbo run typecheck
+
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running typecheck in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/api:typecheck: cache miss, executing eb17616f4c3a5322
+@pulse/shared:typecheck: cache miss, executing 3faa1b6184b19808
+@pulse/web:typecheck: cache hit, replaying logs 9cc48d0f38b15077
+@pulse/web:typecheck: 
+@pulse/web:typecheck: > @pulse/web@0.0.0 typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/web
+@pulse/web:typecheck: > tsc --noEmit
+@pulse/web:typecheck: 
+@pulse/api:typecheck: 
+@pulse/api:typecheck: > @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api
+@pulse/api:typecheck: > tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+@pulse/api:typecheck: 
+@pulse/shared:typecheck: 
+@pulse/shared:typecheck: > @pulse/shared@0.0.0 typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression/packages/shared
+@pulse/shared:typecheck: > tsc --noEmit -p tsconfig.json
+@pulse/shared:typecheck: 
+
+ Tasks:    3 successful, 3 total
+Cached:    1 cached, 3 total
+  Time:    16.865s 
+
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-09T20:20:53.912Z
+EXIT_CODE: 0

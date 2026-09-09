@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyWorkoutProgressionActionInputSchema,
   configureWorkoutProgressionInputSchema,
+  publishWorkoutProgressionInputSchema,
   workoutMuscleAnalyticsQuerySchema,
   workoutMuscleAnalyticsSchema,
   workoutMuscleContributionSchema,
@@ -87,6 +88,52 @@ describe('workout progression schemas', () => {
           repRangeMin: null,
         },
         priority: false,
+      }),
+    ).toThrow();
+  });
+
+  it('requires explicit management modes and a complete unique publication', () => {
+    const configuration = {
+      contextAvailability: 'available' as const,
+      contextFacts: [],
+      expectedRevision: 1,
+      managementMode: 'agent_reviewed' as const,
+      policy,
+      priority: true,
+      reason: 'Authorize agent review for this plan.',
+    };
+    expect(configureWorkoutProgressionInputSchema.parse(configuration)).toEqual(configuration);
+    expect(() =>
+      configureWorkoutProgressionInputSchema.parse({ ...configuration, policy: null }),
+    ).toThrow();
+    expect(() =>
+      configureWorkoutProgressionInputSchema.parse({
+        ...configuration,
+        managementMode: 'directly_coached',
+      }),
+    ).toThrow();
+
+    const disposition = {
+      action: 'keep' as const,
+      editedTargets: null,
+      expectedFingerprint: 'a'.repeat(64),
+      reason: 'Targets remain intentionally fixed.',
+      recommendationId: 'recommendation-1',
+    };
+    expect(
+      publishWorkoutProgressionInputSchema.parse({
+        action: 'publish',
+        dispositions: [disposition],
+        idempotencyKey: 'publication-key-1',
+        summary: 'Reviewed the whole plan.',
+      }),
+    ).toMatchObject({ action: 'publish' });
+    expect(() =>
+      publishWorkoutProgressionInputSchema.parse({
+        action: 'publish',
+        dispositions: [disposition, disposition],
+        idempotencyKey: 'publication-key-2',
+        summary: 'Duplicate recommendation.',
       }),
     ).toThrow();
   });

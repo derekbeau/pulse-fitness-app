@@ -1,0 +1,35 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: bfcf849b4e6b1e35e928681c518916708c657602
+BRANCH: feat/agent-reviewed-progression
+WORKTREE: /Users/meridian/Projects/pulse-agent-reviewed-progression
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: e6ffc87b9775716f9050ca7047e7beec34a9561573e51afd1edf93db25de95b7
+STARTED_UTC: 2026-09-09T20:32:52.922Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","@pulse/web","exec","playwright","test","e2e/workout-progression.spec.ts","--workers=1","--retries=0","-g","publishes an owner-authorized agent-reviewed plan"]
+COMMAND: "pnpm" "--filter" "@pulse/web" "exec" "playwright" "test" "e2e/workout-progression.spec.ts" "--workers=1" "--retries=0" "-g" "publishes an owner-authorized agent-reviewed plan"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+[WebServer] (node:51833) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:51863) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:51869) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:51869) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:51891) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:51904) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:51912) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/workout-progression.spec.ts:419:7 › Workout progression and muscle analytics › publishes an owner-authorized agent-reviewed plan and carries final targets into start (5.8s)
+
+  1 passed (12.5s)
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-09T20:33:06.670Z
+EXIT_CODE: 0

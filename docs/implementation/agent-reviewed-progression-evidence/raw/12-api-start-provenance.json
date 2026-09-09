@@ -1,0 +1,28 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "bfcf849b4e6b1e35e928681c518916708c657602",
+  "branch": "feat/agent-reviewed-progression",
+  "worktree": "/Users/meridian/Projects/pulse-agent-reviewed-progression",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M apps/api/src/db/schema/workout-progression.ts\n M apps/api/src/routes/workout-progression/index.test.ts\n M apps/api/src/routes/workout-progression/index.ts\n M apps/api/src/routes/workout-progression/store.integration.test.ts\n M apps/api/src/routes/workout-progression/store.ts\n M apps/web/e2e/workout-progression.spec.ts\n M apps/web/src/features/workouts/components/workout-progression-review.test.tsx\n M apps/web/src/features/workouts/components/workout-progression-review.tsx\n M packages/shared/src/schemas/workout-progression.test.ts\n M packages/shared/src/schemas/workout-progression.ts\n?? docs/implementation/agent-reviewed-progression-evidence/",
+  "dirtyPatchSha256": "c4ed8489d50fd918a5939a89e49c0a7644cd7584c624d9b48345fb886313a560",
+  "argv": [
+    "pnpm",
+    "--filter",
+    "@pulse/api",
+    "exec",
+    "vitest",
+    "run",
+    "src/routes/workout-sessions/index.test.ts",
+    "-t",
+    "starts a session from scheduled-workout snapshot|keeps an independent template start separate|allows exactly one concurrent scheduled start"
+  ],
+  "command": "\"pnpm\" \"--filter\" \"@pulse/api\" \"exec\" \"vitest\" \"run\" \"src/routes/workout-sessions/index.test.ts\" \"-t\" \"starts a session from scheduled-workout snapshot|keeps an independent template start separate|allows exactly one concurrent scheduled start\"",
+  "cacheControls": {},
+  "startedAt": "2026-09-09T20:28:07.511Z",
+  "endedAt": "2026-09-09T20:28:10.753Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "2cec8e444a7a8e093febf0a680371b044a3e3032bfe6acc9937cd332f5fc773f",
+  "rawLog": "/Users/meridian/Projects/pulse-agent-reviewed-progression/docs/implementation/agent-reviewed-progression-evidence/raw/12-api-start-provenance.log",
+  "rawLogSha256": "55c4ad86aaf40250f77e5b1b4cef4decf89c5e68adb8cb9f27901f3884b4fd6d"
+}

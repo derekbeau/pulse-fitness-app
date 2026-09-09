@@ -2,8 +2,10 @@ import { randomUUID } from 'node:crypto';
 
 import type {
   ApplyWorkoutProgressionActionInput,
+  WorkoutProgressionFinalReview,
   WorkoutProgressionConfiguration,
   WorkoutProgressionRecommendation,
+  WorkoutProgressionTarget,
 } from '@pulse/shared';
 import { sql } from 'drizzle-orm';
 import {
@@ -20,6 +22,17 @@ import {
 import { scheduledWorkoutExercises } from './scheduled-workout-exercises.js';
 import { scheduledWorkouts } from './scheduled-workouts.js';
 import { users } from './users.js';
+
+type StoredWorkoutProgressionActionPayload = ApplyWorkoutProgressionActionInput & {
+  publication?: {
+    id: string;
+    disposition: WorkoutProgressionFinalReview['disposition'];
+    summary: string;
+    reason: string;
+    finalTargets: WorkoutProgressionTarget[];
+    finalPrescriptionFingerprint: string;
+  };
+};
 
 export const workoutProgressionAccountDeletionScope = sqliteTable(
   'workout_progression_account_deletion_scope',
@@ -155,7 +168,7 @@ export const workoutProgressionActions = sqliteTable(
     sequence: integer('sequence').notNull(),
     type: text('type').$type<'accept' | 'edit' | 'keep' | 'hold'>().notNull(),
     payload: text('payload', { mode: 'json' })
-      .$type<ApplyWorkoutProgressionActionInput>()
+      .$type<StoredWorkoutProgressionActionPayload>()
       .notNull(),
     actorType: text('actor_type').$type<'user' | 'agent_token'>().notNull(),
     // Immutable audit provenance must survive token revocation. This intentionally stores the

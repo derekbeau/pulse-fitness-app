@@ -1,0 +1,22 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "bfcf849b4e6b1e35e928681c518916708c657602",
+  "branch": "feat/agent-reviewed-progression",
+  "worktree": "/Users/meridian/Projects/pulse-agent-reviewed-progression",
+  "worktreeDirtyBefore": false,
+  "statusBefore": "",
+  "dirtyPatchSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "argv": [
+    "sh",
+    "-c",
+    "git status --short --branch; git rev-parse HEAD; git branch --show-current; git merge-base --is-ancestor b8c22e98cfcd2fb341f7d89d59c66da19db40f05 HEAD; shasum -a 256 AGENTS.md docs/implementation/agent-reviewed-progression-goal.md package.json pnpm-lock.yaml turbo.json vitest.config.ts apps/web/playwright.config.ts packages/shared/src/schemas/workout-progression.ts apps/api/src/routes/workout-progression/store.ts apps/api/src/routes/workout-progression/index.ts apps/api/src/routes/scheduled-workouts/snapshot-store.ts apps/api/src/routes/scheduled-workouts/store.ts apps/api/src/routes/scheduled-workouts/index.ts packages/shared/src/schemas/scheduled-workouts.ts apps/api/src/routes/workout-sessions/index.ts apps/api/src/routes/workout-sessions/store.ts apps/web/src/features/workouts/components/workout-list.tsx apps/web/src/features/workouts/components/workout-calendar.tsx apps/web/src/features/workouts/components/scheduled-workout-detail.tsx apps/web/src/hooks/use-workout-session.ts docs/implementation/feedback-provenance-goal.md docs/specs/rir-logging-v1.md packages/shared/src/schemas/workout-sessions.ts docs/specs/workout-progression-v1.md docs/implementation/progression-preview-goal.md docs/implementation/semantic-template-diff-goal.md"
+  ],
+  "command": "\"sh\" \"-c\" \"git status --short --branch; git rev-parse HEAD; git branch --show-current; git merge-base --is-ancestor b8c22e98cfcd2fb341f7d89d59c66da19db40f05 HEAD; shasum -a 256 AGENTS.md docs/implementation/agent-reviewed-progression-goal.md package.json pnpm-lock.yaml turbo.json vitest.config.ts apps/web/playwright.config.ts packages/shared/src/schemas/workout-progression.ts apps/api/src/routes/workout-progression/store.ts apps/api/src/routes/workout-progression/index.ts apps/api/src/routes/scheduled-workouts/snapshot-store.ts apps/api/src/routes/scheduled-workouts/store.ts apps/api/src/routes/scheduled-workouts/index.ts packages/shared/src/schemas/scheduled-workouts.ts apps/api/src/routes/workout-sessions/index.ts apps/api/src/routes/workout-sessions/store.ts apps/web/src/features/workouts/components/workout-list.tsx apps/web/src/features/workouts/components/workout-calendar.tsx apps/web/src/features/workouts/components/scheduled-workout-detail.tsx apps/web/src/hooks/use-workout-session.ts docs/implementation/feedback-provenance-goal.md docs/specs/rir-logging-v1.md packages/shared/src/schemas/workout-sessions.ts docs/specs/workout-progression-v1.md docs/implementation/progression-preview-goal.md docs/implementation/semantic-template-diff-goal.md\"",
+  "cacheControls": {},
+  "startedAt": "2026-09-09T19:58:48.555Z",
+  "endedAt": "2026-09-09T19:58:48.912Z",
+  "exitCode": 1,
+  "combinedOutputSha256": "f0db69d29778ebe5957b08b52ce7f4dda73712bfc164bd5d3d9bceda787a8413",
+  "rawLog": "/Users/meridian/Projects/pulse-agent-reviewed-progression/docs/implementation/agent-reviewed-progression-evidence/raw/00-clean-start.log",
+  "rawLogSha256": "924650ced17773f635eb6dfc160407808ebf0b1ee3abfeea223d1201e5fa03f7"
+}

@@ -81,6 +81,12 @@ function completedText(
 }
 
 function availabilityMessage(recommendation: WorkoutProgressionRecommendation) {
+  if (
+    recommendation.evidence.managementMode === 'directly_coached' ||
+    recommendation.evidence.managementMode === 'non_progressing'
+  ) {
+    return null;
+  }
   if (recommendation.reasonCodes.includes('MISSING_POLICY')) {
     return 'No progression policy is configured for this exercise. The current plan has not changed.';
   }
@@ -162,7 +168,8 @@ export function WorkoutProgressionReview({
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Deterministic rules compare the last matching performance with this scheduled plan.
-            Nothing changes until you choose an action.
+            Targets change only through an explicit self-review action or authorized agent
+            publication.
           </p>
         </div>
         {!preview.isError ? (
@@ -213,6 +220,8 @@ export function WorkoutProgressionReview({
             const Icon = meta.icon;
             const actionable = recommendation.state === 'current';
             const canApplyTargets = actionable && recommendation.confidence !== 'unavailable';
+            const selfManaged = recommendation.evidence.managementMode === 'self_managed';
+            const finalReview = recommendation.finalReview ?? null;
             const comparisonSetNumbers = [
               ...new Set([
                 ...recommendation.evidence.priorTargets.map((target) => target.setNumber),
@@ -241,6 +250,9 @@ export function WorkoutProgressionReview({
                         {meta.label}
                       </Badge>
                       <Badge variant="secondary">{recommendation.confidence} evidence</Badge>
+                      <Badge variant="outline">
+                        {recommendation.evidence.managementMode.replaceAll('_', ' ')}
+                      </Badge>
                     </div>
                   </div>
                 </CardHeader>
@@ -257,6 +269,28 @@ export function WorkoutProgressionReview({
                     <p className="rounded-xl border border-border bg-secondary/40 p-3 text-sm">
                       Decision recorded: {recommendation.state}.
                     </p>
+                  ) : null}
+
+                  {!selfManaged && recommendation.state === 'current' ? (
+                    <p
+                      className="rounded-xl border border-border bg-secondary/40 p-3 text-sm"
+                      role="status"
+                    >
+                      This exercise is managed by your authorized coaching agent. You can start or
+                      adjust the workout without a separate approval here.
+                    </p>
+                  ) : null}
+
+                  {finalReview ? (
+                    <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm">
+                      <p className="font-medium">What changed and why</p>
+                      <p className="mt-1">{finalReview.summary}</p>
+                      <p className="mt-1 text-muted-foreground">{finalReview.reason}</p>
+                      <p className="mt-2 break-all text-xs text-muted-foreground">
+                        {finalReview.disposition.replaceAll('_', ' ')} · {finalReview.actorLabel} ·
+                        final prescription {finalReview.finalPrescriptionFingerprint}
+                      </p>
+                    </div>
                   ) : null}
 
                   {availabilityMessage(recommendation) ? (
@@ -336,7 +370,7 @@ export function WorkoutProgressionReview({
                               item.reason !== 'REDUNDANT_EXACT_REPS',
                           );
                           const proposed = current
-                            ? recommendation.recommendedTargets.find(
+                            ? (finalReview?.finalTargets ?? recommendation.recommendedTargets).find(
                                 (target) => target.setId === current.setId,
                               )
                             : undefined;
@@ -419,41 +453,52 @@ export function WorkoutProgressionReview({
                         ? `${recommendation.evidence.policySource.actorLabel} · revision ${recommendation.evidence.policySource.revision} · ${recommendation.evidence.priority === null ? 'historical priority unavailable' : recommendation.evidence.priority ? 'priority exercise' : 'standard priority'}`
                         : 'No explicit programming policy'}
                     </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Review mode: {recommendation.evidence.managementMode.replaceAll('_', ' ')}
+                      {recommendation.evidence.managementReason
+                        ? ` · ${recommendation.evidence.managementReason}`
+                        : ''}
+                      {recommendation.evidence.ownerAuthorization
+                        ? ` · owner authorized at ${new Date(recommendation.evidence.ownerAuthorization.authorizedAt).toLocaleString()}`
+                        : ''}
+                    </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                    <Button
-                      className="min-h-11"
-                      disabled={!canApplyTargets || actionMutation.isPending}
-                      onClick={() => void act(recommendation, 'accept')}
-                    >
-                      Accept targets
-                    </Button>
-                    <Button
-                      className="min-h-11"
-                      disabled={!canApplyTargets || actionMutation.isPending}
-                      onClick={() => setEditing(recommendation)}
-                      variant="outline"
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      className="min-h-11"
-                      disabled={!actionable || actionMutation.isPending}
-                      onClick={() => void act(recommendation, 'keep')}
-                      variant="outline"
-                    >
-                      Keep current
-                    </Button>
-                    <Button
-                      className="min-h-11"
-                      disabled={!actionable || actionMutation.isPending}
-                      onClick={() => setHolding(recommendation)}
-                      variant="ghost"
-                    >
-                      Hold with reason
-                    </Button>
-                  </div>
+                  {selfManaged ? (
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                      <Button
+                        className="min-h-11"
+                        disabled={!canApplyTargets || actionMutation.isPending}
+                        onClick={() => void act(recommendation, 'accept')}
+                      >
+                        Accept targets
+                      </Button>
+                      <Button
+                        className="min-h-11"
+                        disabled={!canApplyTargets || actionMutation.isPending}
+                        onClick={() => setEditing(recommendation)}
+                        variant="outline"
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        className="min-h-11"
+                        disabled={!actionable || actionMutation.isPending}
+                        onClick={() => void act(recommendation, 'keep')}
+                        variant="outline"
+                      >
+                        Keep current
+                      </Button>
+                      <Button
+                        className="min-h-11"
+                        disabled={!actionable || actionMutation.isPending}
+                        onClick={() => setHolding(recommendation)}
+                        variant="ghost"
+                      >
+                        Hold with reason
+                      </Button>
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             );

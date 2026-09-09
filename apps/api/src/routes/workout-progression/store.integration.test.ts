@@ -147,6 +147,53 @@ function seedWorkout(sqlite: Database.Database) {
     .run(JSON.stringify(configuration));
 }
 
+function seedSecondScheduledExercise(sqlite: Database.Database) {
+  sqlite
+    .prepare(
+      `INSERT INTO exercises (
+        id, user_id, name, muscle_groups, equipment, category, tracking_type,
+        tags, form_cues, related_exercise_ids, created_at, updated_at
+      ) VALUES (
+        'exercise-2', 'user-1', 'Cable row', '["back","biceps"]', 'cable',
+        'compound', 'weight_reps', '[]', '[]', '[]', 100, 100
+      )`,
+    )
+    .run();
+  sqlite
+    .prepare(
+      `INSERT INTO scheduled_workout_exercises (
+        id, scheduled_workout_id, exercise_id, exercise_name_snapshot, tracking_type_snapshot,
+        section, order_index, created_at, updated_at
+      ) VALUES (
+        'scheduled-exercise-2', 'scheduled-1', 'exercise-2', 'Cable row', 'weight_reps',
+        'main', 1, 200, 200
+      )`,
+    )
+    .run();
+  for (const setNumber of [1, 2]) {
+    sqlite
+      .prepare(
+        `INSERT INTO scheduled_workout_exercise_sets (
+          id, scheduled_workout_exercise_id, set_number, reps_min, reps_max, target_weight,
+          created_at
+        ) VALUES (?, 'scheduled-exercise-2', ?, 8, 10, 30, 200)`,
+      )
+      .run(`scheduled-row-set-${setNumber}`, setNumber);
+    sqlite
+      .prepare(
+        `INSERT INTO session_sets (
+          id, session_id, exercise_id, order_index, set_number, weight, reps, rpe,
+          target_reps_min, target_reps_max, target_weight, source_scheduled_set_id,
+          exercise_id_snapshot, exercise_name_snapshot, tracking_type_snapshot,
+          completed, skipped, section, created_at
+        ) VALUES (?, 'session-1', 'exercise-2', ?, ?, 30, 10, 8,
+          8, 10, 30, ?, 'exercise-2', 'Cable row', 'weight_reps',
+          1, 0, 'main', 400)`,
+      )
+      .run(`session-row-set-${setNumber}`, setNumber - 1, setNumber, `source-row-set-${setNumber}`);
+  }
+}
+
 async function loadStore() {
   vi.resetModules();
   return import('./store.js');
@@ -692,6 +739,207 @@ describe('workout progression store', () => {
     verificationDb.close();
   });
 
+  it('publishes every owner-authorized managed disposition atomically and replays concurrently', async () => {
+    const databaseUrl = prepareDatabase();
+    const setupDb = new Database(databaseUrl);
+    seedSecondScheduledExercise(setupDb);
+    setupDb.close();
+    const store = await loadStore();
+    const initial = await store.previewWorkoutProgression({
+      generatedAt: 500,
+      scheduledWorkoutId: 'scheduled-1',
+      userId: 'user-1',
+    });
+    const policy = initial?.find(
+      (item) => item.evidence.scheduledWorkoutExerciseId === 'scheduled-exercise-1',
+    )?.evidence.policy;
+    if (!policy) throw new Error('Missing explicit progression policy');
+
+    await expect(
+      store.configureWorkoutProgression({
+        actor: { id: 'agent-token-1', label: 'Coach agent', type: 'agent_token' },
+        input: {
+          contextAvailability: 'available',
+          contextFacts: [],
+          expectedRevision: 1,
+          managementMode: 'agent_reviewed',
+          policy,
+          priority: true,
+          reason: 'Coach may review and publish the next plan.',
+        },
+        now: 510,
+        scheduledWorkoutExerciseId: 'scheduled-exercise-1',
+        userId: 'user-1',
+      }),
+    ).rejects.toBeInstanceOf(store.WorkoutProgressionOwnerAuthorizationRequiredError);
+
+    await store.configureWorkoutProgression({
+      actor: { id: 'user-1', label: 'You', type: 'user' },
+      input: {
+        contextAvailability: 'available',
+        contextFacts: [],
+        expectedRevision: 1,
+        managementMode: 'agent_reviewed',
+        policy,
+        priority: true,
+        reason: 'Coach may review and publish the next plan.',
+      },
+      now: 520,
+      scheduledWorkoutExerciseId: 'scheduled-exercise-1',
+      userId: 'user-1',
+    });
+    await store.configureWorkoutProgression({
+      actor: { id: 'user-1', label: 'You', type: 'user' },
+      input: {
+        contextAvailability: 'available',
+        contextFacts: [],
+        expectedRevision: 0,
+        managementMode: 'non_progressing',
+        policy: null,
+        priority: false,
+        reason: 'Keep this exercise on its explicitly prescribed targets.',
+      },
+      now: 530,
+      scheduledWorkoutExerciseId: 'scheduled-exercise-2',
+      userId: 'user-1',
+    });
+    const managed = await store.previewWorkoutProgression({
+      generatedAt: 540,
+      scheduledWorkoutId: 'scheduled-1',
+      userId: 'user-1',
+    });
+    const reviewed = managed?.find((item) => item.evidence.managementMode === 'agent_reviewed');
+    const fixed = managed?.find((item) => item.evidence.managementMode === 'non_progressing');
+    expect(reviewed?.evidence.ownerAuthorization).toEqual({ actorId: 'user-1', authorizedAt: 520 });
+    expect(fixed).toMatchObject({
+      confidence: 'unavailable',
+      decision: 'hold',
+      reasonCodes: expect.arrayContaining(['MISSING_POLICY']),
+    });
+
+    const input = {
+      action: 'publish' as const,
+      idempotencyKey: 'managed-plan-publication-1',
+      summary: 'Raised the press after all prescribed reps; retained the fixed cable row.',
+      dispositions: [
+        {
+          action: 'accept' as const,
+          editedTargets: null,
+          expectedFingerprint: reviewed?.sourceFingerprint ?? '',
+          reason: 'All work sets reached the range top at the configured effort ceiling.',
+          recommendationId: reviewed?.id ?? '',
+        },
+        {
+          action: 'keep' as const,
+          editedTargets: null,
+          expectedFingerprint: fixed?.sourceFingerprint ?? '',
+          reason: 'This exercise is explicitly non-progressing.',
+          recommendationId: fixed?.id ?? '',
+        },
+      ],
+    };
+    await expect(
+      store.publishWorkoutProgression({
+        actor: { id: 'agent-token-1', label: 'Coach agent', type: 'agent_token' },
+        anchorRecommendationId: reviewed?.id ?? '',
+        input: {
+          ...input,
+          dispositions: input.dispositions.slice(0, 1),
+          idempotencyKey: 'incomplete-managed-publication',
+        },
+        now: 590,
+        userId: 'user-1',
+      }),
+    ).rejects.toBeInstanceOf(store.WorkoutProgressionStaleError);
+    const failureDb = new Database(databaseUrl);
+    failureDb.exec(`CREATE TRIGGER fail_second_publication
+      BEFORE INSERT ON workout_progression_actions
+      WHEN (SELECT count(*) FROM workout_progression_actions) = 1
+      BEGIN SELECT RAISE(ABORT, 'injected second action failure'); END`);
+    await expect(
+      store.publishWorkoutProgression({
+        actor: { id: 'agent-token-1', label: 'Coach agent', type: 'agent_token' },
+        anchorRecommendationId: reviewed?.id ?? '',
+        input,
+        now: 600,
+        userId: 'user-1',
+      }),
+    ).rejects.toThrow('injected second action failure');
+    expect(
+      failureDb.prepare('SELECT count(*) AS count FROM workout_progression_actions').get(),
+    ).toEqual({
+      count: 0,
+    });
+    expect(
+      failureDb
+        .prepare(
+          `SELECT target_weight AS weight FROM scheduled_workout_exercise_sets
+           WHERE scheduled_workout_exercise_id = 'scheduled-exercise-1' ORDER BY set_number`,
+        )
+        .all(),
+    ).toEqual([{ weight: 20 }, { weight: 20 }]);
+    failureDb.exec('DROP TRIGGER fail_second_publication');
+    failureDb.close();
+
+    const publish = () =>
+      store.publishWorkoutProgression({
+        actor: { id: 'agent-token-1', label: 'Coach agent', type: 'agent_token' },
+        anchorRecommendationId: reviewed?.id ?? '',
+        input,
+        now: 700,
+        userId: 'user-1',
+      });
+    const [first, replay] = await Promise.all([publish(), publish()]);
+    expect(replay).toEqual(first);
+    await expect(
+      store.publishWorkoutProgression({
+        actor: { id: 'agent-token-1', label: 'Coach agent', type: 'agent_token' },
+        anchorRecommendationId: reviewed?.id ?? '',
+        input: { ...input, summary: 'A conflicting retry body.' },
+        now: 800,
+        userId: 'user-1',
+      }),
+    ).rejects.toBeInstanceOf(store.WorkoutProgressionIdempotencyConflictError);
+    expect(first).toMatchObject({
+      actorId: 'agent-token-1',
+      dispositions: [
+        expect.objectContaining({
+          disposition: 'applied',
+          finalTargets: reviewed?.recommendedTargets,
+        }),
+        expect.objectContaining({
+          disposition: 'not_applicable',
+          finalTargets: fixed?.evidence.priorTargets,
+        }),
+      ],
+    });
+    const final = await store.getWorkoutProgressionRecommendation('user-1', reviewed?.id ?? '');
+    expect(final).toMatchObject({
+      state: 'accepted',
+      finalReview: {
+        actorId: 'agent-token-1',
+        disposition: 'applied',
+        finalPrescriptionFingerprint: first.finalPrescriptionFingerprint,
+        summary: input.summary,
+      },
+    });
+    const verificationDb = new Database(databaseUrl);
+    expect(
+      verificationDb.prepare('SELECT count(*) AS count FROM workout_progression_actions').get(),
+    ).toEqual({
+      count: 2,
+    });
+    expect(
+      verificationDb
+        .prepare(
+          `SELECT target_weight AS weight FROM scheduled_workout_exercise_sets
+           WHERE scheduled_workout_exercise_id = 'scheduled-exercise-1' ORDER BY set_number`,
+        )
+        .all(),
+    ).toEqual([{ weight: 25 }, { weight: 25 }]);
+    verificationDb.close();
+  });
+
   it('stales a decided recommendation after source correction and creates one replacement', async () => {
     const databaseUrl = prepareDatabase();
     const store = await loadStore();
@@ -960,6 +1208,7 @@ describe('workout progression store', () => {
           },
         ],
         expectedRevision: 1,
+        managementMode: 'self_managed',
         policy: {
           allowReduction: false,
           contextRequired: true,
@@ -976,6 +1225,7 @@ describe('workout progression store', () => {
           zoneCeiling: null,
         },
         priority: true,
+        reason: 'Update explicit safety context',
       },
       now: 550,
       scheduledWorkoutExerciseId: 'scheduled-exercise-1',

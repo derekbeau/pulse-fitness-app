@@ -1,0 +1,30 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "bfcf849b4e6b1e35e928681c518916708c657602",
+  "branch": "feat/agent-reviewed-progression",
+  "worktree": "/Users/meridian/Projects/pulse-agent-reviewed-progression",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M apps/api/src/db/schema/workout-progression.ts\n M apps/api/src/routes/workout-progression/index.test.ts\n M apps/api/src/routes/workout-progression/index.ts\n M apps/api/src/routes/workout-progression/store.integration.test.ts\n M apps/api/src/routes/workout-progression/store.ts\n M apps/web/e2e/workout-progression.spec.ts\n M apps/web/src/features/workouts/components/workout-progression-review.test.tsx\n M apps/web/src/features/workouts/components/workout-progression-review.tsx\n M packages/shared/src/schemas/workout-progression.test.ts\n M packages/shared/src/schemas/workout-progression.ts\n?? docs/implementation/agent-reviewed-progression-evidence/",
+  "dirtyPatchSha256": "d06325a36525b298d9e74aeeb8da7192248b88134ebb594a68ce2b793915136b",
+  "argv": [
+    "pnpm",
+    "--filter",
+    "@pulse/web",
+    "exec",
+    "playwright",
+    "test",
+    "e2e/workout-progression.spec.ts",
+    "--workers=1",
+    "--retries=0",
+    "-g",
+    "publishes an owner-authorized agent-reviewed plan"
+  ],
+  "command": "\"pnpm\" \"--filter\" \"@pulse/web\" \"exec\" \"playwright\" \"test\" \"e2e/workout-progression.spec.ts\" \"--workers=1\" \"--retries=0\" \"-g\" \"publishes an owner-authorized agent-reviewed plan\"",
+  "cacheControls": {},
+  "startedAt": "2026-09-09T20:31:05.823Z",
+  "endedAt": "2026-09-09T20:31:07.821Z",
+  "exitCode": 1,
+  "combinedOutputSha256": "880ac44b7a9b69f7383fb34cb3eb4c5184be245628c25679409b5dcbae4bd2a2",
+  "rawLog": "/Users/meridian/Projects/pulse-agent-reviewed-progression/docs/implementation/agent-reviewed-progression-evidence/raw/14-browser-api-managed-publication.log",
+  "rawLogSha256": "dc292cc70edc228d5774f2d3102d6dbb4d2b9a2b766651ab17f6dc1f33878074"
+}

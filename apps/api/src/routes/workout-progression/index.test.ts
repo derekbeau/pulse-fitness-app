@@ -13,6 +13,7 @@ import {
   applyWorkoutProgressionAction,
   configureWorkoutProgression,
   getWorkoutProgressionRecommendation,
+  publishWorkoutProgression,
   previewWorkoutProgression,
   WorkoutProgressionStaleError,
 } from './store.js';
@@ -24,6 +25,7 @@ vi.mock('./store.js', async (importOriginal) => {
     applyWorkoutProgressionAction: vi.fn(),
     configureWorkoutProgression: vi.fn(),
     getWorkoutProgressionRecommendation: vi.fn(),
+    publishWorkoutProgression: vi.fn(),
     previewWorkoutProgression: vi.fn(),
   };
 });
@@ -55,6 +57,9 @@ const recommendation: WorkoutProgressionRecommendation = {
   evidence: {
     exerciseId: 'exercise-1',
     exerciseName: 'Incline press',
+    managementMode: 'self_managed',
+    managementReason: null,
+    ownerAuthorization: null,
     performance: [
       {
         completed: true,
@@ -167,6 +172,7 @@ beforeEach(() => {
   vi.mocked(configureWorkoutProgression).mockReset();
   vi.mocked(getWorkoutMuscleAnalytics).mockReset();
   vi.mocked(getWorkoutProgressionRecommendation).mockReset();
+  vi.mocked(publishWorkoutProgression).mockReset();
   vi.mocked(previewWorkoutProgression).mockReset();
   vi.mocked(findAgentTokenByHash).mockReset();
   vi.mocked(updateAgentTokenLastUsedAt).mockReset();
@@ -293,6 +299,68 @@ describe('workout progression routes', () => {
     }
   });
 
+  it('routes an AgentToken whole-plan publication without requiring per-exercise JWT approval', async () => {
+    const publication = {
+      actorId: 'agent-1',
+      actorLabel: 'Coach agent',
+      actorType: 'agent' as const,
+      dispositions: [
+        {
+          actorId: 'agent-1',
+          actorLabel: 'Coach agent',
+          actorType: 'agent' as const,
+          disposition: 'applied' as const,
+          finalPrescriptionFingerprint: 'c'.repeat(64),
+          finalTargets: [target],
+          publicationId: 'publication-1',
+          reason: 'All prescribed work was completed within the configured effort ceiling.',
+          reviewedAt: 600,
+          summary: 'Raised the target after reviewing the complete plan.',
+        },
+      ],
+      finalPrescriptionFingerprint: 'c'.repeat(64),
+      id: 'publication-1',
+      publishedAt: 600,
+      scheduledWorkoutId: 'scheduled-1',
+      summary: 'Raised the target after reviewing the complete plan.',
+    };
+    vi.mocked(publishWorkoutProgression).mockResolvedValue(publication);
+    const { app } = await withAuth();
+    const input = {
+      action: 'publish' as const,
+      dispositions: [
+        {
+          action: 'accept' as const,
+          editedTargets: null,
+          expectedFingerprint: 'a'.repeat(64),
+          reason: 'All prescribed work was completed within the configured effort ceiling.',
+          recommendationId: 'recommendation-1',
+        },
+      ],
+      idempotencyKey: 'publication-route-key-1',
+      summary: 'Raised the target after reviewing the complete plan.',
+    };
+    try {
+      const response = await app.inject({
+        headers: { authorization: 'AgentToken agent-secret' },
+        method: 'POST',
+        payload: input,
+        url: '/api/v1/workout-progression/recommendations/recommendation-1/actions',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().data).toEqual(publication);
+      expect(publishWorkoutProgression).toHaveBeenCalledWith({
+        actor: { id: 'agent-1', label: 'Coach agent', type: 'agent_token' },
+        anchorRecommendationId: 'recommendation-1',
+        input,
+        userId: 'user-1',
+      });
+      expect(applyWorkoutProgressionAction).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
   it('persists the same strict programming policy contract for JWT and AgentToken callers', async () => {
     vi.mocked(configureWorkoutProgression).mockResolvedValue(configuration);
     const { app, jwt } = await withAuth();
@@ -300,8 +368,10 @@ describe('workout progression routes', () => {
       contextAvailability: 'available' as const,
       contextFacts: [],
       expectedRevision: 0,
+      managementMode: 'self_managed' as const,
       policy: recommendation.evidence.policy,
       priority: true,
+      reason: 'Owner-managed progression review',
     };
     try {
       const agentResponse = await app.inject({

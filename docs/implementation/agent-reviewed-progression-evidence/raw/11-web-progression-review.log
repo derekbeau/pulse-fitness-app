@@ -1,0 +1,26 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: bfcf849b4e6b1e35e928681c518916708c657602
+BRANCH: feat/agent-reviewed-progression
+WORKTREE: /Users/meridian/Projects/pulse-agent-reviewed-progression
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: c4ed8489d50fd918a5939a89e49c0a7644cd7584c624d9b48345fb886313a560
+STARTED_UTC: 2026-09-09T20:27:35.369Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","@pulse/web","exec","vitest","run","src/features/workouts/components/workout-progression-review.test.tsx","src/features/workouts/components/scheduled-start-surfaces.test.tsx"]
+COMMAND: "pnpm" "--filter" "@pulse/web" "exec" "vitest" "run" "src/features/workouts/components/workout-progression-review.test.tsx" "src/features/workouts/components/scheduled-start-surfaces.test.tsx"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/web
+
+ ✓ src/features/workouts/components/workout-progression-review.test.tsx (16 tests) 422ms
+ ✓ src/features/workouts/components/scheduled-start-surfaces.test.tsx (14 tests) 768ms
+
+ Test Files  2 passed (2)
+      Tests  30 passed (30)
+   Start at  16:27:36
+   Duration  4.87s (transform 761ms, setup 447ms, import 3.67s, tests 1.19s, environment 942ms)
+
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-09T20:27:41.598Z
+EXIT_CODE: 0
