@@ -1,0 +1,22 @@
+HARNESS_SETUP_STATUS: command-not-started
+COMMAND_REQUESTED: PULSE_TEST_NOW=2026-09-08T16:00:00.000Z node docs/implementation/feedback-planning-context-evidence/run-receipt.mjs docs/implementation/feedback-planning-context-evidence/raw/01-shared-focused -- pnpm --filter shared exec vitest run src/schemas/feedback-planning-context.test.ts --maxWorkers=1 --no-file-parallelism --no-cache
+TOOL_EXIT_CODE: 1
+TOOL_STDOUT_STDERR_BEGIN
+node:fs:1350
+  const result = binding.mkdir(
+                         ^
+
+Error: EPERM: operation not permitted, mkdir '/Users/meridian/Projects/pulse-feedback-planning-context/docs/implementation/feedback-planning-context-evidence/raw'
+    at mkdirSync (node:fs:1350:26)
+    at file:///Users/meridian/Projects/pulse-feedback-planning-context/docs/implementation/feedback-planning-context-evidence/run-receipt.mjs:32:1
+    at ModuleJob.run (node:internal/modules/esm/module_job:437:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:639:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  errno: -1,
+  code: 'EPERM',
+  syscall: 'mkdir',
+  path: '/Users/meridian/Projects/pulse-feedback-planning-context/docs/implementation/feedback-planning-context-evidence/raw'
+}
+
+Node.js v24.15.0
+TOOL_STDOUT_STDERR_END

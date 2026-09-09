@@ -1,0 +1,26 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "7a046b15130fc54e70ed1eb64a32d3e837eb74b0",
+  "branch": "feat/feedback-planning-context",
+  "worktree": "/Users/meridian/Projects/pulse-feedback-planning-context",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M apps/api/src/routes/feedback-planning/index.test.ts\n M apps/api/src/routes/feedback-planning/store.ts\n?? docs/implementation/feedback-planning-context-evidence/raw/53-remediation-format.json\n?? docs/implementation/feedback-planning-context-evidence/raw/53-remediation-format.log\n?? docs/implementation/feedback-planning-context-evidence/raw/54-remediation-api-focused.json\n?? docs/implementation/feedback-planning-context-evidence/raw/54-remediation-api-focused.log\n?? docs/implementation/feedback-planning-context-evidence/raw/55-remediation-api-focused.json\n?? docs/implementation/feedback-planning-context-evidence/raw/55-remediation-api-focused.log\n?? docs/implementation/feedback-planning-context-evidence/raw/56-remediation-api-typecheck.json\n?? docs/implementation/feedback-planning-context-evidence/raw/56-remediation-api-typecheck.log\n?? docs/implementation/feedback-planning-context-evidence/raw/57-remediation-eslint.json\n?? docs/implementation/feedback-planning-context-evidence/raw/57-remediation-eslint.log",
+  "dirtyPatchSha256": "8a5759759f9119dc8c238d3657d773eb316f762d415701fbcec747a41df4fc68",
+  "argv": [
+    "pnpm",
+    "exec",
+    "eslint",
+    "apps/api/src/routes/feedback-planning/store.ts",
+    "apps/api/src/routes/feedback-planning/index.test.ts"
+  ],
+  "command": "\"pnpm\" \"exec\" \"eslint\" \"apps/api/src/routes/feedback-planning/store.ts\" \"apps/api/src/routes/feedback-planning/index.test.ts\"",
+  "cacheControls": {
+    "CI": "true"
+  },
+  "startedAt": "2026-09-08T21:55:27.346Z",
+  "endedAt": "2026-09-08T21:55:28.243Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "rawLog": "/Users/meridian/Projects/pulse-feedback-planning-context/docs/implementation/feedback-planning-context-evidence/raw/58-remediation-eslint.log",
+  "rawLogSha256": "660fe03bb865dee51f124cc97ac55fab3a43e3df81a9bb0357d5ec4e9d2ad522"
+}

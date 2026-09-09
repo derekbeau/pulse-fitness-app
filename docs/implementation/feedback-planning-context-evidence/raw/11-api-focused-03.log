@@ -1,0 +1,26 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 696f6776641c51e0132ceb021f951937803247c6
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 3a684d307ee702a37a8d76a8994ccd2fef8726cf89a903b4bd2e6468a8626f93
+STARTED_UTC: 2026-09-08T19:59:36.280Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","api","exec","vitest","run","src/routes/feedback-planning/index.test.ts","src/db/feedback-planning-context-migration.test.ts","--no-cache","--maxWorkers=1","--no-file-parallelism"]
+COMMAND: "pnpm" "--filter" "api" "exec" "vitest" "run" "src/routes/feedback-planning/index.test.ts" "src/db/feedback-planning-context-migration.test.ts" "--no-cache" "--maxWorkers=1" "--no-file-parallelism"
+CACHE_CONTROLS_JSON: {"PULSE_TEST_NOW":"2026-09-08T16:00:00.000Z","CI":"true"}
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-planning-context/apps/api
+
+ ✓ src/routes/feedback-planning/index.test.ts (4 tests) 882ms
+ ✓ src/db/feedback-planning-context-migration.test.ts (2 tests) 127ms
+
+ Test Files  2 passed (2)
+      Tests  6 passed (6)
+   Start at  15:59:36
+   Duration  1.85s (transform 558ms, setup 0ms, import 667ms, tests 1.01s, environment 0ms)
+
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T19:59:38.720Z
+EXIT_CODE: 0

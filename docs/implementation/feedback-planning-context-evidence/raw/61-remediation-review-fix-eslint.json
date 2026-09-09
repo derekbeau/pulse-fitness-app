@@ -1,0 +1,26 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "7a046b15130fc54e70ed1eb64a32d3e837eb74b0",
+  "branch": "feat/feedback-planning-context",
+  "worktree": "/Users/meridian/Projects/pulse-feedback-planning-context",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M apps/api/src/routes/feedback-planning/index.test.ts\n M apps/api/src/routes/feedback-planning/store.ts\n?? docs/implementation/feedback-planning-context-evidence/raw/53-remediation-format.json\n?? docs/implementation/feedback-planning-context-evidence/raw/53-remediation-format.log\n?? docs/implementation/feedback-planning-context-evidence/raw/54-remediation-api-focused.json\n?? docs/implementation/feedback-planning-context-evidence/raw/54-remediation-api-focused.log\n?? docs/implementation/feedback-planning-context-evidence/raw/55-remediation-api-focused.json\n?? docs/implementation/feedback-planning-context-evidence/raw/55-remediation-api-focused.log\n?? docs/implementation/feedback-planning-context-evidence/raw/56-remediation-api-typecheck.json\n?? docs/implementation/feedback-planning-context-evidence/raw/56-remediation-api-typecheck.log\n?? docs/implementation/feedback-planning-context-evidence/raw/57-remediation-eslint.json\n?? docs/implementation/feedback-planning-context-evidence/raw/57-remediation-eslint.log\n?? docs/implementation/feedback-planning-context-evidence/raw/58-remediation-eslint.json\n?? docs/implementation/feedback-planning-context-evidence/raw/58-remediation-eslint.log\n?? docs/implementation/feedback-planning-context-evidence/raw/59-remediation-review-fix-focused.json\n?? docs/implementation/feedback-planning-context-evidence/raw/59-remediation-review-fix-focused.log\n?? docs/implementation/feedback-planning-context-evidence/raw/60-remediation-review-fix-typecheck.json\n?? docs/implementation/feedback-planning-context-evidence/raw/60-remediation-review-fix-typecheck.log",
+  "dirtyPatchSha256": "a98424b394e181cb08ac8a17ce8ee11e3d478ef33d4c7af8bf88c468ce78ef28",
+  "argv": [
+    "pnpm",
+    "exec",
+    "eslint",
+    "apps/api/src/routes/feedback-planning/store.ts",
+    "apps/api/src/routes/feedback-planning/index.test.ts"
+  ],
+  "command": "\"pnpm\" \"exec\" \"eslint\" \"apps/api/src/routes/feedback-planning/store.ts\" \"apps/api/src/routes/feedback-planning/index.test.ts\"",
+  "cacheControls": {
+    "CI": "true"
+  },
+  "startedAt": "2026-09-08T22:00:41.858Z",
+  "endedAt": "2026-09-08T22:00:43.064Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "rawLog": "/Users/meridian/Projects/pulse-feedback-planning-context/docs/implementation/feedback-planning-context-evidence/raw/61-remediation-review-fix-eslint.log",
+  "rawLogSha256": "f535af1fdeb77d5ef006e7f68823150a07476c69940b7ac1c3539bd331bdd76b"
+}

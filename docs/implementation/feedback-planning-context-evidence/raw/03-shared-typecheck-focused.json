@@ -1,0 +1,18 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "696f6776641c51e0132ceb021f951937803247c6",
+  "branch": "feat/feedback-planning-context",
+  "worktree": "/Users/meridian/Projects/pulse-feedback-planning-context",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M apps/api/drizzle/meta/_journal.json\n M apps/api/src/db/schema/index.ts\n M apps/api/src/routes/trash/index.ts\n M apps/api/src/routes/v1/context.ts\n M packages/shared/src/index.ts\n?? apps/api/drizzle/0063_feedback_planning_context.sql\n?? apps/api/src/db/feedback-planning-context-migration.test.ts\n?? apps/api/src/db/schema/feedback-planning-context.ts\n?? apps/api/src/routes/feedback-planning/\n?? docs/implementation/feedback-planning-context-evidence/\n?? packages/shared/src/schemas/feedback-planning-context.test.ts\n?? packages/shared/src/schemas/feedback-planning-context.ts",
+  "dirtyPatchSha256": "00a4107a039fb4422f23b7fd69bf01b9bedfd25fd14c7a705f5cc79fd39908c0",
+  "argv": ["pnpm", "--filter", "shared", "typecheck"],
+  "command": "\"pnpm\" \"--filter\" \"shared\" \"typecheck\"",
+  "cacheControls": {},
+  "startedAt": "2026-09-08T19:43:04.170Z",
+  "endedAt": "2026-09-08T19:43:06.352Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "33596eee4b1d92cefb04d81fb7a36477a62b97cc02c95f6bddd2e8360f710d82",
+  "rawLog": "/Users/meridian/Projects/pulse-feedback-planning-context/docs/implementation/feedback-planning-context-evidence/raw/03-shared-typecheck-focused.log",
+  "rawLogSha256": "1884344381ae446ed445321b7de6b8e8d623e9f904614f8792fafbcb647ccc05"
+}

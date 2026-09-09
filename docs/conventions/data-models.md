@@ -805,6 +805,13 @@ This is the polymorphic bridge for cross-entity references such as journal -> wo
 - `habits` has many `habit_entries`.
 - `workout_templates` has many `template_exercises`.
 - `workout_sessions` optionally references a `workout_template` and has many `session_sets`.
+- `workout_feedback_question_lists` freeze revisioned definitions by template, schedule, or session;
+  session answer sets retain immutable answer revisions plus a separate current projection.
+- `workout_feedback_planning_decisions` is an immutable, owner-scoped audit of explicit
+  retain/revise/retire choices. Each decision references its source session and supporting answer
+  revisions through `workout_feedback_planning_decision_responses`; session or account purge
+  removes the derived decision and links. Planning context itself is recomputed on read and has no
+  stored cache table.
 - `session_sets` references both `workout_sessions` and `exercises`.
 - `scheduled_workouts` may point to both a `workout_template` and a realized `workout_session`.
 - `nutrition_logs` has many `meals`; `meals` has many `meal_items`; `meal_items` may reference `foods`.

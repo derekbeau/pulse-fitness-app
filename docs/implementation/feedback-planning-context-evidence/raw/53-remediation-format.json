@@ -1,0 +1,25 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "7a046b15130fc54e70ed1eb64a32d3e837eb74b0",
+  "branch": "feat/feedback-planning-context",
+  "worktree": "/Users/meridian/Projects/pulse-feedback-planning-context",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M apps/api/src/routes/feedback-planning/index.test.ts\n M apps/api/src/routes/feedback-planning/store.ts",
+  "dirtyPatchSha256": "fd49cee84f740b2a266a6b213738ca383f8889af5ae03cac7ed878f116d18888",
+  "argv": [
+    "pnpm",
+    "exec",
+    "prettier",
+    "--write",
+    "apps/api/src/routes/feedback-planning/store.ts",
+    "apps/api/src/routes/feedback-planning/index.test.ts"
+  ],
+  "command": "\"pnpm\" \"exec\" \"prettier\" \"--write\" \"apps/api/src/routes/feedback-planning/store.ts\" \"apps/api/src/routes/feedback-planning/index.test.ts\"",
+  "cacheControls": {},
+  "startedAt": "2026-09-08T21:49:07.603Z",
+  "endedAt": "2026-09-08T21:49:08.242Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "dfb413ae0a511f5e2529116f5cd8b8342e32748a4181d9280625521ad20117c4",
+  "rawLog": "/Users/meridian/Projects/pulse-feedback-planning-context/docs/implementation/feedback-planning-context-evidence/raw/53-remediation-format.log",
+  "rawLogSha256": "9f4f3224fe597cfae2ddc4831aabe10f106439f7a701f93216dafc05800a8aac"
+}

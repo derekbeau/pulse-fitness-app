@@ -1,0 +1,52 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 696f6776641c51e0132ceb021f951937803247c6
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 00a4107a039fb4422f23b7fd69bf01b9bedfd25fd14c7a705f5cc79fd39908c0
+STARTED_UTC: 2026-09-08T19:42:03.814Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","@pulse/api","exec","vitest","run","src/routes/feedback-planning/index.test.ts","src/db/feedback-planning-context-migration.test.ts","--maxWorkers=1","--no-file-parallelism","--no-cache"]
+COMMAND: "pnpm" "--filter" "@pulse/api" "exec" "vitest" "run" "src/routes/feedback-planning/index.test.ts" "src/db/feedback-planning-context-migration.test.ts" "--maxWorkers=1" "--no-file-parallelism" "--no-cache"
+CACHE_CONTROLS_JSON: {"PULSE_TEST_NOW":"2026-09-08T16:00:00.000Z"}
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-planning-context/apps/api
+
+ ❯ src/routes/feedback-planning/index.test.ts (4 tests | 3 failed) 996ms
+     ✓ returns exact bounded evidence, separate history, open stale concerns, and owner-safe export 98ms
+     × applies only an explicit future-note decision, preserves safeguards, and invalidates on correction 3ms
+     × fails closed for invalid query/auth, clinician guidance, foreign targets, and purge readback 1ms
+     × publishes the bounded query and explicit decision contracts in OpenAPI 1ms
+ ✓ src/db/feedback-planning-context-migration.test.ts (2 tests) 133ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/feedback-planning/index.test.ts > source-linked feedback planning context > applies only an explicit future-note decision, preserves safeguards, and invalidates on correction
+ FAIL  src/routes/feedback-planning/index.test.ts > source-linked feedback planning context > fails closed for invalid query/auth, clinician guidance, foreign targets, and purge readback
+ FAIL  src/routes/feedback-planning/index.test.ts > source-linked feedback planning context > publishes the bounded query and explicit decision contracts in OpenAPI
+SqliteError: FOREIGN KEY constraint failed
+ ❯ PreparedQuery.run ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+better-sqlite3@7.6.13_better-sqlite3@12.6.2/node_modules/drizzle-orm/better-sqlite3/session.js:72:22
+ ❯ QueryPromise.run ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+better-sqlite3@7.6.13_better-sqlite3@12.6.2/node_modules/drizzle-orm/sqlite-core/query-builders/delete.js:102:28
+ ❯ src/routes/feedback-planning/index.test.ts:112:31
+    110| 
+    111|   beforeEach(() => {
+    112|     database.db.delete(users).run();
+       |                               ^
+    113|     database.db
+    114|       .insert(users)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 3 passed (6)
+   Start at  15:42:04
+   Duration  2.03s (transform 599ms, setup 0ms, import 711ms, tests 1.13s, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-feedback-planning-context/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/feedback-planning/index.test.ts src/db/feedback-planning-context-migration.test.ts --maxWorkers=1 --no-file-parallelism --no-cache
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T19:42:06.684Z
+EXIT_CODE: 1

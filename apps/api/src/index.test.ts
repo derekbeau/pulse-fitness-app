@@ -351,7 +351,7 @@ describe('OpenAPI docs', () => {
           continue;
         }
 
-        if (routePath.startsWith('/api/v1/context')) {
+        if (routePath === '/api/v1/context/') {
           expect(operation.security).toEqual([{ agentToken: [] }]);
           continue;
         }

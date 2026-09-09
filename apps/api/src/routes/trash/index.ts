@@ -6,7 +6,7 @@ import {
   type TrashListResponse,
   type TrashType,
 } from '@pulse/shared';
-import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, or, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -14,6 +14,7 @@ import { z } from 'zod';
 import {
   exercises,
   foods,
+  feedbackNoteDispositions,
   habits,
   mealItems,
   meals,
@@ -417,6 +418,21 @@ const purgeTrashItem = async ({
         }
 
         tx.delete(sessionSets).where(eq(sessionSets.sessionId, id)).run();
+
+        tx.delete(feedbackNoteDispositions)
+          .where(
+            and(
+              eq(feedbackNoteDispositions.userId, userId),
+              or(
+                and(
+                  eq(feedbackNoteDispositions.kind, 'session'),
+                  eq(feedbackNoteDispositions.parentId, id),
+                ),
+                eq(feedbackNoteDispositions.sourceSessionId, id),
+              ),
+            ),
+          )
+          .run();
 
         tx.delete(workoutSessions)
           .where(

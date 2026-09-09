@@ -1,0 +1,26 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "c609090f5926f2473299be2b28168505b8f127f9",
+  "branch": "feat/feedback-planning-context",
+  "worktree": "/Users/meridian/Projects/pulse-feedback-planning-context",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M docs/implementation/feedback-planning-context-evidence/source-hashes.sha256\n?? docs/implementation/feedback-planning-context-evidence/raw/53-remediation-format.json\n?? docs/implementation/feedback-planning-context-evidence/raw/53-remediation-format.log\n?? docs/implementation/feedback-planning-context-evidence/raw/54-remediation-api-focused.json\n?? docs/implementation/feedback-planning-context-evidence/raw/54-remediation-api-focused.log\n?? docs/implementation/feedback-planning-context-evidence/raw/55-remediation-api-focused.json\n?? docs/implementation/feedback-planning-context-evidence/raw/55-remediation-api-focused.log\n?? docs/implementation/feedback-planning-context-evidence/raw/56-remediation-api-typecheck.json\n?? docs/implementation/feedback-planning-context-evidence/raw/56-remediation-api-typecheck.log\n?? docs/implementation/feedback-planning-context-evidence/raw/57-remediation-eslint.json\n?? docs/implementation/feedback-planning-context-evidence/raw/57-remediation-eslint.log\n?? docs/implementation/feedback-planning-context-evidence/raw/58-remediation-eslint.json\n?? docs/implementation/feedback-planning-context-evidence/raw/58-remediation-eslint.log\n?? docs/implementation/feedback-planning-context-evidence/raw/59-remediation-review-fix-focused.json\n?? docs/implementation/feedback-planning-context-evidence/raw/59-remediation-review-fix-focused.log\n?? docs/implementation/feedback-planning-context-evidence/raw/60-remediation-review-fix-typecheck.json\n?? docs/implementation/feedback-planning-context-evidence/raw/60-remediation-review-fix-typecheck.log\n?? docs/implementation/feedback-planning-context-evidence/raw/61-remediation-review-fix-eslint.json\n?? docs/implementation/feedback-planning-context-evidence/raw/61-remediation-review-fix-eslint.log\n?? docs/implementation/feedback-planning-context-evidence/raw/62-remediation-source-hashes.json\n?? docs/implementation/feedback-planning-context-evidence/raw/62-remediation-source-hashes.log\n?? docs/implementation/feedback-planning-context-evidence/raw/63-remediation-full-test.json\n?? docs/implementation/feedback-planning-context-evidence/raw/63-remediation-full-test.log\n?? docs/implementation/feedback-planning-context-evidence/raw/64-remediation-full-typecheck.json\n?? docs/implementation/feedback-planning-context-evidence/raw/64-remediation-full-typecheck.log",
+  "dirtyPatchSha256": "8c39fecca6aabc14d474f168eb5aef9d00f1e5bb37c5619e3a927b4cebcc1828",
+  "argv": [
+    "pnpm",
+    "lint"
+  ],
+  "command": "\"pnpm\" \"lint\"",
+  "cacheControls": {
+    "TURBO_FORCE": "true",
+    "TURBO_CONCURRENCY": "1",
+    "TURBO_ENV_MODE": "strict",
+    "CI": "true"
+  },
+  "startedAt": "2026-09-08T22:07:03.636Z",
+  "endedAt": "2026-09-08T22:07:19.568Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "7d523ed4db46189c728eeaef4dc80b3ad33f7dd2ebba953a6270fa5f421462bf",
+  "rawLog": "/Users/meridian/Projects/pulse-feedback-planning-context/docs/implementation/feedback-planning-context-evidence/raw/65-remediation-full-lint.log",
+  "rawLogSha256": "7841610f18481f672ee791898723cb31485124b982c8d4991bb538d1a00da8ab"
+}

@@ -1,0 +1,29 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 696f6776641c51e0132ceb021f951937803247c6
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 3a684d307ee702a37a8d76a8994ccd2fef8726cf89a903b4bd2e6468a8626f93
+STARTED_UTC: 2026-09-08T19:56:46.510Z
+COMMAND_ARGV_JSON: ["pnpm","exec","prettier","--write","packages/shared/src/schemas/feedback-planning-context.ts","packages/shared/src/schemas/feedback-planning-context.test.ts","packages/shared/src/index.ts","apps/api/src/db/schema/feedback-planning-context.ts","apps/api/src/db/schema/index.ts","apps/api/src/db/feedback-planning-context-migration.test.ts","apps/api/src/routes/feedback-planning/store.ts","apps/api/src/routes/feedback-planning/index.test.ts","apps/api/src/routes/v1/context.ts","apps/api/src/routes/trash/index.ts","docs/conventions/agent-integration.md","docs/conventions/data-models.md","docs/implementation/feedback-planning-context-evidence/README.md","docs/implementation/feedback-planning-context-evidence/consumer-inventory.md"]
+COMMAND: "pnpm" "exec" "prettier" "--write" "packages/shared/src/schemas/feedback-planning-context.ts" "packages/shared/src/schemas/feedback-planning-context.test.ts" "packages/shared/src/index.ts" "apps/api/src/db/schema/feedback-planning-context.ts" "apps/api/src/db/schema/index.ts" "apps/api/src/db/feedback-planning-context-migration.test.ts" "apps/api/src/routes/feedback-planning/store.ts" "apps/api/src/routes/feedback-planning/index.test.ts" "apps/api/src/routes/v1/context.ts" "apps/api/src/routes/trash/index.ts" "docs/conventions/agent-integration.md" "docs/conventions/data-models.md" "docs/implementation/feedback-planning-context-evidence/README.md" "docs/implementation/feedback-planning-context-evidence/consumer-inventory.md"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+packages/shared/src/schemas/feedback-planning-context.ts 60ms
+packages/shared/src/schemas/feedback-planning-context.test.ts 6ms (unchanged)
+packages/shared/src/index.ts 2ms (unchanged)
+apps/api/src/db/schema/feedback-planning-context.ts 8ms (unchanged)
+apps/api/src/db/schema/index.ts 1ms (unchanged)
+apps/api/src/db/feedback-planning-context-migration.test.ts 9ms
+apps/api/src/routes/feedback-planning/store.ts 34ms
+apps/api/src/routes/feedback-planning/index.test.ts 33ms
+apps/api/src/routes/v1/context.ts 4ms (unchanged)
+apps/api/src/routes/trash/index.ts 12ms (unchanged)
+docs/conventions/agent-integration.md 51ms (unchanged)
+docs/conventions/data-models.md 48ms (unchanged)
+docs/implementation/feedback-planning-context-evidence/README.md 1ms (unchanged)
+docs/implementation/feedback-planning-context-evidence/consumer-inventory.md 5ms (unchanged)
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T19:56:47.687Z
+EXIT_CODE: 0

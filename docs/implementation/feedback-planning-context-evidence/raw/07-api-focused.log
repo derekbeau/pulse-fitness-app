@@ -1,0 +1,100 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 696f6776641c51e0132ceb021f951937803247c6
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 3a684d307ee702a37a8d76a8994ccd2fef8726cf89a903b4bd2e6468a8626f93
+STARTED_UTC: 2026-09-08T19:57:08.853Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","api","exec","vitest","run","src/routes/feedback-planning/index.test.ts","src/db/feedback-planning-context-migration.test.ts","--no-cache","--maxWorkers=1","--no-file-parallelism"]
+COMMAND: "pnpm" "--filter" "api" "exec" "vitest" "run" "src/routes/feedback-planning/index.test.ts" "src/db/feedback-planning-context-migration.test.ts" "--no-cache" "--maxWorkers=1" "--no-file-parallelism"
+CACHE_CONTROLS_JSON: {"PULSE_TEST_NOW":"2026-09-08T16:00:00.000Z","CI":"true"}
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-planning-context/apps/api
+
+ ❯ src/routes/feedback-planning/index.test.ts (4 tests | 3 failed) 883ms
+     × returns exact bounded evidence, separate history, open stale concerns, and owner-safe export 87ms
+     × applies only an explicit future-note decision, preserves safeguards, and invalidates on correction 62ms
+     × fails closed for invalid query/auth, clinician guidance, foreign targets, and purge readback 28ms
+     ✓ publishes the bounded query and explicit decision contracts in OpenAPI 75ms
+ ✓ src/db/feedback-planning-context-migration.test.ts (2 tests) 124ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/feedback-planning/index.test.ts > source-linked feedback planning context > returns exact bounded evidence, separate history, open stale concerns, and owner-safe export
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/routes/feedback-planning/index.test.ts:464:7
+    462|         .json()
+    463|         .data.audit.items.some((item: { rawPayload?: string }) => item…
+    464|     ).toBe(true);
+       |       ^
+    465|   });
+    466| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/routes/feedback-planning/index.test.ts > source-linked feedback planning context > applies only an explicit future-note decision, preserves safeguards, and invalidates on correction
+AssertionError: expected { …(20) } to match object { …(3) }
+(30 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "id": "7e903329-2cb4-490c-beb4-9f55a8cbf4fd",
++   "id": "a5dc5da6-0a99-4294-b414-6067a0e96921",
+    "stale": true,
+    "stalenessReasons": [
+      "dependency_changed",
+    ],
+  }
+
+ ❯ src/routes/feedback-planning/index.test.ts:687:60
+    685|       headers: agent('token-a'),
+    686|     });
+    687|     expect(noteInvalidated.json().data.decisions.items[0]).toMatchObje…
+       |                                                            ^
+    688|       id: afterMigration.json().data.id,
+    689|       stale: true,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/routes/feedback-planning/index.test.ts > source-linked feedback planning context > fails closed for invalid query/auth, clinician guidance, foreign targets, and purge readback
+AssertionError: expected 400 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 400
+
+ ❯ src/routes/feedback-planning/index.test.ts:903:38
+    901|       },
+    902|     });
+    903|     expect(foreignTarget.statusCode).toBe(404);
+       |                                      ^
+    904|     expect(foreignTarget.json().error.message).toBe('Future scheduled …
+    905|     const clinicianRetire = await app.inject({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 3 passed (6)
+   Start at  15:57:09
+   Duration  1.86s (transform 530ms, setup 0ms, import 685ms, tests 1.01s, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-feedback-planning-context/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/feedback-planning/index.test.ts src/db/feedback-planning-context-migration.test.ts --no-cache --maxWorkers=1 --no-file-parallelism
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T19:57:11.282Z
+EXIT_CODE: 1

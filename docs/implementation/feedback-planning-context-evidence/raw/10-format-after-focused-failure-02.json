@@ -1,0 +1,25 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "696f6776641c51e0132ceb021f951937803247c6",
+  "branch": "feat/feedback-planning-context",
+  "worktree": "/Users/meridian/Projects/pulse-feedback-planning-context",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M apps/api/drizzle/meta/_journal.json\n M apps/api/src/db/schema/index.ts\n M apps/api/src/routes/trash/index.ts\n M apps/api/src/routes/v1/context.ts\n M docs/conventions/agent-integration.md\n M docs/conventions/data-models.md\n M packages/shared/src/index.ts\n?? apps/api/drizzle/0063_feedback_planning_context.sql\n?? apps/api/src/db/feedback-planning-context-migration.test.ts\n?? apps/api/src/db/schema/feedback-planning-context.ts\n?? apps/api/src/routes/feedback-planning/\n?? docs/implementation/feedback-planning-context-evidence/\n?? packages/shared/src/schemas/feedback-planning-context.test.ts\n?? packages/shared/src/schemas/feedback-planning-context.ts",
+  "dirtyPatchSha256": "3a684d307ee702a37a8d76a8994ccd2fef8726cf89a903b4bd2e6468a8626f93",
+  "argv": [
+    "pnpm",
+    "exec",
+    "prettier",
+    "--write",
+    "apps/api/src/routes/feedback-planning/store.ts",
+    "apps/api/src/routes/feedback-planning/index.test.ts"
+  ],
+  "command": "\"pnpm\" \"exec\" \"prettier\" \"--write\" \"apps/api/src/routes/feedback-planning/store.ts\" \"apps/api/src/routes/feedback-planning/index.test.ts\"",
+  "cacheControls": {},
+  "startedAt": "2026-09-08T19:59:25.023Z",
+  "endedAt": "2026-09-08T19:59:25.656Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "b15d825ea790602848438bf55c350ad898b373837d84c7a686996bd6388d3655",
+  "rawLog": "/Users/meridian/Projects/pulse-feedback-planning-context/docs/implementation/feedback-planning-context-evidence/raw/10-format-after-focused-failure-02.log",
+  "rawLogSha256": "d31ac6e550e12868858bf31a532d2a3c1a2cb62c2bff036a082ba2aac222a826"
+}

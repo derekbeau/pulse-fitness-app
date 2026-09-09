@@ -1,0 +1,25 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: 696f6776641c51e0132ceb021f951937803247c6
+BRANCH: feat/feedback-planning-context
+WORKTREE: /Users/meridian/Projects/pulse-feedback-planning-context
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 3a684d307ee702a37a8d76a8994ccd2fef8726cf89a903b4bd2e6468a8626f93
+STARTED_UTC: 2026-09-08T19:56:57.577Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","@pulse/shared","exec","vitest","run","src/schemas/feedback-planning-context.test.ts","--no-cache","--maxWorkers=1","--no-file-parallelism"]
+COMMAND: "pnpm" "--filter" "@pulse/shared" "exec" "vitest" "run" "src/schemas/feedback-planning-context.test.ts" "--no-cache" "--maxWorkers=1" "--no-file-parallelism"
+CACHE_CONTROLS_JSON: {"CI":"true"}
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-feedback-planning-context/packages/shared
+
+ ✓ src/schemas/feedback-planning-context.test.ts (3 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  15:56:58
+   Duration  163ms (transform 49ms, setup 0ms, import 67ms, tests 4ms, environment 0ms)
+
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-08T19:56:58.389Z
+EXIT_CODE: 0
