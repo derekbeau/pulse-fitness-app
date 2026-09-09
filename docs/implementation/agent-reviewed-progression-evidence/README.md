@@ -65,5 +65,20 @@ The reviewer made no edits. Its attempted optional focused Vitest command did no
 the review agent environment; the primary agent's receipt-captured focused tests above are the
 authoritative executions.
 
-Final uncached gates and the source/config/lock binding manifest are added after the reviewed source
-candidate is committed, so they can name the exact tested commit.
+## Final uncached candidate gates
+
+Receipts `21`–`24` bind the final matrix to clean source candidate
+`d977b4db271cde4f3e39fa59ee523f1b575495db`. Every receipt records
+`worktreeDirtyBefore: false`, exit code 0, `TURBO_FORCE=true`, strict environment handling, and
+single-worker Turbo execution.
+
+| Receipt              | Result                         | Notes                                                |
+| -------------------- | ------------------------------ | ---------------------------------------------------- |
+| `21-final-test`      | 6 Turbo tasks passed, 0 cached | shared 729, web 1420, API 1243, repo scripts 15      |
+| `22-final-typecheck` | 3 Turbo tasks passed, 0 cached | shared, API, and web                                 |
+| `23-final-lint`      | 3 Turbo tasks passed, 0 cached | zero errors; six pre-existing Fast Refresh warnings |
+| `24-final-build`     | 3 Turbo tasks passed, 0 cached | successful production builds; known chunk warning   |
+
+`final-binding-manifest.md` binds the reviewed source, tests, goal, package/config/lock files,
+receipt harness, and final raw receipts by SHA-256. The later evidence-only commit does not alter
+the tested candidate and therefore does not invalidate or rerun this matrix.

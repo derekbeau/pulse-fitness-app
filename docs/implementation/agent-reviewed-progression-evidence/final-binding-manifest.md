@@ -1,0 +1,55 @@
+# Pulse #153 final candidate binding manifest
+
+Tested source candidate: `d977b4db271cde4f3e39fa59ee523f1b575495db`
+
+All hashes are SHA-256. The final receipt sidecars additionally record the branch, exact tested
+commit, clean pre-run worktree, argv, UTC timestamps, exit code, cache controls, and raw-log hash.
+
+## Product source and focused tests
+
+```text
+4aace9b3be2d1ca2d4e5086954632e00c6199a5b6e524a01dfab7dfb4e326090  apps/api/src/db/schema/workout-progression.ts
+6284fd3b4a1641d547d71d604fe3a7cad3f3bf1fa295065b79c45fa8268b288a  apps/api/src/routes/workout-progression/index.test.ts
+d81ffe5bc1976d5276802ea5b45588a563dbe97283b57c963265fdefbe40df9c  apps/api/src/routes/workout-progression/index.ts
+502086cbf31b4e81709617529d029b5a9d3ddd9de577872699e99a630fc7bd61  apps/api/src/routes/workout-progression/store.integration.test.ts
+db3cc39c956237abba6ca3937364495017e9a78f5cd3f37e66fc03d632a9f7dc  apps/api/src/routes/workout-progression/store.ts
+3d1abd9ec807a88513440234ff63bb7794fa303e19749da7c7813acd3dd1b544  apps/web/e2e/workout-progression.spec.ts
+ed143e26450eddead137495d9fe7c5b0f50755df99466324f06de72e9925f5e1  apps/web/src/features/workouts/components/workout-progression-review.test.tsx
+840f233ff8c541420e807509d627298c5e0a8719018125236bc169949d49ae35  apps/web/src/features/workouts/components/workout-progression-review.tsx
+4c0d715d1b3d9d1a2b9cc117c98f3d74df37b1a0722dc0670ceee7cb12d2e8ce  packages/shared/src/schemas/workout-progression.test.ts
+323d4e7480812405794974e0973f07f5e285810fbb325ffb043d90c15239b56e  packages/shared/src/schemas/workout-progression.ts
+```
+
+## Goal, dependency, and runner bindings
+
+```text
+68a76f7fd49bd37f43743571ad01357fd27242b2cb034b914894afbe44090bc9  docs/implementation/agent-reviewed-progression-goal.md
+38b6a2fc5451b1da1aea62ff64a3d458e32e10987eb40e400521fa28cc5bf2c4  package.json
+be493b70d741a1cf9b6061d56f8fbb681ef4e8d947603a568e723cba00edc34c  apps/api/package.json
+44b982e4137dbfbc7bb9980962c7a119d77b601b1804acbb54b04a8c49cb7cc3  apps/web/package.json
+b8315b76f8ead3d4c9ce185bda0e3b25b14da231fa1b31e2be97556752604920  packages/shared/package.json
+a4a3723d7b1181995713719f2f45a6dcc931bc1c03de5b44d6362e401be1975a  pnpm-lock.yaml
+3d6fe8d8db6f86f91108bfd23e70330e5eda32f6a1aea53fd03e4097522284af  turbo.json
+98c856e09ed7d3cfc1973da021958594d6dd070812407910daad0b647f0890d5  apps/api/tsconfig.json
+109e61040b256597a5674251cdc42b992c1af1a2ec568c47b874a277b16cc94e  apps/api/tsconfig.test.json
+4a42f7710af36d573cac3863dfbb0c43bccf353c4e6463dec7769cf5dd98a606  apps/web/tsconfig.json
+65266cfc79518e86d11b011a0570548e7482fafb68c4c3dc39abde2f9622fd52  packages/shared/tsconfig.json
+cdb77b233678a0fbef5005bd7f679c4c7aa2c7a4c5f8394690e7ddba8af364c1  apps/api/vitest.config.ts
+b72c0d7892f40c03e9aabfc6d7bde8274102736de4c7a00744398caa92d84215  packages/shared/vitest.config.ts
+ffdcd8ea9a664bbe087fdefd89dec0786cc31d82b645b1ee5208829f36d22dbe  playwright.config.ts
+536d28616540ba58bf90dca408ec6f6c870124462f3906c4ab0cac9699b65589  apps/web/playwright.config.ts
+5b607cfbc085665436b393e7422244f071ca4842804ef05daefc1aa70c695b2f  docs/implementation/feedback-planning-context-evidence/run-receipt.mjs
+```
+
+## Final raw receipts
+
+```text
+197d123e0167735f986bbee1fee217a7b83e9c34d3c8a4d491dbe590172a93d4  raw/21-final-test.json
+91e8ae9b35d2739495af513867de473c4310369930230f7421f7930a52730982  raw/21-final-test.log
+bc8c40cc80d0fc847688e9e69ef36c69c3fa45c9755f97f7292874ed0c2fa252  raw/22-final-typecheck.json
+a5471a3c185aca9869c6d21f19ef213294bae26305f4c896f48dff478f7e69ba  raw/22-final-typecheck.log
+e43ac4ff70e99761decb66924abd9e5664c721bc98b9c27548f03b4d8ae5d609  raw/23-final-lint.json
+89875208159fba188c15c7b02c38a863252940e3fcb0c1997f837e41b479d155  raw/23-final-lint.log
+71ac6a98f811ccf434b44b2d6025363e8175134d6036897f8c1e3a0fbc331fe7  raw/24-final-build.json
+b87b4afbfbff0b5d6b2e12303bd6dee78e3fbfe5550770e1f7acbd8c318ff764  raw/24-final-build.log
+```

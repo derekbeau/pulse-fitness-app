@@ -1,0 +1,1049 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: d977b4db271cde4f3e39fa59ee523f1b575495db
+BRANCH: feat/agent-reviewed-progression
+WORKTREE: /Users/meridian/Projects/pulse-agent-reviewed-progression
+WORKTREE_DIRTY_BEFORE: false
+DIRTY_PATCH_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STARTED_UTC: 2026-09-09T20:42:44.257Z
+COMMAND_ARGV_JSON: ["pnpm","test"]
+COMMAND: "pnpm" "test"
+CACHE_CONTROLS_JSON: {"TURBO_FORCE":"true","TURBO_CONCURRENCY":"1","TURBO_ENV_MODE":"strict","CI":"true"}
+STDOUT_STDERR_BEGIN
+
+> pulse@ test /Users/meridian/Projects/pulse-agent-reviewed-progression
+> pnpm test:repo-scripts && turbo run test
+
+
+> pulse@ test:repo-scripts /Users/meridian/Projects/pulse-agent-reviewed-progression
+> node --test scripts/dev-gate0-isolated.test.mjs scripts/api-container-entrypoint.test.mjs scripts/runtime-secrets-isolation.test.mjs scripts/init-worktree.test.mjs
+
+▶ API container migration-map preflight
+  ✔ starts fresh, legacy-empty, and already-canonical databases without a map (81.06575ms)
+  ✔ fails closed for non-empty legacy data without a secure map (186.577833ms)
+  ✔ accepts a regular mode-0600 map for non-empty legacy data (102.270166ms)
+✔ API container migration-map preflight (370.507458ms)
+▶ Gate 0 isolated development startup
+  ✔ enforces the isolated database and all three fixed port values (3.12825ms)
+  ✔ allows only loopback or an exact Tailscale IPv4 preview host (0.448167ms)
+  ✔ advertises the reachable Tailscale-hosted web origin to Swagger (4.282958ms)
+  ✔ rejects default, production, snapshot, and arbitrary database paths (1.185125ms)
+  ✔ rejects a missing, read-only, or symlinked isolated database (3.0145ms)
+✔ Gate 0 isolated development startup (13.588375ms)
+▶ worktree initializer
+  ✔ derives a deterministic sibling path from a slash-delimited branch (1.096917ms)
+  ✔ parses defaults and explicit overrides (0.174417ms)
+  ✔ rejects unknown options and unsafe port values (0.220375ms)
+  ✔ reads worktree paths and reserves generated environment ports (7.023ms)
+  ✔ renders a localhost-only environment with an absolute database path (0.663125ms)
+  ✔ recognizes both normal and signal-based child process exits (0.097625ms)
+✔ worktree initializer (10.084708ms)
+▶ runtime migration-map isolation
+  ✔ keeps the host-only map out of Git and the Docker build context (900.0995ms)
+✔ runtime migration-map isolation (900.890541ms)
+ℹ tests 15
+ℹ suites 4
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1003.448916
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running test in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/shared:build: cache bypass, force executing e5e5788c5ca8f2f7
+@pulse/shared:build: 
+@pulse/shared:build: > @pulse/shared@0.0.0 build /Users/meridian/Projects/pulse-agent-reviewed-progression/packages/shared
+@pulse/shared:build: > tsc -p tsconfig.json
+@pulse/shared:build: 
+@pulse/shared:test: cache bypass, force executing 0bf503f6cc303728
+@pulse/shared:test: 
+@pulse/shared:test: > @pulse/shared@0.0.0 test /Users/meridian/Projects/pulse-agent-reviewed-progression/packages/shared
+@pulse/shared:test: > vitest run
+@pulse/shared:test: 
+@pulse/shared:test: 
+@pulse/shared:test: [1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/meridian/Projects/pulse-agent-reviewed-progression/packages/shared[39m
+@pulse/shared:test: 
+@pulse/shared:test:  [32m✓[39m src/utils/chart-exploration.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/nutrition.test.ts [2m([22m[2m45 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/utils/ewma.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 63[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/utils/daily-energy-adherence.test.ts [2m([22m[2m44 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/adaptive-weekly-review.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/workout-progression.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 39[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/data-quality-calendar.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/utils/adaptive-goal-trajectory.test.ts [2m([22m[2m37 tests[22m[2m)[22m[32m 51[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/utils/adaptive-tdee.test.ts [2m([22m[2m56 tests[22m[2m)[22m[32m 244[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/exercises.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/food-analytics.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 34[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/utils/adaptive-setup-projection.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/auth.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/adaptive-nutrition.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/workout-sessions.test.ts [2m([22m[2m47 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/utils/related-history.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/weight.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/conventions-docs.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/workout-progression-compatibility.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/feedback-provenance.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/workout-feedback.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/utils/adaptive-goal-progress.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/foods.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/health-conditions.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/habits.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/feedback-planning-context.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/common.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/dashboard.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/unified-api-docs.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/session-set.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/agent-tokens.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/nutrition-targets.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/dashboard-config.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/workout-templates.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/agent.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/utils/protein-floor.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/utils/workout-progression.test.ts [2m([22m[2m30 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/activities.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/monorepo-config.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/scheduled-workouts.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/journal.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/resources.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/utils/food-analytics.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/utils/energy-balance.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/energy-balance.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/habit-entries.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/entity-links.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/utils/habit-scheduling.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 1[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/schemas/equipment.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/utils/weight-unit.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 1[2mms[22m[39m
+@pulse/shared:test:  [32m✓[39m src/index.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+@pulse/shared:test: 
+@pulse/shared:test: [2m Test Files [22m [1m[32m51 passed[39m[22m[90m (51)[39m
+@pulse/shared:test: [2m      Tests [22m [1m[32m729 passed[39m[22m[90m (729)[39m
+@pulse/shared:test: [2m   Start at [22m 16:42:47
+@pulse/shared:test: [2m   Duration [22m 2.00s[2m (transform 1.90s, setup 0ms, import 4.26s, tests 1.18s, environment 3ms)[22m
+@pulse/shared:test: 
+@pulse/web:build: cache bypass, force executing 8bf4eec919ed0f2b
+@pulse/web:build: 
+@pulse/web:build: > @pulse/web@0.0.0 build /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/web
+@pulse/web:build: > tsc -b && vite build
+@pulse/web:build: 
+@pulse/web:build: [36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+@pulse/web:build: transforming...
+@pulse/web:build: [32m✓[39m 3918 modules transformed.
+@pulse/web:build: rendering chunks...
+@pulse/web:build: computing gzip size...
+@pulse/web:build: [2mdist/[22m[32mindex.html                                       [39m[1m[2m  2.15 kB[22m[1m[22m[2m │ gzip:   0.76 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[35mindex--uZa41wS.css                        [39m[1m[2m174.41 kB[22m[1m[22m[2m │ gzip:  25.13 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mquery-polling-CWrVhzp4.js                 [39m[1m[2m  0.09 kB[22m[1m[22m[2m │ gzip:   0.09 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mplus-CfmdDsAI.js                          [39m[1m[2m  0.15 kB[22m[1m[22m[2m │ gzip:   0.15 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36marrow-up-BnH2wtWw.js                      [39m[1m[2m  0.16 kB[22m[1m[22m[2m │ gzip:   0.16 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mclock-3-BMDJHMh-.js                       [39m[1m[2m  0.17 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36marrow-right-BZ8TS6ym.js                   [39m[1m[2m  0.17 kB[22m[1m[22m[2m │ gzip:   0.16 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msearch-DAbN3mOZ.js                        [39m[1m[2m  0.17 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mcircle-check-CclsJmLr.js                  [39m[1m[2m  0.17 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtrending-up-0e7SIHlV.js                   [39m[1m[2m  0.18 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mgauge-DEb_PpUD.js                         [39m[1m[2m  0.18 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtrending-down-Bs3grs1q.js                 [39m[1m[2m  0.18 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mflame-D22uQaYA.js                         [39m[1m[2m  0.20 kB[22m[1m[22m[2m │ gzip:   0.18 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36minfo-4QfZdj4D.js                          [39m[1m[2m  0.20 kB[22m[1m[22m[2m │ gzip:   0.18 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mrotate-ccw-DK1gU7-a.js                    [39m[1m[2m  0.20 kB[22m[1m[22m[2m │ gzip:   0.18 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36museThemeContext-BQ_Csu6q.js               [39m[1m[2m  0.23 kB[22m[1m[22m[2m │ gzip:   0.19 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mhistory-FzAfL3ky.js                       [39m[1m[2m  0.24 kB[22m[1m[22m[2m │ gzip:   0.20 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtimer-BQYaJYSZ.js                         [39m[1m[2m  0.24 kB[22m[1m[22m[2m │ gzip:   0.19 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mcircle-question-mark-KQhBaH0H.js          [39m[1m[2m  0.24 kB[22m[1m[22m[2m │ gzip:   0.21 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36marrow-up-down-DnbIrGD8.js                 [39m[1m[2m  0.25 kB[22m[1m[22m[2m │ gzip:   0.19 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mroute-Cax7hOWy.js                         [39m[1m[2m  0.25 kB[22m[1m[22m[2m │ gzip:   0.20 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mcircle-alert-BI4DPWiY.js                  [39m[1m[2m  0.25 kB[22m[1m[22m[2m │ gzip:   0.19 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mchart-column-C3i1YMMj.js                  [39m[1m[2m  0.25 kB[22m[1m[22m[2m │ gzip:   0.20 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mheart-TKOAdfCw.js                         [39m[1m[2m  0.26 kB[22m[1m[22m[2m │ gzip:   0.22 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mpencil-Dt6W81JF.js                        [39m[1m[2m  0.28 kB[22m[1m[22m[2m │ gzip:   0.23 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mbook-open-D-oDFdYG.js                     [39m[1m[2m  0.28 kB[22m[1m[22m[2m │ gzip:   0.21 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36marrow-up-right-DTcKCOxI.js                [39m[1m[2m  0.29 kB[22m[1m[22m[2m │ gzip:   0.21 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mpencil-line-0XO9jiUS.js                   [39m[1m[2m  0.32 kB[22m[1m[22m[2m │ gzip:   0.25 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mrefresh-cw-DMhkFPD0.js                    [39m[1m[2m  0.32 kB[22m[1m[22m[2m │ gzip:   0.22 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtrash-2-Cki7UYxc.js                       [39m[1m[2m  0.33 kB[22m[1m[22m[2m │ gzip:   0.22 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mprogram-local-midnight-D0NyGxrh.js        [39m[1m[2m  0.33 kB[22m[1m[22m[2m │ gzip:   0.27 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mscale-DdSjUL1f.js                         [39m[1m[2m  0.33 kB[22m[1m[22m[2m │ gzip:   0.22 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mgrip-vertical-W0HxUHVu.js                 [39m[1m[2m  0.37 kB[22m[1m[22m[2m │ gzip:   0.20 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mcalendar-clock-CMM8IGGf.js                [39m[1m[2m  0.37 kB[22m[1m[22m[2m │ gzip:   0.25 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mlabel-CqIEp_37.js                         [39m[1m[2m  0.37 kB[22m[1m[22m[2m │ gzip:   0.28 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36muse-today-key-C43pJZqe.js                 [39m[1m[2m  0.39 kB[22m[1m[22m[2m │ gzip:   0.27 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mindex-CNDuxzbC.js                         [39m[1m[2m  0.43 kB[22m[1m[22m[2m │ gzip:   0.29 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtemplate-tags-Ce0Nr_b0.js                 [39m[1m[2m  0.43 kB[22m[1m[22m[2m │ gzip:   0.29 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36maccent-card-styles-juGWYX3b.js            [39m[1m[2m  0.48 kB[22m[1m[22m[2m │ gzip:   0.21 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mcalendar-days-CgMVuytx.js                 [39m[1m[2m  0.50 kB[22m[1m[22m[2m │ gzip:   0.27 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msparkles-lO9TL-T5.js                      [39m[1m[2m  0.50 kB[22m[1m[22m[2m │ gzip:   0.28 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mdate-utils-hJv2Zwft.js                    [39m[1m[2m  0.52 kB[22m[1m[22m[2m │ gzip:   0.30 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mworkout-session-sets-CqGuqGnY.js          [39m[1m[2m  0.57 kB[22m[1m[22m[2m │ gzip:   0.34 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mcircle-dashed-ZblP2CPU.js                 [39m[1m[2m  0.58 kB[22m[1m[22m[2m │ gzip:   0.29 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtextarea-Cepgk1bc.js                      [39m[1m[2m  0.64 kB[22m[1m[22m[2m │ gzip:   0.40 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mmarkdown-note-AfC378jL.js                 [39m[1m[2m  0.65 kB[22m[1m[22m[2m │ gzip:   0.39 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mchart-range-control-BFqz9kx5.js           [39m[1m[2m  0.66 kB[22m[1m[22m[2m │ gzip:   0.41 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mempty-state-DliVeRsg.js                   [39m[1m[2m  0.69 kB[22m[1m[22m[2m │ gzip:   0.43 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msuperset-utils-DdYgOe4L.js                [39m[1m[2m  0.70 kB[22m[1m[22m[2m │ gzip:   0.42 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msave-CrvZD_GX.js                          [39m[1m[2m  0.70 kB[22m[1m[22m[2m │ gzip:   0.34 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mformat-utils-Bsyxf4FY.js                  [39m[1m[2m  0.73 kB[22m[1m[22m[2m │ gzip:   0.35 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mwrench-B8GjTV3C.js                        [39m[1m[2m  0.74 kB[22m[1m[22m[2m │ gzip:   0.38 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mseparator-xqDgcAXZ.js                     [39m[1m[2m  0.78 kB[22m[1m[22m[2m │ gzip:   0.43 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mchart-legend-DsZCLmC3.js                  [39m[1m[2m  0.85 kB[22m[1m[22m[2m │ gzip:   0.50 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mmarkdown-aUL2GTqK.js                      [39m[1m[2m  0.87 kB[22m[1m[22m[2m │ gzip:   0.43 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mpage-header-Bu_MF68w.js                   [39m[1m[2m  0.90 kB[22m[1m[22m[2m │ gzip:   0.42 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mrename-exercise-dialog-Chj-Vpdv.js        [39m[1m[2m  0.94 kB[22m[1m[22m[2m │ gzip:   0.56 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36minput-Dw_KDFLL.js                         [39m[1m[2m  0.95 kB[22m[1m[22m[2m │ gzip:   0.55 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36muse-date-authority-Cm2h24JB.js            [39m[1m[2m  0.96 kB[22m[1m[22m[2m │ gzip:   0.53 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtrend-weight-date-vlormCn4.js             [39m[1m[2m  1.00 kB[22m[1m[22m[2m │ gzip:   0.50 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mprogress-bar-ee2MoX6S.js                  [39m[1m[2m  1.04 kB[22m[1m[22m[2m │ gzip:   0.58 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mprogress-ring-qwaFPBPb.js                 [39m[1m[2m  1.21 kB[22m[1m[22m[2m │ gzip:   0.64 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mindex-CpV1xskx.js                         [39m[1m[2m  1.31 kB[22m[1m[22m[2m │ gzip:   0.66 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36muse-debounced-callback-Vc3Q-jK4.js        [39m[1m[2m  1.32 kB[22m[1m[22m[2m │ gzip:   0.61 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mbadge-BVg-qbt-.js                         [39m[1m[2m  1.34 kB[22m[1m[22m[2m │ gzip:   0.64 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mpreview-banner-DqMLzem5.js                [39m[1m[2m  1.40 kB[22m[1m[22m[2m │ gzip:   0.78 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mprogression-DCmbcQx1.js                   [39m[1m[2m  1.47 kB[22m[1m[22m[2m │ gzip:   0.73 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mchart-exploration-CIVsEJBu.js             [39m[1m[2m  1.70 kB[22m[1m[22m[2m │ gzip:   0.76 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36madaptive-weekly-review-7zQ5_OY9.js        [39m[1m[2m  1.80 kB[22m[1m[22m[2m │ gzip:   0.97 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mstat-card-CpmUSDRa.js                     [39m[1m[2m  2.30 kB[22m[1m[22m[2m │ gzip:   1.08 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mchart-tooltip-C51sevzG.js                 [39m[1m[2m  2.49 kB[22m[1m[22m[2m │ gzip:   1.04 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mhelp-icon-DaKfFgc6.js                     [39m[1m[2m  2.66 kB[22m[1m[22m[2m │ gzip:   1.06 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mdialog-TPQV9Q6f.js                        [39m[1m[2m  2.79 kB[22m[1m[22m[2m │ gzip:   1.07 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mlogin-BzzpHOTZ.js                         [39m[1m[2m  3.12 kB[22m[1m[22m[2m │ gzip:   1.30 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mchart-summary-BWjFJd80.js                 [39m[1m[2m  3.16 kB[22m[1m[22m[2m │ gzip:   1.38 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mjournal-entry-Dyi9HdVA.js                 [39m[1m[2m  3.45 kB[22m[1m[22m[2m │ gzip:   1.36 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mhabit-chain-dot-Ch5d5GuD.js               [39m[1m[2m  3.45 kB[22m[1m[22m[2m │ gzip:   1.63 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mmock-data-C5acpO0F.js                     [39m[1m[2m  3.71 kB[22m[1m[22m[2m │ gzip:   1.57 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mprofile-DNqFFBD4.js                       [39m[1m[2m  4.10 kB[22m[1m[22m[2m │ gzip:   1.63 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mregister-BWc5mEFT.js                      [39m[1m[2m  4.17 kB[22m[1m[22m[2m │ gzip:   1.53 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mresources-CGS2rAjQ.js                     [39m[1m[2m  4.22 kB[22m[1m[22m[2m │ gzip:   1.73 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mswap-exercise-dialog-ZP4EUJyC.js          [39m[1m[2m  4.43 kB[22m[1m[22m[2m │ gzip:   1.81 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mjournal-DD--8TYk.js                       [39m[1m[2m  5.46 kB[22m[1m[22m[2m │ gzip:   2.07 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mresource-detail-KqKWjh2P.js               [39m[1m[2m  5.60 kB[22m[1m[22m[2m │ gzip:   1.80 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mpopover-QpK77ztI.js                       [39m[1m[2m  6.04 kB[22m[1m[22m[2m │ gzip:   2.18 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36muse-dashboard-config-Cm1w_jSr.js          [39m[1m[2m  6.31 kB[22m[1m[22m[2m │ gzip:   2.06 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mnutrition-day-status-control-BYw2g8Of.js  [39m[1m[2m  7.40 kB[22m[1m[22m[2m │ gzip:   2.50 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mview-toggle-Tt4UQL3y.js                   [39m[1m[2m  8.76 kB[22m[1m[22m[2m │ gzip:   3.22 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36minjuries-pDqjQ8lS.js                      [39m[1m[2m  9.27 kB[22m[1m[22m[2m │ gzip:   3.25 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mweight-history-DW0n6htx.js                [39m[1m[2m  9.86 kB[22m[1m[22m[2m │ gzip:   3.55 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mdesign-system-C24aIBSZ.js                 [39m[1m[2m  9.95 kB[22m[1m[22m[2m │ gzip:   3.14 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mmock-data-GanlHc6e.js                     [39m[1m[2m 10.15 kB[22m[1m[22m[2m │ gzip:   4.27 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mmock-data-CygG3-Zg.js                     [39m[1m[2m 14.00 kB[22m[1m[22m[2m │ gzip:   4.60 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msession-feedback-D7n4_FCl.js              [39m[1m[2m 14.49 kB[22m[1m[22m[2m │ gzip:   4.70 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mequipment-BfovCkkC.js                     [39m[1m[2m 15.22 kB[22m[1m[22m[2m │ gzip:   4.76 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mactivity-CjI5WaKO.js                      [39m[1m[2m 16.18 kB[22m[1m[22m[2m │ gzip:   5.24 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtrend-weight-workspace-j0u6UnXk.js        [39m[1m[2m 17.30 kB[22m[1m[22m[2m │ gzip:   5.29 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mworkouts-Xj26WmTt.js                      [39m[1m[2m 19.70 kB[22m[1m[22m[2m │ gzip:   4.74 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mselect-UAirKcIx.js                        [39m[1m[2m 20.60 kB[22m[1m[22m[2m │ gzip:   7.29 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mactive-session-DbcRFhEF.js                [39m[1m[2m 21.30 kB[22m[1m[22m[2m │ gzip:   6.53 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mdropdown-menu-GeQaWRh_.js                 [39m[1m[2m 21.90 kB[22m[1m[22m[2m │ gzip:   6.83 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36menergy-balance-BLW-V4A2.js                [39m[1m[2m 21.98 kB[22m[1m[22m[2m │ gzip:   6.58 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36minjury-detail-CiMN7e6w.js                 [39m[1m[2m 23.40 kB[22m[1m[22m[2m │ gzip:   7.27 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mdata-quality-LeVPO3Qb.js                  [39m[1m[2m 24.95 kB[22m[1m[22m[2m │ gzip:   7.73 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mworkout-template-detail-Ogam7vRk.js       [39m[1m[2m 24.96 kB[22m[1m[22m[2m │ gzip:   7.83 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msettings-B6dWV0gW.js                      [39m[1m[2m 29.74 kB[22m[1m[22m[2m │ gzip:   8.12 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mzod-JVcXkWGO.js                           [39m[1m[2m 29.90 kB[22m[1m[22m[2m │ gzip:  10.78 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mgoal-trajectory-kzgjJ90S.js               [39m[1m[2m 30.30 kB[22m[1m[22m[2m │ gzip:   8.66 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mweekly-decision-review-KbJxIADA.js        [39m[1m[2m 32.94 kB[22m[1m[22m[2m │ gzip:   8.63 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mworkout-session-detail-CaQGgYiX.js        [39m[1m[2m 36.77 kB[22m[1m[22m[2m │ gzip:  10.93 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mvendor-router-D-aEi-ws.js                 [39m[1m[2m 37.19 kB[22m[1m[22m[2m │ gzip:  13.40 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mhabits-D2gCtbh1.js                        [39m[1m[2m 39.34 kB[22m[1m[22m[2m │ gzip:  11.79 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mscheduled-workout-detail-Bu-VDz2O.js      [39m[1m[2m 41.62 kB[22m[1m[22m[2m │ gzip:  12.60 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mvendor-query-Y28iZGx7.js                  [39m[1m[2m 45.14 kB[22m[1m[22m[2m │ gzip:  13.84 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msortable.esm-CMxH9J2O.js                  [39m[1m[2m 51.01 kB[22m[1m[22m[2m │ gzip:  17.09 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36muse-workout-session-Bx4OWZMb.js           [39m[1m[2m 56.60 kB[22m[1m[22m[2m │ gzip:  16.45 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mvendor-zod-YR7vPrir.js                    [39m[1m[2m 57.86 kB[22m[1m[22m[2m │ gzip:  13.49 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mworkouts-BFTwuepw.js                      [39m[1m[2m 67.54 kB[22m[1m[22m[2m │ gzip:  18.36 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mdashboard-DJ7OHWXo.js                     [39m[1m[2m 69.23 kB[22m[1m[22m[2m │ gzip:  20.13 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mgoal-editor-dialog-Zy6bpZRi.js            [39m[1m[2m 69.87 kB[22m[1m[22m[2m │ gzip:  20.11 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mschedule-workout-dialog-C0Yu2Mz_.js       [39m[1m[2m 71.22 kB[22m[1m[22m[2m │ gzip:  21.27 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mactive-workout-ymH-diQH.js                [39m[1m[2m 97.90 kB[22m[1m[22m[2m │ gzip:  28.30 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mnutrition-BRWeJxIs.js                     [39m[1m[2m153.12 kB[22m[1m[22m[2m │ gzip:  41.28 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mvendor-recharts-vi3UUqYC.js               [39m[1m[2m397.49 kB[22m[1m[22m[2m │ gzip: 115.25 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mindex-BVHSLoVB.js                         [39m[1m[33m540.82 kB[39m[22m[2m │ gzip: 159.85 kB[22m
+@pulse/web:build: [33m
+@pulse/web:build: (!) Some chunks are larger than 500 kB after minification. Consider:
+@pulse/web:build: - Using dynamic import() to code-split the application
+@pulse/web:build: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+@pulse/web:build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+@pulse/web:build: [32m✓ built in 4.37s[39m
+@pulse/api:build: cache bypass, force executing 83f9b0c0b722a169
+@pulse/api:build: 
+@pulse/api:build: > @pulse/api@0.0.0 build /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api
+@pulse/api:build: > tsc
+@pulse/api:build: 
+@pulse/web:test: cache bypass, force executing 0235d96a3a6aea01
+@pulse/web:test: 
+@pulse/web:test: > @pulse/web@0.0.0 test /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/web
+@pulse/web:test: > vitest run
+@pulse/web:test: 
+@pulse/web:test: 
+@pulse/web:test: [1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/meridian/Projects/pulse-agent-reviewed-progression/apps/web[39m
+@pulse/web:test: 
+@pulse/web:test:  [32m✓[39m src/pages/weight-history.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 4312[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders maintenance semantics and off-measurement annotations from server facts [33m 546[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m shows the chart, lists entries in reverse chronological order, and deletes with confirmation [33m 579[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m adds a new weight entry from the quick-add form [33m 593[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m defaults a new entry to the local calendar date near a UTC day boundary [33m 382[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m supports editing a weight value and note inline [33m 558[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m shows validation feedback when saving an invalid inline weight edit [33m 417[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m keeps response units while using the active kg preference for new entries [33m 530[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m keeps the entry ledger separate from the server-owned exact trend table [33m 339[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/exercise-library.test.tsx [2m([22m[2m16 tests[22m[2m)[22m[33m 7795[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m filters exercises by case-insensitive name search and syncs q to the URL [33m 616[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m filters exercises by muscle group, equipment, and category together [33m 578[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m shows paginated results and updates the page query param [33m 458[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m persists per-page in the URL and resets to page 1 when changed [33m 381[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m persists sort selection in URL search params and sends it to the API [33m 510[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m toggles between card and table layouts [33m 620[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m persists the selected view in localStorage [33m 458[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m loads trend data from the exercise history API [33m 339[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renames an exercise from the card actions menu [33m 428[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m shows an empty state and still supports the unified exercise detail modal [33m 1430[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m falls back to the no-results state when the exercises request fails [33m 1078[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/dashboard.test.tsx [2m([22m[2m23 tests[22m[2m)[22m[33m 7850[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders the dashboard title, greeting, and responsive column layout with API snapshot data [33m 632[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders stat-card skeletons while the dashboard snapshot request is pending [33m 371[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m updates snapshot when a new calendar day is selected via the date popover [33m 853[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m edits a logged weight entry and refreshes the body weight card [33m 516[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m shows a log weight CTA for days without an entry and opens the inline form [33m 573[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m moves widgets to hidden in edit mode and saves via PUT [33m 510[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m updates visibleWidgets order when drag reorder completes in edit mode [33m 343[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m keeps cross-container drop insertion position when dropping onto target widget [33m 820[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m cancels inline edit changes without saving [33m 680[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m keeps inline edit mode open on save failure [33m 365[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m does not fabricate snapshot facts after an initial failure and recovers on retry [33m 356[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/nutrition.test.tsx [2m([22m[2m33 tests[22m[2m)[22m[33m 7562[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders log, Coach, foods, and trends tabs and syncs the active view to search params [33m 1076[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m adds a day note before meals, keeps it after reload, and discovers and clears it in historical navigation [33m 515[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders selected-day meals sorted by time descending by default [33m 484[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m shows an accessible meal sort toggle and reverses order when toggled [33m 312[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m persists meal sort preference while navigating dates in the same session [33m 562[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m shows grouped food rows and deletes a meal via the API mutation [33m 342[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renames a meal inline and keeps the updated name after reloading the page [33m 364[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m marks a past day complete and shows the automatic partial downgrade after a meal edit [33m 416[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/adaptive-nutrition/components/adaptive-coach.test.tsx [2m([22m[2m33 tests[22m[2m)[22m[33m 3035[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m requires a different direction and final confirmation for a new goal [33m 318[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/template-detail.test.tsx [2m([22m[2m23 tests[22m[2m)[22m[33m 7558[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders the selected template with real API data and exercise metadata [33m 469[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m does not start after date authority locks while duplicate confirmation is open [33m 344[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m does not schedule after date authority locks while duplicate confirmation is open [33m 514[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m creates and removes supersets from selected exercises [33m 473[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders a fallback state when the template request returns 404 [33m 1017[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m treats legacy slug template IDs as not found when the request fails [33m 1019[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m keeps generic error messaging for UUID template IDs on non-404 failures [33m 1022[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/foods/components/food-list.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[33m 12656[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m shows loading placeholders, then renders the first server page with pagination [33m 730[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m debounces search and sends the query to the foods API [33m 934[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m paginates while preserving sort query params [33m 1492[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m persists per-page in URL params and resets to page 1 when changed [33m 1003[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m keeps the inline editor open if a pending save blurs before the API fails [33m 1200[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m filters foods by tag chips and supports tag add/remove edits [33m 1458[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m removes foods optimistically and keeps the total count in sync [33m 1442[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders card and table views and persists the selected view [33m 1107[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m paginates in table mode [33m 574[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m shows and hides table columns through the shared column picker integration [33m 535[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m opens table inline editing only from the food name cell [33m 731[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m preserves filter and sort state when switching between card and table views [33m 1136[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/equipment.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 2632[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders the inventory summary and collapsed location cards [33m 391[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m adds a new location from the dialog into local state [33m 790[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m adds an item to the selected category within a location card [33m 759[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m supports inline editing for an equipment item name and details [33m 328[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/adaptive-nutrition/components/adaptive-setup-form.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 2829[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m submits manual setup exactly once with an entered pound weight and maintenance rate [33m 485[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m updates a recommended gain projection live without mutating [33m 386[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m explains a custom gain rate outside the recommended band without blocking it [33m 363[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m updates protein and fat/carbohydrate results from accessible presets [33m 335[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m discloses loss floor and deficit guardrails in the live plan [33m 318[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/App.test.tsx [2m([22m[2m25 tests[22m[2m)[22m[33m 7604[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Welcome back' page for '/login' when signed out [33m 402[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Create account' page for '/register' when signed out [33m 369[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Dashboard' page for '/' when signed in [33m 394[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Design System' page for '/design-system' when signed in [33m 472[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Workouts' page for '/workouts' when signed in [33m 356[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'No active workout' page for '/workouts/active' when signed in [33m 399[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Upper Push' page for '/workouts/session/session-upper-push-…' when signed in [33m 442[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Upper Push' page for '/workouts/template/upper-push' when signed in [33m 376[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Nutrition' page for '/nutrition' when signed in [33m 335[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Energy Balance & Expenditure' page for '/nutrition/energy-balance' when signed in [33m 323[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Habits' page for '/habits' when signed in [33m 334[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Activity' page for '/activity' when signed in [33m 358[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Journal' page for '/journal' when signed in [33m 357[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Trend Weight' page for '/weight' when signed in [33m 332[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Profile' page for '/profile' when signed in [33m 325[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Equipment' page for '/profile/equipment' when signed in [33m 391[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Health Tracking' page for '/profile/injuries' when signed in [33m 356[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Resources' page for '/profile/resources' when signed in [33m 328[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'McGill Big 3' page for '/profile/resources/mcgill-big-3' when signed in [33m 340[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders 'Settings' page for '/settings' when signed in [33m 351[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/settings.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 3587[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders defaults and loads dashboard config from API [33m 624[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m reflects persisted widget visibility choices from dashboard config [33m 422[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m saves nutrition targets and dashboard config via API [33m 568[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m shows a partial failure message when dashboard config save fails [33m 365[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m shows a partial failure message when nutrition target save fails [33m 306[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/session-detail.test.tsx [2m([22m[2m23 tests[22m[2m)[22m[33m 3592[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders a not-found state for unknown sessions [33m 1126[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m clears native effort explicitly from a completed-set correction [33m 346[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m keeps the correction draft open when a native RIR save fails [33m 354[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/scheduled-workout-detail.test.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 2849[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m reorders scheduled exercises with move controls and sends the expected order payload [33m 432[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/session-exercise-list.test.tsx [2m([22m[2m43 tests[22m[2m)[22m[33m 16165[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders prescribed set targets from session set data [33m 421[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m shows editable set rows and renders an inline rest timer after the completed set [33m 1403[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m applies distinct section badge styles for complete, partial, and zero-complete sections [33m 736[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m debounces exercise notes updates until typing pauses [33m 434[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders programming notes separately from editable session notes [33m 396[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m does not render a programming notes block when programmingNotes is null [33m 353[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m toggles exercise expansion when clicking the exercise title text [33m 348[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m opens swap dialog from the exercise actions menu and calls session swap endpoint [33m 322[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m opens exercise details from the kebab menu without toggling the exercise card [33m 601[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m shows move up/down actions and calls onReorderExercises for active workout lists [33m 379[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m still renders template form cues and omits injury warnings when enhanced injury data is unavailable [33m 395[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m collapses superset exercises independently [33m 381[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m supports grouping and ungrouping supersets from workout sections [33m 624[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m keeps section open state manual when workout progress moves into the next section [33m 746[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m persists section and exercise collapse state across remounts for the same session id [33m 1003[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m scopes persisted section state by session id [33m 852[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m collapses sections, toggles exercise details, and focuses the requested next set input [33m 770[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m opens and closes full history modal from active workout exercise rows [33m 460[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders related history collapsed by default and expands on demand [33m 321[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m omits the whole related disclosure for no sets [33m 341[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m omits the whole related disclosure for effort alone [33m 550[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m omits the whole related disclosure for wrong metric [33m 437[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m preserves the direct History card during related pending [33m 412[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m preserves the direct History card during related error [33m 572[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/adaptive-nutrition/components/energy-balance-workspace.test.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 2508[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders transparent matched-day signs, provenance, and cutoff semantics [33m 512[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m uses pressed range and comparison controls with real button semantics [33m 533[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/adaptive-nutrition/components/goal-trajectory-workspace.test.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 2556[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders server-owned loss pace, ETA, consent, revisions, and honest weekly evidence [33m 773[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m keeps chart range separate from the selected pace lookback [33m 526[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/activity.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 1689[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders the activity list sorted newest first with formatted metadata [33m 350[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m prepends a submitted activity to the list and shows a success message [33m 461[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/dashboard/components/habit-chain.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 1461[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders all habits with 30 day squares each when API data is provided [33m 504[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-last-performance.test.tsx [2m([22m[2m21 tests[22m[2m)[22m[33m 1308[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/data-quality/components/data-quality-calendar-workspace.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 1532[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders the authoritative bootstrap month without a browser-local range request [33m 452[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m submits bounded date context through the shared form schema [33m 324[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/template-browser.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 1543[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m warns before scheduling another workout on an occupied day [33m 326[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/workouts.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 2316[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m switches between the workouts views [33m 699[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/workout-session-detail.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 1508[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders not-found state for unknown sessionId [33m 1173[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/habits/components/habit-form-dialog.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 1011[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m creates a habit in add mode and closes on success [33m 309[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/session-feedback.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 923[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders standard questions first and supports richer question types [33m 320[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/adaptive-nutrition/components/weekly-decision-review.test.tsx [2m([22m[2m16 tests[22m[2m)[22m[33m 1167[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/scheduled-start-surfaces.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[33m 1516[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/nutrition/components/daily-nutrition-note.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 759[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/rir-picker.test.tsx [2m([22m[2m43 tests[22m[2m)[22m[33m 999[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/workout-calendar.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 914[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/habits.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 694[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/weight/api/weight.test.tsx [2m([22m[2m17 tests[22m[2m)[22m[33m 785[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/session-summary.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 683[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders condensed shared-card exercise results and preserves summary actions [33m 627[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/foods/components/food-analytics-workspace.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 759[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/active-workout.test.tsx [2m([22m[2m39 tests[22m[2m)[22m[33m 19371[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders the active workout UI and does not auto-focus any set after rest timer completion [33m 2819[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m keeps focus unchanged when a superset rest timer expires [33m 348[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m keeps the rest timer running when editing an incomplete set [33m 443[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m moves from session logging to feedback, summary, and back to workouts [33m 4275[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m controls per-section timers and switches sections via section-timer endpoint [33m 984[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m starts the completed set section timer when saving a set from another section [33m 662[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m re-reads session data after completion and closes the final open segment [33m 302[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m supports manually finishing an active workout with confirmation and set summary ratio [33m 1281[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m keeps the session active after the last set until completion is explicitly confirmed [33m 4753[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m shows standard feedback controls and requires pain details when pain is yes [33m 509[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m creates a completed session without a pre-stored token by using dev auto-session auth [33m 640[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/dashboard/components/weight-trend-chart.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 794[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m uses the server-owned analytics endpoint and selected historical date [33m 343[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/nutrition/components/nutrition-trends.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 732[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders synchronized averages, gaps, and exact keyboard-operable rows [33m 557[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/workout-list.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 701[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/__tests__/components/daily-habits.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 551[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/habits/components/daily-habits.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 657[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/habits/components/habit-history.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 544[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m loads a 90-day range from API hooks and renders history grids [33m 379[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/exercise-trend-chart.test.tsx [2m([22m[2m17 tests[22m[2m)[22m[33m 663[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/nutrition/api/nutrition.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 508[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/habits/components/habit-card-menu.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 690[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/workout-progression-review.test.tsx [2m([22m[2m16 tests[22m[2m)[22m[33m 617[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/design-system.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 751[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m switches themes live using light, dark, and midnight controls [33m 457[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/exercise-detail-modal.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 619[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/active-workout.remove-set.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 857[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m calls delete with session/set ids, removes optimistically, and stays removed after refetch [33m 530[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m rolls back optimistic set removal and shows an error when delete fails [33m 327[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/nutrition/components/nutrition-macro-rings.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 400[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/confirmation-dialog.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 501[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/journal.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 529[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/nutrition/api/daily-note.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 445[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/dashboard/components/trend-sparkline.test.tsx [2m([22m[2m16 tests[22m[2m)[22m[33m 518[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/injuries/components/severity-chart.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 483[2mms[22m[39m
+@pulse/web:test:      [33m[2m✓[22m[39m renders a responsive chart with exact ordinary and event point inspection [33m 320[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/muscle-analytics.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 319[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/layout/sidebar.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 321[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/habits/api/habits.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 337[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/set-row.test.tsx [2m([22m[2m28 tests[22m[2m)[22m[33m 371[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/profile.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 319[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/effort-display.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 274[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/adaptive-nutrition/api/adaptive-nutrition.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 298[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/settings/components/trash-manager.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 334[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/habits/components/habit-day-modal.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 467[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/auth/components/register-form.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 323[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-exercise-history.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 270[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/layout/bottom-nav.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 485[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/session-context.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 235[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/nutrition/components/daily-energy-adherence-card.test.tsx [2m([22m[2m17 tests[22m[2m)[22m[33m 361[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/per-page-selector.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 321[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/api/workouts.optimistic.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 330[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-dashboard-snapshot.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 324[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/adaptive-nutrition/components/nutrition-day-status-control.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 539[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-session-sets.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 267[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/api/workouts.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 262[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/workout-exercise-card/index.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 219[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/dashboard/components/recent-workouts.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[32m 264[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/nutrition/components/nutrition-week-strip.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 276[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/lib/optimistic.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 271[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/nutrition/components/meal-card.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[33m 347[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/swap-exercise-dialog.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 302[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/auth/components/login-form.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 232[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/dashboard/components/habit-daily-status-card.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 286[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/dashboard/components/snapshot-cards.test.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 368[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/dashboard/components/macro-rings.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 271[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-weight-trend.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 201[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/column-picker.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 243[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-habit-chains.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 198[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/workouts/active-session-resume-gate.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 211[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/charts/chart-primitives.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 217[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/resources/components/resource-grid.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 225[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/resources/components/resource-detail.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 163[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/sort-selector.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 271[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/habits/components/weekly-habit-date-picker.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 180[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/foods/api/foods.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 200[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/error-boundary.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 186[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/journal-entry.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 225[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/workout-exercise-card/form-cues-block.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 162[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/session-comparison.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 314[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/dialog.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 220[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/workout-exercise-card/workout-exercise-set-list.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 233[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/session-header.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 205[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/data-table.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 150[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/notes-indicator.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 154[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-recent-workouts.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 149[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/activity/components/activity-list.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 170[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/dashboard/components/calendar-picker.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 207[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/workout-exercise-card/last-performance-chip.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 153[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/help-icon.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 172[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-user.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 137[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/form-cue-chips.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 155[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/empty-state.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 134[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/rest-timer.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 179[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/theme-provider.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 110[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/nutrition/api/targets.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 145[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/api/progression.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 149[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/__tests__/components/theme-toggle.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-macro-trend.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 138[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 163[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/layout/page-header.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 150[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/__tests__/components/progress-ring.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 143[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/progress-bar.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 148[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/help-modal.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 116[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/view-toggle.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 110[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-workout-session.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 123[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/dashboard/components/trend-sparkline-responsive.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 133[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/preview-banner.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 148[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/settings/api/trash.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 103[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/input.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 177[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/workout-exercise-card/exercise-header.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 127[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/resources.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 158[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/checkbox.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 142[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/progress-ring.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 169[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-pull-to-refresh.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 162[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/api/workouts.mutations.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 53[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/pagination-bar.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 93[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/layout/app-layout.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 70[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/auth/guest-route.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 114[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/injuries.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 219[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/scheduled-workout-header.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 150[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/skeletons/skeleton-variants.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 126[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/workout-exercise-card/agent-notes-block.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 79[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/pages/login.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 71[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-dashboard-config.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 98[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/auth/protected-route.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 106[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/__tests__/components/progress-bar.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 124[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/lib/use-debounced-callback.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 52[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/stat-card.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 115[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/workout-exercise-card/prescription-block.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 65[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/filter-bar.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 37[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/tag-chips.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 49[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/__tests__/components/stat-card.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 56[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/pull-to-refresh.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 50[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-save-as-template.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 53[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/useTheme.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-sync-sets.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 60[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/usePersistedState.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 49[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/components/workout-exercise-card/programming-notes-block.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 64[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/card.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 43[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/components/ui/skeleton.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 41[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-date-authority.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/dashboard/lib/program-date.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/lib/query-client.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/hooks/use-complete-session.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 76[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/weight/lib/trend-weight-date.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/nutrition/lib/nutrition-utils.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/store/auth-store.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/nutrition/api/keys.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/lib/related-history.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/lib/session-persistence.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/activity/lib/mock-data.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/lib/effort.test.ts [2m([22m[2m61 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/api/workouts.keys.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/lib/workout-session-sets.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/lib/tracking.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/nutrition/lib/program-local-midnight.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/lib/api-client.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/lib/time-estimates.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/lib/utils.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/lib/query-invalidation.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/lib/format-utils.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/dashboard/lib/widget-utils.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/workouts/lib/active-session.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/foods/api/keys.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/lib/api-error.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/styles/globals.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/lib/date.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/lib/date-utils.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/__tests__/placeholder.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 1[2mms[22m[39m
+@pulse/web:test:  [32m✓[39m src/features/adaptive-nutrition/lib/format-adaptive-nutrition.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 1[2mms[22m[39m
+@pulse/web:test: 
+@pulse/web:test: [2m Test Files [22m [1m[32m189 passed[39m[22m[90m (189)[39m
+@pulse/web:test: [2m      Tests [22m [1m[32m1420 passed[39m[22m[90m (1420)[39m
+@pulse/web:test: [2m   Start at [22m 16:43:11
+@pulse/web:test: [2m   Duration [22m 51.01s[2m (transform 13.68s, setup 32.94s, import 120.37s, tests 167.94s, environment 89.60s)[22m
+@pulse/web:test: 
+@pulse/api:test: cache bypass, force executing 9430b8d11da432e5
+@pulse/api:test: 
+@pulse/api:test: > @pulse/api@0.0.0 test /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api
+@pulse/api:test: > vitest run
+@pulse/api:test: 
+@pulse/api:test: 
+@pulse/api:test: [1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api[39m
+@pulse/api:test: 
+@pulse/api:test:  [32m✓[39m src/routes/workout-progression/store.integration.test.ts [2m([22m[2m29 tests[22m[2m)[22m[33m 7945[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m keeps a legacy recommendation {"action":"accept","both":false} after material canonicalization [33m 543[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m keeps a legacy recommendation {"action":"accept","both":true} after material canonicalization [33m 364[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m excludes legacy technique and false pain, then revisions explicit same-construct evidence [33m 419[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m publishes every owner-authorized managed disposition atomically and replays concurrently [33m 320[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects changed idempotency payloads and unbounded edits without writes [33m 307[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m preserves progression snapshots and set identity through normal session updates [33m 301[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/feedback-provenance-migration.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 10551[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m dry-run writes nothing and reconciles owner/global counts [33m 3262[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m preserves raw payloads/native performance and makes second apply a no-op [33m 3338[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m forced first-batch failure preserves original database exactly [33m 3115[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/nutrition-target-event-migration.test.ts [2m([22m[2m78 tests[22m[2m)[22m[33m 12026[2mms[22m[39m
+@pulse/api:test: [90mstdout[2m | src/scripts/migrate-static.test.ts[2m > [22m[2mmigrate-static script[2m > [22m[2mderives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: [22m[39mSkipping duplicate food "Large Eggs" for user user-1.
+@pulse/api:test: Foods migration summary: inserted 2, skipped 1, lastUsedAt updated 0.
+@pulse/api:test: 
+@pulse/api:test: [90mstderr[2m | src/scripts/migrate-static.test.ts[2m > [22m[2mmigrate-static script[2m > [22m[2mderives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: [22m[39mMissing food reference for "Mystery Food" on 2026-03-05; item imported without linked foodId.
+@pulse/api:test: Missing habit reference for "Unknown Habit" on 2026-03-05; entry skipped for this day.
+@pulse/api:test: 
+@pulse/api:test: [90mstdout[2m | src/scripts/migrate-static.test.ts[2m > [22m[2mmigrate-static script[2m > [22m[2mderives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: [22m[39mProcessed 2026-03-05: 2 meals, 2 habit entries, weight: 181.9
+@pulse/api:test: Processed 2026-03-06: 1 meals, 1 habit entries, weight: 180.8
+@pulse/api:test: Processed 2026-03-07: 0 meals, 0 habit entries, weight: 181.1
+@pulse/api:test: Migration summary: processed 3 day(s), failed 0, meals 3, habit entries 3, weight entries 3.
+@pulse/api:test: 
+@pulse/api:test: [90mstdout[2m | src/scripts/migrate-static.test.ts[2m > [22m[2mmigrate-static script[2m > [22m[2mderives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: [90mstderr[2m | src/scripts/migrate-static.test.ts[2m > [22m[2mmigrate-static script[2m > [22m[2mderives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: [22m[39mProcessed 2026-03-05: 2 meals, 2 habit entries, weight: 181.9
+@pulse/api:test: Processed 2026-03-06: 1 meals, 1 habit entries, weight: 180.8
+@pulse/api:test: [22m[39mMissing food reference for "Mystery Food" on 2026-03-05; item imported without linked foodId.
+@pulse/api:test: Missing habit reference for "Unknown Habit" on 2026-03-05; entry skipped for this day.
+@pulse/api:test: Processed 2026-03-07: 0 meals, 0 habit entries, weight: 181.1
+@pulse/api:test: Migration summary: processed 3 day(s), failed 0, meals 3, habit entries 3, weight entries 3.
+@pulse/api:test: 
+@pulse/api:test: 
+@pulse/api:test: [90mstdout[2m | src/scripts/migrate-static.test.ts[2m > [22m[2mmigrate-static script[2m > [22m[2mderives food usage from imported links and preserves exact usage on reimport
+@pulse/api:test: [22m[39mSkipping duplicate food "Greek Yogurt" (Fage) for user user-1.
+@pulse/api:test: Skipping duplicate food "Oat Bran" for user user-1.
+@pulse/api:test: Skipping duplicate food "Large Eggs" for user user-1.
+@pulse/api:test: Foods migration summary: inserted 0, skipped 3, lastUsedAt updated 0.
+@pulse/api:test: 
+@pulse/api:test:  [32m✓[39m src/routes/data-quality/store.integration.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 14621[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m uses a fixed number of selects for a dense 42-day range [33m 433[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m follows accepted Adaptive state history instead of treating eligibility as an update [33m 367[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m projects nutrition and weight corrections as stale through the authoritative review store [33m 562[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m keeps a deferred weekly review on its retained review date [33m 489[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m reduces large revision and action histories before Data Quality materialization [33m 8512[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m preserves every date cap and exact omission count across a fully dense 42-day range [33m 724[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m preserves per-date context and event caps across a fully dense 42-day range [33m 1314[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/__tests__/habits-weight-targets.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 15651[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m logs weight, supports range and latest reads, and scopes results per user [33m 4461[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m filters weight entries by days lookback [33m 1339[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m upserts weight entries by user and date without leaking across users [33m 2155[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m deletes weight entries, updates latest/list reads, and enforces ownership [33m 2512[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m returns the current nutrition target based on the latest effective date on or before today [33m 2705[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m upserts nutrition targets by user and effective date without crossing user boundaries [33m 2477[2mms[22m[39m
+@pulse/api:test: [90mstdout[2m | src/scripts/migrate-static.test.ts[2m > [22m[2mmigrate-static script[2m > [22m[2mis idempotent for foods migration when re-run
+@pulse/api:test: [22m[39mSkipping duplicate food "Large Eggs" for user user-1.
+@pulse/api:test: Foods migration summary: inserted 2, skipped 1, lastUsedAt updated 0.
+@pulse/api:test: 
+@pulse/api:test: [90mstdout[2m | src/scripts/migrate-static.test.ts[2m > [22m[2mmigrate-static script[2m > [22m[2mis idempotent for foods migration when re-run
+@pulse/api:test: [22m[39mSkipping duplicate food "Greek Yogurt" (Fage) for user user-1.
+@pulse/api:test: Skipping duplicate food "Oat Bran" for user user-1.
+@pulse/api:test: Skipping duplicate food "Large Eggs" for user user-1.
+@pulse/api:test: Foods migration summary: inserted 0, skipped 3, lastUsedAt updated 0.
+@pulse/api:test: 
+@pulse/api:test:  [32m✓[39m src/scripts/migrate-static.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 5927[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m migrates daily logs with nutrition, habits, and merged body weight history [33m 469[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m migrates foods from foods.json, skipping duplicates without inventing usage [33m 355[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m derives food usage from imported links and preserves exact usage on reimport [33m 3666[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m is idempotent for foods migration when re-run [33m 375[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/workout-progression/muscle-store.integration.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 4595[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m distinguishes planned, completed, primary, and secondary exposure with exact sources [33m 810[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m keeps dense 90-day totals exact while bounding source references [33m 1348[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m resolves contribution revisions on the requested local date [33m 665[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m uses planned contribution factors when attribution changes before fulfillment [33m 340[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m reconciles only exact linked plan sets and excludes cancelled plans [33m 385[2mms[22m[39m
+@pulse/api:test: [90mstdout[2m | src/routes/nutrition/food-reuse-process.integration.test.ts[2m > [22m[2mindependent API processes serialize owner-local food creation
+@pulse/api:test: [22m[39mIndependent worker startup phases: [
+@pulse/api:test:   [
+@pulse/api:test:     {
+@pulse/api:test:       kind: [32m'phase'[39m,
+@pulse/api:test:       phase: [32m'bootstrap'[39m,
+@pulse/api:test:       elapsedMs: [33m0.0852090000000203[39m,
+@pulse/api:test:       sinceForkMs: [33m355.0140000000001[39m
+@pulse/api:test:     },
+@pulse/api:test:     {
+@pulse/api:test:       kind: [32m'phase'[39m,
+@pulse/api:test:       phase: [32m'database-open'[39m,
+@pulse/api:test:       elapsedMs: [33m1564.5187500000002[39m,
+@pulse/api:test:       sinceForkMs: [33m1916.9366670000002[39m
+@pulse/api:test:     },
+@pulse/api:test:     {
+@pulse/api:test:       kind: [32m'phase'[39m,
+@pulse/api:test:       phase: [32m'api-imported'[39m,
+@pulse/api:test:       elapsedMs: [33m2212.649917[39m,
+@pulse/api:test:       sinceForkMs: [33m2565.267[39m
+@pulse/api:test:     },
+@pulse/api:test:     {
+@pulse/api:test:       kind: [32m'phase'[39m,
+@pulse/api:test:       phase: [32m'api-ready'[39m,
+@pulse/api:test:       elapsedMs: [33m2522.519834[39m,
+@pulse/api:test:       sinceForkMs: [33m2880.3059999999996[39m
+@pulse/api:test:     },
+@pulse/api:test:     {
+@pulse/api:test:       kind: [32m'online'[39m,
+@pulse/api:test:       pid: [33m58011[39m,
+@pulse/api:test:       apiReady: [33mtrue[39m,
+@pulse/api:test:       elapsedMs: [33m2522.583792[39m,
+@pulse/api:test:       sinceForkMs: [33m2880.457834[39m
+@pulse/api:test:     }
+@pulse/api:test:   ],
+@pulse/api:test:   [
+@pulse/api:test:     {
+@pulse/api:test:       kind: [32m'phase'[39m,
+@pulse/api:test:       phase: [32m'bootstrap'[39m,
+@pulse/api:test:       elapsedMs: [33m0.050125000000036835[39m,
+@pulse/api:test:       sinceForkMs: [33m362.31879200000003[39m
+@pulse/api:test:     },
+@pulse/api:test:     {
+@pulse/api:test:       kind: [32m'phase'[39m,
+@pulse/api:test:       phase: [32m'database-open'[39m,
+@pulse/api:test:       elapsedMs: [33m1492.451042[39m,
+@pulse/api:test:       sinceForkMs: [33m1855.1203749999997[39m
+@pulse/api:test:     },
+@pulse/api:test:     {
+@pulse/api:test:       kind: [32m'phase'[39m,
+@pulse/api:test:       phase: [32m'api-imported'[39m,
+@pulse/api:test:       elapsedMs: [33m2170.17425[39m,
+@pulse/api:test:       sinceForkMs: [33m2532.3542079999997[39m
+@pulse/api:test:     },
+@pulse/api:test:     {
+@pulse/api:test:       kind: [32m'phase'[39m,
+@pulse/api:test:       phase: [32m'api-ready'[39m,
+@pulse/api:test:       elapsedMs: [33m2535.764083[39m,
+@pulse/api:test:       sinceForkMs: [33m2897.9632920000004[39m
+@pulse/api:test:     },
+@pulse/api:test:     {
+@pulse/api:test:       kind: [32m'online'[39m,
+@pulse/api:test:       pid: [33m58012[39m,
+@pulse/api:test:       apiReady: [33mtrue[39m,
+@pulse/api:test:       elapsedMs: [33m2535.817[39m,
+@pulse/api:test:       sinceForkMs: [33m2898.0390420000003[39m
+@pulse/api:test:     }
+@pulse/api:test:   ]
+@pulse/api:test: ]
+@pulse/api:test: 
+@pulse/api:test:  [32m✓[39m src/routes/nutrition/food-reuse-process.integration.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 4026[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/feedback-planning/index.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 2442[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m drafts one source-linked follow-up only after completed loading exposure changes [33m 397[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m applies only an explicit future-note decision, preserves safeguards, and invalidates on correction [33m 512[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/adaptive-nutrition/review-store.integration.test.ts [2m([22m[2m78 tests[22m[2m)[22m[33m 18152[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m creates an immutable clean review with only Outcome and Recommendation [33m 406[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m does not let unrelated, unresolved, or deleted context suppress a low-day clarification [33m 330[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m makes matched context edits and deletion stale, then refreshes deterministically [33m 450[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m limits low-day clarification to canonical Trend Weight overlap [33m 348[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m defers until a program-local date, then permits a defer decision without duplication [33m 337[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m serializes simultaneous accepts in separate processes into one transition [33m 2613[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m keeps an edited adjustment review-only until a later explicit accept [33m 378[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m atomically allows one stale refresh and rejects a concurrent retry [33m 320[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/workout-sessions/index.test.ts [2m([22m[2m122 tests[22m[2m)[22m[33m 2755[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/foods/analytics-store.integration.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 2908[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m keeps bounded presets insensitive to 100,000 old linked occurrences [33m 494[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m selects one indexed program revision and fails closed when the latest projection is missing [33m 659[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/scheduled-workouts/index.test.ts [2m([22m[2m44 tests[22m[2m)[22m[33m 1930[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m documents scheduled workout snapshot mutation paths in OpenAPI with correct security [33m 320[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/auth/index.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 3961[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m registers a new user, normalizes the username, hashes the password, and returns a 7-day JWT [33m 1433[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m logs in a user and returns the auth envelope [33m 1086[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m returns INVALID_CREDENTIALS for incorrect passwords [33m 1200[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/scripts/seed-adaptive-tdee-preview.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 20345[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rebuilds every Coach state and keeps goal completion explicit [33m 14894[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m matches the independent 2026-08-23 fixture contract across all repaired domains [33m 5436[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/__tests__/auth.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 21828[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m registers a user, returns a JWT, and stores a hashed password [33m 3662[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects duplicate usernames with a 409 conflict [33m 669[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m logs in with valid credentials and returns a JWT [33m 1398[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m returns INVALID_CREDENTIALS for the wrong password [33m 1074[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m accepts a valid JWT on a protected route [33m 1244[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects expired JWTs on protected routes [33m 1303[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects JWTs without the required type claim [33m 1202[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects JWTs with the wrong type claim [33m 1452[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects JWTs without the required issuer claim [33m 1260[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m creates and lists agent tokens without exposing stored hashes [33m 1438[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m authenticates unified /api/v1 routes with an agent token and updates lastUsedAt [33m 1712[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects expired agent tokens on unified /api/v1 routes [33m 1094[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m accepts agent tokens with null expiresAt for backward compatibility [33m 1178[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m extends expiring agent tokens from the new rotation time [33m 1265[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects deleted agent tokens on subsequent use [33m 1215[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/weight/trend-store.integration.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 2459[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m returns one range-invariant canonical series with a visible raw spike [33m 603[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m resolves historical loss, maintenance, and gain goals with distinct pace and position [33m 510[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/feedback-note-remediation.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 3147[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m preserves originals, queues uncertain prose, and supersedes only an owned exact causal link [33m 3146[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/exercises/index.test.ts [2m([22m[2m49 tests[22m[2m)[22m[33m 1540[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/__tests__/foods-nutrition.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 1884[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m covers foods CRUD, search, deletion, and recency sorting [33m 1599[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/nutrition/daily-energy-store.integration.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 1811[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m uses constant-row indexed lookups across dense pre-date revision history [33m 962[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/adaptive-program-revision-causal-migration.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 2141[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m upgrades a real 0046 database and repairs an already-applied 0047 ledger [33m 418[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/adaptive-nutrition/goal-trajectory-store.integration.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 2602[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m keeps revisions effective by local date and display ranges forecast-invariant [33m 301[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m bounds a closed historical goal and never mixes later weights [33m 355[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/nutrition/daily-notes.integration.test.ts [2m([22m[2m26 tests[22m[2m)[22m[33m 2727[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m preserves all meal, food, target, energy, and adaptive facts on a populated complete day [33m 388[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/auth/starter-habits.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 1325[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m seeds five starter habits on register and returns them from GET /api/v1/habits [33m 537[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/v1/dashboard-store.integration.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 1372[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m uses all daily entries in the inclusive trailing 30-calendar-day window [33m 344[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/adaptive-nutrition/store.integration.test.ts [2m([22m[2m35 tests[22m[2m)[22m[33m 1868[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/adaptive-nutrition/analytics-store.integration.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 1279[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/foods/index.test.ts [2m([22m[2m27 tests[22m[2m)[22m[33m 1293[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/nutrition/ranked-food-reuse.integration.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 1794[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m serializes only categorical ranked matches, including frequent and nested promotion matches [33m 301[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/adaptive-nutrition/index.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 1720[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m validates analytics queries before the store and documents both read auth schemes [33m 396[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/index.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 1174[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m serves an OpenAPI 3.1 document with Pulse security schemes [33m 304[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/workout-feedback/store.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 1204[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/scheduled-workouts/snapshot-store.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 965[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/workout-feedback/index.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 1552[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m publishes concrete question, optimistic revision, answer, and conflict contracts in OpenAPI [33m 302[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/nutrition/store.food-usage.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 1439[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/agent/context-store.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 687[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m returns user profile name when user exists [33m 669[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/trash/index.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 859[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/workout-templates/index.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 1155[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/index.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 925[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m enables foreign key enforcement on the sqlite connection [33m 738[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/__tests__/workouts.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 1092[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/nutrition/logging-context.integration.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 1080[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/lib/habit-resolvers.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 751[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m returns completed for weight resolver when a body weight row exists for the date [33m 748[2mms[22m[39m
+@pulse/api:test: {"level":30,"time":1788986673415,"pid":58072,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","req":{"method":"POST","url":"/api/v1/habits","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+@pulse/api:test:  [32m✓[39m src/routes/workout-sessions/store.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 988[2mms[22m[39m
+@pulse/api:test: {"level":30,"time":1788986673416,"pid":58072,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","res":{"statusCode":401},"responseTime":0.47083306312561035,"msg":"request completed"}
+@pulse/api:test: {"level":30,"time":1788986673491,"pid":58072,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","req":{"method":"GET","url":"/api/v1/habits","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+@pulse/api:test: {"level":30,"time":1788986673491,"pid":58072,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","res":{"statusCode":200},"responseTime":0.20908284187316895,"msg":"request completed"}
+@pulse/api:test:  [32m✓[39m src/routes/habits/index.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 785[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/habit-entries/store.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 881[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m inserts a new habit entry when no entry exists for the habit and date [33m 873[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/foods/store.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 908[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m creates a food and normalizes omitted optional fields to null [33m 886[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/adaptive-goal-migration.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 911[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/weight/index.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 996[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/meals/index.test.ts [2m([22m[2m15 tests[22m[2m)[22m[33m 948[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m creates a standard meal via JWT at /api/v1/meals [33m 327[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/adaptive-weekly-review-migration.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 623[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/workout-progression-migration.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 742[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/nutrition/completeness-mutations.integration.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 689[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/v1/dashboard.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 655[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/nutrition/index.test.ts [2m([22m[2m15 tests[22m[2m)[22m[33m 743[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/feedback-planning-context-migration.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 601[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/workout-feedback-migration.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 519[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/scripts/backtest-adaptive-tdee.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 494[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m preserves the presence and bytes of a WAL-mode source database family [33m 377[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/nutrition/status-store.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 764[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/adaptive-nutrition/goal-store.integration.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 822[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/agent-tokens/index.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 588[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/habit-entries/index.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 662[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m upserts a habit entry for a habit within the authenticated user scope [33m 317[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/nutrition-targets/index.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 503[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/scheduled-workouts/store.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 457[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/users/index.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 644[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m GET /api/v1/users/me returns the authenticated user [33m 333[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/middleware/auth.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/data-quality/index.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 330[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/nutrition-targets/provenance.integration.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 347[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/workout-progression/index.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 531[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/canonical-weight-migration.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 198[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/rir-migration.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 185[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/scheduled-session-prescriptions-migration.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 248[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/adaptive-nutrition-migration.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 287[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/migrations.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 84[2mms[22m[39m
+@pulse/api:test: [90mstdout[2m | src/scripts/repair-workout-exercise-links.test.ts[2m > [22m[2mrepair-workout-exercise-links[2m > [22m[2mrestores original parent IDs transactionally without rewriting child links
+@pulse/api:test: [22m[39m{
+@pulse/api:test:   alreadyAppliedCount: [33m0[39m,
+@pulse/api:test:   dryRun: [33mfalse[39m,
+@pulse/api:test:   foreignKeyViolationCountBefore: [33m2[39m,
+@pulse/api:test:   mapSha256: [32m'4225ccbe5c1e2df09de67991dcd8d4a42826fb5dd199d51de7908071820e0f92'[39m,
+@pulse/api:test:   missingExerciseCount: [33m2[39m,
+@pulse/api:test:   orphanLinkCount: [33m2[39m,
+@pulse/api:test:   proposedRepairCount: [33m2[39m,
+@pulse/api:test:   remainingForeignKeyViolationCount: [33m0[39m,
+@pulse/api:test:   sessionSetOrphanCount: [33m1[39m,
+@pulse/api:test:   templateExerciseOrphanCount: [33m1[39m,
+@pulse/api:test:   unresolvedExerciseCount: [33m0[39m
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: 
+@pulse/api:test: [90mstdout[2m | src/scripts/repair-workout-exercise-links.test.ts[2m > [22m[2mrepair-workout-exercise-links[2m > [22m[2mis replayable and makes no changes after the map has already been applied
+@pulse/api:test: [22m[39m{
+@pulse/api:test:   alreadyAppliedCount: [33m0[39m,
+@pulse/api:test:   dryRun: [33mfalse[39m,
+@pulse/api:test:   foreignKeyViolationCountBefore: [33m1[39m,
+@pulse/api:test:   mapSha256: [32m'a2c728a915f6c0ad2db9373de9439e7b0f824d01471cb380e065562a53720c01'[39m,
+@pulse/api:test:   missingExerciseCount: [33m1[39m,
+@pulse/api:test:   orphanLinkCount: [33m1[39m,
+@pulse/api:test:   proposedRepairCount: [33m1[39m,
+@pulse/api:test:   remainingForeignKeyViolationCount: [33m0[39m,
+@pulse/api:test:   sessionSetOrphanCount: [33m1[39m,
+@pulse/api:test:   templateExerciseOrphanCount: [33m0[39m,
+@pulse/api:test:   unresolvedExerciseCount: [33m0[39m
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: {
+@pulse/api:test:   alreadyAppliedCount: [33m1[39m,
+@pulse/api:test:   dryRun: [33mfalse[39m,
+@pulse/api:test:   foreignKeyViolationCountBefore: [33m0[39m,
+@pulse/api:test:   mapSha256: [32m'a2c728a915f6c0ad2db9373de9439e7b0f824d01471cb380e065562a53720c01'[39m,
+@pulse/api:test:   missingExerciseCount: [33m0[39m,
+@pulse/api:test:   orphanLinkCount: [33m0[39m,
+@pulse/api:test:   proposedRepairCount: [33m0[39m,
+@pulse/api:test:   remainingForeignKeyViolationCount: [33m0[39m,
+@pulse/api:test:   sessionSetOrphanCount: [33m0[39m,
+@pulse/api:test:   templateExerciseOrphanCount: [33m0[39m,
+@pulse/api:test:   unresolvedExerciseCount: [33m0[39m
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: 
+@pulse/api:test: [90mstdout[2m | src/scripts/repair-workout-exercise-links.test.ts[2m > [22m[2mrepair-workout-exercise-links[2m > [22m[2mrelinks an exact canonical match while preserving the template row
+@pulse/api:test: [22m[39m{
+@pulse/api:test:   alreadyAppliedCount: [33m0[39m,
+@pulse/api:test:   dryRun: [33mfalse[39m,
+@pulse/api:test:   foreignKeyViolationCountBefore: [33m1[39m,
+@pulse/api:test:   mapSha256: [32m'ffcfe1cb7e1acf87f0122d2cd063cd1cf035d8759838991951bc94f4a49483ba'[39m,
+@pulse/api:test:   missingExerciseCount: [33m1[39m,
+@pulse/api:test:   orphanLinkCount: [33m1[39m,
+@pulse/api:test:   proposedRepairCount: [33m1[39m,
+@pulse/api:test:   remainingForeignKeyViolationCount: [33m0[39m,
+@pulse/api:test:   sessionSetOrphanCount: [33m0[39m,
+@pulse/api:test:   templateExerciseOrphanCount: [33m1[39m,
+@pulse/api:test:   unresolvedExerciseCount: [33m0[39m
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: {
+@pulse/api:test:   alreadyAppliedCount: [33m1[39m,
+@pulse/api:test:   dryRun: [33mfalse[39m,
+@pulse/api:test:   foreignKeyViolationCountBefore: [33m0[39m,
+@pulse/api:test:   mapSha256: [32m'ffcfe1cb7e1acf87f0122d2cd063cd1cf035d8759838991951bc94f4a49483ba'[39m,
+@pulse/api:test:   missingExerciseCount: [33m0[39m,
+@pulse/api:test:   orphanLinkCount: [33m0[39m,
+@pulse/api:test:   proposedRepairCount: [33m0[39m,
+@pulse/api:test:   remainingForeignKeyViolationCount: [33m0[39m,
+@pulse/api:test:   sessionSetOrphanCount: [33m0[39m,
+@pulse/api:test:   templateExerciseOrphanCount: [33m0[39m,
+@pulse/api:test:   unresolvedExerciseCount: [33m0[39m
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: 
+@pulse/api:test: [90mstdout[2m | src/scripts/repair-workout-exercise-links.test.ts[2m > [22m[2mrepair-workout-exercise-links[2m > [22m[2mrefuses ambiguous ownership, incomplete maps, and unrelated violations
+@pulse/api:test: [22m[39m{
+@pulse/api:test:   alreadyAppliedCount: [33m0[39m,
+@pulse/api:test:   dryRun: [33mtrue[39m,
+@pulse/api:test:   foreignKeyViolationCountBefore: [33m2[39m,
+@pulse/api:test:   mapSha256: [32m'33363e5be74a423945de2208b335fe01d3bf19d2aecc820f91829b839b3ea2b1'[39m,
+@pulse/api:test:   missingExerciseCount: [33m1[39m,
+@pulse/api:test:   orphanLinkCount: [33m2[39m,
+@pulse/api:test:   proposedRepairCount: [33m0[39m,
+@pulse/api:test:   remainingForeignKeyViolationCount: [33m2[39m,
+@pulse/api:test:   sessionSetOrphanCount: [33m1[39m,
+@pulse/api:test:   templateExerciseOrphanCount: [33m1[39m,
+@pulse/api:test:   unresolvedExerciseCount: [33m1[39m
+@pulse/api:test: } Workout exercise link repair preflight complete
+@pulse/api:test: 
+@pulse/api:test:  [32m✓[39m src/scripts/repair-workout-exercise-links.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 73[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/v1/context.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 335[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/v1/dashboard-store.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 151[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/foods/reuse-policy.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/middleware/agent-transforms.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 102[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/backfill/scheduled-workout-snapshots.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 202[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/nutrition/store.display-fields.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 69[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/integrity.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/adaptive-program-revision-migration.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 29[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/weight/store.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/schema.test.ts [2m([22m[2m48 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/workout-sessions/time-segments.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/nutrition-targets/store.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/workout-sessions/session-set-utils.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/__tests__/placeholder.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 1[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/scripts/rehearse-adaptive-goal-migration.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 2[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/db/adaptive-program-revision-projection.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/routes/nutrition/store.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/middleware/agent-enrichment.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/lib/user-time-zone.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/scripts/run-migration.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+@pulse/api:test:  [32m✓[39m src/__tests__/food-usage-reconciliation.test.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 47569[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m defaults to a byte-identical dry run, isolates hostile links and deleted foods, then applies idempotently [33m 12629[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects malformed or broadened scope {"mode":"invalid"} without writes [33m 3389[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects malformed or broadened scope {"mode":null} without writes [33m 2932[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects malformed or broadened scope {"limit":0} without writes [33m 2990[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects malformed or broadened scope {"limit":501} without writes [33m 2955[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects malformed or broadened scope {"limit":1.5} without writes [33m 2683[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects malformed or broadened scope {"limit":"1"} without writes [33m 2778[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects malformed or broadened scope {"cursor":"anything"} without writes [33m 2937[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects malformed or broadened scope {"userId":"user-2"} without writes [33m 2249[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects malformed or broadened scope {"allUsers":true} without writes [33m 1305[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects malformed or broadened scope {"foodId":"foreign"} without writes [33m 1357[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m fails closed on excessive scope, missing users and invalid JWT claims [33m 1200[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rolls back earlier target writes when a later update fails [33m 1210[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rejects query selectors and explicit null bodies without writes [33m 1266[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m previews and repairs malformed stored count -1 without a post-commit serialization error [33m 1311[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m previews and repairs malformed stored count 1.5 without a post-commit serialization error [33m 1238[2mms[22m[39m
+@pulse/api:test:      [33m[2m✓[22m[39m rolls back all apply writes if a malformed source timestamp cannot produce a valid response [33m 1241[2mms[22m[39m
+@pulse/api:test: 
+@pulse/api:test: [2m Test Files [22m [1m[32m96 passed[39m[22m[90m (96)[39m
+@pulse/api:test: [2m      Tests [22m [1m[32m1243 passed[39m[22m[90m (1243)[39m
+@pulse/api:test: [2m   Start at [22m 16:44:02
+@pulse/api:test: [2m   Duration [22m 48.76s[2m (transform 8.82s, setup 0ms, import 71.80s, tests 258.50s, environment 21ms)[22m
+@pulse/api:test: 
+
+ Tasks:    6 successful, 6 total
+Cached:    0 cached, 6 total
+  Time:    2m5.415s 
+
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-09T20:44:51.653Z
+EXIT_CODE: 0
