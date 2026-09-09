@@ -37,18 +37,6 @@ One repair-only API run first exited 1 because the malformed legacy fixture was 
 
 ## Synthetic browser acceptance
 
-Command:
+The original run was retained only as narrative and screenshots and is not used for console/network acceptance.
 
-```text
-API_PORT=33152 E2E_PORT=54152 API_BASE_URL=http://127.0.0.1:33152 BASE_URL=http://127.0.0.1:54152 E2E_DATABASE_URL=/private/tmp/pulse-152-browser.db pnpm exec playwright test apps/web/e2e/semantic-template-diff.spec.ts --project=chromium --workers=1
-EXIT_CODE=0
-Tests 3 passed (3)
-```
-
-The isolated API used `JWT_SECRET=synthetic-browser-only`, a disposable `/private/tmp` SQLite database, and no production environment. Acceptance covered 375x812 and 1280x900 viewports, collapsed-by-default disclosure, keyboard expansion, concrete scheduled/template values, enabled Start, changed-content reappearance after reload, preserved programming/agent safety notes, a bounded 500 response, and empty console-error/request-failure arrays. Both local servers were stopped after the run.
-
-Screenshots:
-
-- `screenshots/mobile-375-expanded.png`
-- `screenshots/desktop-1280-expanded.png`
-- `screenshots/desktop-api-error.png`
+The evidence repair reran only `apps/web/e2e/semantic-template-diff.spec.ts` on exact reviewed candidate `81f36a69997d15e8b4aed89059b98ae3d2dcd502`. The authentic JSON reporter output, decoded reporter attachments, stderr, exit status, screenshots, tested SHA, command/environment binding, and hashes are retained under `browser-reviewed-head/`. See `browser-reviewed-head/run-binding.md` for the inventory. The isolated run passed 3/3 with empty mobile/desktop console-error and failed-request arrays and the expected bounded 500 responses.

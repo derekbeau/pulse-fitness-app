@@ -1,0 +1,15 @@
+TESTED_SIBLING=873de43323d43a61200dce5bc717488b802c451b
+REVIEWED_CANDIDATE=81f36a69997d15e8b4aed89059b98ae3d2dcd502
+TESTED_SIBLING_PARENT=35deea4a84f9954198dd31a954f87e4b00860af7
+REVIEWED_CANDIDATE_PARENT=35deea4a84f9954198dd31a954f87e4b00860af7
+TESTED_SIBLING_IS_ANCESTOR_EXIT=1
+NON_EVIDENCE_TREE_DIFF_EXIT=0
+FULL_TREE_NAME_STATUS_BEGIN
+A	.gitattributes
+A	docs/implementation/semantic-template-diff-evidence/final-build.log
+A	docs/implementation/semantic-template-diff-evidence/final-gate.md
+A	docs/implementation/semantic-template-diff-evidence/final-lint.log
+A	docs/implementation/semantic-template-diff-evidence/final-test.log
+A	docs/implementation/semantic-template-diff-evidence/final-typecheck.log
+A	docs/implementation/semantic-template-diff-evidence/source-test-sha256.txt
+FULL_TREE_NAME_STATUS_END
