@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ScheduledWorkoutTemplateDiff } from '@pulse/shared';
 
 import { toDateKey } from '@/lib/date-utils';
 import { API_TOKEN_STORAGE_KEY } from '@/lib/api-client';
@@ -305,20 +306,10 @@ describe('ScheduledWorkoutDetail', () => {
     ).toBeTruthy();
   });
 
-  it('renders template drift, stale exercise, and template deleted banners from marker states', async () => {
+  it('keeps customization collapsed until the user expands concrete differences', async () => {
     const detail = createScheduledWorkoutDetailPayload({
       date: toDateKey(new Date()),
-      staleExercises: [
-        {
-          exerciseId: 'deleted-exercise',
-          snapshotName: 'Dips',
-        },
-      ],
-      templateDeleted: true,
-      templateDrift: {
-        changedAt: Date.UTC(2026, 2, 16, 12, 0, 0),
-        summary: 'Template has been updated since scheduling.',
-      },
+      templateDiff: createTemplateDiff(),
     });
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
@@ -342,10 +333,80 @@ describe('ScheduledWorkoutDetail', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByTestId('scheduled-template-drift-banner')).toBeInTheDocument();
+    const disclosure = await screen.findByTestId('scheduled-template-diff');
+    expect(disclosure).not.toHaveAttribute('open');
+    expect(screen.getByRole('button', { name: 'Start workout' })).toBeEnabled();
+    expect(screen.queryByText('Scheduled', { selector: 'dt' })).not.toBeVisible();
+
+    const summary = screen.getByText('Customized for this session.').closest('summary');
+    expect(summary).not.toBeNull();
+    if (!summary) throw new Error('Expected semantic diff summary');
+    fireEvent.click(summary);
+
+    expect(disclosure).toHaveAttribute('open');
+    expect(screen.getByText('Back Squat · Target weight · Set 1')).toBeVisible();
+    expect(screen.getByText('185')).toBeVisible();
+    expect(screen.getByText('195')).toBeVisible();
+  });
+
+  it('renders integrity, stale exercise, and template deletion warnings together', async () => {
+    const detail = createScheduledWorkoutDetailPayload({
+      date: toDateKey(new Date()),
+      staleExercises: [{ exerciseId: 'deleted-exercise', snapshotName: 'Dips' }],
+      templateDeleted: true,
+      templateDiff: createTemplateDiff({
+        status: 'integrity_warning',
+        summary: 'Review plan integrity before starting.',
+        provenance: {
+          status: 'unknown',
+          scheduledTemplateVersion: null,
+          currentTemplateVersion: 'b'.repeat(64),
+        },
+        differences: [
+          {
+            exerciseId: 'exercise-squat',
+            exerciseName: 'Back Squat',
+            field: 'trackingType',
+            label: 'Tracking type',
+            setNumber: null,
+            scheduledValue: 'weight_reps',
+            templateValue: 'distance',
+            category: 'integrity',
+            severity: 'warning',
+            provenance: 'unknown',
+          },
+        ],
+      }),
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = new URL(String(input), 'https://pulse.test');
+      const method = init?.method ?? 'GET';
+      if (url.pathname === '/api/v1/scheduled-workouts/scheduled-1' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: detail }));
+      }
+      if (url.pathname === '/api/v1/workout-sessions' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ data: [] }));
+      }
+      throw new Error(`Unhandled request: ${method} ${url.pathname}`);
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter>
+        <ScheduledWorkoutDetail id="scheduled-1" />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByTestId('scheduled-template-diff')).toBeInTheDocument();
     expect(screen.getByTestId('scheduled-stale-exercises-banner')).toBeInTheDocument();
     expect(screen.getByTestId('scheduled-template-deleted-banner')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Review' })).toBeInTheDocument();
+    const summary = screen.getByText('Review plan integrity before starting.').closest('summary');
+    expect(summary).not.toBeNull();
+    if (!summary) throw new Error('Expected integrity diff summary');
+    fireEvent.click(summary);
+    expect(screen.getByText('Provenance unknown for this legacy snapshot.')).toBeVisible();
+    expect(screen.getByText('Review before starting')).toBeVisible();
   });
 
   it('removes stale snapshot exercises from recovery modal via scheduled swap mutation', async () => {
@@ -1018,7 +1079,7 @@ function createScheduledWorkoutDetailPayload({
   exercises,
   staleExercises,
   templateDeleted = false,
-  templateDrift = null,
+  templateDiff = null,
 }: {
   date: string;
   exercises?: Array<{
@@ -1056,10 +1117,7 @@ function createScheduledWorkoutDetailPayload({
     snapshotName: string;
   }>;
   templateDeleted?: boolean;
-  templateDrift?: {
-    changedAt: number;
-    summary: string;
-  } | null;
+  templateDiff?: ScheduledWorkoutTemplateDiff | null;
 }) {
   return {
     id: 'scheduled-1',
@@ -1098,7 +1156,7 @@ function createScheduledWorkoutDetailPayload({
         ],
       },
     ],
-    templateDrift,
+    templateDiff,
     staleExercises: staleExercises ?? [],
     templateDeleted,
     template: templateDeleted
@@ -1153,6 +1211,35 @@ function createScheduledWorkoutDetailPayload({
           createdAt: 1,
           updatedAt: 1,
         },
+  };
+}
+
+function createTemplateDiff(
+  overrides: Partial<ScheduledWorkoutTemplateDiff> = {},
+): ScheduledWorkoutTemplateDiff {
+  return {
+    status: 'customized',
+    summary: 'Customized for this session.',
+    provenance: {
+      status: 'known',
+      scheduledTemplateVersion: 'a'.repeat(64),
+      currentTemplateVersion: 'b'.repeat(64),
+    },
+    differences: [
+      {
+        exerciseId: 'exercise-squat',
+        exerciseName: 'Back Squat',
+        field: 'targetWeight',
+        label: 'Target weight',
+        setNumber: 1,
+        scheduledValue: '185',
+        templateValue: '195',
+        category: 'prescription',
+        severity: 'info',
+        provenance: 'known',
+      },
+    ],
+    ...overrides,
   };
 }
 

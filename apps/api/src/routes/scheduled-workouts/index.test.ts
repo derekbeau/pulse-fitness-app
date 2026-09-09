@@ -523,7 +523,7 @@ describe('scheduled workout routes', () => {
         date: string;
         sessionId: string | null;
         exercises: unknown[];
-        templateDrift: unknown;
+        templateDiff: unknown;
         staleExercises: unknown[];
         templateDeleted: boolean;
         createdAt: number;
@@ -541,7 +541,7 @@ describe('scheduled workout routes', () => {
     expect(createdPayload.data.createdAt).toBeTypeOf('number');
     expect(createdPayload.data.updatedAt).toBeTypeOf('number');
     expect(createdPayload.data.exercises).toEqual([]);
-    expect(createdPayload.data.templateDrift).toBeNull();
+    expect(createdPayload.data.templateDiff).toBeNull();
     expect(createdPayload.data.staleExercises).toEqual([]);
     expect(createdPayload.data.templateDeleted).toBe(false);
 
@@ -807,11 +807,11 @@ describe('scheduled workout routes', () => {
     const payload = response.json() as {
       data: {
         exercises: Array<{ section: 'warmup' | 'main' | 'supplemental' | 'cooldown' }>;
-        templateDrift: unknown;
+        templateDiff: unknown;
       };
     };
 
-    expect(payload.data.templateDrift).toBeNull();
+    expect(payload.data.templateDiff).toBeNull();
     expect(payload.data.exercises.map((exercise) => exercise.section)).toEqual([
       'warmup',
       'main',
@@ -923,7 +923,7 @@ describe('scheduled workout routes', () => {
             ],
           },
         ],
-        templateDrift: null,
+        templateDiff: null,
         staleExercises: [],
         templateDeleted: false,
         template: expect.objectContaining({
@@ -934,7 +934,7 @@ describe('scheduled workout routes', () => {
     });
   });
 
-  it('returns templateDrift marker when template changes after scheduling', async () => {
+  it('returns concrete semantic differences when template content changes after scheduling', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
       { expiresIn: '7d' },
@@ -992,17 +992,52 @@ describe('scheduled workout routes', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({
+    const jwtPayload = response.json();
+    expect(jwtPayload).toEqual({
       data: expect.objectContaining({
         id: scheduledWorkoutId,
-        templateDrift: {
-          changedAt,
-          summary: 'Template has been updated since scheduling.',
-        },
+        templateDiff: expect.objectContaining({
+          status: 'customized',
+          summary: 'Customized for this session.',
+          provenance: expect.objectContaining({ status: 'known' }),
+          differences: expect.arrayContaining([
+            expect.objectContaining({
+              exerciseId: 'exercise-squat',
+              exerciseName: 'Back Squat',
+              field: 'programmingNotes',
+              scheduledValue: 'Drive out of the hole.',
+              templateValue: 'Work up to a strong top set, then backoff.',
+              category: 'prescription',
+              severity: 'info',
+            }),
+          ]),
+        }),
         staleExercises: [],
         templateDeleted: false,
       }),
     });
+
+    const agentToken = seedAgentToken('user-1', 'semantic-diff-agent');
+    const agentResponse = await context.app.inject({
+      method: 'GET',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}`,
+      headers: createAgentTokenHeader(agentToken),
+    });
+    expect(agentResponse.statusCode).toBe(200);
+    expect((agentResponse.json() as { data: { templateDiff: unknown } }).data.templateDiff).toEqual(
+      (jwtPayload as { data: { templateDiff: unknown } }).data.templateDiff,
+    );
+
+    const otherUserToken = context.app.jwt.sign(
+      { sub: 'user-2', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const crossOwnerResponse = await context.app.inject({
+      method: 'GET',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}`,
+      headers: createAuthorizationHeader(otherUserToken),
+    });
+    expect(crossOwnerResponse.statusCode).toBe(404);
   });
 
   it('returns staleExercises marker when snapshot exercises are soft-deleted', async () => {
@@ -1056,7 +1091,7 @@ describe('scheduled workout routes', () => {
     expect(response.json()).toEqual({
       data: expect.objectContaining({
         id: scheduledWorkoutId,
-        templateDrift: null,
+        templateDiff: null,
         staleExercises: [
           {
             exerciseId: 'exercise-stale',
@@ -1119,7 +1154,7 @@ describe('scheduled workout routes', () => {
     expect(response.json()).toEqual({
       data: expect.objectContaining({
         id: scheduledWorkoutId,
-        templateDrift: null,
+        templateDiff: null,
         staleExercises: [],
         templateDeleted: true,
         template: null,

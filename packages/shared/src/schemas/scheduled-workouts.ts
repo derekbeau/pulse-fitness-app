@@ -84,19 +84,21 @@ export const scheduledWorkoutQueryParamsSchema = z
   });
 
 const scheduledWorkoutExerciseSetTargetFieldSchemas = {
-  targetWeight: z.number().min(0).nullable(),
-  targetWeightMin: z.number().min(0).nullable(),
-  targetWeightMax: z.number().min(0).nullable(),
-  targetSeconds: z.number().int().min(0).nullable(),
-  targetDistance: z.number().min(0).nullable(),
-  targetZone: z.number().int().min(1).max(5).nullable(),
+  targetWeight: z.number().finite().nullable(),
+  targetWeightMin: z.number().finite().nullable(),
+  targetWeightMax: z.number().finite().nullable(),
+  targetSeconds: z.number().finite().nullable(),
+  targetDistance: z.number().finite().nullable(),
+  targetZone: z.number().finite().nullable(),
 };
 
 export const scheduledWorkoutExerciseSetSchema = z.object({
-  setNumber: z.number().int().min(1),
-  repsMin: z.number().int().min(1).nullable(),
-  repsMax: z.number().int().min(1).nullable(),
-  reps: z.number().int().min(1).nullable(),
+  // Detail reads must surface malformed legacy targets so the semantic inspector can emit an
+  // actionable integrity warning. Mutation input schemas below remain strict.
+  setNumber: z.number().finite(),
+  repsMin: z.number().finite().nullable(),
+  repsMax: z.number().finite().nullable(),
+  reps: z.number().finite().nullable(),
   ...scheduledWorkoutExerciseSetTargetFieldSchemas,
 });
 
@@ -122,9 +124,31 @@ export const scheduledWorkoutExerciseSchema = z.object({
   sets: z.array(scheduledWorkoutExerciseSetSchema),
 });
 
-export const scheduledWorkoutTemplateDriftSchema = z.object({
-  changedAt: z.number().int(),
+export const scheduledWorkoutTemplateDifferenceSchema = z.object({
+  category: z.enum(['prescription', 'integrity']),
+  severity: z.enum(['info', 'warning']),
+  exerciseId: requiredStringSchema.nullable(),
+  exerciseName: requiredStringSchema,
+  field: requiredStringSchema,
+  label: requiredStringSchema,
+  setNumber: z.number().finite().nullable(),
+  scheduledValue: requiredLongStringSchema,
+  templateValue: requiredLongStringSchema,
+  provenance: z.enum(['known', 'unknown']),
+});
+
+export const scheduledWorkoutTemplateDiffSchema = z.object({
+  status: z.enum(['customized', 'integrity_warning']),
   summary: requiredLongStringSchema,
+  provenance: z.object({
+    status: z.enum(['known', 'unknown']),
+    scheduledTemplateVersion: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .nullable(),
+    currentTemplateVersion: z.string().regex(/^[0-9a-f]{64}$/),
+  }),
+  differences: z.array(scheduledWorkoutTemplateDifferenceSchema).min(1),
 });
 
 export const scheduledWorkoutStaleExerciseSchema = z.object({
@@ -134,7 +158,7 @@ export const scheduledWorkoutStaleExerciseSchema = z.object({
 
 export const scheduledWorkoutDetailSchema = scheduledWorkoutSchema.extend({
   exercises: z.array(scheduledWorkoutExerciseSchema),
-  templateDrift: scheduledWorkoutTemplateDriftSchema.nullable(),
+  templateDiff: scheduledWorkoutTemplateDiffSchema.nullable(),
   staleExercises: z.array(scheduledWorkoutStaleExerciseSchema),
   templateDeleted: z.boolean(),
 });
@@ -256,9 +280,12 @@ export type ScheduledWorkoutExerciseAgentNotesMeta = z.infer<
   typeof scheduledWorkoutExerciseAgentNotesMetaSchema
 >;
 export type ScheduledWorkoutExercise = z.infer<typeof scheduledWorkoutExerciseSchema>;
-export type ScheduledWorkoutTemplateDrift = z.infer<typeof scheduledWorkoutTemplateDriftSchema>;
 export type ScheduledWorkoutStaleExercise = z.infer<typeof scheduledWorkoutStaleExerciseSchema>;
 export type ScheduledWorkoutDetail = z.infer<typeof scheduledWorkoutDetailSchema>;
+export type ScheduledWorkoutTemplateDiff = z.infer<typeof scheduledWorkoutTemplateDiffSchema>;
+export type ScheduledWorkoutTemplateDifference = z.infer<
+  typeof scheduledWorkoutTemplateDifferenceSchema
+>;
 export type UpdateScheduledWorkoutExerciseNotesInput = z.infer<
   typeof updateScheduledWorkoutExerciseNotesInputSchema
 >;
