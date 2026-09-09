@@ -19,9 +19,6 @@
     "raw/49-full-typecheck-uncached-serial-final.json",
     "raw/50-full-lint-uncached-serial-final.json",
     "raw/51-full-build-uncached-serial-final.json",
-    "raw/59-remediation-review-fix-focused.json",
-    "raw/60-remediation-review-fix-typecheck.json",
-    "raw/61-remediation-review-fix-eslint.json",
     "raw/62-remediation-source-hashes.json",
     "raw/63-remediation-full-test.json",
     "raw/64-remediation-full-typecheck.json",
@@ -29,6 +26,23 @@
     "raw/66-remediation-full-build.json",
     "raw/67-remediation-evidence-json.json",
     "raw/68-remediation-source-hashes-final.json"
+  ],
+  "supersededReceipts": [
+    {
+      "path": "raw/59-remediation-review-fix-focused.json",
+      "testedCommit": "7a046b15130fc54e70ed1eb64a32d3e837eb74b0",
+      "status": "SUPERSEDED_PRE_REPAIR_NOT_FINAL_PROOF"
+    },
+    {
+      "path": "raw/60-remediation-review-fix-typecheck.json",
+      "testedCommit": "7a046b15130fc54e70ed1eb64a32d3e837eb74b0",
+      "status": "SUPERSEDED_PRE_REPAIR_NOT_FINAL_PROOF"
+    },
+    {
+      "path": "raw/61-remediation-review-fix-eslint.json",
+      "testedCommit": "7a046b15130fc54e70ed1eb64a32d3e837eb74b0",
+      "status": "SUPERSEDED_PRE_REPAIR_NOT_FINAL_PROOF"
+    }
   ],
   "fullGateControls": {
     "CI": "true",
