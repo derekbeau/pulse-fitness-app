@@ -20,7 +20,12 @@ import {
   workoutTemplates,
 } from '../../db/schema/index.js';
 
-import { deleteSnapshot, readSnapshot, writeSnapshot } from './snapshot-store.js';
+import {
+  deleteSnapshot,
+  inspectScheduledWorkoutTemplateDiff,
+  readSnapshot,
+  writeSnapshot,
+} from './snapshot-store.js';
 
 type TestDatabase = ReturnType<typeof drizzle<typeof schema>>;
 
@@ -269,6 +274,227 @@ describe('scheduled workout snapshot store', () => {
         .from(scheduledWorkoutExerciseSets)
         .all();
       expect(remainingSets).toEqual([]);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('compares effective prescriptions and ignores storage-only representation changes', async () => {
+    const { db, sqlite } = await createTestDatabase();
+    try {
+      seedBaseTemplate(db);
+      const { templateVersion } = await writeSnapshot({
+        scheduledWorkoutId: 'scheduled-1',
+        templateId: 'template-1',
+        database: db,
+      });
+      const mainSnapshot = db
+        .select({ id: scheduledWorkoutExercises.id })
+        .from(scheduledWorkoutExercises)
+        .where(eq(scheduledWorkoutExercises.exerciseId, 'exercise-main'))
+        .get();
+      expect(mainSnapshot).toBeDefined();
+      if (!mainSnapshot) throw new Error('Expected main scheduled snapshot exercise');
+
+      db.update(scheduledWorkoutExerciseSets)
+        .set({ repsMin: 8, repsMax: 8 })
+        .where(eq(scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId, mainSnapshot.id))
+        .run();
+      db.update(templateExercises)
+        .set({
+          setTargets: [
+            { setNumber: 1, targetWeight: 55 },
+            { setNumber: 2, targetWeight: 62.5 },
+          ],
+        })
+        .where(eq(templateExercises.id, 'template-ex-main'))
+        .run();
+
+      const snapshot = await readSnapshot('scheduled-1', db);
+      await expect(
+        inspectScheduledWorkoutTemplateDiff({
+          database: db,
+          scheduledTemplateVersion: templateVersion,
+          snapshot,
+          templateId: 'template-1',
+        }),
+      ).resolves.toBeNull();
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('returns concrete prescription differences without mutating the snapshot', async () => {
+    const { db, sqlite } = await createTestDatabase();
+    try {
+      seedBaseTemplate(db);
+      const { templateVersion } = await writeSnapshot({
+        scheduledWorkoutId: 'scheduled-1',
+        templateId: 'template-1',
+        database: db,
+      });
+      const before = await readSnapshot('scheduled-1', db);
+
+      db.update(templateExercises)
+        .set({
+          orderIndex: 2,
+          programmingNotes: 'Use a heavier bell if every rep stays explosive.',
+          setTargets: [
+            { setNumber: 1, targetWeight: 60 },
+            { setNumber: 2, targetWeight: 67.5 },
+          ],
+        })
+        .where(eq(templateExercises.id, 'template-ex-main'))
+        .run();
+
+      const result = await inspectScheduledWorkoutTemplateDiff({
+        database: db,
+        scheduledTemplateVersion: templateVersion,
+        snapshot: before,
+        templateId: 'template-1',
+      });
+
+      expect(result).toMatchObject({
+        status: 'customized',
+        summary: 'Customized for this session.',
+        provenance: { status: 'known', scheduledTemplateVersion: templateVersion },
+      });
+      expect(result?.differences).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            exerciseName: 'Kettlebell Swing',
+            field: 'order',
+            scheduledValue: '2',
+            templateValue: '3',
+          }),
+          expect.objectContaining({
+            field: 'programmingNotes',
+            scheduledValue: 'Fallback template note',
+            templateValue: 'Use a heavier bell if every rep stays explosive.',
+          }),
+          expect.objectContaining({
+            field: 'targetWeight',
+            setNumber: 1,
+            scheduledValue: '55',
+            templateValue: '60',
+          }),
+        ]),
+      );
+      expect(await readSnapshot('scheduled-1', db)).toEqual(before);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('keeps tracking conflicts and invalid legacy targets actionable with unknown provenance', async () => {
+    const { db, sqlite } = await createTestDatabase();
+    try {
+      seedBaseTemplate(db);
+      await writeSnapshot({
+        scheduledWorkoutId: 'scheduled-1',
+        templateId: 'template-1',
+        database: db,
+      });
+      const mainSnapshot = db
+        .select({ id: scheduledWorkoutExercises.id })
+        .from(scheduledWorkoutExercises)
+        .where(eq(scheduledWorkoutExercises.exerciseId, 'exercise-main'))
+        .get();
+      expect(mainSnapshot).toBeDefined();
+      if (!mainSnapshot) throw new Error('Expected main scheduled snapshot exercise');
+
+      db.update(exercises)
+        .set({ trackingType: 'distance' })
+        .where(eq(exercises.id, 'exercise-main'))
+        .run();
+      db.update(scheduledWorkoutExerciseSets)
+        .set({ reps: 8, repsMin: 6, repsMax: 10 })
+        .where(eq(scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId, mainSnapshot.id))
+        .run();
+
+      const result = await inspectScheduledWorkoutTemplateDiff({
+        database: db,
+        scheduledTemplateVersion: null,
+        snapshot: await readSnapshot('scheduled-1', db),
+        templateId: 'template-1',
+      });
+
+      expect(result).toMatchObject({
+        status: 'integrity_warning',
+        provenance: { status: 'unknown', scheduledTemplateVersion: null },
+      });
+      expect(result?.differences).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            category: 'integrity',
+            field: 'trackingType',
+            scheduledValue: 'weight_reps',
+            templateValue: 'distance',
+          }),
+          expect.objectContaining({
+            category: 'integrity',
+            field: 'invalidTarget',
+            scheduledValue: 'Exact reps conflict with the rep range.',
+          }),
+        ]),
+      );
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('reports malformed current-template reps and exercise swaps as integrity warnings', async () => {
+    const { db, sqlite } = await createTestDatabase();
+    try {
+      seedBaseTemplate(db);
+      const { templateVersion } = await writeSnapshot({
+        scheduledWorkoutId: 'scheduled-1',
+        templateId: 'template-1',
+        database: db,
+      });
+      db.insert(exercises)
+        .values({
+          id: 'exercise-replacement',
+          userId: null,
+          name: 'Goblet Squat',
+          muscleGroups: ['quads'],
+          equipment: 'kettlebell',
+          category: 'compound',
+          trackingType: 'weight_reps',
+        })
+        .run();
+
+      sqlite.pragma('ignore_check_constraints = ON');
+      try {
+        db.update(templateExercises)
+          .set({ exerciseId: 'exercise-replacement', repsMin: 12, repsMax: 6 })
+          .where(eq(templateExercises.id, 'template-ex-main'))
+          .run();
+      } finally {
+        sqlite.pragma('ignore_check_constraints = OFF');
+      }
+
+      const result = await inspectScheduledWorkoutTemplateDiff({
+        database: db,
+        scheduledTemplateVersion: templateVersion,
+        snapshot: await readSnapshot('scheduled-1', db),
+        templateId: 'template-1',
+      });
+
+      expect(result?.status).toBe('integrity_warning');
+      expect(result?.differences).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            category: 'integrity',
+            field: 'exercise',
+          }),
+          expect.objectContaining({
+            category: 'integrity',
+            field: 'invalidTarget',
+            templateValue: 'Minimum reps exceed maximum reps.',
+          }),
+        ]),
+      );
     } finally {
       sqlite.close();
     }

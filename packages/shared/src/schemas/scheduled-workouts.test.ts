@@ -90,7 +90,29 @@ describe('scheduledWorkoutDetailSchema', () => {
           ],
         },
       ],
-      templateDrift: null,
+      templateDiff: {
+        status: 'customized',
+        summary: 'Customized for this session.',
+        provenance: {
+          status: 'known',
+          scheduledTemplateVersion: 'a'.repeat(64),
+          currentTemplateVersion: 'b'.repeat(64),
+        },
+        differences: [
+          {
+            category: 'prescription',
+            severity: 'info',
+            exerciseId: 'exercise-1',
+            exerciseName: 'Back Squat',
+            field: 'targetWeight',
+            label: 'Target weight',
+            setNumber: 1,
+            scheduledValue: '185',
+            templateValue: '195',
+            provenance: 'known',
+          },
+        ],
+      },
       staleExercises: [],
       templateDeleted: false,
     });
@@ -108,7 +130,16 @@ describe('scheduledWorkoutDetailSchema', () => {
           templateCues: ['Brace'],
         },
       ],
-      templateDrift: null,
+      templateDiff: expect.objectContaining({
+        status: 'customized',
+        differences: [
+          expect.objectContaining({
+            field: 'targetWeight',
+            scheduledValue: '185',
+            templateValue: '195',
+          }),
+        ],
+      }),
       staleExercises: [],
       templateDeleted: false,
     });
@@ -144,7 +175,7 @@ describe('scheduledWorkoutDetailSchema', () => {
           sets: [],
         },
       ],
-      templateDrift: null,
+      templateDiff: null,
       staleExercises: [],
       templateDeleted: false,
     });
@@ -153,6 +184,81 @@ describe('scheduledWorkoutDetailSchema', () => {
       programmingNotes: null,
       agentNotes: 'push harder',
     });
+  });
+
+  it('preserves malformed legacy targets for an actionable integrity response', () => {
+    const payload = scheduledWorkoutDetailSchema.parse({
+      id: 'schedule-legacy-invalid',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-03-13',
+      sessionId: null,
+      createdAt: 1,
+      updatedAt: 2,
+      exercises: [
+        {
+          exerciseId: 'exercise-1',
+          exerciseName: 'Back Squat',
+          section: 'main',
+          orderIndex: 0,
+          programmingNotes: null,
+          agentNotes: null,
+          agentNotesMeta: null,
+          templateCues: null,
+          supersetGroup: null,
+          tempo: null,
+          restSeconds: null,
+          sets: [
+            {
+              setNumber: 0,
+              repsMin: 10,
+              repsMax: 5,
+              reps: 8,
+              targetWeight: -10,
+              targetWeightMin: null,
+              targetWeightMax: null,
+              targetSeconds: 2.5,
+              targetDistance: null,
+              targetZone: 8,
+            },
+          ],
+        },
+      ],
+      templateDiff: {
+        status: 'integrity_warning',
+        summary: 'Review plan integrity before starting.',
+        provenance: {
+          status: 'unknown',
+          scheduledTemplateVersion: null,
+          currentTemplateVersion: 'c'.repeat(64),
+        },
+        differences: [
+          {
+            category: 'integrity',
+            severity: 'warning',
+            exerciseId: 'exercise-1',
+            exerciseName: 'Back Squat',
+            field: 'invalidTarget',
+            label: 'Invalid target',
+            setNumber: 1,
+            scheduledValue: 'Set number must be positive.',
+            templateValue: 'Valid',
+            provenance: 'unknown',
+          },
+        ],
+      },
+      staleExercises: [],
+      templateDeleted: false,
+    });
+
+    expect(payload.exercises[0]?.sets[0]).toMatchObject({
+      setNumber: 0,
+      repsMin: 10,
+      repsMax: 5,
+      targetWeight: -10,
+      targetZone: 8,
+    });
+    expect(payload.templateDiff?.status).toBe('integrity_warning');
   });
 });
 

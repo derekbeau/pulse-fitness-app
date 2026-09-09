@@ -1154,7 +1154,7 @@ function ScheduledWorkoutBanners({
   scheduledWorkout: ScheduledWorkoutDetail;
 }) {
   const hasAnyBanner =
-    scheduledWorkout.templateDrift != null ||
+    scheduledWorkout.templateDiff != null ||
     scheduledWorkout.staleExercises.length > 0 ||
     scheduledWorkout.templateDeleted;
 
@@ -1164,19 +1164,8 @@ function ScheduledWorkoutBanners({
 
   return (
     <div className="space-y-2" data-testid="scheduled-workout-banners">
-      {scheduledWorkout.templateDrift ? (
-        <BannerCard
-          className="border-amber-500/30 bg-amber-500/12"
-          description="This template has been updated since you scheduled this workout."
-          icon={
-            <TriangleAlert
-              aria-hidden="true"
-              className="size-4 text-amber-700 dark:text-amber-200"
-            />
-          }
-          testId="scheduled-template-drift-banner"
-          title="Template drift"
-        />
+      {scheduledWorkout.templateDiff ? (
+        <TemplateDiffDisclosure templateDiff={scheduledWorkout.templateDiff} />
       ) : null}
 
       {scheduledWorkout.staleExercises.length > 0 ? (
@@ -1201,14 +1190,110 @@ function ScheduledWorkoutBanners({
 
       {scheduledWorkout.templateDeleted ? (
         <BannerCard
-          className="border-border/80 bg-secondary/35"
-          description="Source template was deleted. This snapshot is preserved."
-          icon={<Info aria-hidden="true" className="size-4 text-muted" />}
+          className="border-amber-500/30 bg-amber-500/10"
+          description="The source template is unavailable. Review or edit this preserved snapshot before starting."
+          icon={
+            <AlertTriangle
+              aria-hidden="true"
+              className="size-4 text-amber-700 dark:text-amber-200"
+            />
+          }
           testId="scheduled-template-deleted-banner"
-          title="Template deleted"
+          title="Template unavailable"
         />
       ) : null}
     </div>
+  );
+}
+
+function TemplateDiffDisclosure({
+  templateDiff,
+}: {
+  templateDiff: NonNullable<ScheduledWorkoutDetail['templateDiff']>;
+}) {
+  const isIntegrityWarning = templateDiff.status === 'integrity_warning';
+
+  return (
+    <details
+      className={cn(
+        'group rounded-2xl border px-3 py-2.5',
+        isIntegrityWarning
+          ? 'border-amber-500/30 bg-amber-500/10'
+          : 'border-border/80 bg-secondary/25',
+      )}
+      data-testid="scheduled-template-diff"
+    >
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+        <span className="flex min-w-0 items-start gap-2.5">
+          {isIntegrityWarning ? (
+            <TriangleAlert
+              aria-hidden="true"
+              className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-200"
+            />
+          ) : (
+            <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted" />
+          )}
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-foreground">
+              {templateDiff.summary}
+            </span>
+            <span className="block text-xs text-muted">
+              {templateDiff.differences.length}{' '}
+              {templateDiff.differences.length === 1 ? 'difference' : 'differences'} · Review
+              details
+            </span>
+          </span>
+        </span>
+        <span
+          aria-hidden="true"
+          className="shrink-0 text-sm text-muted transition-transform group-open:rotate-180"
+        >
+          ⌄
+        </span>
+      </summary>
+
+      <div className="mt-2 space-y-2 border-t border-border/70 pt-3">
+        {templateDiff.provenance.status === 'unknown' ? (
+          <p className="text-xs text-muted">Provenance unknown for this legacy snapshot.</p>
+        ) : null}
+
+        <ul className="space-y-2" aria-label="Scheduled workout template differences">
+          {templateDiff.differences.map((item, index) => (
+            <li
+              className={cn(
+                'rounded-xl border px-3 py-2',
+                item.severity === 'warning'
+                  ? 'border-amber-500/25 bg-amber-500/8'
+                  : 'border-border/70 bg-background/45',
+              )}
+              key={`${item.exerciseId ?? 'unknown'}-${item.field}-${item.setNumber ?? 'exercise'}-${index}`}
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  {item.exerciseName} · {item.label}
+                  {item.setNumber ? ` · Set ${item.setNumber}` : ''}
+                </p>
+                {item.severity === 'warning' ? (
+                  <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                    Review before starting
+                  </span>
+                ) : null}
+              </div>
+              <dl className="mt-1 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2 sm:gap-3">
+                <div>
+                  <dt className="text-muted">Scheduled</dt>
+                  <dd className="break-words text-foreground">{item.scheduledValue}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted">Template</dt>
+                  <dd className="break-words text-foreground">{item.templateValue}</dd>
+                </div>
+              </dl>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </details>
   );
 }
 

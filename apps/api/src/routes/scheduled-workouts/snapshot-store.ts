@@ -1,7 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import { eq, inArray } from 'drizzle-orm';
-import { canonicalizeWorkoutRepTarget } from '@pulse/shared';
+import {
+  canonicalizeWorkoutRepTarget,
+  type ExerciseTrackingType,
+  type ScheduledWorkoutTemplateDiff,
+  type ScheduledWorkoutTemplateDifference,
+} from '@pulse/shared';
 
 import type {
   TemplateExerciseSetTarget,
@@ -95,6 +100,24 @@ export type ScheduledWorkoutSnapshot = {
   exercises: ScheduledWorkoutSnapshotExercise[];
 };
 
+type SemanticSet = Omit<
+  ScheduledWorkoutSnapshotSet,
+  'id' | 'scheduledWorkoutExerciseId' | 'createdAt'
+>;
+
+type SemanticExercise = {
+  exerciseId: string;
+  exerciseName: string;
+  trackingType: ExerciseTrackingType | null;
+  section: WorkoutTemplateSectionType;
+  orderIndex: number;
+  programmingNotes: string | null;
+  supersetGroup: string | null;
+  tempo: string | null;
+  restSeconds: number | null;
+  sets: SemanticSet[];
+};
+
 type SnapshotWriteResult = {
   templateVersion: string;
   exerciseCount: number;
@@ -166,6 +189,11 @@ const toExerciseProgrammingNotes = (
   row: Pick<TemplateExerciseSnapshotRow, 'programmingNotes' | 'notes'>,
 ) => row.programmingNotes ?? row.notes ?? null;
 
+const normalizeOptionalString = (value: string | null | undefined) => {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+};
+
 const compareTemplateExercisesByRank =
   (sectionRank: Record<WorkoutTemplateSectionType, number>) =>
   (left: TemplateExerciseSnapshotRow, right: TemplateExerciseSnapshotRow): number => {
@@ -200,11 +228,18 @@ const toSnapshotSetDrafts = (row: TemplateExerciseSnapshotRow): SnapshotSetDraft
   const targets = [...(row.setTargets ?? [])].sort(
     (left, right) => left.setNumber - right.setNumber,
   );
-  const canonicalReps = canonicalizeWorkoutRepTarget({
+  const rawReps = {
     reps: row.repsMin !== null && row.repsMin === row.repsMax ? row.repsMin : null,
     repsMin: row.repsMin,
     repsMax: row.repsMax,
-  });
+  };
+  let canonicalReps = rawReps;
+  try {
+    canonicalReps = canonicalizeWorkoutRepTarget(rawReps);
+  } catch {
+    // Legacy template rows can predate current validation. Preserve their raw values so reads can
+    // return an actionable integrity warning instead of failing the entire detail request.
+  }
 
   if (targets.length > 0) {
     return targets.map((target) => ({
@@ -377,6 +412,357 @@ export const readSnapshot = async (
       ...exerciseRow,
       sets: setsByExerciseId.get(exerciseRow.id) ?? [],
     })),
+  };
+};
+
+const SEMANTIC_FIELDS: Array<{
+  field: keyof SemanticSet;
+  label: string;
+}> = [
+  { field: 'reps', label: 'Reps' },
+  { field: 'repsMin', label: 'Minimum reps' },
+  { field: 'repsMax', label: 'Maximum reps' },
+  { field: 'targetWeight', label: 'Target weight' },
+  { field: 'targetWeightMin', label: 'Minimum target weight' },
+  { field: 'targetWeightMax', label: 'Maximum target weight' },
+  { field: 'targetSeconds', label: 'Duration target' },
+  { field: 'targetDistance', label: 'Distance target' },
+  { field: 'targetZone', label: 'Zone target' },
+];
+
+const formatSemanticValue = (value: unknown): string => {
+  if (value === null || value === undefined || value === '') {
+    return 'Not set';
+  }
+  return String(value);
+};
+
+const normalizeSet = (set: SemanticSet): SemanticSet => {
+  try {
+    const reps = canonicalizeWorkoutRepTarget({
+      reps: set.reps,
+      repsMin: set.repsMin,
+      repsMax: set.repsMax,
+    });
+    return {
+      ...set,
+      reps: reps.reps ?? null,
+      repsMin: reps.repsMin ?? null,
+      repsMax: reps.repsMax ?? null,
+    };
+  } catch {
+    return set;
+  }
+};
+
+const invalidSetReason = (set: SemanticSet): string | null => {
+  if (!Number.isInteger(set.setNumber) || set.setNumber < 1) return 'Set number must be positive.';
+  const positiveIntegers = [set.reps, set.repsMin, set.repsMax];
+  if (positiveIntegers.some((value) => value !== null && (!Number.isInteger(value) || value < 1))) {
+    return 'Rep targets must be positive whole numbers.';
+  }
+  if (set.reps !== null && (set.repsMin !== null || set.repsMax !== null)) {
+    const exactRange = set.repsMin === set.reps && set.repsMax === set.reps;
+    if (!exactRange) return 'Exact reps conflict with the rep range.';
+  }
+  if (set.repsMin !== null && set.repsMax !== null && set.repsMin > set.repsMax) {
+    return 'Minimum reps exceed maximum reps.';
+  }
+  const nonNegative = [
+    set.targetWeight,
+    set.targetWeightMin,
+    set.targetWeightMax,
+    set.targetSeconds,
+    set.targetDistance,
+  ];
+  if (nonNegative.some((value) => value !== null && (!Number.isFinite(value) || value < 0))) {
+    return 'Targets must be zero or greater.';
+  }
+  if (set.targetSeconds !== null && !Number.isInteger(set.targetSeconds)) {
+    return 'Duration target must be a whole number of seconds.';
+  }
+  if (
+    set.targetWeightMin !== null &&
+    set.targetWeightMax !== null &&
+    set.targetWeightMin > set.targetWeightMax
+  ) {
+    return 'Minimum target weight exceeds maximum target weight.';
+  }
+  if (
+    set.targetZone !== null &&
+    (!Number.isInteger(set.targetZone) || set.targetZone < 1 || set.targetZone > 5)
+  ) {
+    return 'Zone target must be a whole number from 1 to 5.';
+  }
+  return null;
+};
+
+const difference = ({
+  category = 'prescription',
+  exercise,
+  field,
+  label,
+  provenance,
+  scheduledValue,
+  setNumber = null,
+  templateValue,
+}: {
+  category?: ScheduledWorkoutTemplateDifference['category'];
+  exercise: Pick<SemanticExercise, 'exerciseId' | 'exerciseName'>;
+  field: string;
+  label: string;
+  provenance: ScheduledWorkoutTemplateDifference['provenance'];
+  scheduledValue: unknown;
+  setNumber?: number | null;
+  templateValue: unknown;
+}): ScheduledWorkoutTemplateDifference => ({
+  category,
+  severity: category === 'integrity' ? 'warning' : 'info',
+  exerciseId: exercise.exerciseId || null,
+  exerciseName: exercise.exerciseName,
+  field,
+  label,
+  setNumber,
+  scheduledValue: formatSemanticValue(scheduledValue),
+  templateValue: formatSemanticValue(templateValue),
+  provenance,
+});
+
+const compareExercise = (
+  scheduled: SemanticExercise,
+  template: SemanticExercise,
+  provenance: ScheduledWorkoutTemplateDifference['provenance'],
+): ScheduledWorkoutTemplateDifference[] => {
+  const differences: ScheduledWorkoutTemplateDifference[] = [];
+  const add = (field: string, label: string, scheduledValue: unknown, templateValue: unknown) => {
+    if (scheduledValue !== templateValue) {
+      differences.push(
+        difference({
+          exercise: scheduled,
+          field,
+          label,
+          provenance,
+          scheduledValue,
+          templateValue,
+        }),
+      );
+    }
+  };
+
+  add('section', 'Section', scheduled.section, template.section);
+  add('order', 'Exercise order', scheduled.orderIndex + 1, template.orderIndex + 1);
+  if (scheduled.trackingType !== template.trackingType) {
+    differences.push(
+      difference({
+        category: 'integrity',
+        exercise: scheduled,
+        field: 'trackingType',
+        label: 'Tracking type',
+        provenance,
+        scheduledValue: scheduled.trackingType,
+        templateValue: template.trackingType,
+      }),
+    );
+  }
+  add(
+    'programmingNotes',
+    'Programming notes',
+    scheduled.programmingNotes,
+    template.programmingNotes,
+  );
+  add('supersetGroup', 'Superset group', scheduled.supersetGroup, template.supersetGroup);
+  add('tempo', 'Tempo', scheduled.tempo, template.tempo);
+  add('restSeconds', 'Rest', scheduled.restSeconds, template.restSeconds);
+  add('setCount', 'Set count', scheduled.sets.length, template.sets.length);
+
+  const setNumbers = new Set([
+    ...scheduled.sets.map((set) => set.setNumber),
+    ...template.sets.map((set) => set.setNumber),
+  ]);
+  for (const setNumber of [...setNumbers].sort((left, right) => left - right)) {
+    const scheduledSet = scheduled.sets.find((set) => set.setNumber === setNumber);
+    const templateSet = template.sets.find((set) => set.setNumber === setNumber);
+    if (!scheduledSet || !templateSet) continue;
+    for (const { field, label } of SEMANTIC_FIELDS) {
+      if (scheduledSet[field] !== templateSet[field]) {
+        differences.push(
+          difference({
+            exercise: scheduled,
+            field,
+            label,
+            provenance,
+            scheduledValue: scheduledSet[field],
+            setNumber,
+            templateValue: templateSet[field],
+          }),
+        );
+      }
+    }
+  }
+
+  return differences;
+};
+
+export const inspectScheduledWorkoutTemplateDiff = async ({
+  database,
+  scheduledTemplateVersion,
+  snapshot,
+  templateId,
+}: {
+  database?: PulseDb;
+  scheduledTemplateVersion: string | null;
+  snapshot: ScheduledWorkoutSnapshot;
+  templateId: string;
+}): Promise<ScheduledWorkoutTemplateDiff | null> => {
+  const db = await resolveDb(database);
+  const templateRows = db
+    .select(templateExerciseSnapshotSelection)
+    .from(templateExercises)
+    .where(eq(templateExercises.templateId, templateId))
+    .all()
+    .sort(compareTemplateExercises);
+  const exerciseIds = [
+    ...new Set([
+      ...snapshot.exercises.map((exercise) => exercise.exerciseId),
+      ...templateRows.map((exercise) => exercise.exerciseId),
+    ]),
+  ];
+  const exerciseMetadata =
+    exerciseIds.length === 0
+      ? []
+      : db
+          .select({ id: exercises.id, name: exercises.name, trackingType: exercises.trackingType })
+          .from(exercises)
+          .where(inArray(exercises.id, exerciseIds))
+          .all();
+  const metadataById = new Map(exerciseMetadata.map((row) => [row.id, row]));
+  const currentTemplateVersion = computeScheduledWorkoutTemplateVersion(templateRows);
+  const provenance = scheduledTemplateVersion ? 'known' : 'unknown';
+
+  const scheduledExercises: SemanticExercise[] = snapshot.exercises.map((exercise) => ({
+    exerciseId: exercise.exerciseId,
+    exerciseName:
+      exercise.exerciseNameSnapshot ??
+      metadataById.get(exercise.exerciseId)?.name ??
+      'Unknown exercise',
+    trackingType: exercise.trackingTypeSnapshot,
+    section: exercise.section,
+    orderIndex: exercise.orderIndex,
+    programmingNotes: normalizeOptionalString(exercise.programmingNotes),
+    supersetGroup: normalizeOptionalString(exercise.supersetGroup),
+    tempo: normalizeOptionalString(exercise.tempo),
+    restSeconds: exercise.restSeconds,
+    sets: exercise.sets.map((set) =>
+      normalizeSet({
+        setNumber: set.setNumber,
+        repsMin: set.repsMin,
+        repsMax: set.repsMax,
+        reps: set.reps,
+        targetWeight: set.targetWeight,
+        targetWeightMin: set.targetWeightMin,
+        targetWeightMax: set.targetWeightMax,
+        targetSeconds: set.targetSeconds,
+        targetDistance: set.targetDistance,
+        targetZone: set.targetZone,
+      }),
+    ),
+  }));
+  const templateExercisesCurrent: SemanticExercise[] = templateRows.map((row) => ({
+    exerciseId: row.exerciseId,
+    exerciseName: metadataById.get(row.exerciseId)?.name ?? 'Unknown exercise',
+    trackingType: metadataById.get(row.exerciseId)?.trackingType ?? null,
+    section: row.section,
+    orderIndex: row.orderIndex,
+    programmingNotes: normalizeOptionalString(toExerciseProgrammingNotes(row)),
+    supersetGroup: normalizeOptionalString(row.supersetGroup),
+    tempo: normalizeOptionalString(row.tempo),
+    restSeconds: row.restSeconds,
+    sets: toSnapshotSetDrafts(row).map((set) => normalizeSet({ ...set, targetZone: null })),
+  }));
+
+  const differences: ScheduledWorkoutTemplateDifference[] = [];
+  const unmatchedTemplate = [...templateExercisesCurrent];
+  const unmatchedScheduled: SemanticExercise[] = [];
+  for (const scheduled of scheduledExercises) {
+    const templateIndex = unmatchedTemplate.findIndex(
+      (template) => template.exerciseId === scheduled.exerciseId,
+    );
+    if (templateIndex === -1) {
+      unmatchedScheduled.push(scheduled);
+      continue;
+    }
+    const template = unmatchedTemplate.splice(templateIndex, 1)[0] as SemanticExercise;
+    differences.push(...compareExercise(scheduled, template, provenance));
+  }
+
+  while (unmatchedScheduled.length > 0 || unmatchedTemplate.length > 0) {
+    const scheduled = unmatchedScheduled.shift();
+    const template = unmatchedTemplate.shift();
+    const exercise = scheduled ?? template;
+    if (!exercise) break;
+    differences.push(
+      difference({
+        category: 'integrity',
+        exercise,
+        field: 'exercise',
+        label: 'Exercise',
+        provenance,
+        scheduledValue: scheduled?.exerciseName ?? null,
+        templateValue: template?.exerciseName ?? null,
+      }),
+    );
+  }
+
+  for (const exercise of [...scheduledExercises, ...templateExercisesCurrent]) {
+    const duplicateSetNumbers = exercise.sets.filter(
+      (set, index, sets) =>
+        sets.findIndex((candidate) => candidate.setNumber === set.setNumber) !== index,
+    );
+    for (const set of exercise.sets) {
+      const reason = invalidSetReason(set);
+      if (reason) {
+        differences.push(
+          difference({
+            category: 'integrity',
+            exercise,
+            field: 'invalidTarget',
+            label: 'Invalid target',
+            provenance,
+            scheduledValue: scheduledExercises.includes(exercise) ? reason : 'Valid',
+            setNumber: set.setNumber,
+            templateValue: templateExercisesCurrent.includes(exercise) ? reason : 'Valid',
+          }),
+        );
+      }
+    }
+    if (duplicateSetNumbers.length > 0) {
+      differences.push(
+        difference({
+          category: 'integrity',
+          exercise,
+          field: 'duplicateSetNumber',
+          label: 'Duplicate set number',
+          provenance,
+          scheduledValue: scheduledExercises.includes(exercise) ? 'Duplicate' : 'Valid',
+          templateValue: templateExercisesCurrent.includes(exercise) ? 'Duplicate' : 'Valid',
+        }),
+      );
+    }
+  }
+
+  if (differences.length === 0) return null;
+  const hasIntegrityWarning = differences.some((item) => item.severity === 'warning');
+  return {
+    status: hasIntegrityWarning ? 'integrity_warning' : 'customized',
+    summary: hasIntegrityWarning
+      ? 'Review plan integrity before starting.'
+      : 'Customized for this session.',
+    provenance: {
+      status: provenance,
+      scheduledTemplateVersion,
+      currentTemplateVersion,
+    },
+    differences,
   };
 };
 

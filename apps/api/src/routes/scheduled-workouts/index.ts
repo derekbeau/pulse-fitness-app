@@ -21,6 +21,7 @@ import {
   updateScheduledWorkoutExercisesInputSchema,
   updateScheduledWorkoutInputSchema,
   workoutTemplateSchema,
+  type ScheduledWorkoutDetail,
 } from '@pulse/shared';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
@@ -65,8 +66,8 @@ import {
 } from '../workout-feedback/store.js';
 
 import {
+  inspectScheduledWorkoutTemplateDiff,
   readSnapshot,
-  templateVersionMatchesCurrentTemplate,
   writeSnapshot,
 } from './snapshot-store.js';
 import {
@@ -117,7 +118,6 @@ const UNKNOWN_SCHEDULED_WORKOUT_EXERCISE_RESPONSE = {
   message: 'Exercise is not present in this scheduled workout snapshot',
 } as const;
 
-const TEMPLATE_DRIFT_SUMMARY = 'Template has been updated since scheduling.';
 const UNKNOWN_SNAPSHOT_EXERCISE_NAME = 'Unknown exercise';
 
 const feedbackActorForRequest = (request: FastifyRequest): FeedbackMutationActor =>
@@ -293,7 +293,7 @@ const buildScheduledWorkoutDetail = async ({
   }
 
   let templateDeleted = false;
-  let templateDrift: { changedAt: number; summary: string } | null = null;
+  let templateDiff: ScheduledWorkoutDetail['templateDiff'] = null;
 
   if (scheduledWorkout.templateId) {
     const sourceTemplate = db
@@ -314,19 +314,13 @@ const buildScheduledWorkoutDetail = async ({
 
     templateDeleted = !sourceTemplate || sourceTemplate.deletedAt !== null;
 
-    if (sourceTemplate && sourceTemplate.deletedAt === null && scheduledWorkout.templateVersion) {
-      const templateVersionMatches = await templateVersionMatchesCurrentTemplate({
+    if (sourceTemplate && sourceTemplate.deletedAt === null) {
+      templateDiff = await inspectScheduledWorkoutTemplateDiff({
         database: db,
+        scheduledTemplateVersion: scheduledWorkout.templateVersion,
+        snapshot,
         templateId: scheduledWorkout.templateId,
-        templateVersion: scheduledWorkout.templateVersion,
       });
-
-      if (!templateVersionMatches) {
-        templateDrift = {
-          changedAt: sourceTemplate.updatedAt,
-          summary: TEMPLATE_DRIFT_SUMMARY,
-        };
-      }
     }
   }
 
@@ -334,7 +328,7 @@ const buildScheduledWorkoutDetail = async ({
     ...scheduledWorkout,
     feedbackQuestions: readQuestionList(db, userId, 'scheduled', scheduledWorkout.id),
     exercises: snapshotExercises,
-    templateDrift,
+    templateDiff,
     staleExercises: [...staleByExerciseId.values()],
     templateDeleted,
   };

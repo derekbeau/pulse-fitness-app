@@ -1,0 +1,203 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node@24/24.15.0/bin/node",
+      "/Users/meridian/Projects/pulse-semantic-template-diff/node_modules/@playwright/test/cli.js",
+      "test",
+      "apps/web/e2e/semantic-template-diff.spec.ts",
+      "--project=chromium",
+      "--workers=1",
+      "--reporter=json",
+      "--output=/private/tmp/pulse152-browser-artifacts"
+    ],
+    "configFile": "/Users/meridian/Projects/pulse-semantic-template-diff/playwright.config.ts",
+    "rootDir": "/Users/meridian/Projects/pulse-semantic-template-diff/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/private/tmp/pulse152-browser-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/meridian/Projects/pulse-semantic-template-diff/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "semantic-template-diff.spec.ts",
+      "file": "semantic-template-diff.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "mobile-375: collapsed semantic diff expands from the keyboard and reappears after a real content change",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2733,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-09T18:12:57.544Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "mobile-375-readback",
+                      "contentType": "application/json",
+                      "body": "ewogICJjb25zb2xlRXJyb3JzIjogW10sCiAgImZhaWxlZFJlcXVlc3RzIjogW10sCiAgImRpc2Nsb3N1cmVUZXh0IjogIkN1c3RvbWl6ZWQgZm9yIHRoaXMgc2Vzc2lvbi5cbjEgZGlmZmVyZW5jZSDCtyBSZXZpZXcgZGV0YWlsc1xu4oyEXG5cbkJhY2sgU3F1YXQgwrcgVGFyZ2V0IHdlaWdodCDCtyBTZXQgMVxuXG5TY2hlZHVsZWRcbjE4NVxuVGVtcGxhdGVcbjE5NSIsCiAgInN0YXJ0RW5hYmxlZCI6IHRydWUKfQ=="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "02e927f213dd21ace094-7a84bb70f45940c97d79",
+          "file": "semantic-template-diff.spec.ts",
+          "line": 145,
+          "column": 7
+        },
+        {
+          "title": "desktop-1280: collapsed semantic diff expands from the keyboard and reappears after a real content change",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2420,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-09T18:13:00.594Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "desktop-1280-readback",
+                      "contentType": "application/json",
+                      "body": "ewogICJjb25zb2xlRXJyb3JzIjogW10sCiAgImZhaWxlZFJlcXVlc3RzIjogW10sCiAgImRpc2Nsb3N1cmVUZXh0IjogIkN1c3RvbWl6ZWQgZm9yIHRoaXMgc2Vzc2lvbi5cbjEgZGlmZmVyZW5jZSDCtyBSZXZpZXcgZGV0YWlsc1xu4oyEXG5cbkJhY2sgU3F1YXQgwrcgVGFyZ2V0IHdlaWdodCDCtyBTZXQgMVxuXG5TY2hlZHVsZWRcbjE4NVxuVGVtcGxhdGVcbjE5NSIsCiAgInN0YXJ0RW5hYmxlZCI6IHRydWUKfQ=="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "02e927f213dd21ace094-abc0d98e19833d1fec94",
+          "file": "semantic-template-diff.spec.ts",
+          "line": 145,
+          "column": 7
+        },
+        {
+          "title": "desktop: detail API failure renders the bounded error state and records the response",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2480,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-09T18:13:03.018Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "api-error-responses",
+                      "contentType": "application/json",
+                      "body": "WwogIHsKICAgICJzdGF0dXMiOiA1MDAsCiAgICAidXJsIjogImh0dHA6Ly8xMjcuMC4wLjE6NTQxNjUvYXBpL3YxL3NjaGVkdWxlZC13b3Jrb3V0cy8xMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEiCiAgfSwKICB7CiAgICAic3RhdHVzIjogNTAwLAogICAgInVybCI6ICJodHRwOi8vMTI3LjAuMC4xOjU0MTY1L2FwaS92MS9zY2hlZHVsZWQtd29ya291dHMvMTExMTExMTEtMTExMS00MTExLTgxMTEtMTExMTExMTExMTExIgogIH0KXQ=="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "02e927f213dd21ace094-f544e5cd9d785b5b6370",
+          "file": "semantic-template-diff.spec.ts",
+          "line": 218,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-09T18:12:57.203Z",
+    "duration": 8334.957999999999,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

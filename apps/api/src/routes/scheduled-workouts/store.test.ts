@@ -12,7 +12,9 @@ import {
   scheduledWorkoutExerciseSets,
   scheduledWorkoutExercises,
   scheduledWorkouts,
+  templateExercises,
   users,
+  workoutTemplates,
 } from '../../db/schema/index.js';
 
 type DatabaseModule = typeof import('../../db/index.js');
@@ -70,7 +72,7 @@ const seedSnapshotWorkout = () => {
     .values({
       id: SCHEDULED_WORKOUT_ID,
       userId: USER_ID,
-      templateId: null,
+      templateId: 'template-1',
       date: '2026-04-21',
       sessionId: null,
       templateVersion: null,
@@ -84,6 +86,8 @@ const seedSnapshotWorkout = () => {
         id: 'snapshot-warmup',
         scheduledWorkoutId: SCHEDULED_WORKOUT_ID,
         exerciseId: EXERCISE_WARMUP_ID,
+        exerciseNameSnapshot: 'Jump Rope',
+        trackingTypeSnapshot: 'weight_reps',
         section: 'warmup',
         orderIndex: 0,
         supersetGroup: null,
@@ -95,6 +99,8 @@ const seedSnapshotWorkout = () => {
         id: MAIN_SNAPSHOT_EXERCISE_ID,
         scheduledWorkoutId: SCHEDULED_WORKOUT_ID,
         exerciseId: EXERCISE_MAIN_ID,
+        exerciseNameSnapshot: 'Back Squat',
+        trackingTypeSnapshot: 'weight_reps',
         section: 'main',
         orderIndex: 1,
         supersetGroup: 'A',
@@ -106,6 +112,8 @@ const seedSnapshotWorkout = () => {
         id: 'snapshot-cooldown',
         scheduledWorkoutId: SCHEDULED_WORKOUT_ID,
         exerciseId: EXERCISE_COOLDOWN_ID,
+        exerciseNameSnapshot: 'Hip Flexor Stretch',
+        trackingTypeSnapshot: 'weight_reps',
         section: 'cooldown',
         orderIndex: 2,
         supersetGroup: null,
@@ -157,6 +165,62 @@ const seedSnapshotWorkout = () => {
         targetWeightMax: null,
         targetSeconds: null,
         targetDistance: null,
+      },
+    ])
+    .run();
+};
+
+const seedTemplate = () => {
+  context.db
+    .insert(workoutTemplates)
+    .values({
+      id: 'template-1',
+      userId: USER_ID,
+      name: 'Store Builder Template',
+      description: null,
+      tags: [],
+      deletedAt: null,
+    })
+    .run();
+  context.db
+    .insert(templateExercises)
+    .values([
+      {
+        id: 'template-warmup',
+        templateId: 'template-1',
+        exerciseId: EXERCISE_WARMUP_ID,
+        section: 'warmup',
+        orderIndex: 0,
+        sets: 1,
+        restSeconds: 45,
+        programmingNotes: 'Prime the movement pattern.',
+      },
+      {
+        id: 'template-main',
+        templateId: 'template-1',
+        exerciseId: EXERCISE_MAIN_ID,
+        section: 'main',
+        orderIndex: 1,
+        sets: 3,
+        repsMin: 5,
+        repsMax: 5,
+        restSeconds: 90,
+        supersetGroup: 'A',
+        programmingNotes: 'Drive hard through lockout.',
+        setTargets: [
+          { setNumber: 1, targetWeight: 100 },
+          { setNumber: 2, targetWeight: 105 },
+          { setNumber: 3, targetWeight: 110 },
+        ],
+      },
+      {
+        id: 'template-cooldown',
+        templateId: 'template-1',
+        exerciseId: EXERCISE_COOLDOWN_ID,
+        section: 'cooldown',
+        orderIndex: 2,
+        sets: 1,
+        programmingNotes: 'Slow breathing.',
       },
     ])
     .run();
@@ -244,6 +308,8 @@ describe('scheduled workout structural mutation store functions', () => {
     context.db.delete(scheduledWorkoutExerciseSets).run();
     context.db.delete(scheduledWorkoutExercises).run();
     context.db.delete(scheduledWorkouts).run();
+    context.db.delete(templateExercises).run();
+    context.db.delete(workoutTemplates).run();
     context.db.delete(exercises).run();
     context.db.delete(users).run();
 
@@ -252,6 +318,7 @@ describe('scheduled workout structural mutation store functions', () => {
     seedExercise({ id: EXERCISE_WARMUP_ID, name: 'Jump Rope' });
     seedExercise({ id: EXERCISE_MAIN_ID, name: 'Back Squat' });
     seedExercise({ id: EXERCISE_COOLDOWN_ID, name: 'Hip Flexor Stretch' });
+    seedTemplate();
     seedSnapshotWorkout();
   });
 
@@ -333,6 +400,30 @@ describe('scheduled workout structural mutation store functions', () => {
     });
   });
 
+  it('returns the canonical semantic diff from the structural mutation detail builder', async () => {
+    const result = await context.store.updateScheduledWorkoutExercises({
+      userId: USER_ID,
+      scheduledWorkoutId: SCHEDULED_WORKOUT_ID,
+      updates: [{ exerciseId: EXERCISE_MAIN_ID, restSeconds: 120 }],
+    });
+
+    expect(result).toMatchObject({
+      id: SCHEDULED_WORKOUT_ID,
+      templateDiff: {
+        status: 'customized',
+        provenance: { status: 'unknown', scheduledTemplateVersion: null },
+        differences: expect.arrayContaining([
+          expect.objectContaining({
+            exerciseId: EXERCISE_MAIN_ID,
+            field: 'restSeconds',
+            scheduledValue: '120',
+            templateValue: '90',
+          }),
+        ]),
+      },
+    });
+  });
+
   it('clears nullable exercise fields and is idempotent when rerun with the same payload', async () => {
     const firstRun = await context.store.updateScheduledWorkoutExercises({
       userId: USER_ID,
@@ -348,9 +439,9 @@ describe('scheduled workout structural mutation store functions', () => {
     expect(firstRun).toMatchObject({
       id: SCHEDULED_WORKOUT_ID,
     });
-    expect(readExerciseRows().find((row) => row.exerciseId === EXERCISE_MAIN_ID)?.supersetGroup).toBe(
-      null,
-    );
+    expect(
+      readExerciseRows().find((row) => row.exerciseId === EXERCISE_MAIN_ID)?.supersetGroup,
+    ).toBe(null);
     const updatedAtAfterFirstRun = readScheduledWorkoutUpdatedAt();
 
     const secondRun = await context.store.updateScheduledWorkoutExercises({
@@ -621,7 +712,9 @@ describe('scheduled workout structural mutation store functions', () => {
       sets: context.db
         .select({ id: scheduledWorkoutExerciseSets.id })
         .from(scheduledWorkoutExerciseSets)
-        .where(eq(scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId, MAIN_SNAPSHOT_EXERCISE_ID))
+        .where(
+          eq(scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId, MAIN_SNAPSHOT_EXERCISE_ID),
+        )
         .all().length,
     };
 
@@ -651,7 +744,9 @@ describe('scheduled workout structural mutation store functions', () => {
       sets: context.db
         .select({ id: scheduledWorkoutExerciseSets.id })
         .from(scheduledWorkoutExerciseSets)
-        .where(eq(scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId, MAIN_SNAPSHOT_EXERCISE_ID))
+        .where(
+          eq(scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId, MAIN_SNAPSHOT_EXERCISE_ID),
+        )
         .all().length,
     };
 
