@@ -157,6 +157,14 @@ describe('agent context store', () => {
     const { getAgentContextTodayNutrition } = await import('./context-store.js');
 
     vi.mocked(getDailyEnergyAdherenceForDate).mockResolvedValue({
+      dailyTarget: {
+        effective: {
+          calories: 2400,
+          protein: 190,
+          carbs: 250,
+          fat: 70,
+        },
+      },
       proteinFloor: {
         actualProteinGrams: 120,
         proteinFloorGrams: 190,
@@ -173,12 +181,6 @@ describe('agent context store', () => {
         protein: 120,
         carbs: 140,
         fat: 50,
-      },
-      {
-        calories: 2400,
-        protein: 190,
-        carbs: 250,
-        fat: 70,
       },
       {
         id: 'log-1',

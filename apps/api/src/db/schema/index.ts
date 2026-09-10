@@ -10,6 +10,7 @@ export * from './health-conditions.js';
 export * from './journal.js';
 export * from './nutrition.js';
 export * from './nutrition-targets.js';
+export * from './daily-nutrition-target-overrides.js';
 export * from './resources.js';
 export * from './exercises.js';
 export * from './json-arrays.js';

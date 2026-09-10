@@ -28,6 +28,7 @@ import { NutritionTrends } from '@/features/nutrition/components/nutrition-trend
 import {
   DailyEnergyAdherenceCard,
   DailyNutritionNote,
+  DailyTargetAdjustment,
   MealCard,
   NutritionMacroRings,
   NutritionWeekStrip,
@@ -560,6 +561,8 @@ export function NutritionLogTab({
         isToday={isSelectedDateToday}
         status={dailyNutritionQuery.data?.log.status ?? null}
       />
+
+      <DailyTargetAdjustment date={dateKey} disabled={dateAuthorityLocked} />
 
       <DailyEnergyAdherenceCard
         adherence={dailyEnergyQuery.data?.localDate === dateKey ? dailyEnergyQuery.data : undefined}

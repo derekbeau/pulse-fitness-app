@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { dateSchema } from './common.js';
 import { nutritionLogStatusSchema } from './nutrition.js';
 import { proteinFloorProgressSchema } from './protein-floor.js';
+import { resolvedDailyNutritionTargetSchema } from './daily-nutrition-targets.js';
 
 const fingerprintSchema = z.string().regex(/^[0-9a-f]{64}$/);
 const calorieSchema = z.number().int().nonnegative();
@@ -94,6 +95,7 @@ export const dailyEnergyTargetSchema = z
     proteinFloorGrams: z.number().nonnegative().finite(),
     source: z.enum(['manual', 'adaptive']),
     adaptiveCheckInId: z.string().min(1).nullable(),
+    adjusted: z.boolean().optional(),
   })
   .strict()
   .superRefine((target, context) => {
@@ -135,6 +137,7 @@ export const dailyEnergyAdherenceSchema = z
     isHistorical: z.boolean(),
     dataState: dailyEnergyDataStateSchema,
     nutrition: dailyEnergyNutritionSchema,
+    dailyTarget: resolvedDailyNutritionTargetSchema.optional(),
     target: dailyEnergyTargetSchema.nullable(),
     expenditure: dailyEnergyExpenditureSchema.nullable(),
     proteinFloor: proteinFloorProgressSchema,

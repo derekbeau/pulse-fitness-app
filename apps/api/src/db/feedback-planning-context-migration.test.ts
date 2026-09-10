@@ -34,19 +34,19 @@ function stageThrough(root: string, maximumIndex: number) {
 }
 
 function stageInterruptedMigration(root: string) {
-  const destination = stageThrough(root, 63);
+  const destination = stageThrough(root, 64);
   const journalPath = join(destination, 'meta/_journal.json');
   const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as Journal;
   journal.entries.push({
-    idx: 64,
+    idx: 65,
     version: '6',
-    when: 1789084800000,
-    tag: '0064_synthetic_interrupted_feedback_planning',
+    when: 1789084800001,
+    tag: '0065_synthetic_interrupted_feedback_planning',
     breakpoints: true,
   });
   writeFileSync(journalPath, `${JSON.stringify(journal, null, 2)}\n`);
   writeFileSync(
-    join(destination, '0064_synthetic_interrupted_feedback_planning.sql'),
+    join(destination, '0065_synthetic_interrupted_feedback_planning.sql'),
     'CREATE TABLE synthetic_interrupted_feedback_planning(id TEXT PRIMARY KEY);\n--> statement-breakpoint\nTHIS IS INVALID SQL;\n',
   );
   return destination;

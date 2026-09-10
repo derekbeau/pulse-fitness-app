@@ -17,6 +17,7 @@ import {
   adaptiveNutritionCheckIns,
   adaptiveNutritionProgramRevisions,
   adaptiveNutritionPrograms,
+  dailyNutritionTargetOverrides,
   mealItems,
   meals,
   nutritionLogs,
@@ -186,6 +187,7 @@ beforeEach(() => {
     INSERT OR IGNORE INTO adaptive_nutrition_account_deletion_scope (user_id)
     SELECT id FROM users;
     DELETE FROM nutrition_target_events;
+    DELETE FROM daily_nutrition_target_overrides;
     DELETE FROM nutrition_targets;
     DELETE FROM adaptive_nutrition_checkins;
     DELETE FROM adaptive_nutrition_programs;
@@ -204,6 +206,50 @@ beforeEach(() => {
 });
 
 describe('daily energy adherence store', () => {
+  it('applies partial overrides only to the selected date and keeps baseline provenance', () => {
+    seedManualTargetEvent({
+      id: 'target-event-1',
+      effectiveDate: '2026-08-01',
+      recordedAt: Date.parse('2026-08-01T12:00:00.000Z'),
+      calories: 2_400,
+      protein: 180,
+    });
+    seedNutrition('2026-08-17', 'complete', 2_520, 170);
+    db.insert(dailyNutritionTargetOverrides)
+      .values({
+        id: 'override-1',
+        userId: 'user-1',
+        date: '2026-08-17',
+        calories: 2_600,
+        reason: 'Planned event',
+        reasonCodeUnits: 'Planned event'.length,
+      })
+      .run();
+    nowMs = Date.parse('2026-08-18T16:00:00.000Z');
+    const store = createDailyEnergyAdherenceStore({ db, sqlite, now: () => new Date(nowMs) });
+
+    expect(store.getDailyEnergyAdherence('user-1', '2026-08-17')).toMatchObject({
+      intakeMinusTargetKcal: -80,
+      target: {
+        targetEventId: 'target-event-1',
+        caloriesKcal: 2_600,
+        proteinFloorGrams: 180,
+        adjusted: true,
+      },
+      dailyTarget: {
+        adjusted: true,
+        overriddenFields: ['calories'],
+        baseline: { calories: 2_400, protein: 180, carbs: 210, fat: 80 },
+        override: { calories: 2_600, protein: null, reason: 'Planned event' },
+        effective: { calories: 2_600, protein: 180, carbs: 210, fat: 80 },
+      },
+    });
+    expect(store.getDailyEnergyAdherence('user-1', '2026-08-18')).toMatchObject({
+      target: { caloriesKcal: 2_400, adjusted: false },
+      dailyTarget: { adjusted: false, override: null },
+    });
+  });
+
   it('uses deterministic program baseline expenditure before any recommendation is accepted', () => {
     nowMs = Date.parse('2026-08-01T16:00:00.000Z');
     const lifecycle = createAdaptiveNutritionStore({ db, sqlite, now: () => new Date(nowMs) });
@@ -782,6 +828,14 @@ describe('daily energy adherence store', () => {
       calories: 2_400,
     });
     seedNutrition('2026-08-20', 'complete', 2_400);
+    db.insert(dailyNutritionTargetOverrides)
+      .values({
+        id: 'future-override',
+        userId: 'user-1',
+        date: '2026-08-20',
+        calories: 2_600,
+      })
+      .run();
 
     expect(
       createDailyEnergyAdherenceStore({
@@ -792,6 +846,12 @@ describe('daily energy adherence store', () => {
     ).toMatchObject({
       dataState: 'future',
       target: null,
+      dailyTarget: {
+        adjusted: true,
+        overriddenFields: ['calories'],
+        baseline: { calories: 2_400 },
+        effective: { calories: 2_600 },
+      },
       proteinFloor: {
         actualProteinGrams: 180,
         proteinFloorGrams: null,
@@ -802,6 +862,40 @@ describe('daily energy adherence store', () => {
       },
       adherence: null,
       reasonCodes: ['FUTURE_DATE_NOT_GRADED', 'NO_ACCEPTED_TARGET', 'NO_ACCEPTED_EXPENDITURE'],
+    });
+  });
+
+  it('preserves an override without fabricating effective values when the causal baseline is missing', () => {
+    db.insert(dailyNutritionTargetOverrides)
+      .values({
+        id: 'orphaned-date-override',
+        userId: 'user-1',
+        date: '2026-08-04',
+        protein: 200,
+      })
+      .run();
+    seedManualTargetEvent({
+      id: 'recorded-too-late',
+      effectiveDate: '2026-08-01',
+      recordedAt: Date.parse('2026-08-10T12:00:00.000Z'),
+      calories: 2_400,
+    });
+
+    expect(
+      createDailyEnergyAdherenceStore({
+        db,
+        sqlite,
+        now: () => new Date(nowMs),
+      }).getDailyEnergyAdherence('user-1', '2026-08-04'),
+    ).toMatchObject({
+      target: null,
+      dailyTarget: {
+        baseline: null,
+        override: { protein: 200 },
+        effective: null,
+        adjusted: true,
+        overriddenFields: ['protein'],
+      },
     });
   });
 
