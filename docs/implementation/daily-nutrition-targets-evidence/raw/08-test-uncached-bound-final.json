@@ -1,0 +1,31 @@
+{
+  "receiptFormat": "pulse-132-json-v1",
+  "testedCommit": "ad9f259895a3b5732eae30cb3911d896d409ee9f",
+  "testedTree": "33bd372571d5d6118101013afdf7b67d10a181d2",
+  "branch": "feat/daily-nutrition-targets",
+  "worktree": "/Users/meridian/Projects/pulse-daily-nutrition-targets",
+  "worktreeDirtyBefore": false,
+  "statusBefore": "",
+  "dirtyPatchSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "argv": [
+    "pnpm",
+    "test",
+    "--",
+    "--maxWorkers=1",
+    "--no-file-parallelism",
+    "--no-cache"
+  ],
+  "command": "\"pnpm\" \"test\" \"--\" \"--maxWorkers=1\" \"--no-file-parallelism\" \"--no-cache\"",
+  "cacheControls": {
+    "TURBO_FORCE": "true",
+    "TURBO_CONCURRENCY": "1",
+    "TURBO_ENV_MODE": "strict",
+    "CI": "true"
+  },
+  "startedAt": "2026-09-10T03:42:52.803Z",
+  "endedAt": "2026-09-10T03:49:06.013Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "65bd8309ac9a539dd700b1c0288b81a954076a48e551c49570d5910949769763",
+  "rawLog": "/Users/meridian/Projects/pulse-daily-nutrition-targets/docs/implementation/daily-nutrition-targets-evidence/raw/08-test-uncached-bound-final.log",
+  "rawLogSha256": "f34f1130ca30127b91309e3163ed4549674cbf4c81271a534ba566a3f822bd68"
+}

@@ -1,0 +1,342 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-08",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-08/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-08/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-10",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-10/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-10/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/target-override",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/week-summary",
+    "status": 200
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/nutrition/2026-09-09/target-override",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/target-override",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/week-summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-08",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-08/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-08/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-10",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-10/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-10/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/target-override",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/week-summary",
+    "status": 200
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/nutrition/2026-09-09/target-override",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/target-override",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-07",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-07/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-07/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-08/target-override",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-08",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-08/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-08/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/week-summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-11",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-11/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-11/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-10/target-override",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-10",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-10/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-10/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/week-summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-08",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-08/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-08/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-10",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-10/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-10/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/target-override",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/energy-adherence",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/week-summary",
+    "status": 200
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/nutrition/2026-09-09/target-override",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/target-override",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/summary",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/nutrition/2026-09-09/energy-adherence",
+    "status": 200
+  }
+]

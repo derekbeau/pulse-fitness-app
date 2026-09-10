@@ -1,0 +1,15 @@
+{
+  "issue": 132,
+  "branch": "feat/daily-nutrition-targets",
+  "startingHead": "1090719b096ed4ce37f9af8ba3d87e93d11ae9aa",
+  "testedCommit": "ad9f259895a3b5732eae30cb3911d896d409ee9f",
+  "testedTree": "33bd372571d5d6118101013afdf7b67d10a181d2",
+  "authoritativeReceipts": [
+    "raw/07-browser-acceptance-bound-final.json",
+    "raw/08-test-uncached-bound-final.json",
+    "raw/09-typecheck-uncached-bound-final.json",
+    "raw/10-lint-uncached-bound-final.json",
+    "raw/11-build-uncached-bound-final.json"
+  ],
+  "evidenceOnlyCommitMayDiffer": true
+}
