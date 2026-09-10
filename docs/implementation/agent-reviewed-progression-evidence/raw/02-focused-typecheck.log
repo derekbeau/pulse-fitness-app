@@ -1,0 +1,55 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: bfcf849b4e6b1e35e928681c518916708c657602
+BRANCH: feat/agent-reviewed-progression
+WORKTREE: /Users/meridian/Projects/pulse-agent-reviewed-progression
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 0b6529cc9c746fbd62954df9e650aca7124b0729b5b0c42dba6c78086a2ed099
+STARTED_UTC: 2026-09-09T20:11:29.786Z
+COMMAND_ARGV_JSON: ["pnpm","typecheck"]
+COMMAND: "pnpm" "typecheck"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+
+> pulse@ typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression
+> turbo run typecheck
+
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running typecheck in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/web:typecheck: cache miss, executing a22d7033f4aced83
+@pulse/api:typecheck: cache miss, executing a7fab4316334883b
+@pulse/shared:typecheck: cache miss, executing 4807a16af687b1ed
+@pulse/api:typecheck: 
+@pulse/api:typecheck: > @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api
+@pulse/api:typecheck: > tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+@pulse/api:typecheck: 
+@pulse/web:typecheck: 
+@pulse/web:typecheck: > @pulse/web@0.0.0 typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/web
+@pulse/web:typecheck: > tsc --noEmit
+@pulse/web:typecheck: 
+@pulse/shared:typecheck: 
+@pulse/shared:typecheck: > @pulse/shared@0.0.0 typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression/packages/shared
+@pulse/shared:typecheck: > tsc --noEmit -p tsconfig.json
+@pulse/shared:typecheck: 
+@pulse/api:typecheck: src/routes/workout-progression/store.ts(1492,10): error TS2769: No overload matches this call.
+@pulse/api:typecheck:   Overload 1 of 2, '(value: { type: "edit" | "keep" | "accept" | "hold" | SQL<unknown> | Placeholder<string, any>; userId: string | SQL<unknown> | Placeholder<string, any>; createdAt: number | ... 1 more ... | Placeholder<...>; ... 8 more ...; agentTokenId?: string | ... 3 more ... | undefined; }): SQLiteInsertBase<...>', gave the following error.
+@pulse/api:typecheck:     Object literal may only specify known properties, and 'publication' does not exist in type '{ reason: string | null; expectedFingerprint: string; action: "edit" | "keep" | "accept" | "hold"; idempotencyKey: string; editedTargets: { weight: number | null; distance: number | null; ... 8 more ...; weightMax: number | null; }[] | null; } | SQL<...> | Placeholder<...>'.
+@pulse/api:typecheck:   Overload 2 of 2, '(values: { type: "edit" | "keep" | "accept" | "hold" | SQL<unknown> | Placeholder<string, any>; userId: string | SQL<unknown> | Placeholder<string, any>; createdAt: number | ... 1 more ... | Placeholder<...>; ... 8 more ...; agentTokenId?: string | ... 3 more ... | undefined; }[]): SQLiteInsertBase<...>', gave the following error.
+@pulse/api:typecheck:     Object literal may only specify known properties, and 'actorLabel' does not exist in type '{ type: "edit" | "keep" | "accept" | "hold" | SQL<unknown> | Placeholder<string, any>; userId: string | SQL<unknown> | Placeholder<string, any>; createdAt: number | ... 1 more ... | Placeholder<...>; ... 8 more ...; agentTokenId?: string | ... 3 more ... | undefined; }[]'.
+@pulse/api:typecheck:  ELIFECYCLE  Command failed with exit code 2.
+@pulse/api:typecheck: ERROR: command finished with error: command (/Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run typecheck exited (2)
+@pulse/web:typecheck:  ELIFECYCLE  Command failed.
+@pulse/api#typecheck: command (/Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run typecheck exited (2)
+
+ Tasks:    1 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    11.366s 
+Failed:    @pulse/api#typecheck
+
+ ERROR  run failed: command  exited (2)
+ ELIFECYCLE  Command failed with exit code 2.
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-09T20:11:43.152Z
+EXIT_CODE: 2

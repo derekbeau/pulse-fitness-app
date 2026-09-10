@@ -1,0 +1,25 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: bfcf849b4e6b1e35e928681c518916708c657602
+BRANCH: feat/agent-reviewed-progression
+WORKTREE: /Users/meridian/Projects/pulse-agent-reviewed-progression
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: c4ed8489d50fd918a5939a89e49c0a7644cd7584c624d9b48345fb886313a560
+STARTED_UTC: 2026-09-09T20:27:21.527Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","@pulse/api","exec","vitest","run","src/routes/workout-progression/index.test.ts"]
+COMMAND: "pnpm" "--filter" "@pulse/api" "exec" "vitest" "run" "src/routes/workout-progression/index.test.ts"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api
+
+ ✓ src/routes/workout-progression/index.test.ts (7 tests) 316ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  16:27:22
+   Duration  2.24s (transform 1.04s, setup 0ms, import 1.76s, tests 316ms, environment 0ms)
+
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-09T20:27:24.901Z
+EXIT_CODE: 0

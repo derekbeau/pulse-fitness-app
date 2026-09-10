@@ -1,0 +1,34 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: bfcf849b4e6b1e35e928681c518916708c657602
+BRANCH: feat/agent-reviewed-progression
+WORKTREE: /Users/meridian/Projects/pulse-agent-reviewed-progression
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STARTED_UTC: 2026-09-09T19:59:13.524Z
+COMMAND_ARGV_JSON: ["sh","-c","git status --short --branch; git rev-parse HEAD; git branch --show-current; git merge-base --is-ancestor b8c22e98cfcd2fb341f7d89d59c66da19db40f05 HEAD; shasum -a 256 package.json pnpm-lock.yaml turbo.json apps/api/package.json apps/api/tsconfig.json apps/api/tsconfig.test.json apps/api/vitest.config.ts apps/web/package.json apps/web/tsconfig.json apps/web/vite.config.ts apps/web/playwright.config.ts packages/shared/package.json packages/shared/tsconfig.json packages/shared/vitest.config.ts playwright.config.ts"]
+COMMAND: "sh" "-c" "git status --short --branch; git rev-parse HEAD; git branch --show-current; git merge-base --is-ancestor b8c22e98cfcd2fb341f7d89d59c66da19db40f05 HEAD; shasum -a 256 package.json pnpm-lock.yaml turbo.json apps/api/package.json apps/api/tsconfig.json apps/api/tsconfig.test.json apps/api/vitest.config.ts apps/web/package.json apps/web/tsconfig.json apps/web/vite.config.ts apps/web/playwright.config.ts packages/shared/package.json packages/shared/tsconfig.json packages/shared/vitest.config.ts playwright.config.ts"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+## feat/agent-reviewed-progression
+?? docs/implementation/agent-reviewed-progression-evidence/
+bfcf849b4e6b1e35e928681c518916708c657602
+feat/agent-reviewed-progression
+38b6a2fc5451b1da1aea62ff64a3d458e32e10987eb40e400521fa28cc5bf2c4  package.json
+a4a3723d7b1181995713719f2f45a6dcc931bc1c03de5b44d6362e401be1975a  pnpm-lock.yaml
+3d6fe8d8db6f86f91108bfd23e70330e5eda32f6a1aea53fd03e4097522284af  turbo.json
+be493b70d741a1cf9b6061d56f8fbb681ef4e8d947603a568e723cba00edc34c  apps/api/package.json
+98c856e09ed7d3cfc1973da021958594d6dd070812407910daad0b647f0890d5  apps/api/tsconfig.json
+109e61040b256597a5674251cdc42b992c1af1a2ec568c47b874a277b16cc94e  apps/api/tsconfig.test.json
+cdb77b233678a0fbef5005bd7f679c4c7aa2c7a4c5f8394690e7ddba8af364c1  apps/api/vitest.config.ts
+44b982e4137dbfbc7bb9980962c7a119d77b601b1804acbb54b04a8c49cb7cc3  apps/web/package.json
+4a42f7710af36d573cac3863dfbb0c43bccf353c4e6463dec7769cf5dd98a606  apps/web/tsconfig.json
+a5748c6a74a1e6d0085f8baaaae9dfa79b3452d715620346b61430d1f5d756c0  apps/web/vite.config.ts
+536d28616540ba58bf90dca408ec6f6c870124462f3906c4ab0cac9699b65589  apps/web/playwright.config.ts
+b8315b76f8ead3d4c9ce185bda0e3b25b14da231fa1b31e2be97556752604920  packages/shared/package.json
+65266cfc79518e86d11b011a0570548e7482fafb68c4c3dc39abde2f9622fd52  packages/shared/tsconfig.json
+b72c0d7892f40c03e9aabfc6d7bde8274102736de4c7a00744398caa92d84215  packages/shared/vitest.config.ts
+ffdcd8ea9a664bbe087fdefd89dec0786cc31d82b645b1ee5208829f36d22dbe  playwright.config.ts
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-09T19:59:14.031Z
+EXIT_CODE: 0

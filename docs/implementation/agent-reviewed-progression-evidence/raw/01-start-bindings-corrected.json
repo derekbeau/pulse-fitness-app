@@ -1,0 +1,22 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "bfcf849b4e6b1e35e928681c518916708c657602",
+  "branch": "feat/agent-reviewed-progression",
+  "worktree": "/Users/meridian/Projects/pulse-agent-reviewed-progression",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "?? docs/implementation/agent-reviewed-progression-evidence/",
+  "dirtyPatchSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "argv": [
+    "sh",
+    "-c",
+    "git status --short --branch; git rev-parse HEAD; git branch --show-current; git merge-base --is-ancestor b8c22e98cfcd2fb341f7d89d59c66da19db40f05 HEAD; shasum -a 256 package.json pnpm-lock.yaml turbo.json apps/api/package.json apps/api/tsconfig.json apps/api/tsconfig.test.json apps/api/vitest.config.ts apps/web/package.json apps/web/tsconfig.json apps/web/vite.config.ts apps/web/playwright.config.ts packages/shared/package.json packages/shared/tsconfig.json packages/shared/vitest.config.ts playwright.config.ts"
+  ],
+  "command": "\"sh\" \"-c\" \"git status --short --branch; git rev-parse HEAD; git branch --show-current; git merge-base --is-ancestor b8c22e98cfcd2fb341f7d89d59c66da19db40f05 HEAD; shasum -a 256 package.json pnpm-lock.yaml turbo.json apps/api/package.json apps/api/tsconfig.json apps/api/tsconfig.test.json apps/api/vitest.config.ts apps/web/package.json apps/web/tsconfig.json apps/web/vite.config.ts apps/web/playwright.config.ts packages/shared/package.json packages/shared/tsconfig.json packages/shared/vitest.config.ts playwright.config.ts\"",
+  "cacheControls": {},
+  "startedAt": "2026-09-09T19:59:13.524Z",
+  "endedAt": "2026-09-09T19:59:14.031Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "96437bf2351e7da586c2908742f69689ec563ebebfdcd1676eb4df1433ef3337",
+  "rawLog": "/Users/meridian/Projects/pulse-agent-reviewed-progression/docs/implementation/agent-reviewed-progression-evidence/raw/01-start-bindings-corrected.log",
+  "rawLogSha256": "05ae0a64e16a8fe62313a0bc8186296149cef945b23346f026b2cb63e654c774"
+}

@@ -1,0 +1,26 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "d977b4db271cde4f3e39fa59ee523f1b575495db",
+  "branch": "feat/agent-reviewed-progression",
+  "worktree": "/Users/meridian/Projects/pulse-agent-reviewed-progression",
+  "worktreeDirtyBefore": false,
+  "statusBefore": "",
+  "dirtyPatchSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "argv": [
+    "pnpm",
+    "build"
+  ],
+  "command": "\"pnpm\" \"build\"",
+  "cacheControls": {
+    "TURBO_FORCE": "true",
+    "TURBO_CONCURRENCY": "1",
+    "TURBO_ENV_MODE": "strict",
+    "CI": "true"
+  },
+  "startedAt": "2026-09-09T20:46:31.952Z",
+  "endedAt": "2026-09-09T20:46:54.093Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "7467348c234ab5de3e6cdc995f38c050389b71030aae3c6d7a2a0ade76fd8d18",
+  "rawLog": "/tmp/pulse-153-final-d977b4d/24-final-build.log",
+  "rawLogSha256": "b87b4afbfbff0b5d6b2e12303bd6dee78e3fbfe5550770e1f7acbd8c318ff764"
+}

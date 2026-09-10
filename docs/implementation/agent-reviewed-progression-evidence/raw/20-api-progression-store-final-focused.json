@@ -1,0 +1,26 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "bfcf849b4e6b1e35e928681c518916708c657602",
+  "branch": "feat/agent-reviewed-progression",
+  "worktree": "/Users/meridian/Projects/pulse-agent-reviewed-progression",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M apps/api/src/db/schema/workout-progression.ts\n M apps/api/src/routes/workout-progression/index.test.ts\n M apps/api/src/routes/workout-progression/index.ts\n M apps/api/src/routes/workout-progression/store.integration.test.ts\n M apps/api/src/routes/workout-progression/store.ts\n M apps/web/e2e/workout-progression.spec.ts\n M apps/web/src/features/workouts/components/workout-progression-review.test.tsx\n M apps/web/src/features/workouts/components/workout-progression-review.tsx\n M packages/shared/src/schemas/workout-progression.test.ts\n M packages/shared/src/schemas/workout-progression.ts\n?? docs/implementation/agent-reviewed-progression-evidence/",
+  "dirtyPatchSha256": "dac5cf83a0dbbe5a4c6f434d8412e757ce4545a7b49577d45ab2aa5ecd13bdbd",
+  "argv": [
+    "pnpm",
+    "--filter",
+    "@pulse/api",
+    "exec",
+    "vitest",
+    "run",
+    "src/routes/workout-progression/store.integration.test.ts"
+  ],
+  "command": "\"pnpm\" \"--filter\" \"@pulse/api\" \"exec\" \"vitest\" \"run\" \"src/routes/workout-progression/store.integration.test.ts\"",
+  "cacheControls": {},
+  "startedAt": "2026-09-09T20:37:29.747Z",
+  "endedAt": "2026-09-09T20:37:34.641Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "2a56c69e80437ddbd5bd21ebba524a10b705e8ea36262eb7f23b76a8ff33573d",
+  "rawLog": "/Users/meridian/Projects/pulse-agent-reviewed-progression/docs/implementation/agent-reviewed-progression-evidence/raw/20-api-progression-store-final-focused.log",
+  "rawLogSha256": "db4029e7c2636109e4b2dce63d556334b9f54d4a51d3662fd1a13951f573ec64"
+}

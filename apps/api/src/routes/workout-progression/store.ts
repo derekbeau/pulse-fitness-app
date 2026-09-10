@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import {
   applyWorkoutProgressionActionInputSchema,
   configureWorkoutProgressionInputSchema,
+  publishWorkoutProgressionInputSchema,
   evaluateWorkoutProgression,
   sha256Hex,
   validateWorkoutProgressionTarget,
@@ -12,7 +13,9 @@ import {
   type WorkoutProgressionPerformanceSet,
   workoutProgressionActionSchema,
   workoutProgressionEvidenceSchema,
+  workoutProgressionFinalReviewSchema,
   workoutProgressionConfigurationSchema,
+  workoutProgressionPublicationSchema,
   workoutProgressionRecommendationSchema,
   type ApplyWorkoutProgressionActionInput,
   type ConfigureWorkoutProgressionInput,
@@ -21,6 +24,8 @@ import {
   type WorkoutProgressionPolicy,
   type WorkoutProgressionRecommendation,
   type WorkoutProgressionConfiguration,
+  type WorkoutProgressionFinalReview,
+  type WorkoutProgressionPublication,
   type WorkoutProgressionTarget,
 } from '@pulse/shared';
 import { and, asc, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
@@ -47,6 +52,7 @@ export class WorkoutProgressionAlreadyDecidedError extends Error {}
 export class WorkoutProgressionIdempotencyConflictError extends Error {}
 export class WorkoutProgressionInvalidEditError extends Error {}
 export class WorkoutProgressionScheduleLockedError extends Error {}
+export class WorkoutProgressionOwnerAuthorizationRequiredError extends Error {}
 
 type ProgressionActor =
   | { type: 'user'; id: string; label: string }
@@ -101,7 +107,11 @@ function parseRecommendationSnapshot(snapshot: unknown): WorkoutProgressionRecom
           })
         : snapshotEvidence.performance;
       const needsPriority = !Object.hasOwn(snapshotEvidence, 'priority');
-      changed ||= needsPriority;
+      const needsManagementMode = !Object.hasOwn(snapshotEvidence, 'managementMode');
+      const needsManagementReason = !Object.hasOwn(snapshotEvidence, 'managementReason');
+      const needsOwnerAuthorization = !Object.hasOwn(snapshotEvidence, 'ownerAuthorization');
+      changed ||=
+        needsPriority || needsManagementMode || needsManagementReason || needsOwnerAuthorization;
       if (changed) {
         const compatible = workoutProgressionRecommendationSchema.safeParse({
           ...snapshotRecord,
@@ -109,6 +119,9 @@ function parseRecommendationSnapshot(snapshot: unknown): WorkoutProgressionRecom
             ...snapshotEvidence,
             performance,
             ...(needsPriority ? { priority: null } : {}),
+            ...(needsManagementMode ? { managementMode: 'self_managed' } : {}),
+            ...(needsManagementReason ? { managementReason: null } : {}),
+            ...(needsOwnerAuthorization ? { ownerAuthorization: null } : {}),
           },
         });
         if (compatible.success) return compatible.data;
@@ -173,9 +186,22 @@ function parseRecommendationSnapshot(snapshot: unknown): WorkoutProgressionRecom
         type: 'none',
       },
       priority: null,
+      managementMode: 'self_managed',
+      managementReason: null,
+      ownerAuthorization: null,
       priorTargets: legacyTargets,
     },
     recommendedTargets: legacyRecommended,
+  });
+}
+
+function parseConfigurationSnapshot(snapshot: unknown): WorkoutProgressionConfiguration {
+  const value = snapshot as Record<string, unknown>;
+  return workoutProgressionConfigurationSchema.parse({
+    ...value,
+    managementMode: value.managementMode ?? 'self_managed',
+    managementReason: value.managementReason ?? null,
+    ownerAuthorization: value.ownerAuthorization ?? null,
   });
 }
 
@@ -445,7 +471,7 @@ function buildEvidenceForScheduledWorkout(
       )
       .get();
     const configuration = configurationRow
-      ? workoutProgressionConfigurationSchema.parse(configurationRow.snapshot)
+      ? parseConfigurationSnapshot(configurationRow.snapshot)
       : null;
     const feedback = latestSession?.feedback
       ? parseWorkoutSessionFeedback(latestSession.feedback)
@@ -486,6 +512,9 @@ function buildEvidenceForScheduledWorkout(
               : 'unavailable',
           facts: [...feedbackFacts, ...(configuration?.contextFacts ?? [])].slice(0, 20),
         },
+        managementMode: configuration?.managementMode ?? 'self_managed',
+        managementReason: configuration?.managementReason ?? null,
+        ownerAuthorization: configuration?.ownerAuthorization ?? null,
         policy: configuration?.policy ?? unsupportedPolicy,
         policySource: configuration
           ? {
@@ -580,6 +609,18 @@ export async function configureWorkoutProgression({
     if (input.expectedRevision !== currentRevision) {
       throw new WorkoutProgressionStaleError('Workout progression configuration is stale');
     }
+    const currentConfiguration = current ? parseConfigurationSnapshot(current.snapshot) : null;
+    const managedMode = input.managementMode !== 'self_managed';
+    if (
+      actor.type === 'agent_token' &&
+      managedMode &&
+      (currentConfiguration?.managementMode !== input.managementMode ||
+        currentConfiguration.ownerAuthorization === null)
+    ) {
+      throw new WorkoutProgressionOwnerAuthorizationRequiredError(
+        'The owner must explicitly authorize this managed progression mode first',
+      );
+    }
     const revision = currentRevision + 1;
     const id = current?.id ?? randomUUID();
     const configuration = workoutProgressionConfigurationSchema.parse({
@@ -589,6 +630,14 @@ export async function configureWorkoutProgression({
       contextFacts: input.contextFacts,
       contextAvailability: input.contextAvailability,
       id,
+      managementMode: input.managementMode,
+      managementReason: input.reason,
+      ownerAuthorization:
+        actor.type === 'user'
+          ? managedMode
+            ? { actorId: actor.id, authorizedAt: now }
+            : null
+          : (currentConfiguration?.ownerAuthorization ?? null),
       policy: input.policy,
       priority: input.priority,
       revision,
@@ -633,6 +682,35 @@ function loadAction(client: DatabaseClient, recommendationId: string) {
     .orderBy(desc(workoutProgressionActions.sequence))
     .limit(1)
     .get();
+}
+
+type StoredPublicationMetadata = {
+  id: string;
+  disposition: WorkoutProgressionFinalReview['disposition'];
+  summary: string;
+  reason: string;
+  finalTargets: WorkoutProgressionTarget[];
+  finalPrescriptionFingerprint: string;
+};
+
+function finalReviewFromAction(
+  action: typeof workoutProgressionActions.$inferSelect | undefined,
+): WorkoutProgressionFinalReview | null {
+  if (!action || !action.payload || typeof action.payload !== 'object') return null;
+  const publication = (action.payload as { publication?: StoredPublicationMetadata }).publication;
+  if (!publication) return null;
+  return workoutProgressionFinalReviewSchema.parse({
+    publicationId: publication.id,
+    disposition: publication.disposition,
+    summary: publication.summary,
+    reason: publication.reason,
+    finalTargets: publication.finalTargets,
+    finalPrescriptionFingerprint: publication.finalPrescriptionFingerprint,
+    actorType: action.actorType === 'agent_token' ? 'agent' : 'user',
+    actorId: action.agentTokenId ?? action.userId,
+    actorLabel: action.actorLabel,
+    reviewedAt: action.createdAt,
+  });
 }
 
 function evidenceMatchesDecision(
@@ -681,6 +759,9 @@ function evidenceMatchesDecision(
     stableJson(current.priorTargets) === stableJson(expectedTargets) &&
     stableJson(current.context) === stableJson(snapshot.evidence.context) &&
     current.priority === snapshot.evidence.priority &&
+    current.managementMode === snapshot.evidence.managementMode &&
+    current.managementReason === snapshot.evidence.managementReason &&
+    stableJson(current.ownerAuthorization) === stableJson(snapshot.evidence.ownerAuthorization) &&
     stableJson(current.policySource) === stableJson(snapshot.evidence.policySource) &&
     stableJson(stablePolicy(current.policy)) === stableJson(stablePolicy(snapshot.evidence.policy))
   );
@@ -692,6 +773,7 @@ async function projectRecommendation(
 ): Promise<WorkoutProgressionRecommendation> {
   const snapshot = parseRecommendationSnapshot(row.snapshot);
   const action = loadAction(client, row.id);
+  const finalReview = finalReviewFromAction(action);
   const sourceSessionStillExists = snapshot.evidence.sourceSessionId
     ? client
         .select({ id: workoutSessions.id })
@@ -710,6 +792,7 @@ async function projectRecommendation(
   if (action && (!matchingEvidence || !sourceSessionStillExists)) {
     return workoutProgressionRecommendationSchema.parse({
       ...snapshot,
+      ...(finalReview ? { finalReview } : {}),
       staleAt: null,
       state: mapDecisionState(action.type),
     });
@@ -717,6 +800,7 @@ async function projectRecommendation(
   if (action && matchingEvidence && evidenceMatchesDecision(matchingEvidence, snapshot, action)) {
     return workoutProgressionRecommendationSchema.parse({
       ...snapshot,
+      ...(finalReview ? { finalReview } : {}),
       staleAt: null,
       state: mapDecisionState(action.type),
     });
@@ -724,11 +808,12 @@ async function projectRecommendation(
   if (!matchingEvidence || fingerprint(matchingEvidence) !== row.sourceFingerprint) {
     return workoutProgressionRecommendationSchema.parse({
       ...snapshot,
+      ...(finalReview ? { finalReview } : {}),
       staleAt: row.generatedAt + 1,
       state: 'stale',
     });
   }
-  return snapshot;
+  return finalReview ? { ...snapshot, finalReview } : snapshot;
 }
 
 export async function previewWorkoutProgression({
@@ -954,7 +1039,7 @@ export async function applyWorkoutProgressionAction({
   userId,
 }: {
   actor: ProgressionActor;
-  input: ApplyWorkoutProgressionActionInput;
+  input: unknown;
   now?: number;
   recommendationId: string;
   userId: string;
@@ -1133,6 +1218,324 @@ export async function applyWorkoutProgressionAction({
       reason: input.reason,
       recommendationId,
       sequence: 1,
+    });
+  });
+}
+
+function publicationDisposition(
+  mode: WorkoutProgressionEvidence['managementMode'],
+  action: ApplyWorkoutProgressionActionInput['action'],
+): WorkoutProgressionFinalReview['disposition'] {
+  if (mode === 'non_progressing') return 'not_applicable';
+  if (mode === 'directly_coached' && action === 'keep') return 'directly_prescribed';
+  return action === 'accept' || action === 'edit' ? 'applied' : 'reviewed_hold';
+}
+
+function derivedPublicationKey(base: string, recommendationId: string, index: number) {
+  if (index === 0) return base;
+  const suffix = `:${sha256Hex(recommendationId).slice(0, 12)}`;
+  return `${base.slice(0, 255 - suffix.length)}${suffix}`;
+}
+
+export async function publishWorkoutProgression({
+  actor,
+  anchorRecommendationId,
+  input: rawInput,
+  now = getApplicationNowMs(),
+  userId,
+}: {
+  actor: ProgressionActor;
+  anchorRecommendationId: string;
+  input: unknown;
+  now?: number;
+  userId: string;
+}): Promise<WorkoutProgressionPublication> {
+  const input = publishWorkoutProgressionInputSchema.parse(rawInput);
+  if (actor.type !== 'agent_token') {
+    throw new WorkoutProgressionOwnerAuthorizationRequiredError(
+      'Managed progression publication requires an authorized agent token',
+    );
+  }
+  const ordered = [...input.dispositions].sort((left, right) => {
+    if (left.recommendationId === anchorRecommendationId) return -1;
+    if (right.recommendationId === anchorRecommendationId) return 1;
+    return left.recommendationId.localeCompare(right.recommendationId);
+  });
+  if (ordered[0]?.recommendationId !== anchorRecommendationId) {
+    throw new WorkoutProgressionNotFoundError(
+      'The publication anchor recommendation must be included in its dispositions',
+    );
+  }
+  const requestFingerprint = fingerprint({
+    actor: { id: actor.id, type: actor.type },
+    anchorRecommendationId,
+    input,
+  });
+
+  return db.transaction((tx) => {
+    const baseReplay = tx
+      .select()
+      .from(workoutProgressionActions)
+      .where(
+        and(
+          eq(workoutProgressionActions.userId, userId),
+          eq(workoutProgressionActions.idempotencyKey, input.idempotencyKey),
+        ),
+      )
+      .get();
+    if (baseReplay) {
+      if (baseReplay.requestFingerprint !== requestFingerprint) {
+        throw new WorkoutProgressionIdempotencyConflictError(
+          'Idempotency key was already used with another publication',
+        );
+      }
+      const metadata = (baseReplay.payload as { publication?: StoredPublicationMetadata })
+        .publication;
+      if (!metadata) {
+        throw new WorkoutProgressionIdempotencyConflictError(
+          'Idempotency key was already used with another action',
+        );
+      }
+      const rows = tx
+        .select()
+        .from(workoutProgressionActions)
+        .where(
+          and(
+            eq(workoutProgressionActions.userId, userId),
+            eq(workoutProgressionActions.requestFingerprint, requestFingerprint),
+          ),
+        )
+        .all();
+      const rowByRecommendationId = new Map(rows.map((row) => [row.recommendationId, row]));
+      const anchor = tx
+        .select({ scheduledWorkoutId: workoutProgressionRecommendations.scheduledWorkoutId })
+        .from(workoutProgressionRecommendations)
+        .where(eq(workoutProgressionRecommendations.id, anchorRecommendationId))
+        .get();
+      return workoutProgressionPublicationSchema.parse({
+        id: metadata.id,
+        scheduledWorkoutId: anchor?.scheduledWorkoutId,
+        summary: metadata.summary,
+        finalPrescriptionFingerprint: metadata.finalPrescriptionFingerprint,
+        actorType: 'agent',
+        actorId: actor.id,
+        actorLabel: baseReplay.actorLabel,
+        publishedAt: baseReplay.createdAt,
+        dispositions: ordered.map((item) =>
+          finalReviewFromAction(rowByRecommendationId.get(item.recommendationId)),
+        ),
+      });
+    }
+
+    const recommendationRows = ordered.map((disposition) => {
+      const row = tx
+        .select()
+        .from(workoutProgressionRecommendations)
+        .where(
+          and(
+            eq(workoutProgressionRecommendations.id, disposition.recommendationId),
+            eq(workoutProgressionRecommendations.userId, userId),
+          ),
+        )
+        .get();
+      if (!row)
+        throw new WorkoutProgressionNotFoundError('Workout progression recommendation not found');
+      return { disposition, row, snapshot: parseRecommendationSnapshot(row.snapshot) };
+    });
+    const scheduledWorkoutId = recommendationRows[0]?.row.scheduledWorkoutId;
+    if (
+      !scheduledWorkoutId ||
+      recommendationRows.some((item) => item.row.scheduledWorkoutId !== scheduledWorkoutId)
+    ) {
+      throw new WorkoutProgressionStaleError('A publication must target one scheduled workout');
+    }
+    const schedule = tx
+      .select({ sessionId: scheduledWorkouts.sessionId })
+      .from(scheduledWorkouts)
+      .where(
+        and(eq(scheduledWorkouts.id, scheduledWorkoutId), eq(scheduledWorkouts.userId, userId)),
+      )
+      .get();
+    if (!schedule || schedule.sessionId !== null) {
+      throw new WorkoutProgressionScheduleLockedError(
+        'Workout progression can only change a not-yet-started scheduled workout',
+      );
+    }
+    const currentEvidence = buildEvidenceForScheduledWorkout(tx, userId, scheduledWorkoutId);
+    if (!currentEvidence)
+      throw new WorkoutProgressionStaleError('Workout progression evidence is stale');
+    const managedEvidence = currentEvidence.filter(
+      (evidence) => evidence.managementMode !== 'self_managed',
+    );
+    const expectedIds = new Set(
+      managedEvidence.map((evidence) => evidence.scheduledWorkoutExerciseId),
+    );
+    const submittedIds = new Set(
+      recommendationRows.map((item) => item.snapshot.evidence.scheduledWorkoutExerciseId),
+    );
+    if (
+      expectedIds.size !== submittedIds.size ||
+      [...expectedIds].some((id) => !submittedIds.has(id))
+    ) {
+      throw new WorkoutProgressionStaleError(
+        'Publication must include one final disposition for every managed exercise',
+      );
+    }
+
+    const prepared = recommendationRows.map(({ disposition, row, snapshot }, index) => {
+      if (loadAction(tx, row.id)) {
+        throw new WorkoutProgressionAlreadyDecidedError(
+          'Workout progression recommendation already has a decision',
+        );
+      }
+      const evidence = managedEvidence.find(
+        (candidate) =>
+          candidate.scheduledWorkoutExerciseId === snapshot.evidence.scheduledWorkoutExerciseId,
+      );
+      if (
+        !evidence ||
+        evidence.ownerAuthorization === null ||
+        disposition.expectedFingerprint !== row.sourceFingerprint ||
+        fingerprint(evidence) !== row.sourceFingerprint
+      ) {
+        throw new WorkoutProgressionStaleError('Workout progression recommendation is stale');
+      }
+      if (
+        ['directly_coached', 'non_progressing'].includes(evidence.managementMode) &&
+        !['keep', 'hold'].includes(disposition.action)
+      ) {
+        throw new WorkoutProgressionInvalidEditError(
+          'Direct coaching and non-progressing dispositions preserve explicitly prescribed targets',
+        );
+      }
+      if (
+        snapshot.confidence === 'unavailable' &&
+        (disposition.action === 'accept' || disposition.action === 'edit')
+      ) {
+        throw new WorkoutProgressionInvalidEditError(
+          'Unavailable progression evidence cannot apply target changes',
+        );
+      }
+      const actionInput = applyWorkoutProgressionActionInputSchema.parse({
+        action: disposition.action,
+        editedTargets: disposition.editedTargets,
+        expectedFingerprint: disposition.expectedFingerprint,
+        idempotencyKey: derivedPublicationKey(input.idempotencyKey, row.id, index),
+        reason: disposition.action === 'hold' ? disposition.reason : null,
+      });
+      const appliedTargets = resolveAppliedTargets(actionInput, snapshot);
+      if (actionInput.action === 'edit') {
+        assertBoundedEdit(snapshot.recommendedTargets, appliedTargets, snapshot.evidence);
+      }
+      return { actionInput, appliedTargets, disposition, evidence, row, snapshot };
+    });
+
+    const finalPrescriptionFingerprint = fingerprint({
+      scheduledWorkoutId,
+      dispositions: prepared.map((item) => ({
+        action: item.disposition.action,
+        finalTargets: item.appliedTargets,
+        managementMode: item.evidence.managementMode,
+        recommendationId: item.row.id,
+        sourceFingerprint: item.row.sourceFingerprint,
+      })),
+    });
+    const publicationId = randomUUID();
+    let targetsChanged = false;
+    const reviews: WorkoutProgressionFinalReview[] = [];
+    for (const item of prepared) {
+      if (item.actionInput.action === 'accept' || item.actionInput.action === 'edit') {
+        const persistedSets = tx
+          .select({ id: scheduledWorkoutExerciseSets.id })
+          .from(scheduledWorkoutExerciseSets)
+          .where(
+            eq(
+              scheduledWorkoutExerciseSets.scheduledWorkoutExerciseId,
+              item.row.scheduledWorkoutExerciseId,
+            ),
+          )
+          .all();
+        const targetById = new Map(item.appliedTargets.map((target) => [target.setId, target]));
+        if (persistedSets.length !== item.appliedTargets.length) {
+          throw new WorkoutProgressionStaleError('Workout progression recommendation is stale');
+        }
+        for (const persistedSet of persistedSets) {
+          const target = targetById.get(persistedSet.id);
+          if (!target)
+            throw new WorkoutProgressionStaleError('Workout progression recommendation is stale');
+          tx.update(scheduledWorkoutExerciseSets)
+            .set({
+              reps: target.reps,
+              repsMax: target.repsMax,
+              repsMin: target.repsMin,
+              targetDistance: target.distance,
+              targetSeconds: target.seconds,
+              targetZone: target.zone,
+              targetWeight: target.weight,
+              targetWeightMax: target.weightMax,
+              targetWeightMin: target.weightMin,
+            })
+            .where(eq(scheduledWorkoutExerciseSets.id, persistedSet.id))
+            .run();
+        }
+        targetsChanged = true;
+      }
+      const publication: StoredPublicationMetadata = {
+        id: publicationId,
+        disposition: publicationDisposition(item.evidence.managementMode, item.actionInput.action),
+        summary: input.summary,
+        reason: item.disposition.reason,
+        finalTargets: item.appliedTargets,
+        finalPrescriptionFingerprint,
+      };
+      const id = randomUUID();
+      tx.insert(workoutProgressionActions)
+        .values({
+          actorLabel: actor.label,
+          actorType: actor.type,
+          agentTokenId: actor.id,
+          createdAt: now,
+          id,
+          idempotencyKey: item.actionInput.idempotencyKey,
+          payload: { ...item.actionInput, publication },
+          recommendationId: item.row.id,
+          requestFingerprint,
+          sequence: 1,
+          type: item.actionInput.action,
+          userId,
+        })
+        .run();
+      reviews.push(
+        workoutProgressionFinalReviewSchema.parse({
+          publicationId,
+          disposition: publication.disposition,
+          summary: input.summary,
+          reason: item.disposition.reason,
+          finalTargets: item.appliedTargets,
+          finalPrescriptionFingerprint,
+          actorType: 'agent',
+          actorId: actor.id,
+          actorLabel: actor.label,
+          reviewedAt: now,
+        }),
+      );
+    }
+    if (targetsChanged) {
+      tx.update(scheduledWorkouts)
+        .set({ updatedAt: now })
+        .where(eq(scheduledWorkouts.id, scheduledWorkoutId))
+        .run();
+    }
+    return workoutProgressionPublicationSchema.parse({
+      id: publicationId,
+      scheduledWorkoutId,
+      summary: input.summary,
+      finalPrescriptionFingerprint,
+      actorType: 'agent',
+      actorId: actor.id,
+      actorLabel: actor.label,
+      publishedAt: now,
+      dispositions: reviews,
     });
   });
 }

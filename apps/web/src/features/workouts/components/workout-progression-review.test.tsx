@@ -18,6 +18,9 @@ const recommendation: WorkoutProgressionRecommendation = {
   evidence: {
     exerciseId: 'exercise-1',
     exerciseName: 'Incline press',
+    managementMode: 'self_managed',
+    managementReason: null,
+    ownerAuthorization: null,
     performance: [
       {
         completed: true,
@@ -168,6 +171,82 @@ describe('WorkoutProgressionReview', () => {
       'You · revision 1 · priority exercise',
     );
     expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('shows the published final plan without mandatory per-exercise approval controls', () => {
+    const fingerprint = 'c'.repeat(64);
+    setup({
+      ...recommendation,
+      evidence: {
+        ...recommendation.evidence,
+        managementMode: 'agent_reviewed',
+        managementReason: 'Coach may review and publish the next plan.',
+        ownerAuthorization: { actorId: 'user-1', authorizedAt: 520 },
+      },
+      finalReview: {
+        actorId: 'agent-token-1',
+        actorLabel: 'Coach agent',
+        actorType: 'agent',
+        disposition: 'applied',
+        finalPrescriptionFingerprint: fingerprint,
+        finalTargets: recommendation.recommendedTargets,
+        publicationId: 'publication-1',
+        reason: 'All work sets reached the top of the configured rep range.',
+        reviewedAt: 600,
+        summary: 'Raised the press target after reviewing the complete plan.',
+      },
+      state: 'accepted',
+    });
+
+    expect(screen.getByText('What changed and why')).toBeInTheDocument();
+    expect(
+      screen.getByText('Raised the press target after reviewing the complete plan.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/final prescription/)).toHaveTextContent(fingerprint);
+    expect(screen.queryByRole('button', { name: 'Accept targets' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Keep current' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Hold with reason' })).not.toBeInTheDocument();
+  });
+
+  it('treats directly coached and non-progressing modes as explicit plans, not missing setup', () => {
+    setup({
+      ...recommendation,
+      confidence: 'unavailable',
+      decision: 'hold',
+      evidence: {
+        ...recommendation.evidence,
+        managementMode: 'directly_coached',
+        managementReason: 'Coach prescribes these targets directly.',
+        ownerAuthorization: { actorId: 'user-1', authorizedAt: 520 },
+        policy: {
+          ...recommendation.evidence.policy,
+          effortCeiling: null,
+          family: 'unsupported',
+          loadIncrement: null,
+          lowEffortThreshold: null,
+          repRangeMax: null,
+          repRangeMin: null,
+        },
+        policySource: {
+          actorId: null,
+          actorLabel: null,
+          actorType: null,
+          configurationId: null,
+          configuredAt: null,
+          revision: 0,
+          type: 'none',
+        },
+      },
+      reasonCodes: ['MISSING_POLICY'],
+      recommendedTargets: recommendation.evidence.priorTargets,
+    });
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'This exercise is managed by your authorized coaching agent.',
+    );
+    expect(screen.queryByText(/No progression policy is configured/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Accept targets' })).not.toBeInTheDocument();
   });
 
   it('shows compatibility provenance and raw values for legacy evidence', () => {

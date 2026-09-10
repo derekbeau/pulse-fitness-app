@@ -1,0 +1,18 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "bfcf849b4e6b1e35e928681c518916708c657602",
+  "branch": "feat/agent-reviewed-progression",
+  "worktree": "/Users/meridian/Projects/pulse-agent-reviewed-progression",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M apps/api/src/routes/workout-progression/index.ts\n M apps/api/src/routes/workout-progression/store.ts\n M apps/web/src/features/workouts/components/workout-progression-review.tsx\n M packages/shared/src/schemas/workout-progression.ts\n?? docs/implementation/agent-reviewed-progression-evidence/",
+  "dirtyPatchSha256": "0b6529cc9c746fbd62954df9e650aca7124b0729b5b0c42dba6c78086a2ed099",
+  "argv": ["pnpm", "typecheck"],
+  "command": "\"pnpm\" \"typecheck\"",
+  "cacheControls": {},
+  "startedAt": "2026-09-09T20:11:29.786Z",
+  "endedAt": "2026-09-09T20:11:43.152Z",
+  "exitCode": 2,
+  "combinedOutputSha256": "12348614fedfbfd826e8b282df3ad8c0ac42f53af205013e772b7b7de009338d",
+  "rawLog": "/Users/meridian/Projects/pulse-agent-reviewed-progression/docs/implementation/agent-reviewed-progression-evidence/raw/02-focused-typecheck.log",
+  "rawLogSha256": "58f07533bbfc9e2226e87747685cbeeb83d4eea6e3261817fa8b366ec4cda4a4"
+}

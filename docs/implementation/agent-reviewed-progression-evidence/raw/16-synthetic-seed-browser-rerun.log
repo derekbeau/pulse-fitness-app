@@ -1,0 +1,434 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: bfcf849b4e6b1e35e928681c518916708c657602
+BRANCH: feat/agent-reviewed-progression
+WORKTREE: /Users/meridian/Projects/pulse-agent-reviewed-progression
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: e6ffc87b9775716f9050ca7047e7beec34a9561573e51afd1edf93db25de95b7
+STARTED_UTC: 2026-09-09T20:32:36.343Z
+COMMAND_ARGV_JSON: ["pnpm","seed:adaptive-tdee-preview","--","--date","2026-08-23","--database","apps/api/data/pulse-tdee-dev.db"]
+COMMAND: "pnpm" "seed:adaptive-tdee-preview" "--" "--date" "2026-08-23" "--database" "apps/api/data/pulse-tdee-dev.db"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+
+> pulse@ seed:adaptive-tdee-preview /Users/meridian/Projects/pulse-agent-reviewed-progression
+> pnpm --filter @pulse/api exec tsx ../../scripts/seed-adaptive-tdee-preview.ts -- --date 2026-08-23 --database apps/api/data/pulse-tdee-dev.db
+
+{
+  "database": "apps/api/data/pulse-tdee-dev.db",
+  "date": "2026-08-23",
+  "password": "adaptive-preview-only",
+  "users": [
+    {
+      "fixture": "setup",
+      "name": "Adaptive Preview · Setup",
+      "username": "adaptive-preview-setup",
+      "userId": "f17e0000-0000-4000-8000-000000000001",
+      "expectedState": "setup_required",
+      "note": "No program exists; complete the guided setup."
+    },
+    {
+      "fixture": "baseline",
+      "name": "Adaptive Preview · Baseline",
+      "username": "adaptive-preview-baseline",
+      "userId": "f17e0000-0000-4000-8000-000000000002",
+      "expectedState": "baseline",
+      "note": "A baseline was declined, leaving the program ready for a fresh baseline."
+    },
+    {
+      "fixture": "learning",
+      "name": "Adaptive Preview · Learning",
+      "username": "adaptive-preview-learning",
+      "userId": "f17e0000-0000-4000-8000-000000000003",
+      "expectedState": "learning",
+      "note": "Two prior complete days plus today's complete nutrition and weigh-in are logged, while the completed-day coaching window still has zero usable records."
+    },
+    {
+      "fixture": "updating",
+      "name": "Adaptive Preview · Updating",
+      "username": "adaptive-preview-updating",
+      "userId": "f17e0000-0000-4000-8000-000000000004",
+      "expectedState": "updating",
+      "note": "Eligible nutrition and weight history support a manual check-in."
+    },
+    {
+      "fixture": "holding",
+      "name": "Adaptive Preview · Holding",
+      "username": "adaptive-preview-holding",
+      "userId": "f17e0000-0000-4000-8000-000000000005",
+      "expectedState": "holding",
+      "note": "A prior adaptive update exists, but recent weights are now stale."
+    },
+    {
+      "fixture": "pending",
+      "name": "Adaptive Preview · Pending",
+      "username": "adaptive-preview-pending",
+      "userId": "f17e0000-0000-4000-8000-000000000006",
+      "expectedState": "pending_recommendation",
+      "note": "An eligible recommendation is pending after one prior decline."
+    },
+    {
+      "fixture": "goal-reached",
+      "name": "Adaptive Preview · Goal Reached",
+      "username": "adaptive-preview-goal-reached",
+      "userId": "f17e0000-0000-4000-8000-000000000007",
+      "expectedState": "pending_recommendation",
+      "note": "A pending loss recommendation is inside the goal tolerance and requires explicit completion after acceptance."
+    },
+    {
+      "fixture": "goal-loss",
+      "name": "Adaptive Preview · Current Loss Goal",
+      "username": "adaptive-preview-goal-loss",
+      "userId": "f17e0000-0000-4000-8000-000000000008",
+      "expectedState": "updating",
+      "note": "An active loss goal has deterministic trend-based progress and no pending recommendation."
+    },
+    {
+      "fixture": "goal-maintenance",
+      "name": "Adaptive Preview · Maintenance Goal",
+      "username": "adaptive-preview-maintain",
+      "userId": "f17e0000-0000-4000-8000-000000000009",
+      "expectedState": "updating",
+      "note": "An active maintenance goal exposes its deterministic center and display range."
+    },
+    {
+      "fixture": "goal-edited",
+      "name": "Adaptive Preview · Edited Goal",
+      "username": "adaptive-preview-goal-edited",
+      "userId": "f17e0000-0000-4000-8000-000000000010",
+      "expectedState": "updating",
+      "note": "A same-direction edit preserved the progress origin and has an accepted revision-two recommendation."
+    },
+    {
+      "fixture": "goal-history",
+      "name": "Adaptive Preview · Prior Goal History",
+      "username": "adaptive-preview-goal-history",
+      "userId": "f17e0000-0000-4000-8000-000000000011",
+      "expectedState": "updating",
+      "note": "A prior loss goal was replaced by an accepted gain goal with a new progress period."
+    },
+    {
+      "fixture": "goal-change-pending",
+      "name": "Adaptive Preview · Goal Change Pending",
+      "username": "adaptive-preview-goal-pending",
+      "userId": "f17e0000-0000-4000-8000-000000000012",
+      "expectedState": "pending_recommendation",
+      "note": "A same-direction edit is active while its explicit target recommendation remains pending."
+    },
+    {
+      "fixture": "completion-required",
+      "name": "Adaptive Preview · Completion Required",
+      "username": "adaptive-preview-completion",
+      "userId": "f17e0000-0000-4000-8000-000000000013",
+      "expectedState": "updating",
+      "note": "A reached loss target has been accepted and still requires the explicit maintenance transition."
+    },
+    {
+      "fixture": "analytics-pending",
+      "name": "Adaptive Preview · Energy Balance Pending",
+      "username": "adaptive-preview-eb-pending",
+      "userId": "f17e0000-0000-4000-8000-000000000014",
+      "expectedState": "pending_recommendation",
+      "note": "A dedicated pending recommendation keeps Energy Balance browser tests isolated."
+    },
+    {
+      "fixture": "analytics-goal-loss",
+      "name": "Adaptive Preview · Energy Balance Loss Goal",
+      "username": "adaptive-preview-eb-loss",
+      "userId": "f17e0000-0000-4000-8000-000000000015",
+      "expectedState": "updating",
+      "note": "A dedicated loss goal keeps Energy Balance browser tests isolated."
+    },
+    {
+      "fixture": "daily-energy-adherence",
+      "name": "Daily Energy · Adherence States",
+      "username": "adaptive-preview-de-adherence",
+      "userId": "f17e0000-0000-4000-8000-000000000044",
+      "expectedState": "updating",
+      "note": "Dedicated complete, partial, unknown, missing, and cutoff days exercise daily energy adherence."
+    },
+    {
+      "fixture": "daily-energy-loss",
+      "name": "Daily Energy · Loss Goal",
+      "username": "adaptive-preview-de-loss",
+      "userId": "f17e0000-0000-4000-8000-000000000045",
+      "expectedState": "updating",
+      "note": "A dedicated loss program proves that adherence grading stays symmetric and goal-neutral."
+    },
+    {
+      "fixture": "daily-energy-gain",
+      "name": "Daily Energy · Gain Goal",
+      "username": "adaptive-preview-de-gain",
+      "userId": "f17e0000-0000-4000-8000-000000000046",
+      "expectedState": "updating",
+      "note": "A dedicated gain program proves that adherence grading stays symmetric and goal-neutral."
+    },
+    {
+      "fixture": "daily-energy-manual",
+      "name": "Daily Energy · Manual History",
+      "username": "adaptive-preview-de-manual",
+      "userId": "f17e0000-0000-4000-8000-000000000047",
+      "expectedState": "baseline",
+      "note": "A manual target predating the adaptive program proves manual provenance and a null pre-program expenditure gap."
+    },
+    {
+      "fixture": "daily-energy-revisions",
+      "name": "Daily Energy · Causal Revisions",
+      "username": "adaptive-preview-de-revisions",
+      "userId": "f17e0000-0000-4000-8000-000000000048",
+      "expectedState": "pending_recommendation",
+      "note": "A later accepted recommendation and a materially different pending proposal prove date-effective accepted-only target and expenditure selection."
+    },
+    {
+      "fixture": "protein-floor",
+      "name": "Nutrition · Protein Minimum",
+      "username": "adaptive-preview-protein-floor",
+      "userId": "f17e0000-0000-4000-8000-000000000050",
+      "expectedState": "updating",
+      "note": "Dedicated exact, below, above, partial, current, and future protein-floor states keep browser acceptance parallel-safe."
+    },
+    {
+      "fixture": "protein-floor-unavailable",
+      "name": "Nutrition · Protein Minimum Unavailable",
+      "username": "adaptive-preview-protein-none",
+      "userId": "f17e0000-0000-4000-8000-000000000051",
+      "expectedState": "setup_required",
+      "note": "A logged day without an accepted target proves that a missing protein minimum remains explicitly unavailable."
+    },
+    {
+      "fixture": "review-clean-loss",
+      "name": "Adaptive Review · Clean Loss",
+      "username": "adaptive-preview-wr-loss",
+      "userId": "f17e0000-0000-4000-8000-000000000016",
+      "expectedState": "pending_recommendation",
+      "note": "A clean loss review with only Outcome and Recommendation."
+    },
+    {
+      "fixture": "review-clean-gain",
+      "name": "Adaptive Review · Clean Gain",
+      "username": "adaptive-preview-wr-gain",
+      "userId": "f17e0000-0000-4000-8000-000000000017",
+      "expectedState": "pending_recommendation",
+      "note": "A clean gain review with deterministic goal-direction copy."
+    },
+    {
+      "fixture": "review-clean-maintain",
+      "name": "Adaptive Review · Clean Maintenance",
+      "username": "adaptive-preview-wr-maintain",
+      "userId": "f17e0000-0000-4000-8000-000000000018",
+      "expectedState": "pending_recommendation",
+      "note": "A clean maintenance review with deterministic neutral copy."
+    },
+    {
+      "fixture": "review-low-day",
+      "name": "Adaptive Review · Low Complete Day",
+      "username": "adaptive-preview-wr-low",
+      "userId": "f17e0000-0000-4000-8000-000000000019",
+      "expectedState": "pending_recommendation",
+      "note": "One complete day is unusually low and requires clarification."
+    },
+    {
+      "fixture": "review-cutoff",
+      "name": "Adaptive Review · Current-day Cutoff",
+      "username": "adaptive-preview-wr-cutoff",
+      "userId": "f17e0000-0000-4000-8000-000000000020",
+      "expectedState": "pending_recommendation",
+      "note": "Current-day complete nutrition and weight are logged but pending cutoff."
+    },
+    {
+      "fixture": "review-illness",
+      "name": "Adaptive Review · Illness Context",
+      "username": "adaptive-preview-wr-illness",
+      "userId": "f17e0000-0000-4000-8000-000000000021",
+      "expectedState": "pending_recommendation",
+      "note": "Bounded illness context explains recovery without changing nutrition math."
+    },
+    {
+      "fixture": "review-holding",
+      "name": "Adaptive Review · Logging Hold",
+      "username": "adaptive-preview-wr-hold",
+      "userId": "f17e0000-0000-4000-8000-000000000022",
+      "expectedState": "learning",
+      "note": "A logging break keeps the plan unchanged and shows missing evidence."
+    },
+    {
+      "fixture": "review-stale",
+      "name": "Adaptive Review · Stale Correction",
+      "username": "adaptive-preview-wr-stale",
+      "userId": "f17e0000-0000-4000-8000-000000000023",
+      "expectedState": "pending_recommendation",
+      "note": "A dedicated review may be corrected and refreshed without cross-test mutation."
+    },
+    {
+      "fixture": "review-decline",
+      "name": "Adaptive Review · Decline",
+      "username": "adaptive-preview-wr-decline",
+      "userId": "f17e0000-0000-4000-8000-000000000024",
+      "expectedState": "pending_recommendation",
+      "note": "A dedicated review verifies decline audit and no-repeat behavior."
+    },
+    {
+      "fixture": "review-defer",
+      "name": "Adaptive Review · Defer",
+      "username": "adaptive-preview-wr-defer",
+      "userId": "f17e0000-0000-4000-8000-000000000025",
+      "expectedState": "pending_recommendation",
+      "note": "A dedicated review verifies defer conditions and no duplicate rows."
+    },
+    {
+      "fixture": "review-maximal",
+      "name": "Adaptive Review · Full Evidence",
+      "username": "adaptive-preview-wr-full",
+      "userId": "f17e0000-0000-4000-8000-000000000026",
+      "expectedState": "learning",
+      "note": "Cutoff, missing, energy, training, and recommendation evidence exercise the full layout."
+    },
+    {
+      "fixture": "review-adjust",
+      "name": "Adaptive Review · Editable Adjustment",
+      "username": "adaptive-preview-wr-adjust",
+      "userId": "f17e0000-0000-4000-8000-000000000027",
+      "expectedState": "pending_recommendation",
+      "note": "A dedicated bounded adjustment supports edit-then-accept browser consent coverage."
+    },
+    {
+      "fixture": "trajectory-loss",
+      "name": "Goal Trajectory · Loss",
+      "username": "adaptive-preview-gt-loss",
+      "userId": "f17e0000-0000-4000-8000-000000000028",
+      "expectedState": "updating",
+      "note": "A dedicated read-only loss trajectory keeps browser tests isolated."
+    },
+    {
+      "fixture": "trajectory-maintenance",
+      "name": "Goal Trajectory · Maintenance",
+      "username": "adaptive-preview-gt-maintain",
+      "userId": "f17e0000-0000-4000-8000-000000000029",
+      "expectedState": "updating",
+      "note": "A dedicated read-only maintenance trajectory keeps browser tests isolated."
+    },
+    {
+      "fixture": "trajectory-edited",
+      "name": "Goal Trajectory · Revised",
+      "username": "adaptive-preview-gt-edited",
+      "userId": "f17e0000-0000-4000-8000-000000000030",
+      "expectedState": "updating",
+      "note": "A dedicated read-only revision trajectory keeps browser tests isolated."
+    },
+    {
+      "fixture": "trajectory-reached",
+      "name": "Goal Trajectory · Reached",
+      "username": "adaptive-preview-gt-reached",
+      "userId": "f17e0000-0000-4000-8000-000000000031",
+      "expectedState": "pending_recommendation",
+      "note": "A dedicated read-only reached trajectory keeps browser tests isolated."
+    },
+    {
+      "fixture": "trajectory-gain",
+      "name": "Goal Trajectory · Gain",
+      "username": "adaptive-preview-gt-gain",
+      "userId": "f17e0000-0000-4000-8000-000000000032",
+      "expectedState": "updating",
+      "note": "A dedicated read-only gain trajectory keeps browser tests isolated."
+    },
+    {
+      "fixture": "trajectory-sparse",
+      "name": "Goal Trajectory · Sparse",
+      "username": "adaptive-preview-gt-sparse",
+      "userId": "f17e0000-0000-4000-8000-000000000033",
+      "expectedState": "learning",
+      "note": "A dedicated sparse trajectory proves confidence limits without a fabricated ETA."
+    },
+    {
+      "fixture": "trajectory-maintenance-below",
+      "name": "Goal Trajectory · Maintenance Below",
+      "username": "adaptive-preview-gt-below",
+      "userId": "f17e0000-0000-4000-8000-000000000034",
+      "expectedState": "updating",
+      "note": "A dedicated read-only maintenance trajectory sits below the tested Pulse band."
+    },
+    {
+      "fixture": "trajectory-maintenance-above",
+      "name": "Goal Trajectory · Maintenance Above",
+      "username": "adaptive-preview-gt-above",
+      "userId": "f17e0000-0000-4000-8000-000000000035",
+      "expectedState": "updating",
+      "note": "A dedicated read-only maintenance trajectory sits above the tested Pulse band."
+    },
+    {
+      "fixture": "trajectory-scale-only",
+      "name": "Goal Trajectory · Scale Only",
+      "username": "adaptive-preview-gt-scale",
+      "userId": "f17e0000-0000-4000-8000-000000000036",
+      "expectedState": "updating",
+      "note": "A current raw scale crossing stays distinct from the completed-day model trend."
+    },
+    {
+      "fixture": "trajectory-historical",
+      "name": "Goal Trajectory · Historical",
+      "username": "adaptive-preview-gt-historical",
+      "userId": "f17e0000-0000-4000-8000-000000000037",
+      "expectedState": "updating",
+      "note": "A dedicated replaced goal proves historical trajectory copy and immutable context."
+    },
+    {
+      "fixture": "data-quality-calendar",
+      "name": "Data Quality · Cross-domain Calendar",
+      "username": "adaptive-preview-dq-calendar",
+      "userId": "f17e0000-0000-4000-8000-000000000038",
+      "expectedState": "updating",
+      "note": "A dedicated read-only month combines complete, partial, unknown, missing, pending, corrected, workout, algorithm, and agent-context evidence."
+    },
+    {
+      "fixture": "progression-accept",
+      "name": "Workout Progression · Accept",
+      "username": "adaptive-preview-wp-accept",
+      "userId": "f17e0000-0000-4000-8000-000000000039",
+      "expectedState": "setup_required",
+      "note": "A dedicated scheduled workout supports explicit progression acceptance."
+    },
+    {
+      "fixture": "progression-edit",
+      "name": "Workout Progression · Edit",
+      "username": "adaptive-preview-wp-edit",
+      "userId": "f17e0000-0000-4000-8000-000000000040",
+      "expectedState": "setup_required",
+      "note": "A dedicated scheduled workout supports bounded target editing."
+    },
+    {
+      "fixture": "progression-stale",
+      "name": "Workout Progression · Stale",
+      "username": "adaptive-preview-wp-stale",
+      "userId": "f17e0000-0000-4000-8000-000000000041",
+      "expectedState": "setup_required",
+      "note": "A dedicated source session supports correction and stale-recompute coverage."
+    },
+    {
+      "fixture": "progression-agent",
+      "name": "Workout Progression · Agent",
+      "username": "adaptive-preview-wp-agent",
+      "userId": "f17e0000-0000-4000-8000-000000000042",
+      "expectedState": "setup_required",
+      "note": "A dedicated scheduled workout supports AgentToken idempotency coverage."
+    },
+    {
+      "fixture": "muscle-analytics",
+      "name": "Workout Analytics · Muscle Coverage",
+      "username": "adaptive-preview-muscle",
+      "userId": "f17e0000-0000-4000-8000-000000000043",
+      "expectedState": "setup_required",
+      "note": "Dedicated completed and planned work exposes primary and secondary muscle contributions."
+    },
+    {
+      "fixture": "food-analytics",
+      "name": "Food Library · Analytics",
+      "username": "adaptive-preview-food",
+      "userId": "f17e0000-0000-4000-8000-000000000049",
+      "expectedState": "setup_required",
+      "note": "Dedicated saved foods and immutable meal snapshots cover contribution, density, review, and occurrence evidence."
+    }
+  ]
+}
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-09T20:32:40.528Z
+EXIT_CODE: 0

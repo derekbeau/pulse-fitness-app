@@ -314,10 +314,26 @@ export const workoutProgressionContextSchema = z
     path: ['facts'],
   });
 
+export const workoutProgressionManagementModeSchema = z.enum([
+  'self_managed',
+  'agent_reviewed',
+  'directly_coached',
+  'non_progressing',
+]);
+
+export const workoutProgressionOwnerAuthorizationSchema = z
+  .object({
+    actorId: idSchema,
+    authorizedAt: z.number().int().positive(),
+  })
+  .strict();
+
 export const configureWorkoutProgressionInputSchema = z
   .object({
     expectedRevision: z.number().int().nonnegative(),
-    policy: workoutProgressionPolicySchema,
+    managementMode: workoutProgressionManagementModeSchema,
+    policy: workoutProgressionPolicySchema.nullable(),
+    reason: z.string().trim().min(1).max(1000),
     contextAvailability: z.enum(['available', 'unavailable']),
     contextFacts: z.array(workoutProgressionContextFactSchema).max(20),
     priority: z.boolean(),
@@ -327,9 +343,29 @@ export const configureWorkoutProgressionInputSchema = z
     message: 'Unavailable context cannot include observed facts',
     path: ['contextFacts'],
   })
-  .refine((value) => value.policy.family !== 'unsupported', {
-    message: 'Persisted programming configuration must select a supported policy family',
-    path: ['policy', 'family'],
+  .superRefine((value, ctx) => {
+    const engineManaged = ['self_managed', 'agent_reviewed'].includes(value.managementMode);
+    if (engineManaged && value.policy === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Engine-reviewed progression requires an explicit policy',
+        path: ['policy'],
+      });
+    }
+    if (engineManaged && value.policy?.family === 'unsupported') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Configured engine policies must select a supported policy family',
+        path: ['policy', 'family'],
+      });
+    }
+    if (!engineManaged && value.policy !== null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Direct coaching and non-progressing modes do not run an engine policy',
+        path: ['policy'],
+      });
+    }
   });
 
 export const workoutProgressionConfigurationSchema = z
@@ -339,7 +375,10 @@ export const workoutProgressionConfigurationSchema = z
     scheduledWorkoutId: idSchema,
     scheduledWorkoutExerciseId: idSchema,
     revision: z.number().int().positive(),
-    policy: workoutProgressionPolicySchema,
+    managementMode: workoutProgressionManagementModeSchema.optional(),
+    managementReason: z.string().trim().min(1).max(1000).nullable().optional(),
+    ownerAuthorization: workoutProgressionOwnerAuthorizationSchema.nullable().optional(),
+    policy: workoutProgressionPolicySchema.nullable(),
     contextAvailability: z.enum(['available', 'unavailable']),
     contextFacts: z.array(workoutProgressionContextFactSchema).max(20),
     priority: z.boolean(),
@@ -369,6 +408,9 @@ export const workoutProgressionEvidenceSchema = z
     performance: z.array(workoutProgressionPerformanceSetSchema).max(100),
     policy: workoutProgressionPolicySchema,
     policySource: workoutProgressionPolicySourceSchema,
+    managementMode: workoutProgressionManagementModeSchema,
+    managementReason: z.string().trim().min(1).max(1000).nullable(),
+    ownerAuthorization: workoutProgressionOwnerAuthorizationSchema.nullable(),
     priority: z.boolean().nullable(),
     context: workoutProgressionContextSchema,
   })
@@ -401,6 +443,10 @@ export const workoutProgressionRecommendationSchema = z
     generatedAt: z.number().int().positive(),
     effectiveDate: dateSchema,
     staleAt: z.number().int().positive().nullable(),
+    finalReview: z
+      .lazy(() => workoutProgressionFinalReviewSchema)
+      .nullable()
+      .optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -491,6 +537,165 @@ export const workoutProgressionActionSchema = z
       value.appliedTargets.length > 0 || value.action === 'keep' || value.action === 'hold',
     { message: 'Material actions require targets', path: ['appliedTargets'] },
   );
+
+export const workoutProgressionFinalDispositionSchema = z.enum([
+  'applied',
+  'reviewed_hold',
+  'directly_prescribed',
+  'not_applicable',
+]);
+
+export const workoutProgressionFinalReviewSchema = z
+  .object({
+    publicationId: idSchema,
+    disposition: workoutProgressionFinalDispositionSchema,
+    summary: z.string().trim().min(1).max(2000),
+    reason: z.string().trim().min(1).max(1000),
+    finalTargets: z.array(workoutProgressionTargetSchema).max(100),
+    finalPrescriptionFingerprint: fingerprintSchema,
+    actorType: z.enum(['user', 'agent']),
+    actorId: idSchema,
+    actorLabel: z.string().trim().min(1).max(255),
+    reviewedAt: z.number().int().positive(),
+  })
+  .strict();
+
+const workoutProgressionPublicationDispositionInputSchema = z
+  .object({
+    recommendationId: idSchema,
+    action: workoutProgressionActionTypeSchema,
+    expectedFingerprint: fingerprintSchema,
+    editedTargets: z.array(workoutProgressionTargetSchema).min(1).max(100).nullable(),
+    reason: z.string().trim().min(1).max(1000),
+  })
+  .strict()
+  .refine((value) => (value.action === 'edit') === (value.editedTargets !== null), {
+    message: 'editedTargets are required exactly for edit actions',
+    path: ['editedTargets'],
+  });
+
+export const publishWorkoutProgressionInputSchema = z
+  .object({
+    action: z.literal('publish'),
+    idempotencyKey: z.string().trim().min(8).max(255),
+    summary: z.string().trim().min(1).max(2000),
+    dispositions: z.array(workoutProgressionPublicationDispositionInputSchema).min(1).max(200),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      new Set(value.dispositions.map((disposition) => disposition.recommendationId)).size ===
+      value.dispositions.length,
+    { message: 'Publication recommendations must be unique', path: ['dispositions'] },
+  );
+
+export const workoutProgressionActionRequestSchema = z
+  .object({
+    action: z.enum(['accept', 'edit', 'keep', 'hold', 'publish']),
+    idempotencyKey: z.string().trim().min(8).max(255),
+    expectedFingerprint: fingerprintSchema.optional(),
+    editedTargets: z.array(workoutProgressionTargetSchema).min(1).max(100).nullable().optional(),
+    reason: z.string().trim().min(1).max(1000).nullable().optional(),
+    summary: z.string().trim().min(1).max(2000).optional(),
+    dispositions: z
+      .array(workoutProgressionPublicationDispositionInputSchema)
+      .min(1)
+      .max(200)
+      .optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.action === 'publish') {
+      if (!value.summary) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'summary is required',
+          path: ['summary'],
+        });
+      }
+      if (!value.dispositions) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'dispositions are required',
+          path: ['dispositions'],
+        });
+      }
+      if (
+        value.expectedFingerprint !== undefined ||
+        value.editedTargets !== undefined ||
+        value.reason !== undefined
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Single-action fields are not valid for publication',
+          path: ['action'],
+        });
+      }
+      if (
+        value.dispositions &&
+        new Set(value.dispositions.map((item) => item.recommendationId)).size !==
+          value.dispositions.length
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Publication recommendations must be unique',
+          path: ['dispositions'],
+        });
+      }
+      return;
+    }
+    if (
+      value.expectedFingerprint === undefined ||
+      value.editedTargets === undefined ||
+      value.reason === undefined
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Single actions require expectedFingerprint, editedTargets, and reason',
+        path: ['action'],
+      });
+    }
+    if (value.summary !== undefined || value.dispositions !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Publication fields are not valid for a single action',
+        path: ['action'],
+      });
+    }
+    if ((value.action === 'edit') !== (value.editedTargets !== null)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'editedTargets are required exactly for edit actions',
+        path: ['editedTargets'],
+      });
+    }
+    if ((value.action === 'hold') !== (value.reason !== null)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'reason is required exactly for hold actions',
+        path: ['reason'],
+      });
+    }
+  });
+
+export const workoutProgressionPublicationSchema = z
+  .object({
+    id: idSchema,
+    scheduledWorkoutId: idSchema,
+    summary: z.string().trim().min(1).max(2000),
+    finalPrescriptionFingerprint: fingerprintSchema,
+    actorType: z.enum(['user', 'agent']),
+    actorId: idSchema,
+    actorLabel: z.string().trim().min(1).max(255),
+    publishedAt: z.number().int().positive(),
+    dispositions: z.array(workoutProgressionFinalReviewSchema).min(1).max(200),
+  })
+  .strict();
+
+export const workoutProgressionActionResponseSchema = z.union([
+  workoutProgressionActionSchema,
+  workoutProgressionPublicationSchema,
+]);
 
 export const workoutProgressionPreviewResponseSchema = z
   .object({ recommendations: z.array(workoutProgressionRecommendationSchema).max(200) })
@@ -663,6 +868,12 @@ export type ApplyWorkoutProgressionActionInput = z.infer<
 >;
 export type WorkoutProgressionActionType = z.infer<typeof workoutProgressionActionTypeSchema>;
 export type WorkoutProgressionAction = z.infer<typeof workoutProgressionActionSchema>;
+export type PublishWorkoutProgressionInput = z.infer<typeof publishWorkoutProgressionInputSchema>;
+export type WorkoutProgressionPublication = z.infer<typeof workoutProgressionPublicationSchema>;
+export type WorkoutProgressionFinalReview = z.infer<typeof workoutProgressionFinalReviewSchema>;
+export type WorkoutProgressionManagementMode = z.infer<
+  typeof workoutProgressionManagementModeSchema
+>;
 export type WorkoutMuscleContribution = z.infer<typeof workoutMuscleContributionSchema>;
 export type WorkoutMuscleAnalytics = z.infer<typeof workoutMuscleAnalyticsSchema>;
 export type WorkoutMuscleAnalyticsQuery = z.infer<typeof workoutMuscleAnalyticsQuerySchema>;

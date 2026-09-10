@@ -1,0 +1,171 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: bfcf849b4e6b1e35e928681c518916708c657602
+BRANCH: feat/agent-reviewed-progression
+WORKTREE: /Users/meridian/Projects/pulse-agent-reviewed-progression
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 141c1b7bb83f1058d0656adf5ad7df6e1474dd029294b33ead5bf26bce5de623
+STARTED_UTC: 2026-09-09T20:26:27.338Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","@pulse/api","exec","vitest","run","src/routes/workout-progression/store.integration.test.ts"]
+COMMAND: "pnpm" "--filter" "@pulse/api" "exec" "vitest" "run" "src/routes/workout-progression/store.integration.test.ts"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api
+
+ ❯ src/routes/workout-progression/store.integration.test.ts (29 tests | 1 failed) 4053ms
+     ✓ keeps a legacy recommendation {"action":"accept","both":false} after material canonicalization  363ms
+     ✓ keeps a legacy recommendation {"action":"edit","both":false} after material canonicalization 143ms
+     ✓ keeps a legacy recommendation {"action":"accept","both":true} after material canonicalization 131ms
+     ✓ keeps a legacy recommendation {"action":"edit","both":true} after material canonicalization 118ms
+     ✓ normalizes persisted equal redundancy in current evidence without rewriting rows 131ms
+     ✓ normalizes persisted equal redundancy in historical evidence without rewriting rows 119ms
+     ✓ isolates conflicting current evidence and blocks material actions 132ms
+     ✓ isolates conflicting historical evidence and blocks material actions 123ms
+     ✓ distinguishes no completed history from missing policy and malformed prescriptions 114ms
+     ✓ fails closed without an explicit programming policy and blocks target application 120ms
+     ✓ previews deterministic evidence, reuses the same fingerprint, and enforces ownership 110ms
+     ✓ marks corrected evidence stale and creates a distinct reproducible replacement 134ms
+     ✓ excludes legacy technique and false pain, then revisions explicit same-construct evidence 129ms
+     ✓ fingerprints raw native RIR provenance and stales prior native RPE evidence 121ms
+     ✓ applies accepted targets once and returns the same action for an idempotent replay 115ms
+     × publishes every owner-authorized managed disposition atomically and replays concurrently 195ms
+     ✓ stales a decided recommendation after source correction and creates one replacement 119ms
+     ✓ rejects changed idempotency payloads and unbounded edits without writes 148ms
+     ✓ uses immutable source prescriptions when the future plan changes 123ms
+     ✓ fingerprints exact scheduled-set identity and keeps policy stable across mutable tags 137ms
+     ✓ fingerprints scheduled-set reorder, addition, and removal independently 122ms
+     ✓ persists adverse context provenance and lets it override progression 117ms
+     ✓ binds idempotency replay to the recommendation and authorized actor identity 146ms
+     ✓ preserves decided audit evidence across schedule, session, and exercise purge lifecycles 126ms
+     ✓ supports source-session trash, restore, and purge without losing audit truth 116ms
+     ✓ preserves progression snapshots and set identity through normal session updates 204ms
+     ✓ preserves unmatched 0054 policy provenance while marking priority unavailable 141ms
+     ✓ enriches pre-0059 effort facts without downgrading 0054 snapshot provenance 121ms
+     ✓ keeps pre-0054 immutable recommendation snapshots readable after upgrade 133ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/workout-progression/store.integration.test.ts > workout progression store > publishes every owner-authorized managed disposition atomically and replays concurrently
+AssertionError: expected { …(9) } to deeply equal { …(9) }
+
+- Expected
++ Received
+
+@@ -5,81 +5,81 @@
+    "dispositions": [
+      {
+        "actorId": "agent-token-1",
+        "actorLabel": "Coach agent",
+        "actorType": "agent",
+-       "disposition": "applied",
++       "disposition": "not_applicable",
+        "finalPrescriptionFingerprint": "3e3b44c8556caf3122ceddd036b491b5fb52c6dd67f840f812fd3c4ea074e018",
+        "finalTargets": [
+          {
+            "distance": null,
+            "reps": null,
+            "repsMax": 10,
+            "repsMin": 8,
+            "seconds": null,
+-           "setId": "scheduled-set-1",
++           "setId": "scheduled-row-set-1",
+            "setNumber": 1,
+-           "weight": 25,
++           "weight": 30,
+            "weightMax": null,
+            "weightMin": null,
+            "zone": null,
+          },
+          {
+            "distance": null,
+            "reps": null,
+            "repsMax": 10,
+            "repsMin": 8,
+            "seconds": null,
+-           "setId": "scheduled-set-2",
++           "setId": "scheduled-row-set-2",
+            "setNumber": 2,
+-           "weight": 25,
++           "weight": 30,
+            "weightMax": null,
+            "weightMin": null,
+            "zone": null,
+          },
+        ],
+        "publicationId": "8578494f-135c-46cd-b78e-bfb3dad95210",
+-       "reason": "All work sets reached the range top at the configured effort ceiling.",
++       "reason": "This exercise is explicitly non-progressing.",
+        "reviewedAt": 700,
+        "summary": "Raised the press after all prescribed reps; retained the fixed cable row.",
+      },
+      {
+        "actorId": "agent-token-1",
+        "actorLabel": "Coach agent",
+        "actorType": "agent",
+-       "disposition": "not_applicable",
++       "disposition": "applied",
+        "finalPrescriptionFingerprint": "3e3b44c8556caf3122ceddd036b491b5fb52c6dd67f840f812fd3c4ea074e018",
+        "finalTargets": [
+          {
+            "distance": null,
+            "reps": null,
+            "repsMax": 10,
+            "repsMin": 8,
+            "seconds": null,
+-           "setId": "scheduled-row-set-1",
++           "setId": "scheduled-set-1",
+            "setNumber": 1,
+-           "weight": 30,
++           "weight": 25,
+            "weightMax": null,
+            "weightMin": null,
+            "zone": null,
+          },
+          {
+            "distance": null,
+            "reps": null,
+            "repsMax": 10,
+            "repsMin": 8,
+            "seconds": null,
+-           "setId": "scheduled-row-set-2",
++           "setId": "scheduled-set-2",
+            "setNumber": 2,
+-           "weight": 30,
++           "weight": 25,
+            "weightMax": null,
+            "weightMin": null,
+            "zone": null,
+          },
+        ],
+        "publicationId": "8578494f-135c-46cd-b78e-bfb3dad95210",
+-       "reason": "This exercise is explicitly non-progressing.",
++       "reason": "All work sets reached the range top at the configured effort ceiling.",
+        "reviewedAt": 700,
+        "summary": "Raised the press after all prescribed reps; retained the fixed cable row.",
+      },
+    ],
+    "finalPrescriptionFingerprint": "3e3b44c8556caf3122ceddd036b491b5fb52c6dd67f840f812fd3c4ea074e018",
+
+ ❯ src/routes/workout-progression/store.integration.test.ts:880:20
+    878|       });
+    879|     const [first, replay] = await Promise.all([publish(), publish()]);
+    880|     expect(replay).toEqual(first);
+       |                    ^
+    881|     expect(first).toMatchObject({
+    882|       actorId: 'agent-token-1',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 28 passed (29)
+   Start at  16:26:28
+   Duration  4.98s (transform 544ms, setup 0ms, import 771ms, tests 4.05s, environment 0ms)
+
+undefined
+/Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/routes/workout-progression/store.integration.test.ts
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-09T20:26:33.485Z
+EXIT_CODE: 1

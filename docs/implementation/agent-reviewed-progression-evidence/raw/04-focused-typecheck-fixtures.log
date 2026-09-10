@@ -1,0 +1,50 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: bfcf849b4e6b1e35e928681c518916708c657602
+BRANCH: feat/agent-reviewed-progression
+WORKTREE: /Users/meridian/Projects/pulse-agent-reviewed-progression
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: ed8653fd7c7ca796de69f52ed25b8a77a4b0b72986ee8220dd3911eae10d5421
+STARTED_UTC: 2026-09-09T20:13:00.672Z
+COMMAND_ARGV_JSON: ["pnpm","typecheck"]
+COMMAND: "pnpm" "typecheck"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+
+> pulse@ typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression
+> turbo run typecheck
+
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running typecheck in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/api:typecheck: cache miss, executing cec77572246d84f6
+@pulse/web:typecheck: cache miss, executing 9cc48d0f38b15077
+@pulse/shared:typecheck: cache hit, replaying logs 4807a16af687b1ed
+@pulse/shared:typecheck: 
+@pulse/shared:typecheck: > @pulse/shared@0.0.0 typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression/packages/shared
+@pulse/shared:typecheck: > tsc --noEmit -p tsconfig.json
+@pulse/shared:typecheck: 
+@pulse/web:typecheck: 
+@pulse/web:typecheck: > @pulse/web@0.0.0 typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/web
+@pulse/web:typecheck: > tsc --noEmit
+@pulse/web:typecheck: 
+@pulse/api:typecheck: 
+@pulse/api:typecheck: > @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api
+@pulse/api:typecheck: > tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+@pulse/api:typecheck: 
+@pulse/api:typecheck: src/routes/workout-progression/store.integration.test.ts(953,7): error TS2739: Type '{ contextAvailability: "available"; contextFacts: { detail: string; source: "programming_config"; type: "pain"; }[]; expectedRevision: number; policy: { allowReduction: false; contextRequired: true; ... 10 more ...; zoneCeiling: null; }; priority: true; }' is missing the following properties from type '{ reason: string; expectedRevision: number; policy: { version: 1; family: "unsupported" | "double_progression" | "strength_load" | "rpe_regulated" | "time_distance" | "rehab_capacity"; ... 10 more ...; contextRequired: boolean; } | null; managementMode: "self_managed" | ... 2 more ... | "non_progressing"; contextAva...': reason, managementMode
+@pulse/api:typecheck:  ELIFECYCLE  Command failed with exit code 2.
+@pulse/api:typecheck: ERROR: command finished with error: command (/Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run typecheck exited (2)
+@pulse/api#typecheck: command (/Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run typecheck exited (2)
+
+ Tasks:    2 successful, 3 total
+Cached:    1 cached, 3 total
+  Time:    19.929s 
+Failed:    @pulse/api#typecheck
+
+ ERROR  run failed: command  exited (2)
+ ELIFECYCLE  Command failed with exit code 2.
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-09T20:13:21.518Z
+EXIT_CODE: 2

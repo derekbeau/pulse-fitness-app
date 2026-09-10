@@ -1,0 +1,1273 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: bfcf849b4e6b1e35e928681c518916708c657602
+BRANCH: feat/agent-reviewed-progression
+WORKTREE: /Users/meridian/Projects/pulse-agent-reviewed-progression
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: 5cbc1166b3cd275da320a0cf6ca7021a6e832bb91161981518bde4940dbfd6e3
+STARTED_UTC: 2026-09-09T20:14:05.407Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","@pulse/shared","--filter","@pulse/api","--filter","@pulse/web","test","--","workout-progression"]
+COMMAND: "pnpm" "--filter" "@pulse/shared" "--filter" "@pulse/api" "--filter" "@pulse/web" "test" "--" "workout-progression"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+Scope: 3 of 4 workspace projects
+packages/shared test$ vitest run -- workout-progression
+packages/shared test:  RUN  v4.0.18 /Users/meridian/Projects/pulse-agent-reviewed-progression/packages/shared
+packages/shared test:  ✓ src/conventions-docs.test.ts (6 tests) 23ms
+packages/shared test:  ✓ src/utils/workout-progression.test.ts (30 tests) 5ms
+packages/shared test:  ✓ src/schemas/nutrition.test.ts (45 tests) 17ms
+packages/shared test:  ✓ src/schemas/scheduled-workouts.test.ts (24 tests) 15ms
+packages/shared test:  ✓ src/schemas/workout-sessions.test.ts (47 tests) 24ms
+packages/shared test:  ✓ src/schemas/weight.test.ts (26 tests) 36ms
+packages/shared test:  ✓ src/schemas/adaptive-nutrition.test.ts (18 tests) 36ms
+packages/shared test:  ✓ src/utils/adaptive-goal-trajectory.test.ts (37 tests) 36ms
+packages/shared test:  ✓ src/schemas/workout-templates.test.ts (19 tests) 36ms
+packages/shared test:  ✓ src/schemas/exercises.test.ts (24 tests) 53ms
+packages/shared test:  ✓ src/utils/adaptive-tdee.test.ts (56 tests) 310ms
+packages/shared test:  ✓ src/schemas/dashboard.test.ts (15 tests) 15ms
+packages/shared test:  ✓ src/schemas/workout-feedback.test.ts (8 tests) 13ms
+packages/shared test:  ✓ src/utils/energy-balance.test.ts (9 tests) 18ms
+packages/shared test:  ✓ src/utils/adaptive-goal-progress.test.ts (8 tests) 14ms
+packages/shared test:  ✓ src/schemas/adaptive-weekly-review.test.ts (6 tests) 45ms
+packages/shared test:  ✓ src/utils/ewma.test.ts (14 tests) 113ms
+packages/shared test:  ✓ src/schemas/habits.test.ts (21 tests) 14ms
+packages/shared test:  ✓ src/utils/adaptive-setup-projection.test.ts (15 tests) 20ms
+packages/shared test:  ✓ src/schemas/foods.test.ts (19 tests) 16ms
+packages/shared test:  ✓ src/utils/daily-energy-adherence.test.ts (44 tests) 34ms
+packages/shared test:  ✓ src/schemas/health-conditions.test.ts (13 tests) 6ms
+packages/shared test:  ✓ src/utils/protein-floor.test.ts (24 tests) 7ms
+packages/shared test:  ✓ src/schemas/workout-progression.test.ts (6 tests) 42ms
+packages/shared test:  ✓ src/schemas/data-quality-calendar.test.ts (8 tests) 51ms
+packages/shared test:  ✓ src/schemas/feedback-planning-context.test.ts (3 tests) 12ms
+packages/shared test:  ✓ src/schemas/feedback-provenance.test.ts (8 tests) 13ms
+packages/shared test:  ✓ src/utils/food-analytics.test.ts (6 tests) 8ms
+packages/shared test:  ✓ src/schemas/session-set.test.ts (9 tests) 11ms
+packages/shared test:  ✓ src/schemas/nutrition-targets.test.ts (7 tests) 14ms
+packages/shared test:  ✓ src/utils/chart-exploration.test.ts (19 tests) 23ms
+packages/shared test:  ✓ src/schemas/habit-entries.test.ts (12 tests) 8ms
+packages/shared test:  ✓ src/unified-api-docs.test.ts (4 tests) 15ms
+packages/shared test:  ✓ src/schemas/dashboard-config.test.ts (8 tests) 15ms
+packages/shared test:  ✓ src/schemas/agent.test.ts (11 tests) 20ms
+packages/shared test:  ✓ src/monorepo-config.test.ts (2 tests) 6ms
+packages/shared test:  ✓ src/utils/habit-scheduling.test.ts (5 tests) 1ms
+packages/shared test:  ✓ src/schemas/equipment.test.ts (5 tests) 3ms
+packages/shared test:  ✓ src/schemas/energy-balance.test.ts (3 tests) 12ms
+packages/shared test:  ✓ src/schemas/food-analytics.test.ts (4 tests) 42ms
+packages/shared test:  ✓ src/schemas/auth.test.ts (7 tests) 35ms
+packages/shared test:  ✓ src/schemas/workout-progression-compatibility.test.ts (19 tests) 7ms
+packages/shared test:  ✓ src/schemas/common.test.ts (4 tests) 13ms
+packages/shared test:  ✓ src/utils/related-history.test.ts (25 tests) 5ms
+packages/shared test:  ✓ src/schemas/journal.test.ts (3 tests) 9ms
+packages/shared test:  ✓ src/utils/weight-unit.test.ts (4 tests) 1ms
+packages/shared test:  ✓ src/schemas/resources.test.ts (3 tests) 3ms
+packages/shared test:  ✓ src/schemas/activities.test.ts (3 tests) 5ms
+packages/shared test:  ✓ src/schemas/entity-links.test.ts (3 tests) 2ms
+packages/shared test:  ✓ src/schemas/agent-tokens.test.ts (4 tests) 2ms
+packages/shared test:  ✓ src/index.test.ts (5 tests) 3ms
+packages/shared test:  Test Files  51 passed (51)
+packages/shared test:       Tests  728 passed (728)
+packages/shared test:    Start at  16:14:07
+packages/shared test:    Duration  2.16s (transform 2.37s, setup 0ms, import 4.94s, tests 1.29s, environment 4ms)
+packages/shared test: Done
+apps/web test$ vitest run -- workout-progression
+apps/api test$ vitest run -- workout-progression
+apps/api test:  RUN  v4.0.18 /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api
+apps/web test:  RUN  v4.0.18 /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/web
+apps/api test:  ✓ src/db/schema.test.ts (48 tests) 87ms
+apps/api test:  ✓ src/routes/adaptive-nutrition/store.integration.test.ts (35 tests) 4752ms
+apps/api test:      ✓ does not silently change a reached goal and completes retry-safely across connections  351ms
+apps/api test:  ✓ src/routes/exercises/index.test.ts (49 tests) 5754ms
+apps/api test:  ✓ src/db/migrations.test.ts (19 tests) 184ms
+apps/api test:  ✓ src/routes/scheduled-workouts/index.test.ts (44 tests) 6638ms
+apps/api test:      ✓ documents scheduled workout snapshot mutation paths in OpenAPI with correct security  703ms
+apps/api test:  ✓ src/routes/adaptive-nutrition/index.test.ts (20 tests) 4549ms
+apps/api test:      ✓ allows JWT and AgentToken reads and previews with response-schema validation  565ms
+apps/api test:      ✓ validates analytics queries before the store and documents both read auth schemes  834ms
+apps/api test:      ✓ validates goal trajectory queries and maps bounded date errors without writes  767ms
+apps/api test:      ✓ documents every lifecycle route with the correct security scheme  704ms
+apps/api test:  ✓ src/routes/feedback-planning/index.test.ts (5 tests) 7704ms
+apps/api test:      ✓ drafts one source-linked follow-up only after completed loading exposure changes  1337ms
+apps/api test:      ✓ returns exact bounded evidence, separate history, open stale concerns, and owner-safe export  667ms
+apps/api test:      ✓ applies only an explicit future-note decision, preserves safeguards, and invalidates on correction  1416ms
+apps/api test:      ✓ fails closed for invalid query/auth, clinician guidance, foreign targets, and purge readback  350ms
+apps/api test:      ✓ publishes the bounded query and explicit decision contracts in OpenAPI  564ms
+apps/api test:  ✓ src/routes/workout-sessions/index.test.ts (122 tests) 7549ms
+apps/api test:      ✓ publishes nullable provenance and private audit in OpenAPI  663ms
+apps/api test:  ✓ src/routes/nutrition/index.test.ts (15 tests) 2962ms
+apps/api test:      ✓ updates nutrition status for JWT and AgentToken callers  1077ms
+apps/api test:      ✓ gets nested daily nutrition data or null for missing logs  379ms
+apps/api test:  ✓ src/routes/workout-templates/index.test.ts (14 tests) 3649ms
+apps/web test:  ✓ src/features/workouts/components/scheduled-workout-detail.test.tsx (15 tests) 6528ms
+apps/web test:      ✓ disables rescheduling while date authority is stale  748ms
+apps/web test:      ✓ renders supplemental sections before cooldown  480ms
+apps/web test:      ✓ keeps customization collapsed until the user expands concrete differences  316ms
+apps/web test:      ✓ removes stale snapshot exercises from recovery modal via scheduled swap mutation  564ms
+apps/web test:      ✓ opens swap flow from stale recovery modal with the correct stale exercise context  559ms
+apps/web test:      ✓ opens stale recovery modal when start-session returns STALE_SNAPSHOT_EXERCISES  450ms
+apps/web test:      ✓ starts anyway from stale recovery modal by re-posting session start with force true  412ms
+apps/web test:      ✓ reorders scheduled exercises with move controls and sends the expected order payload  452ms
+apps/web test:      ✓ updates superset group from the chip popover  362ms
+apps/web test:      ✓ edits set targets through the set editor modal and saves to exercise-sets  551ms
+apps/web test:      ✓ removes a set and shows the updated set count after success  533ms
+apps/web test:      ✓ shows mutation errors and rolls optimistic superset updates back  539ms
+apps/api test:  ✓ src/db/adaptive-goal-migration.test.ts (11 tests) 3520ms
+apps/api test:      ✓ creates the constrained goal domain and preserves fresh-database integrity  734ms
+apps/api test:      ✓ backfills lose, gain, maintenance-retained, scale-fallback, and blocked users idempotently  632ms
+apps/api test:      ✓ rolls back only the failing user and enforces active/revision/check/immutability guards  726ms
+apps/api test:      ✓ makes the database apply exactly one matching next strategy revision  583ms
+apps/api test:      ✓ serializes competing connections and converges on one goal and revision  768ms
+apps/web test:  ✓ src/features/workouts/components/session-detail.test.tsx (23 tests) 7909ms
+apps/web test:      ✓ renders a not-found state for unknown sessions  1380ms
+apps/web test:      ✓ renders completed session receipt data from the workout session API  696ms
+apps/web test:      ✓ retains the receipt but disables repeat workout while date authority is stale  394ms
+apps/web test:      ✓ renders supplemental receipt sections before cooldown  529ms
+apps/web test:      ✓ renders structured feedback responses when available  307ms
+apps/web test:      ✓ renders exact native answer history and submits a feedback-only immutable correction  568ms
+apps/web test:      ✓ supports inline correction editing and only submits changed values  638ms
+apps/web test:      ✓ replaces legacy RPE with native RIR in a completed-set correction  753ms
+apps/web test:      ✓ clears native effort explicitly from a completed-set correction  358ms
+apps/web test:      ✓ keeps the correction draft open when a native RIR save fails  500ms
+apps/web test:      ✓ keeps sections with exercise notes expanded by default  359ms
+apps/api test:  ✓ src/routes/adaptive-nutrition/goal-trajectory-store.integration.test.ts (16 tests) 8531ms
+apps/api test:      ✓ returns one read-only goal-scoped Adaptive model trajectory with effective context  856ms
+apps/api test:      ✓ keeps revisions effective by local date and display ranges forecast-invariant  929ms
+apps/api test:      ✓ bounds a closed historical goal and never mixes later weights  740ms
+apps/api test:      ✓ keeps pace and scale evidence inside a recent goal while preserving same-day endpoints  708ms
+apps/api test:      ✓ keeps a closed-today final endpoint visible beyond the completed-day cutoff  747ms
+apps/api test:      ✓ uses the America/Detroit completed-day cutoff across local midnight  492ms
+apps/api test:      ✓ allows completion only when the latest accepted active-revision check-in reached the goal  914ms
+apps/api test:      ✓ does not label an active maintenance successor as already completed  518ms
+apps/api test:      ✓ labels accepted reviews from their actual target and expenditure relations  725ms
+apps/api test:      ✓ keeps an earlier historical response byte-stable after later backdated acceptance events  710ms
+apps/api test:      ✓ reconstructs same-date replacements from immutable events and orders equal-time accepts by sequence  641ms
+apps/api test:      ✓ rejects future, pre-goal, and cross-user reads  523ms
+apps/web test:  ✓ src/features/adaptive-nutrition/components/adaptive-coach.test.tsx (33 tests) 10338ms
+apps/web test:      ✓ renders the baseline Coach state  522ms
+apps/web test:      ✓ renders the updating Coach state  314ms
+apps/web test:      ✓ distinguishes trend from scale and renders accessible loss progress and projections  411ms
+apps/web test:      ✓ renders gain progress in the preferred unit  565ms
+apps/web test:      ✓ prefills edit, reviews it, and requires explicit pending replacement confirmation  1110ms
+apps/web test:      ✓ requires a different direction and final confirmation for a new goal  747ms
+apps/web test:      ✓ restores focus to the goal action after the dialog closes  358ms
+apps/web test:      ✓ shows the required equation-based baseline inputs and outputs in the setup preview  523ms
+apps/web test:      ✓ confirms same-date replacement before accepting and supports decline  513ms
+apps/web test:      ✓ recovers from a stale acceptance by generating a fresh preview  352ms
+apps/web test:      ✓ closes open goal actions and prevents mutations when date authority locks  392ms
+apps/web test:      ✓ recovers a stale baseline by explicitly rebaselining the existing program  504ms
+apps/web test:      ✓ renders immutable goal history, revisions, linked check-ins, and chart text equivalents  787ms
+apps/web test:      ✓ reviews and completes a reached goal without combining target acceptance  372ms
+apps/web test:      ✓ fails stale completion closed and exposes a retry-safe action  461ms
+apps/web test:  ✓ src/pages/weight-history.test.tsx (10 tests) 10537ms
+apps/web test:      ✓ renders maintenance semantics and off-measurement annotations from server facts  1748ms
+apps/web test:      ✓ shows the chart, lists entries in reverse chronological order, and deletes with confirmation  1846ms
+apps/web test:      ✓ adds a new weight entry from the quick-add form  1167ms
+apps/web test:      ✓ defaults a new entry to the local calendar date near a UTC day boundary  435ms
+apps/web test:      ✓ supports editing a weight value and note inline  1267ms
+apps/web test:      ✓ shows validation feedback when saving an invalid inline weight edit  932ms
+apps/web test:      ✓ keeps response units while using the active kg preference for new entries  1381ms
+apps/web test:      ✓ keeps the entry ledger separate from the server-owned exact trend table  851ms
+apps/web test:      ✓ shows empty state when no entries are available  436ms
+apps/web test:      ✓ shows contextual help for weight history  471ms
+apps/api test:  ✓ src/routes/foods/index.test.ts (27 tests) 4008ms
+apps/api test:      ✓ returns identical server-owned analytics facts for JWT and AgentToken callers  827ms
+apps/api test:  ✓ src/routes/meals/index.test.ts (15 tests) 2713ms
+apps/api test:      ✓ creates a standard meal via JWT at /api/v1/meals  866ms
+apps/api test:  ✓ src/routes/adaptive-nutrition/analytics-store.integration.test.ts (17 tests) 3526ms
+apps/api test:      ✓ keeps historical configuration and cutoff boundaries stable after later program edits  399ms
+apps/api test:      ✓ keeps inverse and repeated cross-zone revisions on a nondecreasing causal date  368ms
+apps/api test:      ✓ keeps accepted history immutable while authoritative corrections get a new fingerprint  514ms
+apps/api test:      ✓ makes the final history point match paused and stale current holding states  313ms
+apps/api test:  ✓ src/routes/foods/analytics-store.integration.test.ts (11 tests) 9025ms
+apps/api test:      ✓ reconciles selected-range snapshots without attributing same-name or foreign items  718ms
+apps/api test:      ✓ keeps historical snapshots immutable when the current definition changes  778ms
+apps/api test:      ✓ keeps filters and pagination server-authoritative and scopes details by owner  614ms
+apps/api test:      ✓ applies every filter, sort, tag intersection, and tie breaker before pagination  508ms
+apps/api test:      ✓ reconciles snapshot corrections, item deletion, meal deletion, and food trash state  693ms
+apps/api test:      ✓ keeps zero-calorie density unavailable and rejects mixed historical portion units  494ms
+apps/api test:      ✓ uses only a program revision effective on the requested historical end date  612ms
+apps/api test:      ✓ keeps list and detail query counts bounded and explains the production statements  633ms
+apps/api test:      ✓ keeps bounded presets insensitive to 100,000 old linked occurrences  1815ms
+apps/api test:      ✓ fails closed when an intermediate historical projection is missing  496ms
+apps/api test:      ✓ selects one indexed program revision and fails closed when the latest projection is missing  1659ms
+apps/api test:  ✓ src/routes/workout-progression/store.integration.test.ts (28 tests) 21349ms
+apps/api test:      ✓ keeps a legacy recommendation {"action":"accept","both":false} after material canonicalization  1044ms
+apps/api test:      ✓ keeps a legacy recommendation {"action":"edit","both":false} after material canonicalization  306ms
+apps/api test:      ✓ keeps a legacy recommendation {"action":"accept","both":true} after material canonicalization  747ms
+apps/api test:      ✓ keeps a legacy recommendation {"action":"edit","both":true} after material canonicalization  1013ms
+apps/api test:      ✓ normalizes persisted equal redundancy in current evidence without rewriting rows  564ms
+apps/api test:      ✓ normalizes persisted equal redundancy in historical evidence without rewriting rows  829ms
+apps/api test:      ✓ isolates conflicting current evidence and blocks material actions  733ms
+apps/api test:      ✓ isolates conflicting historical evidence and blocks material actions  636ms
+apps/api test:      ✓ distinguishes no completed history from missing policy and malformed prescriptions  511ms
+apps/api test:      ✓ fails closed without an explicit programming policy and blocks target application  772ms
+apps/api test:      ✓ previews deterministic evidence, reuses the same fingerprint, and enforces ownership  647ms
+apps/api test:      ✓ marks corrected evidence stale and creates a distinct reproducible replacement  836ms
+apps/api test:      ✓ excludes legacy technique and false pain, then revisions explicit same-construct evidence  879ms
+apps/api test:      ✓ fingerprints raw native RIR provenance and stales prior native RPE evidence  867ms
+apps/api test:      ✓ applies accepted targets once and returns the same action for an idempotent replay  736ms
+apps/api test:      ✓ stales a decided recommendation after source correction and creates one replacement  549ms
+apps/api test:      ✓ rejects changed idempotency payloads and unbounded edits without writes  695ms
+apps/api test:      ✓ uses immutable source prescriptions when the future plan changes  1001ms
+apps/api test:      ✓ fingerprints exact scheduled-set identity and keeps policy stable across mutable tags  537ms
+apps/api test:      ✓ fingerprints scheduled-set reorder, addition, and removal independently  908ms
+apps/api test:      ✓ persists adverse context provenance and lets it override progression  754ms
+apps/api test:      ✓ binds idempotency replay to the recommendation and authorized actor identity  1038ms
+apps/api test:      ✓ preserves decided audit evidence across schedule, session, and exercise purge lifecycles  697ms
+apps/api test:      ✓ supports source-session trash, restore, and purge without losing audit truth  949ms
+apps/api test:      ✓ preserves progression snapshots and set identity through normal session updates  816ms
+apps/api test:      ✓ preserves unmatched 0054 policy provenance while marking priority unavailable  887ms
+apps/api test:      ✓ enriches pre-0059 effort facts without downgrading 0054 snapshot provenance  643ms
+apps/api test:      ✓ keeps pre-0054 immutable recommendation snapshots readable after upgrade  737ms
+apps/web test:  ✓ src/features/adaptive-nutrition/api/adaptive-nutrition.test.tsx (8 tests) 632ms
+apps/api test:  ✓ src/routes/nutrition/daily-energy-store.integration.test.ts (23 tests) 5488ms
+apps/api test:      ✓ uses constant-row indexed lookups across dense pre-date revision history  2913ms
+apps/api test:  ✓ src/__tests__/foods-nutrition.test.ts (4 tests) 5868ms
+apps/api test:      ✓ covers foods CRUD, search, deletion, and recency sorting  4620ms
+apps/api test:      ✓ creates daily nutrition with multiple meals and deletes a meal with nested items  611ms
+apps/api test:      ✓ returns summary totals from meal items and zeros for an empty day  433ms
+apps/api test:  ✓ src/routes/weight/index.test.ts (17 tests) 2684ms
+apps/api test:      ✓ returns identical strict Trend Weight facts to JWT and AgentToken callers  798ms
+apps/api test:      ✓ upserts a body weight entry for the authenticated user  317ms
+apps/web test:  ✓ src/pages/nutrition.test.tsx (33 tests) 20476ms
+apps/web test:      ✓ renders log, Coach, foods, and trends tabs and syncs the active view to search params  2865ms
+apps/web test:      ✓ loads tab content from a trends view search param  387ms
+apps/web test:      ✓ advances the trends reference date while Nutrition stays open across program midnight  648ms
+apps/web test:      ✓ uses the program-local Nutrition Log date in 'Detroit after the spring DST boundary'  533ms
+apps/web test:      ✓ uses the program-local Nutrition Log date in 'Tokyo across the opposite-side browse…'  400ms
+apps/web test:      ✓ rolls a continuously visible today view at program-local midnight  405ms
+apps/web test:      ✓ rolls after the Detroit 'fall-back 25-hour day'  314ms
+apps/web test:      ✓ preserves an intentionally selected historical date across midnight  544ms
+apps/web test:      ✓ never flashes a delayed prior-date energy response under a newer selected date  463ms
+apps/web test:      ✓ adds a day note before meals, keeps it after reload, and discovers and clears it in historical navigation  1438ms
+apps/web test:      ✓ loads today from API, shows empty state, and blocks future navigation  564ms
+apps/web test:      ✓ renders week strip above meals section and updates selected date when a strip day is tapped  701ms
+apps/web test:      ✓ replays a direct meal deep link through back and forward navigation and focuses once ready  734ms
+apps/web test:      ✓ focuses a matching meal when date and meal are present on the initial URL  325ms
+apps/web test:      ✓ clears historical date and meal state when the authenticated session changes  387ms
+apps/web test:      ✓ shows date-aware empty-state copy and today shortcuts on non-today dates  1002ms
+apps/web test:      ✓ renders selected-day meals sorted by time descending by default  555ms
+apps/web test:      ✓ shows an accessible meal sort toggle and reverses order when toggled  1006ms
+apps/web test:      ✓ persists meal sort preference while navigating dates in the same session  1508ms
+apps/web test:      ✓ shows grouped food rows and deletes a meal via the API mutation  1235ms
+apps/web test:      ✓ renames a meal inline and keeps the updated name after reloading the page  715ms
+apps/web test:      ✓ marks a past day complete and shows the automatic partial downgrade after a meal edit  791ms
+apps/web test:      ✓ does not call rename mutation when editing is cancelled or name is empty  697ms
+apps/web test:      ✓ shows no-target copy and hides macro rings when no daily target is configured  443ms
+apps/web test:  ✓ src/pages/dashboard.test.tsx (23 tests) 21777ms
+apps/web test:      ✓ renders the dashboard title, greeting, and responsive column layout with API snapshot data  1711ms
+apps/web test:      ✓ uses the server-authoritative user timezone when adaptive setup is required  568ms
+apps/web test:      ✓ opens contextual dashboard help from the page header  765ms
+apps/web test:      ✓ renders stat-card skeletons while the dashboard snapshot request is pending  842ms
+apps/web test:      ✓ updates snapshot when a new calendar day is selected via the date popover  1243ms
+apps/web test:      ✓ edits a logged weight entry and refreshes the body weight card  1454ms
+apps/web test:      ✓ shows a log weight CTA for days without an entry and opens the inline form  1453ms
+apps/web test:      ✓ renders only configured habit chains and trend metrics  450ms
+apps/web test:      ✓ renders habit daily cards from dashboard config and coexists with habit chains  319ms
+apps/web test:      ✓ shows habit daily card loading state while habits are still loading  508ms
+apps/web test:      ✓ enters inline dashboard edit mode when edit is clicked  1123ms
+apps/web test:      ✓ moves widgets to hidden in edit mode and saves via PUT  1794ms
+apps/web test:      ✓ shows habit daily cards when the grouped widget is moved to active  1067ms
+apps/web test:      ✓ updates visibleWidgets order when drag reorder completes in edit mode  1767ms
+apps/web test:      ✓ keeps cross-container drop insertion position when dropping onto target widget  2121ms
+apps/web test:      ✓ cancels inline edit changes without saving  1517ms
+apps/web test:      ✓ keeps inline edit mode open on save failure  1433ms
+apps/web test:      ✓ does not fabricate snapshot facts after an initial failure and recovers on retry  773ms
+apps/web test:      ✓ retains exact snapshot facts with a stale warning when background refresh fails  677ms
+apps/web test:  ✓ src/features/workouts/components/template-detail.test.tsx (23 tests) 15694ms
+apps/web test:      ✓ renders the selected template with real API data and exercise metadata  1307ms
+apps/web test:      ✓ edits template exercise prescription fields from the exercise menu  881ms
+apps/web test:      ✓ renders add exercise button for each section and adds to selected section  652ms
+apps/web test:      ✓ creates a workout session before navigating to the active workout page  457ms
+apps/web test:      ✓ renders tracking-type-specific prescriptions and set targets in template detail  470ms
+apps/web test:      ✓ schedules a workout from the template detail view  770ms
+apps/web test:      ✓ shows duplicate warning before starting when the day already has workouts  421ms
+apps/web test:      ✓ does not start after date authority locks while duplicate confirmation is open  646ms
+apps/web test:      ✓ does not schedule after date authority locks while duplicate confirmation is open  993ms
+apps/web test:      ✓ renames an exercise from the template exercise menu  576ms
+apps/web test:      ✓ opens swap dialog from template exercise menu and swaps to a related exercise  607ms
+apps/web test:      ✓ moves template exercises down from the exercise menu and calls reorder endpoint  466ms
+apps/web test:      ✓ creates and removes supersets from selected exercises  1784ms
+apps/web test:      ✓ opens unified exercise detail modal from template exercise history actions  476ms
+apps/web test:      ✓ opens exercise detail modal and renders overview plus history tabs  493ms
+apps/web test:      ✓ hydrates coaching notes text from the exercise lookup when template notes are missing  454ms
+apps/web test:      ✓ shows history fallback without error toast when exercise detail queries return 404  391ms
+apps/web test:      ✓ renders a fallback state when the template request returns 404  1017ms
+apps/web test:      ✓ treats legacy slug template IDs as not found when the request fails  1076ms
+apps/web test:      ✓ keeps generic error messaging for UUID template IDs on non-404 failures  1061ms
+apps/api test:  ✓ src/routes/nutrition/store.food-usage.test.ts (12 tests) 3927ms
+apps/api test:      ✓ uses authenticated Bearer append, metadata, correction, delete, merge and trash routes  312ms
+apps/api test: {"level":30,"time":1788984885348,"pid":43140,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","req":{"method":"POST","url":"/api/v1/habits","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+apps/api test: {"level":30,"time":1788984885355,"pid":43140,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","res":{"statusCode":401},"responseTime":5.6852500438690186,"msg":"request completed"}
+apps/api test: {"level":30,"time":1788984885459,"pid":43140,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","req":{"method":"GET","url":"/api/v1/habits","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+apps/api test: {"level":30,"time":1788984885490,"pid":43140,"hostname":"Meridians-Mac-Mini.local","reqId":"req-1","res":{"statusCode":200},"responseTime":30.52270817756653,"msg":"request completed"}
+apps/api test:  ✓ src/db/adaptive-program-revision-causal-migration.test.ts (10 tests) 7015ms
+apps/api test:      ✓ upgrades a real 0046 database and repairs an already-applied 0047 ledger  1046ms
+apps/api test:      ✓ installs the complete journal with the causal trigger on a fresh database  734ms
+apps/api test:      ✓ upgrades a populated 0055 ledger into an indexed immutable causal-date projection  588ms
+apps/api test:      ✓ atomically rejects 0056 when 'a second program starts with a sequen…'  713ms
+apps/api test:      ✓ atomically rejects 0056 when 'a full snapshot contains an invalid I…'  652ms
+apps/api test:      ✓ atomically rejects 0056 when 'a program snapshot is not a full stri…'  564ms
+apps/api test:      ✓ atomically rejects 0056 when 'a later revision has a decreasing tim…'  685ms
+apps/api test:      ✓ rolls back an injected interruption before 0056 commits and retries cleanly  783ms
+apps/api test:      ✓ retries cleanly after an operator corrects a rejected source ledger  745ms
+apps/api test:      ✓ installs the full journal on a fresh empty database through the canonical runner  503ms
+apps/api test:  ✓ src/routes/habits/index.test.ts (14 tests) 2614ms
+apps/api test:      ✓ creates a habit for the authenticated user with the next sort order  704ms
+apps/web test:  ✓ src/features/weight/api/weight.test.tsx (17 tests) 1031ms
+apps/api test:  ✓ src/db/nutrition-target-event-migration.test.ts (78 tests) 36189ms
+apps/api test:      ✓ backfills one causally supported event for an untouched manual target  544ms
+apps/api test:      ✓ rolls back a mutated manual target with no exact predecessor snapshot  510ms
+apps/api test:      ✓ recovers an initial manual snapshot before the current mutated manual state  706ms
+apps/api test:      ✓ accepts predecessor snapshots captured before or at the claiming check-in creation time  492ms
+apps/api test:      ✓ rolls back a future-dated predecessor captured before that target state existed  408ms
+apps/api test:      ✓ rolls back when an inventoried predecessor is missing required field id  364ms
+apps/api test:      ✓ rolls back when an inventoried predecessor is missing required field calories  489ms
+apps/api test:      ✓ rolls back when an inventoried predecessor is missing required field protein  555ms
+apps/api test:      ✓ rolls back when an inventoried predecessor is missing required field carbs  355ms
+apps/api test:      ✓ rolls back when an inventoried predecessor is missing required field fat  461ms
+apps/api test:      ✓ rolls back when an inventoried predecessor is missing required field macroCalories  330ms
+apps/api test:      ✓ rolls back when an inventoried predecessor is missing required field source  301ms
+apps/api test:      ✓ rolls back when an inventoried predecessor is missing required field adaptiveCheckInId  358ms
+apps/api test:      ✓ rolls back when an inventoried predecessor is missing required field effectiveDate  363ms
+apps/api test:      ✓ rolls back when an inventoried predecessor is missing required field createdAt  471ms
+apps/api test:      ✓ rolls back an inventoried predecessor with updated timestamp outside target history  485ms
+apps/api test:      ✓ rolls back a predecessor snapshot that identifies a target owned by another user  333ms
+apps/api test:      ✓ rolls back a malformed non-null predecessor that cannot identify a target: []  380ms
+apps/api test:      ✓ keeps distinct equal-time manual snapshots in deterministic ID order  706ms
+apps/api test:      ✓ preserves manual-to-adaptive-to-manual history and resolves each causal cutoff  562ms
+apps/api test:      ✓ deduplicates predecessor claims while preserving adaptive-to-adaptive acceptance order  716ms
+apps/api test:      ✓ rolls back an Adaptive predecessor accepted after the claiming check-in was created  439ms
+apps/api test:      ✓ rolls back an Adaptive predecessor whose source revision postdates source capture  435ms
+apps/api test:      ✓ upgrades a populated real 0050 database with exact predecessor and edited acceptance facts  573ms
+apps/api test:      ✓ upgrades a real 0050 target acceptance when its audit action follows resolution by 0 ms  603ms
+apps/api test:      ✓ upgrades a real 0050 target acceptance when its audit action follows resolution by 1 ms  525ms
+apps/api test:      ✓ upgrades a real 0050 target acceptance when its audit action follows resolution by 100 ms  788ms
+apps/api test:      ✓ upgrades a real 0050 keep decision when its audit action follows resolution by 0 ms  695ms
+apps/api test:      ✓ upgrades a real 0050 keep decision when its audit action follows resolution by 1 ms  574ms
+apps/api test:      ✓ upgrades a real 0050 keep decision when its audit action follows resolution by 100 ms  711ms
+apps/api test:      ✓ upgrades a real 0050 target acceptance when review creation is 199 and resolution is 200  716ms
+apps/api test:      ✓ upgrades a real 0050 target acceptance when review creation is 200 and resolution is 200  698ms
+apps/api test:      ✓ upgrades a real 0050 keep decision when review creation is 199 and resolution is 200  614ms
+apps/api test:      ✓ upgrades a real 0050 keep decision when review creation is 200 and resolution is 200  538ms
+apps/api test:      ✓ rolls back a real 0050 target acceptance whose review is created after resolution  348ms
+apps/api test:      ✓ rolls back a real 0050 keep decision whose review is created after resolution  405ms
+apps/api test:      ✓ rolls back a real 0050 target acceptance whose audit action predates resolution  493ms
+apps/api test:      ✓ rolls back a real 0050 keep decision whose audit action predates resolution  360ms
+apps/api test:      ✓ rolls back an accept action column carrying a decline payload  434ms
+apps/api test:      ✓ rolls back an accept action column carrying a defer payload  474ms
+apps/api test:      ✓ rolls back an accept action column carrying a edit payload  312ms
+apps/api test:      ✓ rolls back a non-accept action column carrying an accept payload  336ms
+apps/api test:      ✓ rolls back an action with a missing payload type  389ms
+apps/api test:      ✓ rolls back an action with a non-text payload type  498ms
+apps/api test:      ✓ rolls back an accepted action with contradictory duplicate payload type keys  550ms
+apps/api test:      ✓ rolls back an accepted action with duplicate calories inside the applied proposal  635ms
+apps/api test:      ✓ rolls back an accepted-action payload with missing expected fingerprint  480ms
+apps/api test:      ✓ rolls back an accepted-action payload with missing expected action sequence  528ms
+apps/api test:      ✓ rolls back an accepted-action payload with contradictory expected fingerprint  594ms
+apps/api test:      ✓ rolls back an accepted-action payload with contradictory expected action sequence  662ms
+apps/api test:      ✓ rolls back an accepted-action payload with unknown top-level field  448ms
+apps/api test:      ✓ rolls back an accepted-action payload with non-boolean replacement flag  448ms
+apps/api test:      ✓ preserves a valid legacy baseline check-in with no goal or revision  533ms
+apps/api test:      ✓ rolls back rather than inventing an unrecoverable accepted target  376ms
+apps/api test:      ✓ excludes valid keep, decline, and defer actions from target-event construction  699ms
+apps/api test:      ✓ rolls back when an accepted review action carries a malformed applied proposal  391ms
+apps/api test:      ✓ rolls back a target-bearing accept action attached to a pending check-in  426ms
+apps/api test:      ✓ rolls back a target-bearing accept action attached to a declined check-in  434ms
+apps/api test:      ✓ rolls back a target-bearing accept action attached to a superseded check-in  353ms
+apps/api test:      ✓ rolls back a target-bearing accept action whose accepted check-in has no target  573ms
+apps/api test:      ✓ rolls back a target-bearing accept action whose check-in names a mismatched target  334ms
+apps/api test:      ✓ relies on real 0050 foreign keys to reject orphaned and cross-user action chains  700ms
+apps/api test:      ✓ relies on real 0050 composite ownership to reject a revision from another goal and user  627ms
+apps/api test:      ✓ rolls back when goal creation predates its program  335ms
+apps/api test:      ✓ rolls back when goal revision creation predates its goal  446ms
+apps/api test:      ✓ rolls back when goal revision creation follows check-in capture  433ms
+apps/api test:      ✓ rolls back when review creation precedes its check-in  325ms
+apps/api test:      ✓ rolls back when accept action creation precedes its review  399ms
+apps/api test:      ✓ installs the complete journal on a fresh database  410ms
+apps/api test:  ✓ src/routes/scheduled-workouts/store.test.ts (14 tests) 1407ms
+apps/web test:  ✓ src/features/dashboard/components/habit-chain.test.tsx (18 tests) 4439ms
+apps/web test:      ✓ renders all habits with 30 day squares each when API data is provided  1245ms
+apps/web test:      ✓ keeps 0%, partial, and 100% numeric states visually distinct  909ms
+apps/web test:      ✓ opens the day detail modal when a habit circle is clicked  463ms
+apps/web test:  ✓ src/pages/workouts.test.tsx (13 tests) 6579ms
+apps/web test:      ✓ switches between the workouts views  1516ms
+apps/web test:      ✓ opens contextual workouts help from the page header  685ms
+apps/web test:      ✓ includes the current view in session links and routes in-progress/paused sessions to active workout  506ms
+apps/web test:      ✓ opens template detail when selecting a template card from the templates view  448ms
+apps/web test:      ✓ filters templates by name with the search input  536ms
+apps/web test:      ✓ renders the templates empty state with browse templates messaging  319ms
+apps/web test:      ✓ shows onboarding for users with no completed workouts and persists dismissal  1056ms
+apps/web test:      ✓ does not render onboarding create-template CTA  477ms
+apps/web test:      ✓ prefetches top template details when the list view is active  468ms
+apps/web test:  ✓ src/features/adaptive-nutrition/components/weekly-decision-review.test.tsx (16 tests) 4112ms
+apps/web test:      ✓ puts the fast decision, transparency, targets, and explicit consent first  423ms
+apps/web test:      ✓ opens the bounded agent question dialog by keyboard and restores focus  555ms
+apps/web test:      ✓ requires confirmation before decline and preserves semantic focus controls  312ms
+apps/web test:      ✓ requires an explicit second confirmation before replacing a same-date target  348ms
+apps/web test:      ✓ defaults defer to the next program-local date and preserves date submission  376ms
+apps/web test:      ✓ defers until user-selected evidence with accessible validation and one in-flight action  482ms
+apps/web test:      ✓ renders server-selected modules in deterministic order with cutoff and recovery truth  313ms
+apps/api test:  ✓ src/routes/nutrition/ranked-food-reuse.integration.test.ts (23 tests) 5213ms
+apps/api test:      ✓ serializes only categorical ranked matches, including frequent and nested promotion matches  837ms
+apps/api test:  ✓ src/__tests__/workouts.test.ts (4 tests) 2965ms
+apps/api test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+apps/api test: Skipping duplicate food "Large Eggs" for user user-1.
+apps/api test: Foods migration summary: inserted 2, skipped 1, lastUsedAt updated 0.
+apps/api test: stderr | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+apps/api test: Missing food reference for "Mystery Food" on 2026-03-05; item imported without linked foodId.
+apps/api test: Missing habit reference for "Unknown Habit" on 2026-03-05; entry skipped for this day.
+apps/api test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+apps/api test: Processed 2026-03-05: 2 meals, 2 habit entries, weight: 181.9
+apps/api test: Processed 2026-03-06: 1 meals, 1 habit entries, weight: 180.8
+apps/api test: Processed 2026-03-07: 0 meals, 0 habit entries, weight: 181.1
+apps/api test: Migration summary: processed 3 day(s), failed 0, meals 3, habit entries 3, weight entries 3.
+apps/api test: stderr | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+apps/api test: Missing food reference for "Mystery Food" on 2026-03-05; item imported without linked foodId.
+apps/api test: Missing habit reference for "Unknown Habit" on 2026-03-05; entry skipped for this day.
+apps/api test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+apps/api test: Processed 2026-03-05: 2 meals, 2 habit entries, weight: 181.9
+apps/api test: Processed 2026-03-06: 1 meals, 1 habit entries, weight: 180.8
+apps/api test: Processed 2026-03-07: 0 meals, 0 habit entries, weight: 181.1
+apps/api test: Migration summary: processed 3 day(s), failed 0, meals 3, habit entries 3, weight entries 3.
+apps/api test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > derives food usage from imported links and preserves exact usage on reimport
+apps/api test: Skipping duplicate food "Greek Yogurt" (Fage) for user user-1.
+apps/api test: Skipping duplicate food "Oat Bran" for user user-1.
+apps/api test: Skipping duplicate food "Large Eggs" for user user-1.
+apps/api test: Foods migration summary: inserted 0, skipped 3, lastUsedAt updated 0.
+apps/web test:  ✓ src/pages/active-workout.remove-set.test.tsx (2 tests) 2734ms
+apps/web test:      ✓ calls delete with session/set ids, removes optimistically, and stays removed after refetch  2059ms
+apps/web test:      ✓ rolls back optimistic set removal and shows an error when delete fails  674ms
+apps/web test:  ✓ src/features/workouts/components/exercise-library.test.tsx (16 tests) 17600ms
+apps/web test:      ✓ filters exercises by case-insensitive name search and syncs q to the URL  1884ms
+apps/web test:      ✓ filters exercises by muscle group, equipment, and category together  1489ms
+apps/web test:      ✓ shows paginated results and updates the page query param  1515ms
+apps/web test:      ✓ persists per-page in the URL and resets to page 1 when changed  665ms
+apps/web test:      ✓ persists sort selection in URL search params and sends it to the API  1115ms
+apps/web test:      ✓ toggles between card and table layouts  1654ms
+apps/web test:      ✓ opens the trend dialog from a table row in table view  585ms
+apps/web test:      ✓ toggles exercise table columns with the shared column picker  662ms
+apps/web test:      ✓ does not write the initial view preference to localStorage on mount  469ms
+apps/web test:      ✓ persists the selected view in localStorage  1047ms
+apps/web test:      ✓ renders exercise tags as muted chips in the library cards  535ms
+apps/web test:      ✓ loads trend data from the exercise history API  1311ms
+apps/web test:      ✓ renames an exercise from the card actions menu  1573ms
+apps/web test:      ✓ shows an empty state and still supports the unified exercise detail modal  1879ms
+apps/web test:      ✓ falls back to the no-results state when the exercises request fails  1065ms
+apps/api test:  ✓ src/routes/v1/dashboard.test.ts (12 tests) 1868ms
+apps/api test:      ✓ returns the dashboard snapshot for an explicit date  514ms
+apps/api test:      ✓ returns weight trend points for an explicit date range  318ms
+apps/web test:  ✓ src/features/adaptive-nutrition/components/goal-trajectory-workspace.test.tsx (15 tests) 4718ms
+apps/web test:      ✓ renders server-owned loss pace, ETA, consent, revisions, and honest weekly evidence  1428ms
+apps/web test:      ✓ keeps chart range separate from the selected pace lookback  664ms
+apps/web test:      ✓ renders honest reached forecast explanation for null  326ms
+apps/web test:      ✓ renders honest unavailable forecast explanation for STALE_WEIGHT  370ms
+apps/web test:      ✓ renders honest unavailable forecast explanation for INSUFFICIENT_OBSERVED_WEIGHT  404ms
+apps/api test:  ✓ src/routes/adaptive-nutrition/review-store.integration.test.ts (78 tests) 42837ms
+apps/api test:      ✓ creates an immutable clean review with only Outcome and Recommendation  489ms
+apps/api test:      ✓ uses resolved local date context to avoid a redundant low-day clarification  461ms
+apps/api test:      ✓ uses resolved local date recovery context to avoid a redundant low-day clarification  382ms
+apps/api test:      ✓ uses resolved date range starting on the low day context to avoid a redundant low-day clarification  665ms
+apps/api test:      ✓ uses resolved date range spanning the low day context to avoid a redundant low-day clarification  444ms
+apps/api test:      ✓ uses resolved date range ending on the low day context to avoid a redundant low-day clarification  464ms
+apps/api test:      ✓ uses context only for clarification while preserving quantitative review truth  531ms
+apps/api test:      ✓ does not let unrelated, unresolved, or deleted context suppress a low-day clarification  652ms
+apps/api test:      ✓ makes matched context edits and deletion stale, then refreshes deterministically  1100ms
+apps/api test:      ✓ bounds low-day anomaly detection to the declared review window  604ms
+apps/api test:      ✓ limits low-day clarification to canonical Trend Weight overlap  435ms
+apps/api test:      ✓ snapshots illness context and training facts without changing nutrition causality  351ms
+apps/api test:      ✓ blocks a stale material decision atomically after source correction  705ms
+apps/api test:      ✓ invalidates when an older Energy input changes outside the 21-day review window  487ms
+apps/api test:      ✓ cannot record a decline after the underlying check-in was accepted elsewhere  597ms
+apps/api test:      ✓ declines without changing targets and does not recreate the same-cycle review  668ms
+apps/api test:      ✓ defers until a program-local date, then permits a accept decision without duplication  809ms
+apps/api test:      ✓ defers until a program-local date, then permits a decline decision without duplication  625ms
+apps/api test:      ✓ defers until a program-local date, then permits a defer decision without duplication  1063ms
+apps/api test:      ✓ marks the loss-only deficit limit as not applicable for maintain goals  579ms
+apps/api test:      ✓ marks the loss-only deficit limit as not applicable for gain goals  449ms
+apps/api test:      ✓ shows complete current-day nutrition and weight as pending cutoff while excluding partial intake  502ms
+apps/api test:      ✓ holds through a logging break, names missing dates, and offers no apply action  885ms
+apps/api test:      ✓ keeps the causal adjustment identities coherent for 2510 kcal evidence  379ms
+apps/api test:      ✓ accepts a keep decision without writing a target and is idempotent on retry  527ms
+apps/api test:      ✓ persists -20 kcal learning with target continuity and next-prior provenance  506ms
+apps/api test:      ✓ persists -10 kcal learning with target continuity and next-prior provenance  549ms
+apps/api test:      ✓ persists 10 kcal learning with target continuity and next-prior provenance  451ms
+apps/api test:      ✓ persists 20 kcal learning with target continuity and next-prior provenance  533ms
+apps/api test:      ✓ classifies exact rounded target delta -30 without changing rounding  481ms
+apps/api test:      ✓ classifies exact rounded target delta -25 without changing rounding  498ms
+apps/api test:      ✓ classifies exact rounded target delta -24 without changing rounding  504ms
+apps/api test:      ✓ classifies exact rounded target delta -20 without changing rounding  364ms
+apps/api test:      ✓ classifies exact rounded target delta 20 without changing rounding  471ms
+apps/api test:      ✓ classifies exact rounded target delta 24 without changing rounding  665ms
+apps/api test:      ✓ classifies exact rounded target delta 25 without changing rounding  662ms
+apps/api test:      ✓ classifies exact rounded target delta 30 without changing rounding  841ms
+apps/api test:      ✓ starts delayed model-only expenditure on acceptance day while preserving historical target provenance  590ms
+apps/api test:      ✓ accepts nonzero learning when a loss target is pinned to its floor  602ms
+apps/api test:      ✓ serializes simultaneous accepts in separate processes into one transition  5951ms
+apps/api test:      ✓ rejects model-only acceptance after sequence mismatch with no writes  489ms
+apps/api test:      ✓ rejects model-only acceptance after source mismatch with no writes  535ms
+apps/api test:      ✓ rejects model-only acceptance after goal mismatch with no writes  579ms
+apps/api test:      ✓ rolls model acceptance back if action persistence fails  365ms
+apps/api test:      ✓ preserves historical accepted keep reviews with declined sources on read and retry  322ms
+apps/api test:      ✓ keeps an edited adjustment review-only until a later explicit accept  678ms
+apps/api test:      ✓ requires explicit replacement when a same-date target already exists  383ms
+apps/api test:      ✓ refreshes corrected source data into a new immutable review and supersedes the old one  660ms
+apps/api test:      ✓ never revives a terminal accepted review through refresh  322ms
+apps/api test:      ✓ never revives a terminal declined review through refresh  567ms
+apps/api test:      ✓ rejects refresh for fresh pending and deferred reviews  753ms
+apps/api test:      ✓ rejects refresh while a fresh review is awaiting clarification  430ms
+apps/api test:      ✓ atomically allows one stale refresh and rejects a concurrent retry  636ms
+apps/api test:      ✓ does not nag or refresh a review whose check-in was independently accepted  561ms
+apps/api test:      ✓ does not nag or refresh a review whose check-in was independently declined  365ms
+apps/api test:      ✓ resurfaces an evidence-deferred review exactly when the next weigh-in exists  602ms
+apps/api test:      ✓ waits through the completed-day cutoff before refreshing deferred nutrition evidence  584ms
+apps/api test:      ✓ does not fabricate a performance trend from one exercise session  347ms
+apps/api test:      ✓ anchors upcoming check-in context to exactly the next generated review cycle  623ms
+apps/api test:      ✓ enforces annotation ownership, optimistic revisions, and agent-token edit scope  446ms
+apps/api test:      ✓ keeps review and action rows immutable outside account deletion scope  329ms
+apps/web test:  ✓ src/features/workouts/components/workout-list.test.tsx (13 tests) 2631ms
+apps/web test:      ✓ renders sections in order and includes in-progress actions  868ms
+apps/web test:      ✓ allows snapshot start when the reusable template is unavailable  335ms
+apps/web test:      ✓ reveals more scheduled workouts when clicking show more  305ms
+apps/web test:      ✓ does not start after date authority locks while early-start confirmation is open  360ms
+apps/web test:  ✓ src/features/workouts/components/workout-calendar.test.tsx (8 tests) 3154ms
+apps/web test:      ✓ disables rescheduling while date authority is stale  884ms
+apps/web test:      ✓ does not reschedule after date authority locks while the dialog is open  554ms
+apps/web test:      ✓ renders per-workout indicators and a count badge for days with 3+ workouts  392ms
+apps/web test:      ✓ shows selected-day workouts with status-aware actions  513ms
+apps/web test:  ✓ src/features/habits/api/habits.test.tsx (10 tests) 458ms
+apps/api test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > is idempotent for foods migration when re-run
+apps/api test: Skipping duplicate food "Large Eggs" for user user-1.
+apps/api test: Foods migration summary: inserted 2, skipped 1, lastUsedAt updated 0.
+apps/api test: stdout | src/scripts/migrate-static.test.ts > migrate-static script > is idempotent for foods migration when re-run
+apps/api test: Skipping duplicate food "Greek Yogurt" (Fage) for user user-1.
+apps/api test: Skipping duplicate food "Oat Bran" for user user-1.
+apps/api test: Skipping duplicate food "Large Eggs" for user user-1.
+apps/api test: Foods migration summary: inserted 0, skipped 3, lastUsedAt updated 0.
+apps/api test:  ✓ src/scripts/migrate-static.test.ts (8 tests) 12331ms
+apps/api test:      ✓ migrates daily logs with nutrition, habits, and merged body weight history  1053ms
+apps/api test:      ✓ is idempotent when re-run for the same user and source data  827ms
+apps/api test:      ✓ migrates workout templates and sessions with template linking and set preservation  879ms
+apps/api test:      ✓ is idempotent for workout templates and sessions when re-run  810ms
+apps/api test:      ✓ migrates foods from foods.json, skipping duplicates without inventing usage  743ms
+apps/api test:      ✓ skips foods.json gracefully when file is missing  499ms
+apps/api test:      ✓ derives food usage from imported links and preserves exact usage on reimport  6880ms
+apps/api test:      ✓ is idempotent for foods migration when re-run  636ms
+apps/api test:  ❯ src/routes/data-quality/store.integration.test.ts (18 tests | 1 failed) 38566ms
+apps/api test:      ✓ composes logged, pending, workout, algorithm, and bounded context truth without writes  1014ms
+apps/api test:      ✓ returns honest no-program state and caller-zone today across a UTC/local boundary  567ms
+apps/api test:      ✓ labels and summarizes the complete adjacent-month bootstrap grid  597ms
+apps/api test:      ✓ does not reinterpret a notes-only weight edit as a measurement correction  415ms
+apps/api test:      ✓ uses a fixed number of selects for a dense 42-day range  1410ms
+apps/api test:      ✓ does not call the fulfilled same-date plan outstanding after its linked session completes  608ms
+apps/api test:      ✓ projects every fulfilled same-date lifecycle without a duplicate plan  524ms
+apps/api test:      ✓ derives current staleness from the user latest weight, not the requested range endpoint  793ms
+apps/api test:      ✓ does not forecast future algorithm eligibility for an active program  570ms
+apps/api test:      ✓ follows accepted Adaptive state history instead of treating eligibility as an update  780ms
+apps/api test:      ✓ projects nutrition and weight corrections as stale through the authoritative review store  1468ms
+apps/api test:      ✓ retains linked workout plan and session dates across range boundaries without inventing movement or correction history  685ms
+apps/api test:      ✓ places accepted check-ins on retained effective dates across month and year boundaries  731ms
+apps/api test:      ✓ keeps a deferred weekly review on its retained review date  934ms
+apps/api test:      × reduces large revision and action histories before Data Quality materialization 22205ms
+apps/api test:      ✓ returns deterministic bounded truth instead of failing strict response caps on dense days  772ms
+apps/api test:      ✓ preserves every date cap and exact omission count across a fully dense 42-day range  1641ms
+apps/api test:      ✓ preserves per-date context and event caps across a fully dense 42-day range  2839ms
+apps/web test:  ✓ src/features/workouts/components/session-feedback.test.tsx (11 tests) 3017ms
+apps/web test:      ✓ renders standard questions first and supports richer question types  1091ms
+apps/web test:      ✓ allows completion without pain details when pain is no  401ms
+apps/web test:      ✓ shows session RPE guidance anchors in the help dialog  312ms
+apps/web test:  ✓ src/features/nutrition/api/nutrition.test.tsx (10 tests) 520ms
+apps/api test:  ✓ src/routes/workout-sessions/store.test.ts (9 tests) 2232ms
+apps/api test:  ✓ src/routes/weight/trend-store.integration.test.ts (8 tests) 6425ms
+apps/api test:      ✓ returns one range-invariant canonical series with a visible raw spike  1603ms
+apps/api test:      ✓ keeps an explicit historical end deterministic and excludes future rows  797ms
+apps/api test:      ✓ recomputes edits and deletions without fabricating correction provenance  721ms
+apps/api test:      ✓ keeps a notes-only edit out of Trend Weight correction markers  635ms
+apps/api test:      ✓ returns explicit no-data and scale-only states without trend precision  646ms
+apps/api test:      ✓ keeps expired stale evidence honest and permits older display points around scale-only current data  667ms
+apps/api test:      ✓ resolves historical loss, maintenance, and gain goals with distinct pace and position  879ms
+apps/api test:      ✓ uses the server-resolved IANA zone across Detroit midnight and DST  475ms
+apps/api test:  ✓ src/routes/v1/dashboard-store.test.ts (16 tests) 338ms
+apps/web test:  ✓ src/features/adaptive-nutrition/components/energy-balance-workspace.test.tsx (15 tests) 4450ms
+apps/web test:      ✓ renders transparent matched-day signs, provenance, and cutoff semantics  1028ms
+apps/web test:      ✓ uses pressed range and comparison controls with real button semantics  868ms
+apps/web test:      ✓ exposes a baseline expenditure without accepted-check-in provenance  315ms
+apps/web test:      ✓ labels gain goals and keeps target arithmetic explicit  307ms
+apps/api test:  ✓ src/routes/workout-progression/muscle-store.integration.test.ts (9 tests) 9582ms
+apps/api test:      ✓ distinguishes planned, completed, primary, and secondary exposure with exact sources  1446ms
+apps/api test:      ✓ uses the requested IANA zone for a live inclusive range and does not leak users  583ms
+apps/api test:      ✓ keeps dense 90-day totals exact while bounding source references  3816ms
+apps/api test:      ✓ does not fulfill a plan from a linked but non-qualifying completion  597ms
+apps/api test:      ✓ resolves contribution revisions on the requested local date  822ms
+apps/api test:      ✓ uses planned contribution factors when attribution changes before fulfillment  718ms
+apps/api test:      ✓ reconciles only exact linked plan sets and excludes cancelled plans  676ms
+apps/api test:      ✓ keeps completed history stable after mutable exercise metadata changes and deletion  375ms
+apps/api test:      ✓ applies contribution revisions only on and after their effective date  548ms
+apps/api test:  ✓ src/db/adaptive-weekly-review-migration.test.ts (3 tests) 1461ms
+apps/api test:      ✓ upgrades a populated real 0048 database and enforces ownership and revision guards  502ms
+apps/api test:      ✓ upgrades populated 0049 review data without inventing structured resolution semantics  596ms
+apps/api test:      ✓ installs the full journal cleanly on a fresh database  362ms
+apps/web test:  ✓ src/features/workouts/components/workout-progression-review.test.tsx (14 tests) 1435ms
+apps/web test:      ✓ shows exact evidence and never applies a target merely by rendering  358ms
+apps/api test:  ✓ src/routes/nutrition/daily-notes.integration.test.ts (26 tests) 6022ms
+apps/api test:      ✓ preserves all meal, food, target, energy, and adaptive facts on a populated complete day  431ms
+apps/api test:      ✓ preserves all meal, food, target, energy, and adaptive facts on a populated complete day  422ms
+apps/api test:    ✓ publishes unified generated OpenAPI schemas and an explicit nullable daily response  736ms
+apps/api test:      ✓ keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear  347ms
+apps/api test:      ✓ keeps an absent historical day out of energy, quality, analytics, and adaptive evidence after add and clear  320ms
+apps/web test:  ✓ src/features/foods/components/food-list.test.tsx (14 tests) 34179ms
+apps/web test:      ✓ shows loading placeholders, then renders the first server page with pagination  2942ms
+apps/web test:      ✓ does not normalize the URL with a default sort param on initial load  1000ms
+apps/web test:      ✓ debounces search and sends the query to the foods API  1933ms
+apps/web test:      ✓ paginates while preserving sort query params  3727ms
+apps/web test:      ✓ persists per-page in URL params and resets to page 1 when changed  2770ms
+apps/web test:      ✓ keeps the inline editor open if a pending save blurs before the API fails  3581ms
+apps/web test:      ✓ filters foods by tag chips and supports tag add/remove edits  3610ms
+apps/web test:      ✓ removes foods optimistically and keeps the total count in sync  3349ms
+apps/web test:      ✓ renders card and table views and persists the selected view  3430ms
+apps/web test:      ✓ paginates in table mode  1450ms
+apps/web test:      ✓ shows and hides table columns through the shared column picker integration  2104ms
+apps/web test:      ✓ opens table inline editing only from the food name cell  1444ms
+apps/web test:      ✓ preserves filter and sort state when switching between card and table views  2722ms
+apps/web test:  ✓ src/hooks/use-last-performance.test.tsx (21 tests) 1392ms
+apps/api test:  ✓ src/middleware/auth.test.ts (19 tests) 395ms
+apps/web test:  ✓ src/features/habits/components/habit-card-menu.test.tsx (12 tests) 1476ms
+apps/web test:      ✓ calls onEdit when edit is selected  360ms
+apps/web test:      ✓ opens pause scheduling dialog and saves pause until date  345ms
+apps/api test:  ✓ src/routes/habit-entries/index.test.ts (9 tests) 1163ms
+apps/api test:      ✓ upserts a habit entry for a habit within the authenticated user scope  508ms
+apps/web test:  ✓ src/features/dashboard/components/snapshot-cards.test.tsx (15 tests) 663ms
+apps/web test:      ✓ renders five snapshot cards with dashboard snapshot API values  374ms
+apps/web test:  ✓ src/pages/settings.test.tsx (11 tests) 9667ms
+apps/web test:      ✓ renders defaults and loads dashboard config from API  2546ms
+apps/web test:      ✓ reflects persisted widget visibility choices from dashboard config  1049ms
+apps/web test:      ✓ reflects the persisted theme on first render  382ms
+apps/web test:      ✓ saves nutrition targets and dashboard config via API  1091ms
+apps/web test:      ✓ shows a partial failure message when dashboard config save fails  930ms
+apps/web test:      ✓ shows a partial failure message when nutrition target save fails  1036ms
+apps/web test:      ✓ shows the user profile with real data from the API  522ms
+apps/web test:      ✓ saves profile changes via PATCH /api/v1/users/me  577ms
+apps/web test:      ✓ saves weight unit changes via PATCH /api/v1/users/me  695ms
+apps/web test:      ✓ allows users without a display name to save weight unit changes  342ms
+apps/web test:      ✓ shows an error message when profile save fails  495ms
+apps/web test:  ✓ src/lib/api-client.test.ts (14 tests) 18ms
+apps/web test:  ✓ src/features/workouts/api/workouts.mutations.test.tsx (8 tests) 210ms
+apps/api test:  ✓ src/routes/workout-feedback/index.test.ts (4 tests) 2900ms
+apps/api test:      ✓ closes the scheduled override through draft, pause/reload, completion, and immutable correction  304ms
+apps/api test:      ✓ publishes concrete question, optimistic revision, answer, and conflict contracts in OpenAPI  600ms
+apps/api test:  ✓ src/db/workout-progression-migration.test.ts (4 tests) 2077ms
+apps/api test:      ✓ upgrades populated 0053 audit facts without blocking source lifecycle operations  394ms
+apps/api test:      ✓ upgrades populated 0052 data with deterministic contributions and immutable guards  575ms
+apps/api test:      ✓ backfills immutable recommendation priority from the 0054 programming configuration  632ms
+apps/api test:      ✓ installs cleanly from the complete journal and permits scoped account deletion  429ms
+apps/api test: stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > restores original parent IDs transactionally without rewriting child links
+apps/api test: {
+apps/api test:   alreadyAppliedCount: 0,
+apps/api test:   dryRun: false,
+apps/api test:   foreignKeyViolationCountBefore: 2,
+apps/api test:   mapSha256: '4225ccbe5c1e2df09de67991dcd8d4a42826fb5dd199d51de7908071820e0f92',
+apps/api test:   missingExerciseCount: 2,
+apps/api test:   orphanLinkCount: 2,
+apps/api test:   proposedRepairCount: 2,
+apps/api test:   remainingForeignKeyViolationCount: 0,
+apps/api test:   sessionSetOrphanCount: 1,
+apps/api test:   templateExerciseOrphanCount: 1,
+apps/api test:   unresolvedExerciseCount: 0
+apps/api test: } Workout exercise link repair preflight complete
+apps/api test: stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > is replayable and makes no changes after the map has already been applied
+apps/api test: {
+apps/api test:   alreadyAppliedCount: 0,
+apps/api test:   dryRun: false,
+apps/api test:   foreignKeyViolationCountBefore: 1,
+apps/api test:   mapSha256: 'a2c728a915f6c0ad2db9373de9439e7b0f824d01471cb380e065562a53720c01',
+apps/api test:   missingExerciseCount: 1,
+apps/api test:   orphanLinkCount: 1,
+apps/api test:   proposedRepairCount: 1,
+apps/api test:   remainingForeignKeyViolationCount: 0,
+apps/api test:   sessionSetOrphanCount: 1,
+apps/api test:   templateExerciseOrphanCount: 0,
+apps/api test:   unresolvedExerciseCount: 0
+apps/api test: } Workout exercise link repair preflight complete
+apps/api test: {
+apps/api test:   alreadyAppliedCount: 1,
+apps/api test:   dryRun: false,
+apps/api test:   foreignKeyViolationCountBefore: 0,
+apps/api test:   mapSha256: 'a2c728a915f6c0ad2db9373de9439e7b0f824d01471cb380e065562a53720c01',
+apps/api test:   missingExerciseCount: 0,
+apps/api test:   orphanLinkCount: 0,
+apps/api test:   proposedRepairCount: 0,
+apps/api test:   remainingForeignKeyViolationCount: 0,
+apps/api test:   sessionSetOrphanCount: 0,
+apps/api test:   templateExerciseOrphanCount: 0,
+apps/api test:   unresolvedExerciseCount: 0
+apps/api test: } Workout exercise link repair preflight complete
+apps/api test: stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > relinks an exact canonical match while preserving the template row
+apps/api test: {
+apps/api test:   alreadyAppliedCount: 0,
+apps/api test:   dryRun: false,
+apps/api test:   foreignKeyViolationCountBefore: 1,
+apps/api test:   mapSha256: 'ffcfe1cb7e1acf87f0122d2cd063cd1cf035d8759838991951bc94f4a49483ba',
+apps/api test:   missingExerciseCount: 1,
+apps/api test:   orphanLinkCount: 1,
+apps/api test:   proposedRepairCount: 1,
+apps/api test:   remainingForeignKeyViolationCount: 0,
+apps/api test:   sessionSetOrphanCount: 0,
+apps/api test:   templateExerciseOrphanCount: 1,
+apps/api test:   unresolvedExerciseCount: 0
+apps/api test: } Workout exercise link repair preflight complete
+apps/api test: {
+apps/api test:   alreadyAppliedCount: 1,
+apps/api test:   dryRun: false,
+apps/api test:   foreignKeyViolationCountBefore: 0,
+apps/api test:   mapSha256: 'ffcfe1cb7e1acf87f0122d2cd063cd1cf035d8759838991951bc94f4a49483ba',
+apps/api test:   missingExerciseCount: 0,
+apps/api test:   orphanLinkCount: 0,
+apps/api test:   proposedRepairCount: 0,
+apps/api test:   remainingForeignKeyViolationCount: 0,
+apps/api test:   sessionSetOrphanCount: 0,
+apps/api test:   templateExerciseOrphanCount: 0,
+apps/api test:   unresolvedExerciseCount: 0
+apps/api test: } Workout exercise link repair preflight complete
+apps/api test: stdout | src/scripts/repair-workout-exercise-links.test.ts > repair-workout-exercise-links > refuses ambiguous ownership, incomplete maps, and unrelated violations
+apps/api test: {
+apps/api test:   alreadyAppliedCount: 0,
+apps/api test:   dryRun: true,
+apps/api test:   foreignKeyViolationCountBefore: 2,
+apps/api test:   mapSha256: '33363e5be74a423945de2208b335fe01d3bf19d2aecc820f91829b839b3ea2b1',
+apps/api test:   missingExerciseCount: 1,
+apps/api test:   orphanLinkCount: 2,
+apps/api test:   proposedRepairCount: 0,
+apps/api test:   remainingForeignKeyViolationCount: 2,
+apps/api test:   sessionSetOrphanCount: 1,
+apps/api test:   templateExerciseOrphanCount: 1,
+apps/api test:   unresolvedExerciseCount: 1
+apps/api test: } Workout exercise link repair preflight complete
+apps/api test:  ✓ src/scripts/repair-workout-exercise-links.test.ts (7 tests) 133ms
+apps/web test:  ✓ src/features/workouts/components/set-row.test.tsx (28 tests) 1218ms
+apps/web test:      ✓ logs native RIR without completing the set and returns focus after selection  493ms
+apps/web test:  ✓ src/features/dashboard/components/trend-sparkline.test.tsx (16 tests) 1368ms
+apps/web test:      ✓ renders server-owned Trend Weight alongside smoothed calorie and protein cards  382ms
+apps/api test:  ❯ src/index.test.ts (8 tests | 1 failed) 2986ms
+apps/api test:      ✓ returns an ok status payload  583ms
+apps/api test:      ✓ serves an OpenAPI 3.1 document with Pulse security schemes  851ms
+apps/api test:      × documents unified request-body schemas without auth-branch anyOf bodies 669ms
+apps/api test:      ✓ documents all versioned API operations with tags, summaries, responses, and matching security  500ms
+apps/api test:      ✓ serves Swagger UI at /api/docs 162ms
+apps/api test:      ✓ wraps unhandled errors in the standard API error envelope 23ms
+apps/api test:      ✓ documents the OpenAPI and Swagger UI endpoints consistently in project docs 2ms
+apps/api test:      ✓ does not manually parse request params, query, or body in route files 196ms
+apps/web test:  ✓ src/features/workouts/components/session-exercise-list.test.tsx (43 tests) 50599ms
+apps/web test:      ✓ renders prescribed set targets from session set data  1435ms
+apps/web test:      ✓ shows editable set rows and renders an inline rest timer after the completed set  3314ms
+apps/web test:      ✓ applies distinct section badge styles for complete, partial, and zero-complete sections  1934ms
+apps/web test:      ✓ debounces exercise notes updates until typing pauses  653ms
+apps/web test:      ✓ renders programming notes separately from editable session notes  1307ms
+apps/web test:      ✓ renders agent notes inline beneath programming notes on active workout cards  926ms
+apps/web test:      ✓ does not render a programming notes block when programmingNotes is null  912ms
+apps/web test:      ✓ flushes pending exercise notes update on blur  718ms
+apps/web test:      ✓ opens exercise menu actions and disables remove when only one set remains  640ms
+apps/web test:      ✓ triggers remove exercise from the exercise actions menu  812ms
+apps/web test:      ✓ opens rename dialog from the exercise actions menu  1036ms
+apps/web test:      ✓ toggles exercise expansion when clicking the exercise title text  1209ms
+apps/web test:      ✓ opens swap dialog from the exercise actions menu and calls session swap endpoint  1368ms
+apps/web test:      ✓ opens exercise details from the kebab menu without toggling the exercise card  1653ms
+apps/web test:      ✓ shows move up/down actions and calls onReorderExercises for active workout lists  1119ms
+apps/web test:      ✓ still renders template form cues and omits injury warnings when enhanced injury data is unavailable  810ms
+apps/web test:      ✓ renders superset rest timers between exercises in the superset group  850ms
+apps/web test:      ✓ collapses superset exercises independently  1604ms
+apps/web test:      ✓ supports grouping and ungrouping supersets from workout sections  1982ms
+apps/web test:      ✓ shows completed exercises with strike-through treatment  670ms
+apps/web test:      ✓ keeps non-current completed exercises expanded by default  736ms
+apps/web test:      ✓ keeps section open state manual when workout progress moves into the next section  2693ms
+apps/web test:      ✓ persists section and exercise collapse state across remounts for the same session id  3158ms
+apps/web test:      ✓ scopes persisted section state by session id  2358ms
+apps/web test:      ✓ collapses sections, toggles exercise details, and focuses the requested next set input  2867ms
+apps/web test:      ✓ formats API reps-seconds quick history as reps times seconds and guards note icons  344ms
+apps/web test:      ✓ renders up to 3 inline history entries when API history is enabled  1248ms
+apps/web test:      ✓ opens and closes full history modal from active workout exercise rows  1499ms
+apps/web test:      ✓ renders related history collapsed by default and expands on demand  1256ms
+apps/web test:      ✓ omits the whole related disclosure for no definitions  911ms
+apps/web test:      ✓ omits the whole related disclosure for null history  933ms
+apps/web test:      ✓ omits the whole related disclosure for no sets  683ms
+apps/web test:      ✓ omits the whole related disclosure for unstarted  735ms
+apps/web test:      ✓ omits the whole related disclosure for skipped  755ms
+apps/web test:      ✓ omits the whole related disclosure for empty completed set  695ms
+apps/web test:      ✓ omits the whole related disclosure for effort alone  1034ms
+apps/web test:      ✓ omits the whole related disclosure for wrong metric  1177ms
+apps/web test:      ✓ preserves the direct History card during related pending  910ms
+apps/web test:      ✓ preserves the direct History card during related error  1158ms
+apps/api test:  ✓ src/routes/scheduled-workouts/snapshot-store.test.ts (6 tests) 3185ms
+apps/api test:      ✓ writeSnapshot copies template exercises, sets, and stores templateVersion hash  733ms
+apps/api test:      ✓ deleteSnapshot removes all snapshot rows for a scheduled workout  528ms
+apps/api test:      ✓ compares effective prescriptions and ignores storage-only representation changes  539ms
+apps/api test:      ✓ returns concrete prescription differences without mutating the snapshot  516ms
+apps/api test:      ✓ keeps tracking conflicts and invalid legacy targets actionable with unknown provenance  480ms
+apps/api test:      ✓ reports malformed current-template reps and exercise swaps as integrity warnings  388ms
+apps/web test:  ✓ src/features/workouts/components/template-browser.test.tsx (11 tests) 4318ms
+apps/web test:      ✓ persists template sort selection in URL search params  402ms
+apps/web test:      ✓ persists per-page in URL params and resets page to 1 when changed  513ms
+apps/web test:      ✓ filters templates by selected tags using AND logic  519ms
+apps/web test:      ✓ opens rename dialog and submits new template name  445ms
+apps/web test:      ✓ opens delete confirmation and confirms deletion  340ms
+apps/web test:      ✓ opens schedule dialog from template actions and submits selected date  573ms
+apps/web test:      ✓ warns before scheduling another workout on an occupied day  778ms
+apps/web test:  ✓ src/features/foods/components/food-analytics-workspace.test.tsx (5 tests) 2179ms
+apps/web test:      ✓ labels selected-range contribution denominators and keeps current definitions separate  826ms
+apps/web test:      ✓ opens exact immutable occurrence evidence and links to its date and meal  617ms
+apps/web test:      ✓ never renders stale placeholder detail as editable evidence  345ms
+apps/api test:  ✓ src/routes/workout-feedback/store.test.ts (3 tests) 2943ms
+apps/web test:  ✓ src/features/workouts/components/session-summary.test.tsx (4 tests) 2152ms
+apps/web test:      ✓ renders condensed shared-card exercise results and preserves summary actions  1991ms
+apps/api test:  ✓ src/__tests__/habits-weight-targets.test.ts (6 tests) 38783ms
+apps/api test:      ✓ logs weight, supports range and latest reads, and scopes results per user  11366ms
+apps/api test:      ✓ filters weight entries by days lookback  3434ms
+apps/api test:      ✓ upserts weight entries by user and date without leaking across users  6998ms
+apps/api test:      ✓ deletes weight entries, updates latest/list reads, and enforces ownership  5934ms
+apps/api test:      ✓ returns the current nutrition target based on the latest effective date on or before today  5004ms
+apps/api test:      ✓ upserts nutrition targets by user and effective date without crossing user boundaries  6046ms
+apps/api test:  ✓ src/routes/nutrition/logging-context.integration.test.ts (3 tests) 2044ms
+apps/api test:  ❯ src/routes/nutrition/food-reuse-process.integration.test.ts (7 tests | 7 skipped) 6598ms
+apps/api test:      ↓ rechecks after actual busy contention on preferred, replays safely and isolates owners
+apps/api test:      ↓ rechecks after actual busy contention on date, replays safely and isolates owners
+apps/api test:      ↓ rechecks after actual busy contention on append, replays safely and isolates owners
+apps/api test:      ↓ bounds exhausted locks at four attempts and rolls back without publishing outcomes
+apps/api test:      ↓ keeps legacy duplicates fail-closed and rolls back planned creation after usage failure on preferred
+apps/api test:      ↓ keeps legacy duplicates fail-closed and rolls back planned creation after usage failure on date
+apps/api test:      ↓ keeps legacy duplicates fail-closed and rolls back planned creation after usage failure on append
+apps/api test:  ✓ src/routes/foods/store.test.ts (6 tests) 2190ms
+apps/api test:      ✓ creates a food and normalizes omitted optional fields to null  2175ms
+apps/web test:  ✓ src/features/data-quality/components/data-quality-calendar-workspace.test.tsx (6 tests) 4217ms
+apps/web test:      ✓ renders the authoritative bootstrap month without a browser-local range request  1046ms
+apps/web test:      ✓ renders honest cross-domain facts, provenance, and exact algorithm treatment  648ms
+apps/web test:      ✓ supports keyboard domain filtering without removing the calendar date truth  883ms
+apps/web test:      ✓ shows the authoritative refresh path for stale review evidence  376ms
+apps/web test:      ✓ submits bounded date context through the shared form schema  1133ms
+apps/web test:  ✓ src/features/workouts/lib/active-session.test.ts (8 tests) 15ms
+apps/web test:  ✓ src/features/habits/components/daily-habits.test.tsx (8 tests) 2481ms
+apps/web test:      ✓ renders a menu trigger for every habit card  908ms
+apps/web test:      ✓ opens add habit dialog from the inline button  395ms
+apps/web test:      ✓ loads entries for the selected date and uses it in updates  357ms
+apps/web test:  ✓ src/features/workouts/api/workouts.optimistic.test.tsx (4 tests) 462ms
+apps/api test:  ✓ src/routes/weight/store.test.ts (10 tests) 130ms
+apps/api test:  ✓ src/routes/workout-progression/index.test.ts (6 tests) 1302ms
+apps/api test:      ✓ returns the same strict recommendation and muscle facts to JWT and AgentToken callers  878ms
+apps/api test:  ✓ src/db/canonical-weight-migration.test.ts (16 tests) 502ms
+apps/api test:      ✓ applies the complete migration chain to a fresh database  372ms
+apps/api test:  ✓ src/routes/nutrition/completeness-mutations.integration.test.ts (5 tests) 1799ms
+apps/api test:      ✓ merges more owned occurrences than the SQLite variable limit without leaking ownership  588ms
+apps/api test:  ✓ src/scripts/backtest-adaptive-tdee.test.ts (10 tests) 1208ms
+apps/api test:      ✓ preserves the presence and bytes of a WAL-mode source database family  1001ms
+apps/web test:  ✓ src/pages/habits.test.tsx (6 tests) 2867ms
+apps/web test:      ✓ shows inline add controls when there are no habits  777ms
+apps/web test:      ✓ lets users pick a past day and loads that day entries  1381ms
+apps/web test:  ✓ src/features/workouts/components/rir-picker.test.tsx (43 tests) 2861ms
+apps/web test:      ✓ selects 0 exactly once, closes, and restores trigger focus  416ms
+apps/web test:      ✓ selects 5 exactly once, closes, and restores trigger focus  307ms
+apps/api test:  ❯ src/scripts/seed-adaptive-tdee-preview.test.ts (3 tests | 1 failed) 41437ms
+apps/api test:      ✓ never seeds a same-local-day revision in the future of the running preview 13ms
+apps/api test:      × rebuilds every Coach state and keeps goal completion explicit 30731ms
+apps/api test:      ✓ matches the independent 2026-08-23 fixture contract across all repaired domains  10690ms
+apps/web test:  ✓ src/hooks/use-workout-session.test.tsx (7 tests) 278ms
+apps/api test:  ✓ src/routes/trash/index.test.ts (4 tests) 2262ms
+apps/api test:  ✓ src/db/feedback-planning-context-migration.test.ts (3 tests) 1742ms
+apps/api test:      ✓ upgrades an exact through-0062 database without rewriting historical feedback and restores the predecessor  712ms
+apps/api test:      ✓ rolls back an actually interrupted migration without partial schema or journal state  472ms
+apps/api test:      ✓ installs fresh and enforces owner links, append-only history, cascade purge, and atomic rollback  552ms
+apps/web test:  ✓ src/features/dashboard/components/habit-daily-status-card.test.tsx (8 tests) 789ms
+apps/api test:  ✓ src/middleware/agent-transforms.test.ts (9 tests) 195ms
+apps/api test:  ✓ src/db/rir-migration.test.ts (1 test) 638ms
+apps/api test:      ✓ preserves populated 0058 session sets and every relational guard  637ms
+apps/api test:  ✓ src/routes/adaptive-nutrition/goal-store.integration.test.ts (4 tests) 2058ms
+apps/api test:      ✓ returns current, paginated history, revision detail, and linked accepted check-ins  425ms
+apps/api test:      ✓ uses persisted canonical endpoints for closed-goal detail and net change  519ms
+apps/api test:      ✓ keeps historical progress revision-effective and uses the canonical maintenance range  530ms
+apps/api test:      ✓ fails cross-user and missing current reads closed  580ms
+apps/api test:  ✓ src/routes/nutrition/store.test.ts (6 tests) 32ms
+apps/web test:  ✓ src/features/workouts/components/exercise-detail-modal.test.tsx (12 tests) 1794ms
+apps/web test:      ✓ renders overview tab with exercise details  459ms
+apps/web test:  ✓ src/hooks/use-session-sets.test.tsx (3 tests) 381ms
+apps/web test:  ✓ src/hooks/use-complete-session.test.tsx (2 tests) 204ms
+apps/api test:  ✓ src/routes/agent/context-store.test.ts (9 tests) 1867ms
+apps/api test:      ✓ returns user profile name when user exists  1813ms
+apps/web test:  ✓ src/features/adaptive-nutrition/components/adaptive-setup-form.test.tsx (11 tests) 9070ms
+apps/web test:      ✓ submits manual setup exactly once with an entered pound weight and maintenance rate  1454ms
+apps/web test:      ✓ offers a recent saved kg entry while converting entered-weight defaults and protein presets  757ms
+apps/web test:      ✓ compares a saved kg weight with a pound target in canonical kilograms  521ms
+apps/web test:      ✓ rejects an old saved weight and a loss target above current weight  484ms
+apps/web test:      ✓ updates a recommended gain projection live without mutating  992ms
+apps/web test:      ✓ explains a custom gain rate outside the recommended band without blocking it  1000ms
+apps/web test:      ✓ updates protein and fat/carbohydrate results from accessible presets  1049ms
+apps/web test:      ✓ preserves an existing non-preset protein target as Custom  382ms
+apps/web test:      ✓ removes stale numbers when a valid target becomes directionally invalid  1039ms
+apps/web test:      ✓ discloses loss floor and deficit guardrails in the live plan  901ms
+apps/web test:      ✓ exposes named radio groups and focusable preset controls for keyboard users  436ms
+apps/api test:  ✓ src/middleware/agent-enrichment.test.ts (9 tests) 13ms
+apps/api test:  ✓ src/routes/agent-tokens/index.test.ts (9 tests) 1981ms
+apps/api test:      ✓ creates an agent token, stores only its SHA-256 hash, and returns the plain token once  993ms
+apps/api test:  ✓ src/routes/nutrition-targets/index.test.ts (5 tests) 1043ms
+apps/api test:      ✓ upserts a nutrition target for the authenticated user  458ms
+apps/api test:  ✓ src/db/adaptive-nutrition-migration.test.ts (3 tests) 467ms
+apps/api test:      ✓ applies the complete migration chain to a fresh database  399ms
+apps/web test:  ✓ src/__tests__/components/daily-habits.test.tsx (8 tests) 1461ms
+apps/web test:      ✓ patches an existing numeric entry when the value is changed  319ms
+apps/web test:  ✓ src/features/workouts/lib/session-persistence.test.ts (18 tests) 12ms
+apps/api test:  ✓ src/db/workout-feedback-migration.test.ts (3 tests) 1657ms
+apps/api test:      ✓ upgrades an exact through-0061 fixture, preserves #149 bytes, and restores the untouched predecessor  823ms
+apps/api test:      ✓ installs the full current journal on an empty database  493ms
+apps/api test:      ✓ enforces owner links, exact revision order, immutable rows, and atomic rollback  340ms
+apps/api test:  ✓ src/db/adaptive-program-revision-migration.test.ts (1 test) 35ms
+apps/web test:  ✓ src/features/dashboard/components/weight-trend-chart.test.tsx (5 tests) 1957ms
+apps/web test:      ✓ uses the server-owned analytics endpoint and selected historical date  789ms
+apps/web test:      ✓ keeps every compact plotted value keyboard-accessible through an exact table  514ms
+apps/web test:      ✓ switches ranges without recomputing values in the component  422ms
+apps/web test:  ✓ src/features/nutrition/components/daily-energy-adherence-card.test.tsx (17 tests) 925ms
+apps/web test:      ✓ renders neutral accepted target and expenditure facts with signed differences  317ms
+apps/api test:  ✓ src/routes/workout-sessions/session-set-utils.test.ts (5 tests) 4ms
+apps/web test:  ✓ src/features/dashboard/components/recent-workouts.test.tsx (9 tests) 813ms
+apps/web test:      ✓ renders five recent workout cards with workout links and metadata  416ms
+apps/api test:  ✓ src/routes/users/index.test.ts (8 tests) 1232ms
+apps/api test:      ✓ GET /api/v1/users/me returns the authenticated user  573ms
+apps/api test:  ✓ src/routes/nutrition/store.display-fields.test.ts (3 tests) 43ms
+apps/api test:  ✓ src/routes/foods/reuse-policy.test.ts (23 tests) 135ms
+apps/api test:  ✓ src/routes/nutrition-targets/store.test.ts (4 tests) 11ms
+apps/api test:  ✓ src/routes/nutrition-targets/provenance.integration.test.ts (4 tests) 915ms
+apps/api test:  ✓ src/scripts/run-migration.test.ts (6 tests) 14ms
+apps/web test:  ✓ src/features/habits/components/habit-form-dialog.test.tsx (8 tests) 2571ms
+apps/web test:      ✓ creates a habit in add mode and closes on success  838ms
+apps/web test:      ✓ shows specific-day toggles and submits selected weekdays  304ms
+apps/web test:      ✓ validates required fields using zod schema rules  384ms
+apps/api test:  ✓ src/routes/workout-sessions/time-segments.test.ts (10 tests) 3ms
+apps/web test:  ✓ src/features/nutrition/components/nutrition-macro-rings.test.tsx (12 tests) 1253ms
+apps/web test:      ✓ renders distinct protein-floor facts in eaten mode  357ms
+apps/api test:  ✓ src/routes/habit-entries/store.test.ts (4 tests) 2093ms
+apps/api test:      ✓ inserts a new habit entry when no entry exists for the habit and date  2086ms
+apps/web test:  ✓ src/App.test.tsx (25 tests) 9542ms
+apps/web test:      ✓ renders 'Welcome back' page for '/login' when signed out  524ms
+apps/web test:      ✓ renders 'Create account' page for '/register' when signed out  328ms
+apps/web test:      ✓ renders 'Dashboard' page for '/' when signed in  348ms
+apps/web test:      ✓ renders 'Design System' page for '/design-system' when signed in  409ms
+apps/web test:      ✓ renders 'Workouts' page for '/workouts' when signed in  458ms
+apps/web test:      ✓ renders 'No active workout' page for '/workouts/active' when signed in  383ms
+apps/web test:      ✓ renders 'Upper Push' page for '/workouts/session/session-upper-push-…' when signed in  567ms
+apps/web test:      ✓ renders 'Upper Push' page for '/workouts/template/upper-push' when signed in  598ms
+apps/web test:      ✓ renders 'Nutrition' page for '/nutrition' when signed in  368ms
+apps/web test:      ✓ renders 'Energy Balance & Expenditure' page for '/nutrition/energy-balance' when signed in  366ms
+apps/web test:      ✓ renders 'Habits' page for '/habits' when signed in  332ms
+apps/web test:      ✓ renders 'Activity' page for '/activity' when signed in  526ms
+apps/web test:      ✓ renders 'Journal' page for '/journal' when signed in  459ms
+apps/web test:      ✓ renders 'Trend Weight' page for '/weight' when signed in  349ms
+apps/web test:      ✓ renders 'Profile' page for '/profile' when signed in  346ms
+apps/web test:      ✓ renders 'Equipment' page for '/profile/equipment' when signed in  363ms
+apps/web test:      ✓ renders 'Health Tracking' page for '/profile/injuries' when signed in  391ms
+apps/web test:      ✓ renders 'Resources' page for '/profile/resources' when signed in  332ms
+apps/web test:      ✓ renders 'McGill Big 3' page for '/profile/resources/mcgill-big-3' when signed in  338ms
+apps/web test:      ✓ renders 'Settings' page for '/settings' when signed in  610ms
+apps/web test:      ✓ renders navigation links for all app routes  576ms
+apps/web test:  ✓ src/pages/workout-session-detail.test.tsx (7 tests) 2732ms
+apps/web test:      ✓ renders not-found state for unknown sessionId  1249ms
+apps/web test:      ✓ renders Repeat Workout button  513ms
+apps/web test:  ✓ src/features/workouts/components/swap-exercise-dialog.test.tsx (2 tests) 927ms
+apps/web test:      ✓ surfaces related exercises first and filters search results  759ms
+apps/web test:  ✓ src/features/nutrition/components/daily-nutrition-note.test.tsx (7 tests) 2054ms
+apps/web test:      ✓ adds an empty historical day, trims edges, preserves lines safely, and restores focus  686ms
+apps/web test:      ✓ edits existing text, cancels without a request, and discards cancelled draft on reopen  497ms
+apps/web test:      ✓ requires confirmation to clear and sends explicit null; cancel does not write  347ms
+apps/web test:  ✓ src/features/workouts/components/exercise-trend-chart.test.tsx (17 tests) 2021ms
+apps/web test:      ✓ renders metric selector and switches metric values  1200ms
+apps/web test:      ✓ filters chart history by date range  323ms
+apps/web test:  ✓ src/features/workouts/api/workouts.test.tsx (2 tests) 261ms
+apps/api test:  ✓ src/routes/v1/context.test.ts (2 tests) 596ms
+apps/api test:      ✓ returns context for agent-token requests and 404s legacy /api/agent/context  469ms
+apps/api test:  ✓ src/routes/data-quality/index.test.ts (3 tests) 630ms
+apps/api test:      ✓ returns identical strict data for JWT and AgentToken callers  497ms
+apps/api test:  ✓ src/db/integrity.test.ts (5 tests) 9ms
+apps/api test:  ✓ src/db/backfill/scheduled-workout-snapshots.test.ts (1 test) 487ms
+apps/api test:      ✓ backfills snapshots for live templates and skips soft-deleted templates with warnings  487ms
+apps/api test:  ✓ src/__tests__/auth.test.ts (20 tests) 50417ms
+apps/api test:      ✓ registers a user, returns a JWT, and stores a hashed password  7140ms
+apps/api test:      ✓ rejects duplicate usernames with a 409 conflict  1563ms
+apps/api test:      ✓ rejects registration when required fields are missing  335ms
+apps/api test:      ✓ logs in with valid credentials and returns a JWT  3150ms
+apps/api test:      ✓ returns INVALID_CREDENTIALS for the wrong password  3531ms
+apps/api test:      ✓ returns INVALID_CREDENTIALS for a nonexistent username  359ms
+apps/api test:      ✓ accepts a valid JWT on a protected route  2906ms
+apps/api test:      ✓ rejects expired JWTs on protected routes  2830ms
+apps/api test:      ✓ rejects JWTs without the required type claim  2365ms
+apps/api test:      ✓ rejects JWTs with the wrong type claim  3118ms
+apps/api test:      ✓ rejects JWTs without the required issuer claim  3164ms
+apps/api test:      ✓ rejects requests without an Authorization header  413ms
+apps/api test:      ✓ creates and lists agent tokens without exposing stored hashes  3052ms
+apps/api test:      ✓ authenticates unified /api/v1 routes with an agent token and updates lastUsedAt  3296ms
+apps/api test:      ✓ rejects expired agent tokens on unified /api/v1 routes  3164ms
+apps/api test:      ✓ accepts agent tokens with null expiresAt for backward compatibility  3347ms
+apps/api test:      ✓ extends expiring agent tokens from the new rotation time  3353ms
+apps/api test:      ✓ rejects deleted agent tokens on subsequent use  2997ms
+apps/api test:  ✓ src/routes/v1/dashboard-store.integration.test.ts (6 tests) 3554ms
+apps/api test:      ✓ uses all daily entries in the inclusive trailing 30-calendar-day window  1346ms
+apps/api test:      ✓ prevents sparse measurements from prior months or other users from pulling the trend  456ms
+apps/api test:      ✓ anchors a historical snapshot window to the requested date instead of today  445ms
+apps/api test:      ✓ returns no trend for one in-window measurement so the UI falls back to scale weight  387ms
+apps/api test:      ✓ returns no trend when the latest scale weight is outside the window  520ms
+apps/api test:      ✓ returns no weight snapshot when the user has never logged weight  399ms
+apps/web test:  ✓ src/store/auth-store.test.ts (7 tests) 74ms
+apps/web test:  ✓ src/pages/activity.test.tsx (6 tests) 3731ms
+apps/web test:      ✓ renders the activity list sorted newest first with formatted metadata  1097ms
+apps/web test:      ✓ filters the activity cards by type  464ms
+apps/web test:      ✓ opens the add activity form with smart defaults and previews  373ms
+apps/web test:      ✓ prepends a submitted activity to the list and shows a success message  666ms
+apps/web test:      ✓ keeps the list in date order when a past activity is submitted  664ms
+apps/web test:      ✓ closes the form without adding an activity when cancelled  465ms
+apps/web test:  ✓ src/features/workouts/lib/time-estimates.test.ts (9 tests) 5ms
+apps/web test:  ✓ src/hooks/use-pull-to-refresh.test.tsx (6 tests) 189ms
+apps/web test:  ✓ src/features/habits/components/habit-day-modal.test.tsx (6 tests) 935ms
+apps/web test:      ✓ saves boolean habits with the selected completion state  370ms
+apps/web test:  ✓ src/features/workouts/components/session-comparison.test.tsx (6 tests) 765ms
+apps/web test:      ✓ distinguishes native and derived effort for each compared set  373ms
+apps/web test:  ✓ src/features/nutrition/components/meal-card.test.tsx (14 tests) 769ms
+apps/api test:  ✓ src/routes/auth/starter-habits.test.ts (1 test) 3226ms
+apps/api test:      ✓ seeds five starter habits on register and returns them from GET /api/v1/habits  1470ms
+apps/api test:  ✓ src/db/index.test.ts (3 tests) 1913ms
+apps/api test:      ✓ enables foreign key enforcement on the sqlite connection  1779ms
+apps/web test:  ❯ src/pages/active-workout.test.tsx (39 tests | 3 failed) 62030ms
+apps/web test:      × renders the active workout UI and does not auto-focus any set after rest timer completion 8398ms
+apps/web test:      ✓ keeps focus unchanged when a superset rest timer expires  1743ms
+apps/web test:      ✓ keeps the rest timer running when editing an incomplete set  1607ms
+apps/web test:      × moves from session logging to feedback, summary, and back to workouts 16892ms
+apps/web test:      ✓ clears persisted section/exercise ui state when a session is already completed 120ms
+apps/web test:      ✓ hydrates completed server sets over empty autosaved draft values on session switch 251ms
+apps/web test:      ✓ ungroups a superset in a live session by sending null and updating the UI  752ms
+apps/web test:      ✓ preserves in-progress local set values when the server set is still incomplete  328ms
+apps/web test:      ✓ drops local-only exercises that are missing from server session payloads 254ms
+apps/web test:      ✓ prefers server exercise notes when local and server notes differ  378ms
+apps/web test:      ✓ preserves local session cues during session hydration 238ms
+apps/web test:      ✓ uses the selected template from the route query string  417ms
+apps/web test:      ✓ starts fallback elapsed time from now for unsaved sessions  530ms
+apps/web test:      ✓ polls for agent session updates and preserves in-progress inputs  553ms
+apps/web test:      ✓ controls per-section timers and switches sections via section-timer endpoint  1128ms
+apps/web test:      ✓ starts the completed set section timer when saving a set from another section  1321ms
+apps/web test:      ✓ ticks the active section timer live and sums per-section total time  416ms
+apps/web test:      ✓ resumes a paused session in the section selected by the start button  485ms
+apps/web test:      ✓ re-reads session data after completion and closes the final open segment  616ms
+apps/web test:      ✓ renders an empty state when there is no active session and no selected template 19ms
+apps/web test:      ✓ shows a session picker when multiple active sessions exist 180ms
+apps/web test:      ✓ shows back-to-session-list navigation while editing one of multiple active sessions 168ms
+apps/web test:      ✓ skips the session picker and opens the editor when exactly one active session exists 140ms
+apps/web test:      ✓ supports manually finishing an active workout with confirmation and set summary ratio  3329ms
+apps/web test:      × keeps the session active after the last set until completion is explicitly confirmed 17844ms
+apps/web test:      ✓ shows standard feedback controls and requires pain details when pain is yes  1292ms
+apps/web test:      ✓ loads API templates for UUID template ids instead of falling back to mock defaults 259ms
+apps/web test:      ✓ fetches inline last performance from the API for server-backed template sessions 171ms
+apps/web test:      ✓ renders reps_only and seconds_only inputs from API template tracking types  528ms
+apps/web test:      ✓ creates a completed session without a pre-stored token by using dev auto-session auth  1576ms
+apps/web test:      ✓ extracts one exercise note per exercise from persisted session set rows 5ms
+apps/web test:      ✓ maps exercise notes into completion payload session sets 72ms
+apps/web test:      ✓ forces weight to null for non-weighted tracking types in completion payloads 4ms
+apps/web test:      ✓ keeps session supplemental exercises when the snapshot already has supplemental rows 11ms
+apps/web test:      ✓ orders session-derived sections before cooldown when supplemental is present 1ms
+apps/web test:      ✓ uses template supplemental exercises when the snapshot has no supplemental rows 0ms
+apps/web test:      ✓ never restores removed supplemental exercises or cleared notes from a scheduled template 0ms
+apps/web test:      ✓ omits supplemental when neither snapshot nor template has supplemental exercises 0ms
+apps/web test:      ✓ keeps explicit null session superset groups instead of falling back to the template group 0ms
+apps/api test:  ✓ src/lib/habit-resolvers.test.ts (4 tests) 1741ms
+apps/api test:      ✓ returns completed for weight resolver when a body weight row exists for the date  1735ms
+apps/api test:  ✓ src/scripts/rehearse-adaptive-goal-migration.test.ts (1 test) 8ms
+apps/api test:  ✓ src/db/scheduled-session-prescriptions-migration.test.ts (1 test) 505ms
+apps/api test:      ✓ upgrades populated legacy sessions without changing history and is idempotent  504ms
+apps/web test:  ✓ src/features/injuries/components/severity-chart.test.tsx (6 tests) 1130ms
+apps/web test:      ✓ renders a responsive chart with exact ordinary and event point inspection  865ms
+apps/api test:  ✓ src/db/adaptive-program-revision-projection.test.ts (2 tests) 18ms
+apps/api test:  ✓ src/__tests__/placeholder.test.ts (1 test) 2ms
+apps/api test:  ✓ src/routes/nutrition/status-store.test.ts (3 tests) 1644ms
+apps/api test:      ✓ writes every explicit status with an audit timestamp in user scope  620ms
+apps/api test:      ✓ rejects future completion in the user local date while allowing exclusion statuses  549ms
+apps/api test:      ✓ requires an owned nutrition log for any status mutation  468ms
+apps/web test:  ✓ src/components/layout/sidebar.test.tsx (6 tests) 726ms
+apps/web test:      ✓ renders all nav links and highlights the active route  405ms
+apps/web test:  ✓ src/components/ui/confirmation-dialog.test.tsx (9 tests) 850ms
+apps/api test:  ✓ src/lib/user-time-zone.test.ts (4 tests) 13ms
+apps/web test:  ✓ src/components/workouts/active-session-resume-gate.test.tsx (4 tests) 409ms
+apps/web test:  ✓ src/features/workouts/components/workout-exercise-card/index.test.tsx (5 tests) 383ms
+apps/api test:  ✓ src/routes/auth/index.test.ts (6 tests) 7882ms
+apps/api test:      ✓ registers a new user, normalizes the username, hashes the password, and returns a 7-day JWT  3049ms
+apps/api test:      ✓ rejects duplicate usernames during registration  319ms
+apps/api test:      ✓ logs in a user and returns the auth envelope  2600ms
+apps/api test:      ✓ returns INVALID_CREDENTIALS for incorrect passwords  1814ms
+apps/web test:  ✓ src/features/habits/components/weekly-habit-date-picker.test.tsx (4 tests) 354ms
+apps/web test:  ✓ src/features/auth/components/register-form.test.tsx (8 tests) 436ms
+apps/api test:  ✓ src/db/feedback-note-remediation.test.ts (1 test) 5192ms
+apps/api test:      ✓ preserves originals, queues uncertain prose, and supersedes only an owned exact causal link  5186ms
+apps/api test:  ✓ src/db/feedback-provenance-migration.test.ts (8 tests) 21851ms
+apps/api test:      ✓ requires exact source proof for derived history and preserves explicit native answers with evidenced actors  320ms
+apps/api test:      ✓ dry-run writes nothing and reconciles owner/global counts  7283ms
+apps/api test:      ✓ preserves raw payloads/native performance and makes second apply a no-op  7354ms
+apps/api test:      ✓ rolls back the failed batch and resumes committed batches exactly once  330ms
+apps/api test:      ✓ forced first-batch failure preserves original database exactly  5765ms
+apps/api test:      ✓ refuses missing manifest, schema mismatch, corrupt audit and later source edits  301ms
+apps/web test:  ✓ src/pages/journal.test.tsx (4 tests) 615ms
+apps/web test:      ✓ renders the chronological feed with badges, previews, and entity chips  306ms
+apps/web test:  ✓ src/features/settings/api/trash.test.tsx (4 tests) 104ms
+apps/web test:  ✓ src/features/foods/api/foods.test.tsx (2 tests) 217ms
+apps/web test:  ✓ src/components/charts/chart-primitives.test.tsx (7 tests) 177ms
+apps/web test:  ✓ src/features/dashboard/components/calendar-picker.test.tsx (7 tests) 259ms
+apps/web test:  ✓ src/components/layout/bottom-nav.test.tsx (3 tests) 397ms
+apps/web test:  ✓ src/features/dashboard/components/macro-rings.test.tsx (7 tests) 208ms
+apps/web test:  ✓ src/features/habits/components/habit-history.test.tsx (4 tests) 712ms
+apps/web test:      ✓ loads a 90-day range from API hooks and renders history grids  445ms
+apps/web test:  ✓ src/pages/equipment.test.tsx (6 tests) 3846ms
+apps/web test:      ✓ renders the inventory summary and collapsed location cards  749ms
+apps/web test:      ✓ adds a new location from the dialog into local state  1000ms
+apps/web test:      ✓ adds an item to the selected category within a location card  1021ms
+apps/web test:      ✓ supports inline editing for an equipment item name and details  580ms
+apps/web test:      ✓ confirms before removing an equipment item and updates local state  412ms
+apps/web test:  ✓ src/features/nutrition/api/daily-note.test.tsx (4 tests) 437ms
+apps/web test:  ✓ src/lib/optimistic.test.tsx (3 tests) 258ms
+apps/web test:  ✓ src/features/nutrition/components/nutrition-week-strip.test.tsx (6 tests) 265ms
+apps/web test:  ✓ src/features/workouts/lib/tracking.test.ts (15 tests) 2ms
+apps/web test:  ✓ src/features/workouts/components/scheduled-start-surfaces.test.tsx (14 tests) 1346ms
+apps/web test:  ✓ src/features/workouts/components/muscle-analytics.test.tsx (2 tests) 371ms
+apps/web test:  ✓ src/features/auth/components/login-form.test.tsx (8 tests) 338ms
+apps/web test:  ✓ src/hooks/use-dashboard-snapshot.test.tsx (4 tests) 312ms
+apps/web test:  ✓ src/hooks/use-sync-sets.test.tsx (4 tests) 53ms
+apps/web test:  ✓ src/features/settings/components/trash-manager.test.tsx (3 tests) 418ms
+apps/web test:  ✓ src/features/nutrition/components/nutrition-trends.test.tsx (5 tests) 984ms
+apps/web test:      ✓ renders synchronized averages, gaps, and exact keyboard-operable rows  771ms
+apps/web test:  ✓ src/features/dashboard/lib/widget-utils.test.ts (10 tests) 8ms
+apps/web test:  ✓ src/pages/design-system.test.tsx (3 tests) 537ms
+apps/web test:      ✓ switches themes live using light, dark, and midnight controls  329ms
+apps/web test:  ✓ src/hooks/use-exercise-history.test.tsx (5 tests) 255ms
+apps/web test:  ✓ src/lib/use-debounced-callback.test.tsx (6 tests) 60ms
+apps/web test:  ✓ src/features/workouts/lib/effort.test.ts (61 tests) 16ms
+apps/web test:  ✓ src/features/workouts/components/session-context.test.tsx (4 tests) 251ms
+apps/web test:  ✓ src/hooks/use-weight-trend.test.tsx (4 tests) 219ms
+apps/web test:  ✓ src/features/nutrition/lib/nutrition-utils.test.ts (12 tests) 11ms
+apps/web test:  ✓ src/hooks/useTheme.test.tsx (5 tests) 50ms
+apps/web test:  ✓ src/features/workouts/components/session-header.test.tsx (3 tests) 231ms
+apps/web test:  ✓ src/pages/profile.test.tsx (4 tests) 384ms
+apps/web test:  ✓ src/lib/query-invalidation.test.ts (6 tests) 5ms
+apps/web test:  ✓ src/features/nutrition/api/targets.test.tsx (3 tests) 199ms
+apps/web test:  ✓ src/features/workouts/lib/workout-session-sets.test.ts (2 tests) 8ms
+apps/web test:  ✓ src/components/ui/stat-card.test.tsx (8 tests) 95ms
+apps/web test:  ✓ src/styles/globals.test.ts (2 tests) 3ms
+apps/web test:  ✓ src/hooks/use-recent-workouts.test.tsx (2 tests) 138ms
+apps/web test:  ✓ src/lib/query-client.test.ts (6 tests) 34ms
+apps/web test:  ✓ src/features/workouts/components/workout-exercise-card/last-performance-chip.test.tsx (5 tests) 184ms
+apps/web test:  ✓ src/hooks/use-macro-trend.test.tsx (3 tests) 165ms
+apps/web test:  ✓ src/hooks/use-habit-chains.test.tsx (3 tests) 191ms
+apps/web test:  ✓ src/features/activity/lib/mock-data.test.ts (3 tests) 11ms
+apps/web test:  ✓ src/hooks/use-save-as-template.test.tsx (2 tests) 65ms
+apps/web test:  ✓ src/hooks/use-user.test.tsx (2 tests) 172ms
+apps/web test:  ✓ src/__tests__/components/theme-toggle.test.tsx (3 tests) 147ms
+apps/web test:  ✓ src/hooks/usePersistedState.test.tsx (5 tests) 43ms
+apps/web test:  ✓ src/components/auth/protected-route.test.tsx (3 tests) 140ms
+apps/web test:  ✓ src/features/resources/components/resource-detail.test.tsx (3 tests) 247ms
+apps/web test:  ✓ src/components/ui/data-table.test.tsx (4 tests) 116ms
+apps/web test:  ✓ src/components/theme-provider.test.tsx (2 tests) 103ms
+apps/web test:  ✓ src/features/adaptive-nutrition/components/nutrition-day-status-control.test.tsx (4 tests) 317ms
+apps/web test:  ✓ src/hooks/use-date-authority.test.tsx (3 tests) 56ms
+apps/web test:  ✓ src/components/auth/guest-route.test.tsx (3 tests) 116ms
+apps/web test:  ✓ src/hooks/use-dashboard-config.test.tsx (2 tests) 88ms
+apps/web test:  ✓ src/pages/journal-entry.test.tsx (3 tests) 159ms
+apps/web test:  ✓ src/features/workouts/components/form-cue-chips.test.tsx (3 tests) 185ms
+apps/web test:  ✓ src/features/weight/lib/trend-weight-date.test.ts (10 tests) 13ms
+apps/web test:  ✓ src/features/workouts/components/effort-display.test.tsx (5 tests) 383ms
+apps/web test:  ✓ src/components/ui/button.test.tsx (4 tests) 160ms
+apps/web test:  ✓ src/components/ui/progress-bar.test.tsx (4 tests) 111ms
+apps/web test:  ✓ src/features/workouts/lib/related-history.test.ts (9 tests) 14ms
+apps/web test:  ✓ src/components/layout/page-header.test.tsx (4 tests) 117ms
+apps/web test:  ✓ src/features/workouts/components/workout-exercise-card/workout-exercise-set-list.test.tsx (3 tests) 212ms
+apps/web test:  ✓ src/components/ui/preview-banner.test.tsx (5 tests) 159ms
+apps/web test:  ✓ src/features/workouts/components/rest-timer.test.tsx (3 tests) 265ms
+apps/web test:  ✓ src/__tests__/components/progress-ring.test.tsx (5 tests) 189ms
+apps/web test:  ✓ src/lib/api-error.test.ts (6 tests) 3ms
+apps/web test:  ✓ src/features/resources/components/resource-grid.test.tsx (1 test) 254ms
+apps/web test:  ✓ src/features/workouts/api/progression.test.tsx (2 tests) 165ms
+apps/web test:  ✓ src/components/ui/progress-ring.test.tsx (5 tests) 123ms
+apps/web test:  ✓ src/components/layout/app-layout.test.tsx (2 tests) 134ms
+apps/web test:  ✓ src/lib/format-utils.test.ts (8 tests) 12ms
+apps/web test:  ✓ src/features/workouts/components/workout-exercise-card/prescription-block.test.tsx (3 tests) 97ms
+apps/web test:  ✓ src/features/activity/components/activity-list.test.tsx (2 tests) 182ms
+apps/web test:  ✓ src/features/workouts/components/workout-exercise-card/agent-notes-block.test.tsx (3 tests) 49ms
+apps/web test:  ✓ src/features/workouts/components/workout-exercise-card/exercise-header.test.tsx (2 tests) 126ms
+apps/web test:  ✓ src/components/ui/pull-to-refresh.test.tsx (3 tests) 66ms
+apps/web test:  ✓ src/components/ui/notes-indicator.test.tsx (3 tests) 212ms
+apps/web test:  ✓ src/lib/date.test.ts (5 tests) 3ms
+apps/web test:  ✓ src/features/workouts/api/workouts.keys.test.ts (5 tests) 5ms
+apps/web test:  ✓ src/components/ui/dialog.test.tsx (1 test) 186ms
+apps/web test:  ✓ src/components/skeletons/skeleton-variants.test.tsx (2 tests) 95ms
+apps/web test:  ✓ src/__tests__/components/progress-bar.test.tsx (4 tests) 136ms
+apps/web test:  ✓ src/components/ui/column-picker.test.tsx (1 test) 300ms
+apps/web test:  ✓ src/pages/login.test.tsx (1 test) 145ms
+apps/web test:  ✓ src/components/error-boundary.test.tsx (2 tests) 163ms
+apps/web test:  ✓ src/components/ui/help-icon.test.tsx (2 tests) 232ms
+apps/web test:  ✓ src/features/workouts/components/workout-exercise-card/form-cues-block.test.tsx (2 tests) 98ms
+apps/web test:  ✓ src/features/dashboard/components/trend-sparkline-responsive.test.tsx (1 test) 252ms
+apps/web test:  ✓ src/components/ui/sort-selector.test.tsx (2 tests) 449ms
+apps/web test:      ✓ renders provided options  333ms
+apps/web test:  ✓ src/components/ui/empty-state.test.tsx (2 tests) 126ms
+apps/web test:  ✓ src/features/workouts/components/scheduled-workout-header.test.tsx (2 tests) 148ms
+apps/web test:  ✓ src/components/ui/view-toggle.test.tsx (2 tests) 196ms
+apps/web test:  ✓ src/features/dashboard/lib/program-date.test.ts (2 tests) 17ms
+apps/web test:  ✓ src/features/nutrition/api/keys.test.ts (3 tests) 10ms
+apps/web test:  ✓ src/components/ui/input.test.tsx (3 tests) 121ms
+apps/web test:  ✓ src/lib/date-utils.test.ts (3 tests) 3ms
+apps/web test:  ✓ src/__tests__/components/stat-card.test.tsx (3 tests) 51ms
+apps/web test:  ✓ src/components/ui/filter-bar.test.tsx (1 test) 66ms
+apps/web test:  ✓ src/components/ui/pagination-bar.test.tsx (2 tests) 131ms
+apps/web test:  ✓ src/components/ui/help-modal.test.tsx (2 tests) 164ms
+apps/web test:  ✓ src/components/ui/per-page-selector.test.tsx (2 tests) 239ms
+apps/web test:  ✓ src/features/adaptive-nutrition/lib/format-adaptive-nutrition.test.ts (2 tests) 4ms
+apps/web test:  ✓ src/features/workouts/components/workout-exercise-card/programming-notes-block.test.tsx (2 tests) 49ms
+apps/web test:  ✓ src/features/nutrition/lib/program-local-midnight.test.ts (3 tests) 35ms
+apps/web test:  ✓ src/components/ui/skeleton.test.tsx (1 test) 46ms
+apps/web test:  ✓ src/lib/utils.test.ts (3 tests) 4ms
+apps/web test:  ✓ src/features/foods/api/keys.test.ts (1 test) 7ms
+apps/web test:  ✓ src/pages/resources.test.tsx (1 test) 133ms
+apps/web test:  ✓ src/features/workouts/components/tag-chips.test.tsx (2 tests) 40ms
+apps/web test:  ✓ src/components/ui/card.test.tsx (1 test) 42ms
+apps/web test:  ✓ src/components/ui/checkbox.test.tsx (1 test) 73ms
+apps/web test:  ✓ src/__tests__/placeholder.test.ts (1 test) 1ms
+apps/web test:  ✓ src/pages/injuries.test.tsx (1 test) 130ms
+apps/web test: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+apps/web test:  FAIL  src/pages/active-workout.test.tsx > ActiveWorkoutPage > renders the active workout UI and does not auto-focus any set after rest timer completion
+apps/web test: Error: Test timed out in 5000ms.
+apps/web test: If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+apps/web test:  ❯ src/pages/active-workout.test.tsx:107:3
+apps/web test:     105|   });
+apps/web test:     106| 
+apps/web test:     107|   it('renders the active workout UI and does not auto-focus any set af…
+apps/web test:        |   ^
+apps/web test:     108|     renderActiveWorkoutPage();
+apps/web test:     109| 
+apps/web test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+apps/web test:  FAIL  src/pages/active-workout.test.tsx > ActiveWorkoutPage > moves from session logging to feedback, summary, and back to workouts
+apps/web test: Error: Test timed out in 15000ms.
+apps/web test: If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+apps/web test:  ❯ src/pages/active-workout.test.tsx:305:3
+apps/web test:     303|   });
+apps/web test:     304| 
+apps/web test:     305|   it('moves from session logging to feedback, summary, and back to wor…
+apps/web test:        |   ^
+apps/web test:     306|     vi.useRealTimers();
+apps/web test:     307|     renderActiveWorkoutPage();
+apps/web test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+apps/web test:  FAIL  src/pages/active-workout.test.tsx > ActiveWorkoutPage > keeps the session active after the last set until completion is explicitly confirmed
+apps/web test: Error: Test timed out in 15000ms.
+apps/web test: If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+apps/web test:  ❯ src/pages/active-workout.test.tsx:2185:3
+apps/web test:     2183|   });
+apps/web test:     2184| 
+apps/web test:     2185|   it('keeps the session active after the last set until completion is …
+apps/web test:        |   ^
+apps/web test:     2186|     vi.useRealTimers();
+apps/web test:     2187|     renderActiveWorkoutPage();
+apps/web test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+apps/web test:  Test Files  1 failed | 188 passed (189)
+apps/web test:       Tests  3 failed | 1415 passed (1418)
+apps/web test:    Start at  16:14:11
+apps/web test:    Duration  103.65s (transform 37.78s, setup 55.37s, import 244.21s, tests 408.21s, environment 158.41s)
+apps/web test: Failed
+/Users/meridian/Projects/pulse-agent-reviewed-progression/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @pulse/web@0.0.0 test: `vitest run -- workout-progression`
+Exit status 1
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-09T20:15:55.175Z
+EXIT_CODE: 1

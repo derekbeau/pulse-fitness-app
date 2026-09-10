@@ -1,11 +1,11 @@
 import {
   apiDataResponseSchema,
-  applyWorkoutProgressionActionInputSchema,
   configureWorkoutProgressionInputSchema,
   previewWorkoutProgressionInputSchema,
   workoutMuscleAnalyticsQuerySchema,
   workoutMuscleAnalyticsSchema,
-  workoutProgressionActionSchema,
+  workoutProgressionActionRequestSchema,
+  workoutProgressionActionResponseSchema,
   workoutProgressionConfigurationSchema,
   workoutProgressionPreviewResponseSchema,
   workoutProgressionRecommendationSchema,
@@ -35,6 +35,8 @@ import {
   WorkoutProgressionIdempotencyConflictError,
   WorkoutProgressionInvalidEditError,
   WorkoutProgressionNotFoundError,
+  WorkoutProgressionOwnerAuthorizationRequiredError,
+  publishWorkoutProgression,
   WorkoutProgressionScheduleLockedError,
   WorkoutProgressionStaleError,
 } from './store.js';
@@ -63,6 +65,7 @@ export const workoutProgressionRoutes: FastifyPluginAsync = async (app) => {
         response: {
           200: apiDataResponseSchema(workoutProgressionConfigurationSchema),
           401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
           409: apiErrorResponseSchema,
         },
@@ -89,6 +92,14 @@ export const workoutProgressionRoutes: FastifyPluginAsync = async (app) => {
         }
         return reply.send(buildDataResponse(request, configuration));
       } catch (error) {
+        if (error instanceof WorkoutProgressionOwnerAuthorizationRequiredError) {
+          return sendError(
+            reply,
+            403,
+            'WORKOUT_PROGRESSION_OWNER_AUTHORIZATION_REQUIRED',
+            error.message,
+          );
+        }
         if (error instanceof WorkoutProgressionStaleError) {
           return sendError(reply, 409, 'WORKOUT_PROGRESSION_STALE', error.message);
         }
@@ -161,11 +172,12 @@ export const workoutProgressionRoutes: FastifyPluginAsync = async (app) => {
     {
       schema: {
         params: idParamsSchema,
-        body: applyWorkoutProgressionActionInputSchema,
+        body: workoutProgressionActionRequestSchema,
         response: {
-          200: apiDataResponseSchema(workoutProgressionActionSchema),
+          200: apiDataResponseSchema(workoutProgressionActionResponseSchema),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
+          403: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
           409: apiErrorResponseSchema,
         },
@@ -176,14 +188,30 @@ export const workoutProgressionRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request, reply) => {
       try {
-        const action = await applyWorkoutProgressionAction({
-          actor: actorFromRequest(request),
-          input: request.body,
-          recommendationId: request.params.id,
-          userId: request.userId,
-        });
+        const action =
+          request.body.action === 'publish'
+            ? await publishWorkoutProgression({
+                actor: actorFromRequest(request),
+                anchorRecommendationId: request.params.id,
+                input: request.body,
+                userId: request.userId,
+              })
+            : await applyWorkoutProgressionAction({
+                actor: actorFromRequest(request),
+                input: request.body,
+                recommendationId: request.params.id,
+                userId: request.userId,
+              });
         return reply.send(buildDataResponse(request, action));
       } catch (error) {
+        if (error instanceof WorkoutProgressionOwnerAuthorizationRequiredError) {
+          return sendError(
+            reply,
+            403,
+            'WORKOUT_PROGRESSION_OWNER_AUTHORIZATION_REQUIRED',
+            error.message,
+          );
+        }
         if (error instanceof WorkoutProgressionNotFoundError) {
           return sendError(
             reply,

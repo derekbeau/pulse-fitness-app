@@ -28,7 +28,33 @@ type PreviewPayload = {
     decision: string;
     confidence: string;
     facts: string[];
+    finalReview?: {
+      actorId: string;
+      disposition: string;
+      finalPrescriptionFingerprint: string;
+      finalTargets: Array<{ weight: number | null }>;
+      reason: string;
+      summary: string;
+    } | null;
     evidence: {
+      scheduledWorkoutExerciseId: string;
+      managementMode: string;
+      ownerAuthorization: { actorId: string; authorizedAt: number } | null;
+      policy: {
+        allowReduction: boolean;
+        contextRequired: boolean;
+        distanceStep: number | null;
+        effortCeiling: number | null;
+        family: string;
+        loadIncrement: number | null;
+        loadIncreasePercent: number | null;
+        lowEffortThreshold: number | null;
+        repRangeMax: number | null;
+        repRangeMin: number | null;
+        secondsStep: number | null;
+        version: 1;
+        zoneCeiling: number | null;
+      };
       sourceSessionId: string | null;
       performance: Array<{
         setId: string;
@@ -390,18 +416,54 @@ test.describe.serial('Workout progression and muscle analytics', () => {
     diagnostics();
   });
 
-  test('keeps AgentToken reads equal and accepted replay idempotent', async () => {
+  test('publishes an owner-authorized agent-reviewed plan and carries final targets into start', async ({
+    page,
+  }) => {
     if (!agentToken) throw new Error('Missing progression AgentToken');
+    const initial = await preview('agent');
+    const original = initial.data.recommendations[0];
+    expect(original).toBeDefined();
+    const authorization = await api.put(
+      `/api/v1/workout-progression/scheduled-exercises/${original?.evidence.scheduledWorkoutExerciseId}/configuration`,
+      {
+        data: {
+          contextAvailability: 'available',
+          contextFacts: [],
+          expectedRevision: 1,
+          managementMode: 'agent_reviewed',
+          policy: original?.evidence.policy,
+          priority: true,
+          reason: 'Authorize the coaching agent to review and publish this plan.',
+        },
+        headers: { authorization: `Bearer ${tokens.get('agent')}` },
+      },
+    );
+    expect(authorization.ok(), await authorization.text()).toBeTruthy();
+
     const jwt = await preview('agent');
     const agent = await preview('agent', `AgentToken ${agentToken.token}`);
     expect(agent.data).toEqual(jwt.data);
     const recommendation = agent.data.recommendations[0];
+    expect(recommendation).toMatchObject({
+      evidence: {
+        managementMode: 'agent_reviewed',
+        ownerAuthorization: { actorId: expect.any(String), authorizedAt: expect.any(Number) },
+      },
+      state: 'current',
+    });
     const body = {
-      action: 'accept',
-      editedTargets: null,
-      expectedFingerprint: recommendation?.sourceFingerprint,
+      action: 'publish',
+      dispositions: [
+        {
+          action: 'accept',
+          editedTargets: null,
+          expectedFingerprint: recommendation?.sourceFingerprint,
+          reason: 'Every prescribed work set reached the range top at acceptable effort.',
+          recommendationId: recommendation?.id,
+        },
+      ],
       idempotencyKey: 'agent-progression-replay-1',
-      reason: null,
+      summary: 'Raised the next-session load after reviewing the complete plan.',
     };
     const url = `/api/v1/workout-progression/recommendations/${recommendation?.id}/actions`;
     const first = await api.post(url, {
@@ -423,7 +485,51 @@ test.describe.serial('Workout progression and muscle analytics', () => {
         headers: { authorization: `AgentToken ${agentToken.token}` },
       }),
     ]);
-    expect((await agentDetail.json()).data).toEqual((await jwtDetail.json()).data);
+    const finalRecommendation = (await jwtDetail.json())
+      .data as PreviewPayload['recommendations'][0];
+    expect((await agentDetail.json()).data).toEqual(finalRecommendation);
+    expect(finalRecommendation).toMatchObject({
+      finalReview: {
+        actorId: agentToken.id,
+        disposition: 'applied',
+        reason: body.dispositions[0]?.reason,
+        summary: body.summary,
+      },
+      state: 'accepted',
+    });
+    expect(finalRecommendation.finalReview?.finalTargets.map((target) => target.weight)).toEqual(
+      adaptivePreviewFixtureContract.workoutProgression.recommendedTargetWeights,
+    );
+
+    const diagnostics = monitorPage(page);
+    await openPlanning(page, 'agent', 390);
+    await expect(page.getByText('What changed and why')).toBeVisible();
+    await expect(page.getByText(body.summary)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Accept targets' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Edit' })).toHaveCount(0);
+    await expectNoOverflow(page, 375);
+    await capture(page, 'agent-reviewed-final-375.png');
+    await expectNoOverflow(page, 1280);
+    await capture(page, 'agent-reviewed-final-1280.png');
+    await page.getByRole('button', { name: 'Start workout' }).focus();
+    await page.keyboard.press('Enter');
+    const earlyDialog = page.getByRole('alertdialog', { name: 'Start workout early?' });
+    if (await earlyDialog.isVisible()) {
+      await earlyDialog.getByRole('button', { name: 'Start now' }).click();
+    }
+    await expect(page).toHaveURL(/\/workouts\/active/u);
+    const exerciseToggle = page.getByRole('button', {
+      name: /In-progress exercise Incline dumbbell press/u,
+    });
+    await exerciseToggle.click();
+    await expect(
+      page
+        .getByText(
+          `Target: ${adaptivePreviewFixtureContract.workoutProgression.recommendedTargetWeights[0]} lbs`,
+        )
+        .first(),
+    ).toBeVisible();
+    diagnostics();
   });
 
   test('traces planned and completed muscle exposure across ranges and exact sources', async ({

@@ -1,0 +1,37 @@
+RECEIPT_FORMAT: pulse-153-browser-rerun-v1
+TESTED_COMMIT: b8ba3b75d9fa147f43f165fc0e6adb82facda419
+BRANCH: feat/agent-reviewed-progression
+WORKTREE: /Users/meridian/Projects/pulse-agent-reviewed-progression
+WORKTREE_DIRTY_BEFORE: false
+PRE_RUN_CAPTURED_UTC: 2026-09-10T01:27:33.384728+00:00
+API_PORT: 33166
+E2E_PORT: 54166
+E2E_DATABASE_URL: /tmp/pulse-pr166-browser-rerun-33166.db
+FIXTURE_SCOPE: synthetic adaptive-preview progression fixtures only
+PRODUCTION_OR_REAL_DATA: false
+COMMAND_ARGV_JSON: ["pnpm","--filter","@pulse/web","exec","playwright","test","e2e/workout-progression.spec.ts","--project=chromium","--workers=1","--retries=0","-g","publishes an owner-authorized agent-reviewed plan"]
+STDOUT_BEGIN
+
+Running 1 test using 1 worker
+·
+  1 passed (12.6s)
+STDOUT_END
+STDERR_BEGIN
+[WebServer] (node:46289) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46299) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46305) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46305) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46346) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46356) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+(node:46366) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+STDERR_END
+EXIT_CODE: 0
+SCREENSHOT_375_SHA256: 362c8783f0353cb935df5203a496f6fd07fd8f541dcc8b9aacbcffd372883468
+SCREENSHOT_1280_SHA256: a8c5000ee2895b26e55e163d3f37bcf1dbee2681461f652d8850155b5e86cb8c

@@ -1,0 +1,26 @@
+{
+  "receiptFormat": "pulse-151-json-v1",
+  "testedCommit": "bfcf849b4e6b1e35e928681c518916708c657602",
+  "branch": "feat/agent-reviewed-progression",
+  "worktree": "/Users/meridian/Projects/pulse-agent-reviewed-progression",
+  "worktreeDirtyBefore": true,
+  "statusBefore": "M apps/api/src/db/schema/workout-progression.ts\n M apps/api/src/routes/workout-progression/index.test.ts\n M apps/api/src/routes/workout-progression/index.ts\n M apps/api/src/routes/workout-progression/store.integration.test.ts\n M apps/api/src/routes/workout-progression/store.ts\n M apps/web/e2e/workout-progression.spec.ts\n M apps/web/src/features/workouts/components/workout-progression-review.test.tsx\n M apps/web/src/features/workouts/components/workout-progression-review.tsx\n M packages/shared/src/schemas/workout-progression.test.ts\n M packages/shared/src/schemas/workout-progression.ts\n?? docs/implementation/agent-reviewed-progression-evidence/",
+  "dirtyPatchSha256": "d06325a36525b298d9e74aeeb8da7192248b88134ebb594a68ce2b793915136b",
+  "argv": [
+    "pnpm",
+    "seed:adaptive-tdee-preview",
+    "--",
+    "--date",
+    "2026-08-23",
+    "--database",
+    "apps/api/data/pulse-tdee-dev.db"
+  ],
+  "command": "\"pnpm\" \"seed:adaptive-tdee-preview\" \"--\" \"--date\" \"2026-08-23\" \"--database\" \"apps/api/data/pulse-tdee-dev.db\"",
+  "cacheControls": {},
+  "startedAt": "2026-09-09T20:30:43.873Z",
+  "endedAt": "2026-09-09T20:30:48.256Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "9a8deb585551164875c5887d456e76d940b96b8878b2da1ae50c8248d9e3d017",
+  "rawLog": "/Users/meridian/Projects/pulse-agent-reviewed-progression/docs/implementation/agent-reviewed-progression-evidence/raw/13-synthetic-seed.log",
+  "rawLogSha256": "f9428857ff7438dcba10a9b88b4289077fc4dddc7f229e06568db04ca2532898"
+}

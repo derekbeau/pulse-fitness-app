@@ -1,0 +1,28 @@
+{
+  "manifestFormat": "pulse-153-final-evidence-manifest-v1",
+  "authoritativeReceipt": "raw/25-browser-api-managed-publication-375-desktop.json",
+  "testedCommit": "b8ba3b75d9fa147f43f165fc0e6adb82facda419",
+  "sourceConfigLockfileSha256": {
+    "apps/web/e2e/workout-progression.spec.ts": "3d1abd9ec807a88513440234ff63bb7794fa303e19749da7c7813acd3dd1b544",
+    "apps/web/playwright.config.ts": "536d28616540ba58bf90dca408ec6f6c870124462f3906c4ab0cac9699b65589",
+    "apps/web/e2e/test-env.ts": "26c69ec8852fa068875afa429782f9861f9c92beece5eb6c59d4e84653833531",
+    "scripts/seed-adaptive-tdee-preview.ts": "cca2c0c7e84da1676b94d819f3efcfc3abfd1ffb05bd2c8c2bd44468f74b473c",
+    "scripts/adaptive-preview-fixture-contract.v1.json": "6ad1312e756d7d99127245baf9f0ca0ac63c3fc4c4dbe8b71cd3c5bccd7a91f9",
+    "pnpm-lock.yaml": "a4a3723d7b1181995713719f2f45a6dcc931bc1c03de5b44d6362e401be1975a",
+    "package.json": "38b6a2fc5451b1da1aea62ff64a3d458e32e10987eb40e400521fa28cc5bf2c4"
+  },
+  "rawEvidenceSha256": {
+    "25-browser-api-managed-publication-375-desktop.log": "de000778f75d7318b4e7b9e84d16d69a7b417a99321403af7bdd090e2ab4b4aa",
+    "25-browser-api-managed-publication-375-desktop.json": "c603f2fdb3a59c31523618d43adfe22fb8b81ff94584f9ae906d1b3e3d87535a",
+    "25-browser-api-managed-publication-375-desktop.stdout": "33b7477fbc601f4833e869997a8723e0e308cde413b92c523a0984fdc472a1f2",
+    "25-browser-api-managed-publication-375-desktop.stderr": "4e9368a1f401d7a988c8e8a54886925f481096c1b8cef2afc2048b8b67bcce0d",
+    "25-synthetic-seed.stdout": "9a8deb585551164875c5887d456e76d940b96b8878b2da1ae50c8248d9e3d017",
+    "25-synthetic-seed.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "historicalSupersession": {
+    "raw/17-browser-api-managed-publication-375-desktop.log": "historical/not-final (dirty input binding unproven)",
+    "raw/17-browser-api-managed-publication-375-desktop.json": "historical/not-final (dirty input binding unproven)",
+    "raw/17-browser-api-managed-publication-375-desktop-binding-correction.json": "historical correction; does not prove original"
+  },
+  "productSourceChanges": 0
+}

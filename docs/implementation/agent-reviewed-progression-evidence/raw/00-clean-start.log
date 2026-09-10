@@ -1,0 +1,44 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: bfcf849b4e6b1e35e928681c518916708c657602
+BRANCH: feat/agent-reviewed-progression
+WORKTREE: /Users/meridian/Projects/pulse-agent-reviewed-progression
+WORKTREE_DIRTY_BEFORE: false
+DIRTY_PATCH_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STARTED_UTC: 2026-09-09T19:58:48.555Z
+COMMAND_ARGV_JSON: ["sh","-c","git status --short --branch; git rev-parse HEAD; git branch --show-current; git merge-base --is-ancestor b8c22e98cfcd2fb341f7d89d59c66da19db40f05 HEAD; shasum -a 256 AGENTS.md docs/implementation/agent-reviewed-progression-goal.md package.json pnpm-lock.yaml turbo.json vitest.config.ts apps/web/playwright.config.ts packages/shared/src/schemas/workout-progression.ts apps/api/src/routes/workout-progression/store.ts apps/api/src/routes/workout-progression/index.ts apps/api/src/routes/scheduled-workouts/snapshot-store.ts apps/api/src/routes/scheduled-workouts/store.ts apps/api/src/routes/scheduled-workouts/index.ts packages/shared/src/schemas/scheduled-workouts.ts apps/api/src/routes/workout-sessions/index.ts apps/api/src/routes/workout-sessions/store.ts apps/web/src/features/workouts/components/workout-list.tsx apps/web/src/features/workouts/components/workout-calendar.tsx apps/web/src/features/workouts/components/scheduled-workout-detail.tsx apps/web/src/hooks/use-workout-session.ts docs/implementation/feedback-provenance-goal.md docs/specs/rir-logging-v1.md packages/shared/src/schemas/workout-sessions.ts docs/specs/workout-progression-v1.md docs/implementation/progression-preview-goal.md docs/implementation/semantic-template-diff-goal.md"]
+COMMAND: "sh" "-c" "git status --short --branch; git rev-parse HEAD; git branch --show-current; git merge-base --is-ancestor b8c22e98cfcd2fb341f7d89d59c66da19db40f05 HEAD; shasum -a 256 AGENTS.md docs/implementation/agent-reviewed-progression-goal.md package.json pnpm-lock.yaml turbo.json vitest.config.ts apps/web/playwright.config.ts packages/shared/src/schemas/workout-progression.ts apps/api/src/routes/workout-progression/store.ts apps/api/src/routes/workout-progression/index.ts apps/api/src/routes/scheduled-workouts/snapshot-store.ts apps/api/src/routes/scheduled-workouts/store.ts apps/api/src/routes/scheduled-workouts/index.ts packages/shared/src/schemas/scheduled-workouts.ts apps/api/src/routes/workout-sessions/index.ts apps/api/src/routes/workout-sessions/store.ts apps/web/src/features/workouts/components/workout-list.tsx apps/web/src/features/workouts/components/workout-calendar.tsx apps/web/src/features/workouts/components/scheduled-workout-detail.tsx apps/web/src/hooks/use-workout-session.ts docs/implementation/feedback-provenance-goal.md docs/specs/rir-logging-v1.md packages/shared/src/schemas/workout-sessions.ts docs/specs/workout-progression-v1.md docs/implementation/progression-preview-goal.md docs/implementation/semantic-template-diff-goal.md"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+## feat/agent-reviewed-progression
+bfcf849b4e6b1e35e928681c518916708c657602
+feat/agent-reviewed-progression
+58f611d1ea281346d7ce595fbcb6910a4cf6ca46103ed991437c11bdec92cc29  AGENTS.md
+68a76f7fd49bd37f43743571ad01357fd27242b2cb034b914894afbe44090bc9  docs/implementation/agent-reviewed-progression-goal.md
+38b6a2fc5451b1da1aea62ff64a3d458e32e10987eb40e400521fa28cc5bf2c4  package.json
+a4a3723d7b1181995713719f2f45a6dcc931bc1c03de5b44d6362e401be1975a  pnpm-lock.yaml
+3d6fe8d8db6f86f91108bfd23e70330e5eda32f6a1aea53fd03e4097522284af  turbo.json
+shasum: vitest.config.ts: No such file or directory
+536d28616540ba58bf90dca408ec6f6c870124462f3906c4ab0cac9699b65589  apps/web/playwright.config.ts
+02e4d2e9259e169c503dce82c46514387f1db9af5a0f1d78afe675a56b62dcb5  packages/shared/src/schemas/workout-progression.ts
+672f7cc5f72549f82aa1aea8bf49374d704eec6d51d8a95e34c050e0db5788eb  apps/api/src/routes/workout-progression/store.ts
+6fcedf02f70f9b6d0890373c27a3db01d54951ea78c6c4ebccecbd0a8f9c55b7  apps/api/src/routes/workout-progression/index.ts
+191cfeb214f249e4228342b209e4414a1c56788879623857f0e308291d669b56  apps/api/src/routes/scheduled-workouts/snapshot-store.ts
+023743822f9220768124f48d715c547997f315f89375305ad9f62b43efd83096  apps/api/src/routes/scheduled-workouts/store.ts
+63371d110396e643f7285262bda5e9c9a9d3ebd8e59004688e74587a18968e5a  apps/api/src/routes/scheduled-workouts/index.ts
+5dbf18349d30eba99f258ae7dd3cfda6f5788ef3e37735f30cc5d419d7862f08  packages/shared/src/schemas/scheduled-workouts.ts
+d6173a3db8a9a43334e427f38aa54a300d5361947aa9ecb582979d5b8434de89  apps/api/src/routes/workout-sessions/index.ts
+514c2ccb703128265ea98a731fc0c7a30a39dc39a6b61e2a5b583128bcaad4de  apps/api/src/routes/workout-sessions/store.ts
+1625b29003bbe943a017bb66e99b93aedbe61a0889477380599893d4d95ab508  apps/web/src/features/workouts/components/workout-list.tsx
+90e03a5473787f2f1be0238ff4bf9e2cf753dec2b68761dfb7d6cc81c4f068f7  apps/web/src/features/workouts/components/workout-calendar.tsx
+47087fd569ff73e278dec12b2fa205a5a33f50f1f6063d5eba74d45cdb0e79c9  apps/web/src/features/workouts/components/scheduled-workout-detail.tsx
+2cf0268ab3e9bcec923c933b7e3fba5d1c6801a8029071b7820feedecbebfd08  apps/web/src/hooks/use-workout-session.ts
+35326414f0dd1c16656464bf2bf100e3c769638c47a40b90de3d075de1a7cae0  docs/implementation/feedback-provenance-goal.md
+1c646727a5392b197ef34b14305e8aaf316aeaa04d59bf6231cab83c79fbdc30  docs/specs/rir-logging-v1.md
+605aed5aab7bd8d0fe04bc14a0cce3aa2276a1b87e2ac541a13bb86f6df043fd  packages/shared/src/schemas/workout-sessions.ts
+55a91883a404565a000fe0f5ee1b18e18bd195bdab2132e655a55c2841ae9466  docs/specs/workout-progression-v1.md
+31c854ae8ede8bf0a35bd47accbbd616270ec61b0cd2b7dfae7903b067f92d7c  docs/implementation/progression-preview-goal.md
+79e93f1a9e9cdb9e87b13f0bc639a231c6d704a8404b5005d2bf89eda60700d7  docs/implementation/semantic-template-diff-goal.md
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-09T19:58:48.912Z
+EXIT_CODE: 1

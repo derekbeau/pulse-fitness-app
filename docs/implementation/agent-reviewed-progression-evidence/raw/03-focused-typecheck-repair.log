@@ -1,0 +1,51 @@
+RECEIPT_FORMAT: pulse-151-raw-v1
+TESTED_COMMIT: bfcf849b4e6b1e35e928681c518916708c657602
+BRANCH: feat/agent-reviewed-progression
+WORKTREE: /Users/meridian/Projects/pulse-agent-reviewed-progression
+WORKTREE_DIRTY_BEFORE: true
+DIRTY_PATCH_SHA256: a3bfe5c07b1d96d4dd4889fed415a0272f5b75986c027271465ed4151c191bfd
+STARTED_UTC: 2026-09-09T20:12:12.912Z
+COMMAND_ARGV_JSON: ["pnpm","typecheck"]
+COMMAND: "pnpm" "typecheck"
+CACHE_CONTROLS_JSON: {}
+STDOUT_STDERR_BEGIN
+
+> pulse@ typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression
+> turbo run typecheck
+
+• turbo 2.8.13
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running typecheck in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/web:typecheck: cache miss, executing a22d7033f4aced83
+@pulse/api:typecheck: cache miss, executing 29ced7cc25decced
+@pulse/shared:typecheck: cache hit, replaying logs 4807a16af687b1ed
+@pulse/shared:typecheck: 
+@pulse/shared:typecheck: > @pulse/shared@0.0.0 typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression/packages/shared
+@pulse/shared:typecheck: > tsc --noEmit -p tsconfig.json
+@pulse/shared:typecheck: 
+@pulse/web:typecheck: 
+@pulse/web:typecheck: > @pulse/web@0.0.0 typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/web
+@pulse/web:typecheck: > tsc --noEmit
+@pulse/web:typecheck: 
+@pulse/api:typecheck: 
+@pulse/api:typecheck: > @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-agent-reviewed-progression/apps/api
+@pulse/api:typecheck: > tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+@pulse/api:typecheck: 
+@pulse/web:typecheck: src/features/workouts/components/workout-progression-review.test.tsx(18,3): error TS2739: Type '{ exerciseId: string; exerciseName: string; performance: { completed: true; distance: null; reps: number; rpe: number; rir: null; effortSource: "native_rpe"; seconds: null; setId: string; sourceScheduledSetId: string; ... 4 more ...; prescribed: { ...; }; }[]; ... 10 more ...; trackingType: "weight_reps"; }' is missing the following properties from type '{ trackingType: "duration" | "weight_reps" | "bodyweight_reps" | "reps_only" | "cardio" | "weight_seconds" | "reps_seconds" | "seconds_only" | "distance"; policy: { version: 1; family: "unsupported" | ... 4 more ... | "rehab_capacity"; ... 10 more ...; contextRequired: boolean; }; ... 15 more ...; diagnostics?: { .....': managementMode, managementReason, ownerAuthorization
+@pulse/web:typecheck:  ELIFECYCLE  Command failed with exit code 2.
+@pulse/web:typecheck: ERROR: command finished with error: command (/Users/meridian/Projects/pulse-agent-reviewed-progression/apps/web) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run typecheck exited (2)
+@pulse/api:typecheck:  ELIFECYCLE  Command failed.
+@pulse/web#typecheck: command (/Users/meridian/Projects/pulse-agent-reviewed-progression/apps/web) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run typecheck exited (2)
+
+ Tasks:    1 successful, 3 total
+Cached:    1 cached, 3 total
+  Time:    15.462s 
+Failed:    @pulse/web#typecheck
+
+ ERROR  run failed: command  exited (2)
+ ELIFECYCLE  Command failed with exit code 2.
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-09T20:12:29.214Z
+EXIT_CODE: 2
