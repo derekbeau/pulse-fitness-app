@@ -19,17 +19,18 @@ TypeScript, Vitest, Playwright, and lock files.
 
 ## Focused verification
 
-| Receipt                                          |                      Result | Contract exercised                                                                                                        |
-| ------------------------------------------------ | --------------------------: | ------------------------------------------------------------------------------------------------------------------------- |
-| `07-shared-progression-schema`                   |                    7 passed | strict management modes and publication input                                                                             |
-| `09-api-progression-store-replay-order`          |                   29 passed | transaction rollback repair and stable concurrent replay                                                                  |
-| `10-api-progression-routes`                      |                    7 passed | real action route, AgentToken provenance, OpenAPI request shape                                                           |
-| `11-web-progression-review`                      |                   30 passed | managed final review, self review, and both web start surfaces                                                            |
-| `12-api-start-provenance`                        |                    3 passed | scheduled snapshot, independent template start, concurrent start                                                          |
-| `17-browser-api-managed-publication-375-desktop` |                    1 passed | real owner PUT, preview, AgentToken publish/replay, JWT readback, 375px/desktop UI, keyboard Start, active-session target |
-| `18-shared-engine-and-contract-final-focused`    |                   37 passed | unchanged deterministic engine, native RIR including zero, safety/unknown holds                                           |
-| `19-focused-typecheck-before-review`             | 3 packages passed, uncached | typed source and test contract before review                                                                              |
-| `20-api-progression-store-final-focused`         |                   29 passed | incomplete batch rejection, injected rollback, concurrent replay, conflicting retry                                       |
+| Receipt                                          |                         Result | Contract exercised                                                                                                                                                                     |
+| ------------------------------------------------ | -----------------------------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `07-shared-progression-schema`                   |                       7 passed | strict management modes and publication input                                                                                                                                          |
+| `09-api-progression-store-replay-order`          |                      29 passed | transaction rollback repair and stable concurrent replay                                                                                                                               |
+| `10-api-progression-routes`                      |                       7 passed | real action route, AgentToken provenance, OpenAPI request shape                                                                                                                        |
+| `11-web-progression-review`                      |                      30 passed | managed final review, self review, and both web start surfaces                                                                                                                         |
+| `12-api-start-provenance`                        |                       3 passed | scheduled snapshot, independent template start, concurrent start                                                                                                                       |
+| `17-browser-api-managed-publication-375-desktop` | historical 1 passed; not final | original dirty-worktree browser run; input binding is unproven and is superseded by receipt `25`                                                                                       |
+| `25-browser-api-managed-publication-375-desktop` |                       1 passed | clean pinned `b8ba3b7`, external synthetic DB, unique ports, real owner PUT, preview, AgentToken publish/replay, JWT readback, 375px/desktop UI, keyboard Start, active-session target |
+| `18-shared-engine-and-contract-final-focused`    |                      37 passed | unchanged deterministic engine, native RIR including zero, safety/unknown holds                                                                                                        |
+| `19-focused-typecheck-before-review`             |    3 packages passed, uncached | typed source and test contract before review                                                                                                                                           |
+| `20-api-progression-store-final-focused`         |                      29 passed | incomplete batch rejection, injected rollback, concurrent replay, conflicting retry                                                                                                    |
 
 The installed-Chrome acceptance screenshots and metadata remain local test artifacts at:
 
@@ -72,10 +73,10 @@ Receipts `21`–`24` bind the final matrix to clean source candidate
 `worktreeDirtyBefore: false`, exit code 0, `TURBO_FORCE=true`, strict environment handling, and
 single-worker Turbo execution.
 
-| Receipt              | Result                         | Notes                                                |
-| -------------------- | ------------------------------ | ---------------------------------------------------- |
-| `21-final-test`      | 6 Turbo tasks passed, 0 cached | shared 729, web 1420, API 1243, repo scripts 15      |
-| `22-final-typecheck` | 3 Turbo tasks passed, 0 cached | shared, API, and web                                 |
+| Receipt              | Result                         | Notes                                               |
+| -------------------- | ------------------------------ | --------------------------------------------------- |
+| `21-final-test`      | 6 Turbo tasks passed, 0 cached | shared 729, web 1420, API 1243, repo scripts 15     |
+| `22-final-typecheck` | 3 Turbo tasks passed, 0 cached | shared, API, and web                                |
 | `23-final-lint`      | 3 Turbo tasks passed, 0 cached | zero errors; six pre-existing Fast Refresh warnings |
 | `24-final-build`     | 3 Turbo tasks passed, 0 cached | successful production builds; known chunk warning   |
 
