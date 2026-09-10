@@ -1,0 +1,224 @@
+{
+  "format": "pulse-153-evidence-binding-correction-v1",
+  "purpose": "Evidence-only mapping; does not rewrite raw receipt",
+  "rawReceipt": {
+    "jsonPath": "docs/implementation/agent-reviewed-progression-evidence/raw/17-browser-api-managed-publication-375-desktop.json",
+    "logPath": "docs/implementation/agent-reviewed-progression-evidence/raw/17-browser-api-managed-publication-375-desktop.log",
+    "jsonSha256": "79d44e284778e8efe738d83058722229fcf9a275d92b7c9ed4a5941a7b688d3b",
+    "logSha256": "4a2dfcd6a78bfa1ecde2209bb2f4c4a40d16b734bb0ad0ae64109395f07e516d",
+    "recordedTestedCommit": "bfcf849b4e6b1e35e928681c518916708c657602",
+    "recordedDirtyPatchSha256": "e6ffc87b9775716f9050ca7047e7beec34a9561573e51afd1edf93db25de95b7",
+    "recordedWorktreeDirtyBefore": true,
+    "passed": true
+  },
+  "candidate": {
+    "implementationCommit": "d977b4db271cde4f3e39fa59ee523f1b575495db",
+    "finalReviewedHead": "b94bdd92959f423f67d1b16224f35ec24ac7995a",
+    "candidateIsAncestor": true
+  },
+  "equivalenceProof": {
+    "method": "Compare contemporaneous behavior-relevant tracked source/test/config/lockfile Git blobs at the recorded implementation candidate and final reviewed head; retain the raw dirty receipt unchanged.",
+    "sourceAndTestCount": 10,
+    "configAndLockfileCount": 16,
+    "allCandidateAndFinalBlobsMatch": true,
+    "entries": [
+      {
+        "path": "apps/api/src/db/schema/workout-progression.ts",
+        "bfcf849_blob": "db3c818969d3cb667bb8d5fb601dd78d5661dbb0",
+        "d977b4d_blob": "38d8d29069c8d14bbcf5b4de9ac95f62ac04ca63",
+        "final_head_blob": "38d8d29069c8d14bbcf5b4de9ac95f62ac04ca63",
+        "matches_candidate": true
+      },
+      {
+        "path": "apps/api/src/routes/workout-progression/index.test.ts",
+        "bfcf849_blob": "5a6a89bb5e40cdf5c9730cdded62e9e1205909ef",
+        "d977b4d_blob": "8cf52485bc8bcf899c034dc00b52e40885d0721e",
+        "final_head_blob": "8cf52485bc8bcf899c034dc00b52e40885d0721e",
+        "matches_candidate": true
+      },
+      {
+        "path": "apps/api/src/routes/workout-progression/index.ts",
+        "bfcf849_blob": "6ff66bfa69508db0d8f912b0895a77d0667d0f2f",
+        "d977b4d_blob": "609c183c4c94e2287dd5d45cd9ba391c0521bcfe",
+        "final_head_blob": "609c183c4c94e2287dd5d45cd9ba391c0521bcfe",
+        "matches_candidate": true
+      },
+      {
+        "path": "apps/api/src/routes/workout-progression/store.integration.test.ts",
+        "bfcf849_blob": "49a7743f74a84dbe5bc05b5e6b9e3eef5bdaf335",
+        "d977b4d_blob": "995e0a2942ea54379363b897da197c64a991c93f",
+        "final_head_blob": "995e0a2942ea54379363b897da197c64a991c93f",
+        "matches_candidate": true
+      },
+      {
+        "path": "apps/api/src/routes/workout-progression/store.ts",
+        "bfcf849_blob": "33de04293e7a1c7fb61f8f31ee48cb49b8574e74",
+        "d977b4d_blob": "8e1b1b8029e3163aa94716a49623cd815a4ccec7",
+        "final_head_blob": "8e1b1b8029e3163aa94716a49623cd815a4ccec7",
+        "matches_candidate": true
+      },
+      {
+        "path": "apps/web/e2e/workout-progression.spec.ts",
+        "bfcf849_blob": "e414f4169d2b3f7b987dc7691f4beccd54864749",
+        "d977b4d_blob": "da1f3c2ab9bb51171e7eb39d2aaf1cd8c1218c2d",
+        "final_head_blob": "da1f3c2ab9bb51171e7eb39d2aaf1cd8c1218c2d",
+        "matches_candidate": true
+      },
+      {
+        "path": "apps/web/src/features/workouts/components/workout-progression-review.test.tsx",
+        "bfcf849_blob": "74018f2e074877358b07f5baeed517d81d67cd15",
+        "d977b4d_blob": "d3d6c0fad001984a3f627988f015a5e63587c0de",
+        "final_head_blob": "d3d6c0fad001984a3f627988f015a5e63587c0de",
+        "matches_candidate": true
+      },
+      {
+        "path": "apps/web/src/features/workouts/components/workout-progression-review.tsx",
+        "bfcf849_blob": "b5293f7d9c5745b22c272f2749b67b63b19d6395",
+        "d977b4d_blob": "8999b1949b70b39dff2366d3932472fb65dae77b",
+        "final_head_blob": "8999b1949b70b39dff2366d3932472fb65dae77b",
+        "matches_candidate": true
+      },
+      {
+        "path": "packages/shared/src/schemas/workout-progression.test.ts",
+        "bfcf849_blob": "ceadaca1822be5fc3df6dd4a1544e68a2536f5a5",
+        "d977b4d_blob": "b88f997b6022638e66839dcc699066ae88738f55",
+        "final_head_blob": "b88f997b6022638e66839dcc699066ae88738f55",
+        "matches_candidate": true
+      },
+      {
+        "path": "packages/shared/src/schemas/workout-progression.ts",
+        "bfcf849_blob": "2bc7a81513274f1525eac1e5b685d84fe771c4aa",
+        "d977b4d_blob": "6aa8e3721aff4a15d6527b8426a1e7a5e6448f7d",
+        "final_head_blob": "6aa8e3721aff4a15d6527b8426a1e7a5e6448f7d",
+        "matches_candidate": true
+      },
+      {
+        "path": "docs/implementation/agent-reviewed-progression-goal.md",
+        "bfcf849_blob": "72d8784a5e96b7ec293c3f715b3e2ca42c0ebad7",
+        "d977b4d_blob": "72d8784a5e96b7ec293c3f715b3e2ca42c0ebad7",
+        "final_head_blob": "72d8784a5e96b7ec293c3f715b3e2ca42c0ebad7",
+        "matches_candidate": true
+      },
+      {
+        "path": "package.json",
+        "bfcf849_blob": "435128fd63b1e4c24d49350d795d4f5c24dd8ea3",
+        "d977b4d_blob": "435128fd63b1e4c24d49350d795d4f5c24dd8ea3",
+        "final_head_blob": "435128fd63b1e4c24d49350d795d4f5c24dd8ea3",
+        "matches_candidate": true
+      },
+      {
+        "path": "apps/api/package.json",
+        "bfcf849_blob": "a1782a5027c1c26728693de41d60964982e1b39c",
+        "d977b4d_blob": "a1782a5027c1c26728693de41d60964982e1b39c",
+        "final_head_blob": "a1782a5027c1c26728693de41d60964982e1b39c",
+        "matches_candidate": true
+      },
+      {
+        "path": "apps/web/package.json",
+        "bfcf849_blob": "b812089bcb280deab8fae3d3eaec680f2adbe3b2",
+        "d977b4d_blob": "b812089bcb280deab8fae3d3eaec680f2adbe3b2",
+        "final_head_blob": "b812089bcb280deab8fae3d3eaec680f2adbe3b2",
+        "matches_candidate": true
+      },
+      {
+        "path": "packages/shared/package.json",
+        "bfcf849_blob": "62c989701b60afad3a4f7cc728150de47cf2503e",
+        "d977b4d_blob": "62c989701b60afad3a4f7cc728150de47cf2503e",
+        "final_head_blob": "62c989701b60afad3a4f7cc728150de47cf2503e",
+        "matches_candidate": true
+      },
+      {
+        "path": "pnpm-lock.yaml",
+        "bfcf849_blob": "8f948b97753eb82b5e98b747ef01739c04439fd8",
+        "d977b4d_blob": "8f948b97753eb82b5e98b747ef01739c04439fd8",
+        "final_head_blob": "8f948b97753eb82b5e98b747ef01739c04439fd8",
+        "matches_candidate": true
+      },
+      {
+        "path": "turbo.json",
+        "bfcf849_blob": "29892ea04fcda1e1443f4f75ce3fb2c5a8aaee53",
+        "d977b4d_blob": "29892ea04fcda1e1443f4f75ce3fb2c5a8aaee53",
+        "final_head_blob": "29892ea04fcda1e1443f4f75ce3fb2c5a8aaee53",
+        "matches_candidate": true
+      },
+      {
+        "path": "apps/api/tsconfig.json",
+        "bfcf849_blob": "786fbc423d0b56f01d72b907426f12e07bbbc788",
+        "d977b4d_blob": "786fbc423d0b56f01d72b907426f12e07bbbc788",
+        "final_head_blob": "786fbc423d0b56f01d72b907426f12e07bbbc788",
+        "matches_candidate": true
+      },
+      {
+        "path": "apps/api/tsconfig.test.json",
+        "bfcf849_blob": "c2ee6e0af92e91b8fb08ea5d606242122559d8c8",
+        "d977b4d_blob": "c2ee6e0af92e91b8fb08ea5d606242122559d8c8",
+        "final_head_blob": "c2ee6e0af92e91b8fb08ea5d606242122559d8c8",
+        "matches_candidate": true
+      },
+      {
+        "path": "apps/web/tsconfig.json",
+        "bfcf849_blob": "0b3c42e4dd2fbe53175a8fee38dc8a3d79f30c65",
+        "d977b4d_blob": "0b3c42e4dd2fbe53175a8fee38dc8a3d79f30c65",
+        "final_head_blob": "0b3c42e4dd2fbe53175a8fee38dc8a3d79f30c65",
+        "matches_candidate": true
+      },
+      {
+        "path": "packages/shared/tsconfig.json",
+        "bfcf849_blob": "63dc693a80f085486303c089a543ca93653fc4c5",
+        "d977b4d_blob": "63dc693a80f085486303c089a543ca93653fc4c5",
+        "final_head_blob": "63dc693a80f085486303c089a543ca93653fc4c5",
+        "matches_candidate": true
+      },
+      {
+        "path": "apps/api/vitest.config.ts",
+        "bfcf849_blob": "5a536086f81115a758e123c428134c8944d7281d",
+        "d977b4d_blob": "5a536086f81115a758e123c428134c8944d7281d",
+        "final_head_blob": "5a536086f81115a758e123c428134c8944d7281d",
+        "matches_candidate": true
+      },
+      {
+        "path": "packages/shared/vitest.config.ts",
+        "bfcf849_blob": "4ac6027d578946efec26a1a4c0e307dc155d2b7f",
+        "d977b4d_blob": "4ac6027d578946efec26a1a4c0e307dc155d2b7f",
+        "final_head_blob": "4ac6027d578946efec26a1a4c0e307dc155d2b7f",
+        "matches_candidate": true
+      },
+      {
+        "path": "playwright.config.ts",
+        "bfcf849_blob": "7e87c3f0008225b4b48f247d171fd32b9de2caa4",
+        "d977b4d_blob": "7e87c3f0008225b4b48f247d171fd32b9de2caa4",
+        "final_head_blob": "7e87c3f0008225b4b48f247d171fd32b9de2caa4",
+        "matches_candidate": true
+      },
+      {
+        "path": "apps/web/playwright.config.ts",
+        "bfcf849_blob": "98c83fd1a08f9626ab0ca04b5f2b19f5a4275827",
+        "d977b4d_blob": "98c83fd1a08f9626ab0ca04b5f2b19f5a4275827",
+        "final_head_blob": "98c83fd1a08f9626ab0ca04b5f2b19f5a4275827",
+        "matches_candidate": true
+      },
+      {
+        "path": "docs/implementation/feedback-planning-context-evidence/run-receipt.mjs",
+        "bfcf849_blob": "6a8c6ad9c8f425aea39da9e343e6fe15d6a1d874",
+        "d977b4d_blob": "6a8c6ad9c8f425aea39da9e343e6fe15d6a1d874",
+        "final_head_blob": "6a8c6ad9c8f425aea39da9e343e6fe15d6a1d874",
+        "matches_candidate": true
+      }
+    ],
+    "scopeNote": "The raw receipt truthfully remains a dirty-tree run at bfcf849 with its original dirty-patch hash. This metadata binds the tested behavior-relevant tracked inputs to d977b4d; it does not relabel the raw receipt as clean or claim equivalence for ignored local environment/database/artifacts not represented by these tracked-input hashes."
+  },
+  "screenshots": [
+    {
+      "path": "logs/progression-preview/existing-chrome/agent-reviewed-final-375.png",
+      "sha256": "22eb44a49dd5fa0ebe6db47c9deb9130c9dd18898935a59ffefe098bc26eddb6",
+      "present_local_only": true
+    },
+    {
+      "path": "logs/progression-preview/existing-chrome/agent-reviewed-final-1280.png",
+      "sha256": "a88e7d27a75a8c6f32f8adcf870e4236579116bd628230fdde7e11eecaf31b67",
+      "present_local_only": true
+    }
+  ],
+  "rerun": "Not required: browser actual behavior-relevant tracked inputs are proven equal to d977b4d; no product source changed.",
+  "verdict": "PASS_WITH_LIMITATION"
+}
