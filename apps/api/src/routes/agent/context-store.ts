@@ -9,7 +9,6 @@ import {
   mealItems,
   meals,
   nutritionLogs,
-  nutritionTargets,
   scheduledWorkouts,
   sessionSets,
   users,
@@ -183,19 +182,7 @@ export const getAgentContextTodayNutrition = async (
     fat: 0,
   };
 
-  const target =
-    db
-      .select({
-        calories: nutritionTargets.calories,
-        protein: nutritionTargets.protein,
-        carbs: nutritionTargets.carbs,
-        fat: nutritionTargets.fat,
-      })
-      .from(nutritionTargets)
-      .where(and(eq(nutritionTargets.userId, userId), lte(nutritionTargets.effectiveDate, date)))
-      .orderBy(desc(nutritionTargets.effectiveDate))
-      .limit(1)
-      .get() ?? null;
+  const target = dailyEnergy.dailyTarget?.effective ?? null;
 
   const nutritionLog =
     db

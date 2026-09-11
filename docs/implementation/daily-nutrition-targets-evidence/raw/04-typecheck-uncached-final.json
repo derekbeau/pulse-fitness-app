@@ -1,0 +1,27 @@
+{
+  "receiptFormat": "pulse-132-json-v1",
+  "testedCommit": "5281ee7ddef182589053ab61c11bfe3b107c47e6",
+  "testedTree": "f891b9448d932a99106f216214967e88275f718f",
+  "branch": "feat/daily-nutrition-targets",
+  "worktree": "/Users/meridian/Projects/pulse-daily-nutrition-targets",
+  "worktreeDirtyBefore": false,
+  "statusBefore": "",
+  "dirtyPatchSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "argv": [
+    "pnpm",
+    "typecheck"
+  ],
+  "command": "\"pnpm\" \"typecheck\"",
+  "cacheControls": {
+    "TURBO_FORCE": "true",
+    "TURBO_CONCURRENCY": "1",
+    "TURBO_ENV_MODE": "strict",
+    "CI": "true"
+  },
+  "startedAt": "2026-09-10T03:38:19.629Z",
+  "endedAt": "2026-09-10T03:38:48.802Z",
+  "exitCode": 0,
+  "combinedOutputSha256": "4867b9f0545108cd6579328dc16655acc4eccfdf6e8f2db64b636aa5f9513122",
+  "rawLog": "/Users/meridian/Projects/pulse-daily-nutrition-targets/docs/implementation/daily-nutrition-targets-evidence/raw/04-typecheck-uncached-final.log",
+  "rawLogSha256": "8401cc3c240a5def181b3cf0ea1a7735045517da85cb52913d94e4fed5f939e5"
+}

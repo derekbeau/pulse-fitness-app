@@ -6,7 +6,14 @@ import {
   findUserAuthById,
   updateAgentTokenLastUsedAt,
 } from '../../middleware/store.js';
-import { getDailyEnergyAdherenceForDate } from './daily-energy-store.js';
+import {
+  getDailyEnergyAdherenceForDate,
+  getResolvedDailyNutritionTargetForDate,
+} from './daily-energy-store.js';
+import {
+  deleteDailyNutritionTargetForDate,
+  patchDailyNutritionTargetForDate,
+} from './daily-target-store.js';
 
 import {
   createMealForDate,
@@ -41,6 +48,12 @@ vi.mock('./store.js', () => ({
 
 vi.mock('./daily-energy-store.js', () => ({
   getDailyEnergyAdherenceForDate: vi.fn(),
+  getResolvedDailyNutritionTargetForDate: vi.fn(),
+}));
+
+vi.mock('./daily-target-store.js', () => ({
+  deleteDailyNutritionTargetForDate: vi.fn(),
+  patchDailyNutritionTargetForDate: vi.fn(),
 }));
 
 vi.mock('./status-store.js', async (importOriginal) => {
@@ -178,6 +191,27 @@ const nutritionSummary = {
     state: 'below_floor' as const,
     isFinal: false,
   },
+};
+
+const resolvedDailyTarget = {
+  date: '2026-03-09',
+  timeZone: 'America/Detroit',
+  baseline: {
+    targetEventId: 'event-1',
+    targetId: 'target-1',
+    effectiveDate: '2026-03-01',
+    recordedAt: 1_772_380_800_000,
+    calories: 2_200,
+    protein: 180,
+    carbs: 250,
+    fat: 70,
+    source: 'manual' as const,
+    adaptiveCheckInId: null,
+  },
+  override: null,
+  effective: { calories: 2_200, protein: 180, carbs: 250, fat: 70 },
+  adjusted: false,
+  overriddenFields: [],
 };
 
 const loggingContext = {
@@ -366,6 +400,9 @@ describe('nutrition routes', () => {
     vi.mocked(findUserAuthById).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockReset();
     vi.mocked(getDailyEnergyAdherenceForDate).mockReset();
+    vi.mocked(getResolvedDailyNutritionTargetForDate).mockReset();
+    vi.mocked(patchDailyNutritionTargetForDate).mockReset();
+    vi.mocked(deleteDailyNutritionTargetForDate).mockReset();
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
     process.env.JWT_SECRET = 'test-nutrition-routes-secret';
   });
@@ -426,6 +463,69 @@ describe('nutrition routes', () => {
         '2026-03-09',
         'partial',
       );
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('uses identical date-scoped target override contracts for JWT and AgentToken callers', async () => {
+    const adjusted = {
+      ...resolvedDailyTarget,
+      override: {
+        id: 'override-1',
+        date: '2026-03-09',
+        calories: 2_500,
+        protein: null,
+        carbs: null,
+        fat: null,
+        reason: 'Planned event',
+        createdAt: 1_772_380_900_000,
+        updatedAt: 1_772_380_900_000,
+      },
+      effective: { ...resolvedDailyTarget.effective, calories: 2_500 },
+      adjusted: true,
+      overriddenFields: ['calories' as const],
+    };
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({
+      id: 'agent-token-1',
+      userId: 'user-1',
+    });
+    vi.mocked(getResolvedDailyNutritionTargetForDate).mockResolvedValue(resolvedDailyTarget);
+    vi.mocked(patchDailyNutritionTargetForDate).mockResolvedValue(adjusted);
+    vi.mocked(deleteDailyNutritionTargetForDate).mockResolvedValue(resolvedDailyTarget);
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const jwt = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      const getResponse = await app.inject({
+        method: 'GET',
+        url: '/api/v1/nutrition/2026-03-09/target-override',
+        headers: createAuthorizationHeader(jwt),
+      });
+      const patchResponse = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/nutrition/2026-03-09/target-override',
+        headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
+        payload: { calories: 2_500, reason: '  Planned event  ' },
+      });
+      const deleteResponse = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/nutrition/2026-03-09/target-override',
+        headers: createAuthorizationHeader(jwt),
+      });
+
+      expect(getResponse.json()).toEqual({ data: resolvedDailyTarget });
+      expect(patchResponse.json()).toEqual({ data: adjusted });
+      expect(deleteResponse.json()).toEqual({ data: resolvedDailyTarget });
+      expect(patchDailyNutritionTargetForDate).toHaveBeenCalledWith('user-1', '2026-03-09', {
+        calories: 2_500,
+        reason: 'Planned event',
+      });
+      expect(updateAgentTokenLastUsedAt).toHaveBeenCalledWith('agent-token-1');
     } finally {
       await app.close();
     }

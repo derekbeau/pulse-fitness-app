@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { and, desc, eq, gt, isNotNull, lt, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, lt, lte, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 import {
@@ -8,6 +8,7 @@ import {
   calculateDailyEnergyAdherence,
   calculateProteinFloorProgress,
   dailyEnergyAdherenceSchema,
+  resolvedDailyNutritionTargetSchema,
   type DailyEnergyAdherence,
 } from '@pulse/shared';
 
@@ -16,6 +17,7 @@ import * as schema from '../../db/schema/index.js';
 import {
   adaptiveNutritionCheckIns,
   adaptiveNutritionPrograms,
+  dailyNutritionTargetOverrides,
   mealItems,
   meals,
   nutritionLogs,
@@ -226,6 +228,8 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
         recordedAt: nutritionTargetEvents.recordedAt,
         calories: nutritionTargetEvents.calories,
         protein: nutritionTargetEvents.protein,
+        carbs: nutritionTargetEvents.carbs,
+        fat: nutritionTargetEvents.fat,
         source: nutritionTargetEvents.source,
         adaptiveCheckInId: nutritionTargetEvents.adaptiveCheckInId,
       })
@@ -233,8 +237,7 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
       .where(
         and(
           eq(nutritionTargetEvents.userId, userId),
-          gt(nutritionTargetEvents.calories, 0),
-          lte(nutritionTargetEvents.effectiveDate, latestAvailableFactDate),
+          lte(nutritionTargetEvents.effectiveDate, localDate),
           lt(nutritionTargetEvents.recordedAt, causalCutoff),
         ),
       )
@@ -246,6 +249,70 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
       )
       .limit(1)
       .get();
+
+    const targetOverride = db
+      .select({
+        id: dailyNutritionTargetOverrides.id,
+        date: dailyNutritionTargetOverrides.date,
+        calories: dailyNutritionTargetOverrides.calories,
+        protein: dailyNutritionTargetOverrides.protein,
+        carbs: dailyNutritionTargetOverrides.carbs,
+        fat: dailyNutritionTargetOverrides.fat,
+        reason: dailyNutritionTargetOverrides.reason,
+        createdAt: dailyNutritionTargetOverrides.createdAt,
+        updatedAt: dailyNutritionTargetOverrides.updatedAt,
+      })
+      .from(dailyNutritionTargetOverrides)
+      .where(
+        and(
+          eq(dailyNutritionTargetOverrides.userId, userId),
+          eq(dailyNutritionTargetOverrides.date, localDate),
+        ),
+      )
+      .limit(1)
+      .get();
+    const overriddenFields = targetOverride
+      ? (['calories', 'protein', 'carbs', 'fat'] as const).filter(
+          (field) => targetOverride[field] !== null,
+        )
+      : [];
+    const effectiveTarget = targetEvent
+      ? {
+          calories: Number(targetOverride?.calories ?? targetEvent.calories),
+          protein: Number(targetOverride?.protein ?? targetEvent.protein),
+          carbs: Number(targetOverride?.carbs ?? targetEvent.carbs),
+          fat: Number(targetOverride?.fat ?? targetEvent.fat),
+        }
+      : null;
+    const adherenceTarget =
+      targetEvent &&
+      effectiveTarget &&
+      effectiveTarget.calories > 0 &&
+      targetEvent.effectiveDate <= latestAvailableFactDate
+        ? effectiveTarget
+        : null;
+    const resolvedDailyTarget = resolvedDailyNutritionTargetSchema.parse({
+      date: localDate,
+      timeZone,
+      baseline: targetEvent
+        ? {
+            targetEventId: targetEvent.targetEventId,
+            targetId: targetEvent.targetId,
+            effectiveDate: targetEvent.effectiveDate,
+            recordedAt: targetEvent.recordedAt,
+            calories: Number(targetEvent.calories),
+            protein: Number(targetEvent.protein),
+            carbs: Number(targetEvent.carbs),
+            fat: Number(targetEvent.fat),
+            source: targetEvent.source,
+            adaptiveCheckInId: targetEvent.adaptiveCheckInId,
+          }
+        : null,
+      override: targetOverride ?? null,
+      effective: effectiveTarget,
+      adjusted: overriddenFields.length > 0,
+      overriddenFields,
+    });
 
     const acceptedEffectiveDate = sql<string>`coalesce(json_extract(${adaptiveNutritionCheckIns.proposedTargets}, '$.effectiveDate'), ${adaptiveNutritionCheckIns.localDate})`;
     const acceptedExpenditure = program
@@ -290,12 +357,12 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
       todayLocalDate,
       nutritionStatus: nutrition?.status ?? null,
       intakeKcal: nutrition ? nutrition.intakeKcal : null,
-      targetKcal: targetEvent?.calories ?? null,
+      targetKcal: adherenceTarget?.calories ?? null,
       expenditureKcal,
     });
     const proteinFloor = calculateProteinFloorProgress({
       actualProteinGrams: nutrition ? Number(nutrition.actualProteinGrams) : null,
-      proteinFloorGrams: targetEvent ? Number(targetEvent.protein) : null,
+      proteinFloorGrams: adherenceTarget?.protein ?? null,
       isFinal: calculation.dataState !== 'future' && nutrition?.status === 'complete',
       canEvaluate: calculation.dataState !== 'future',
     });
@@ -315,18 +382,21 @@ export const createDailyEnergyAdherenceStore = (dependencies: {
         mealCount: nutrition?.mealCount ?? 0,
         itemCount: nutrition?.itemCount ?? 0,
       },
-      target: targetEvent
-        ? {
-            targetEventId: targetEvent.targetEventId,
-            targetId: targetEvent.targetId,
-            effectiveDate: targetEvent.effectiveDate,
-            recordedAt: targetEvent.recordedAt,
-            caloriesKcal: calculation.targetKcal,
-            proteinFloorGrams: proteinFloor.proteinFloorGrams,
-            source: targetEvent.source,
-            adaptiveCheckInId: targetEvent.adaptiveCheckInId,
-          }
-        : null,
+      dailyTarget: resolvedDailyTarget,
+      target:
+        targetEvent && adherenceTarget
+          ? {
+              targetEventId: targetEvent.targetEventId,
+              targetId: targetEvent.targetId,
+              effectiveDate: targetEvent.effectiveDate,
+              recordedAt: targetEvent.recordedAt,
+              caloriesKcal: calculation.targetKcal,
+              proteinFloorGrams: proteinFloor.proteinFloorGrams,
+              source: targetEvent.source,
+              adaptiveCheckInId: targetEvent.adaptiveCheckInId,
+              adjusted: resolvedDailyTarget.adjusted,
+            }
+          : null,
       expenditure:
         calculation.expenditureKcal === null
           ? null
@@ -365,3 +435,9 @@ const getDefaultStore = async () => {
 
 export const getDailyEnergyAdherenceForDate = async (userId: string, localDate: string) =>
   (await getDefaultStore()).getDailyEnergyAdherence(userId, localDate);
+
+export const getResolvedDailyNutritionTargetForDate = async (userId: string, localDate: string) => {
+  const resolved = (await getDefaultStore()).getDailyEnergyAdherence(userId, localDate).dailyTarget;
+  if (!resolved) throw new Error('Daily nutrition target resolution is unavailable');
+  return resolved;
+};

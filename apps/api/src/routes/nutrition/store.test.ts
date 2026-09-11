@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { mealItems, meals, nutritionLogs, nutritionTargets } from '../../db/schema/index.js';
+import { mealItems, meals, nutritionLogs } from '../../db/schema/index.js';
 import { getDailyEnergyAdherenceForDate } from './daily-energy-store.js';
 
 const testState = vi.hoisted(() => {
@@ -151,6 +151,7 @@ describe('nutrition store', () => {
     testState.reset();
     vi.mocked(getDailyEnergyAdherenceForDate).mockReset();
     vi.mocked(getDailyEnergyAdherenceForDate).mockResolvedValue({
+      dailyTarget: { effective: null },
       proteinFloor: {
         actualProteinGrams: null,
         proteinFloorGrams: null,
@@ -168,6 +169,9 @@ describe('nutrition store', () => {
 
   it('returns a daily summary using aggregated actuals and effective target macros', async () => {
     vi.mocked(getDailyEnergyAdherenceForDate).mockResolvedValue({
+      dailyTarget: {
+        effective: { calories: 2_200, protein: 180, carbs: 250, fat: 70 },
+      },
       proteinFloor: {
         actualProteinGrams: 150,
         proteinFloorGrams: 180,
@@ -183,12 +187,6 @@ describe('nutrition store', () => {
       carbs: 175,
       fat: 62,
       meals: 3,
-    });
-    testState.targetGet.mockReturnValue({
-      calories: 2_200,
-      protein: 180,
-      carbs: 250,
-      fat: 70,
     });
 
     const { getDailyNutritionSummaryForDate } = await import('./store.js');
@@ -220,17 +218,15 @@ describe('nutrition store', () => {
       },
     });
 
-    expect(testState.select).toHaveBeenCalledTimes(2);
+    expect(testState.select).toHaveBeenCalledTimes(1);
     expect(testState.aggregateFrom).toHaveBeenCalledWith(nutritionLogs);
     expect(testState.aggregateLeftJoinMeals).toHaveBeenCalledWith(meals, expect.anything());
     expect(testState.aggregateLeftJoinMealItems).toHaveBeenCalledWith(mealItems, expect.anything());
-    expect(testState.targetFrom).toHaveBeenCalledWith(nutritionTargets);
-    expect(testState.targetLimit).toHaveBeenCalledWith(1);
+    expect(getDailyEnergyAdherenceForDate).toHaveBeenCalledWith('user-1', '2026-03-09');
   });
 
   it('returns zeroed actuals with null target when no log or target exists', async () => {
     testState.aggregateGet.mockReturnValue(undefined);
-    testState.targetGet.mockReturnValue(undefined);
 
     const { getDailyNutritionSummaryForDate } = await import('./store.js');
     const summary = await getDailyNutritionSummaryForDate('user-1', '2026-03-10');
@@ -255,7 +251,7 @@ describe('nutrition store', () => {
         isFinal: false,
       },
     });
-    expect(testState.targetOrderBy).toHaveBeenCalledOnce();
+    expect(getDailyEnergyAdherenceForDate).toHaveBeenCalledWith('user-1', '2026-03-10');
   });
 
   it('calculates completeness as zero when no meals are logged', async () => {
@@ -317,23 +313,20 @@ describe('nutrition store', () => {
         mealCount: 3,
       },
     ]);
-    testState.weekTargetAll.mockReturnValue([
-      {
-        effectiveDate: '2026-03-06',
-        calories: 2100,
-        protein: 170,
-      },
-      {
-        effectiveDate: '2026-03-03',
-        calories: 1900,
-        protein: 150,
-      },
-      {
-        effectiveDate: '2026-02-25',
-        calories: 1700,
-        protein: 130,
-      },
-    ]);
+    vi.mocked(getDailyEnergyAdherenceForDate).mockImplementation(
+      async (_userId, date) =>
+        ({
+          localDate: date,
+          dailyTarget: {
+            effective:
+              date < '2026-03-03'
+                ? { calories: 1700, protein: 130 }
+                : date < '2026-03-06'
+                  ? { calories: 1900, protein: 150 }
+                  : { calories: 2100, protein: 170 },
+          },
+        }) as never,
+    );
 
     const { getNutritionWeekSummaryForDate } = await import('./store.js');
     const summary = await getNutritionWeekSummaryForDate(
@@ -384,7 +377,6 @@ describe('nutrition store', () => {
     });
 
     expect(testState.weekActualFrom).toHaveBeenCalledWith(nutritionLogs);
-    expect(testState.weekTargetFrom).toHaveBeenCalledWith(nutritionTargets);
-    expect(testState.weekTargetLimit).toHaveBeenCalledWith(8);
+    expect(getDailyEnergyAdherenceForDate).toHaveBeenCalledTimes(7);
   });
 });

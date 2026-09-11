@@ -17,6 +17,7 @@ import {
   meals,
   nutritionLogs,
   nutritionTargets,
+  nutritionTargetEvents,
   users,
 } from '../../db/schema/index.js';
 
@@ -234,6 +235,28 @@ const seedLoggingContextData = () => {
       carbs: 240,
       fat: 75,
       effectiveDate: '2026-03-01',
+      createdAt: Date.parse('2026-03-01T12:00:00.000Z'),
+      updatedAt: Date.parse('2026-03-01T12:00:00.000Z'),
+    })
+    .run();
+  context.db
+    .insert(nutritionTargetEvents)
+    .values({
+      id: 'target-event-1',
+      targetId: 'target-1',
+      userId: 'user-1',
+      sequence: 1,
+      effectiveDate: '2026-03-01',
+      calories: 2350,
+      protein: 180,
+      carbs: 240,
+      fat: 75,
+      macroCalories: 2355,
+      source: 'manual',
+      adaptiveCheckInId: null,
+      eventType: 'manual_write',
+      recordedAt: Date.parse('2026-03-01T12:00:00.000Z'),
+      createdAt: Date.parse('2026-03-01T12:00:00.000Z'),
     })
     .run();
 
@@ -354,7 +377,12 @@ describe('nutrition logging context integration', () => {
     context.db.delete(mealItems).run();
     context.db.delete(meals).run();
     context.db.delete(nutritionLogs).run();
+    context.sqlite.exec(
+      'INSERT OR IGNORE INTO adaptive_nutrition_account_deletion_scope(user_id) SELECT id FROM users',
+    );
+    context.db.delete(nutritionTargetEvents).run();
     context.db.delete(nutritionTargets).run();
+    context.sqlite.exec('DELETE FROM adaptive_nutrition_account_deletion_scope');
     context.db.delete(agentTokens).run();
     context.db.delete(foods).run();
     context.db.delete(users).run();
@@ -488,7 +516,12 @@ describe('nutrition logging context integration', () => {
     context.db.delete(mealItems).run();
     context.db.delete(meals).run();
     context.db.delete(nutritionLogs).run();
+    context.sqlite.exec(
+      'INSERT OR IGNORE INTO adaptive_nutrition_account_deletion_scope(user_id) SELECT id FROM users',
+    );
+    context.db.delete(nutritionTargetEvents).run();
     context.db.delete(nutritionTargets).run();
+    context.sqlite.exec('DELETE FROM adaptive_nutrition_account_deletion_scope');
     context.db.delete(agentTokens).run();
     context.db.delete(foods).run();
     context.db.delete(users).run();

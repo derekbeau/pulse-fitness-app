@@ -1,0 +1,42 @@
+{
+  "issue": 132,
+  "pr": 167,
+  "branch": "feat/daily-nutrition-targets",
+  "testedSha": "652a1bef41b081037f3e1f4393822e7469b16ec9",
+  "testedTree": "398f97dd44cba9ea976b65d655b57e571e85f159",
+  "command": "pnpm --filter @pulse/api exec vitest run src/db/migration-0064.lifecycle.test.ts --config vitest.config.ts",
+  "exitCode": 0,
+  "result": "1 file passed, 3 tests passed",
+  "fixtures": [
+    "fresh database through migrations 0000-0064",
+    "exact predecessor through 0063 populated with nutrition target and target event history",
+    "failed 0064 transaction plus backup restore and re-apply"
+  ],
+  "assertions": [
+    "foreign-key rejection",
+    "pragma integrity_check and foreign_key_check",
+    "idempotent re-run",
+    "target/event preservation",
+    "backup restore removes 0064 and restores predecessor ledger",
+    "failed transaction leaves no partial table"
+  ],
+  "rawReceipts": {
+    "stdout": "raw/migration-0064/stdout.log",
+    "stderr": "raw/migration-0064/stderr.log",
+    "exitCode": "raw/migration-0064/exit-code",
+    "gitIdentity": "raw/migration-0064/git-identity"
+  },
+  "sha256": {
+    "apps/api/drizzle/0064_daily_nutrition_target_overrides.sql": "e6a3085f91ddc80e2fc2e05878154013e1a04934228c30a6d46e99a8c634addc",
+    "apps/api/src/db/migration-0064.lifecycle.test.ts": "c97a2c8294c41aea7504c6bb60d85d7b14abb065a8a8d8a229d1d643fde4d5c6",
+    "apps/api/src/db/migrate.ts": "de799e9caef58a0cd8544e8caf0d8a2eaf81ef7769fc4b62cc26dd3f49669869",
+    "apps/api/vitest.config.ts": "cdb77b233678a0fbef5005bd7f679c4c7aa2c7a4c5f8394690e7ddba8af364c1",
+    "package.json": "38b6a2fc5451b1da1aea62ff64a3d458e32e10987eb40e400521fa28cc5bf2c4",
+    "pnpm-lock.yaml": "a4a3723d7b1181995713719f2f45a6dcc931bc1c03de5b44d6362e401be1975a",
+    "raw/migration-0064/stdout.log": "cffdab31a5dd2d45aae84d50dfbcf28684b85430db7c07e71d37cee258fe5d17",
+    "raw/migration-0064/stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "raw/migration-0064/exit-code": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  "scope": "focused migration evidence only; no production database, .env, deployment, server, browser, or full-suite rerun requested",
+  "fullGateEvidenceRetained": true
+}

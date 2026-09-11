@@ -134,6 +134,7 @@ export function DailyEnergyAdherenceCard({
         }
       : stateCopy[adherence.dataState]);
   const target = adherence.target?.caloriesKcal ?? null;
+  const targetLabel = adherence.target?.adjusted ? 'Adjusted target' : 'Accepted target';
   const expenditure = adherence.expenditure?.caloriesKcal ?? null;
   const outer = adherence.outerToleranceKcal ?? 1;
   const difference = adherence.intakeMinusTargetKcal ?? 0;
@@ -190,7 +191,7 @@ export function DailyEnergyAdherenceCard({
       {adherence.dataState === 'gradeable' && target !== null ? (
         <CardContent className="space-y-3 px-4 sm:px-6">
           <div
-            aria-label={`Energy adherence: ${state.title}. ${comparisonSentence(adherence.intakeMinusTargetKcal, 'Accepted target')}`}
+            aria-label={`Energy adherence: ${state.title}. ${comparisonSentence(adherence.intakeMinusTargetKcal, targetLabel)}`}
             className="relative pt-5"
             role="img"
           >
@@ -208,7 +209,9 @@ export function DailyEnergyAdherenceCard({
             />
             <div className="mt-1 flex justify-between text-[11px] text-muted">
               <span>Below</span>
-              <span>Target {formatCalories(target, 'kcal')}</span>
+              <span>
+                {targetLabel} {formatCalories(target, 'kcal')}
+              </span>
               <span>Above</span>
             </div>
           </div>
@@ -217,7 +220,7 @@ export function DailyEnergyAdherenceCard({
 
       <CardContent className="grid grid-cols-1 gap-2 px-4 sm:grid-cols-3 sm:px-6">
         <EnergyFact label="Logged intake" value={adherence.nutrition.intakeKcal} />
-        <EnergyFact label="Accepted target" value={target} />
+        <EnergyFact label={targetLabel} value={target} />
         <EnergyFact label="Accepted expenditure" value={expenditure} />
       </CardContent>
 
@@ -235,7 +238,7 @@ export function DailyEnergyAdherenceCard({
           </span>
         </p>
         <p className="pt-1 text-muted">
-          {comparisonSentence(adherence.intakeMinusTargetKcal, 'Accepted target')}{' '}
+          {comparisonSentence(adherence.intakeMinusTargetKcal, targetLabel)}{' '}
           {comparisonSentence(adherence.intakeMinusExpenditureKcal, 'Accepted expenditure')}
         </p>
       </CardContent>
@@ -268,6 +271,10 @@ export function DailyEnergyAdherenceCard({
                   />
                   <ProvenanceRow label="Target event ID" value={adherence.target.targetEventId} />
                   <ProvenanceRow label="Target ID" value={adherence.target.targetId} />
+                  <ProvenanceRow
+                    label="Daily adjustment"
+                    value={adherence.target.adjusted ? 'Applied for this date only' : 'None'}
+                  />
                   {adherence.target.adaptiveCheckInId ? (
                     <ProvenanceRow
                       label="Accepted check-in ID"

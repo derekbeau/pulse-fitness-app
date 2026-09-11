@@ -1,0 +1,44 @@
+RECEIPT_FORMAT: pulse-132-raw-v1
+TESTED_COMMIT: ad9f259895a3b5732eae30cb3911d896d409ee9f
+TESTED_TREE: 33bd372571d5d6118101013afdf7b67d10a181d2
+BRANCH: feat/daily-nutrition-targets
+WORKTREE: /Users/meridian/Projects/pulse-daily-nutrition-targets
+WORKTREE_DIRTY_BEFORE: false
+DIRTY_PATCH_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STARTED_UTC: 2026-09-10T03:42:07.651Z
+COMMAND_ARGV_JSON: ["pnpm","--filter","@pulse/web","exec","playwright","test","e2e/daily-target-adjustment.spec.ts","--workers=1","--reporter=line","--output=../../docs/implementation/daily-nutrition-targets-evidence/raw/playwright-bound-final"]
+COMMAND: "pnpm" "--filter" "@pulse/web" "exec" "playwright" "test" "e2e/daily-target-adjustment.spec.ts" "--workers=1" "--reporter=line" "--output=../../docs/implementation/daily-nutrition-targets-evidence/raw/playwright-bound-final"
+CACHE_CONTROLS_JSON: {"CI":"true"}
+STDOUT_STDERR_BEGIN
+[WebServer] (node:5411) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:5426) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:5433) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:5433) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:5438) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:5451) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 2 tests using 1 worker
+
+(node:5459) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/2] [chromium] › e2e/daily-target-adjustment.spec.ts:78:7 › mobile-375: create, edit, reload, future-confine, and restore a daily adjustment
+[2/2] [chromium] › e2e/daily-target-adjustment.spec.ts:78:7 › desktop-1280: create, edit, reload, future-confine, and restore a daily adjustment
+  2 passed (17.9s)
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-10T03:42:26.525Z
+EXIT_CODE: 0

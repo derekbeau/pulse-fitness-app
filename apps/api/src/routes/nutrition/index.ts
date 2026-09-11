@@ -19,6 +19,8 @@ import {
   patchMealItemInputSchema,
   updateNutritionLogStatusInputSchema,
   nutritionLogSchema,
+  patchDailyNutritionTargetInputSchema,
+  resolvedDailyNutritionTargetSchema,
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
@@ -53,6 +55,11 @@ import {
   patchMealItemById,
 } from './store.js';
 import { getDailyEnergyAdherenceForDate } from './daily-energy-store.js';
+import { getResolvedDailyNutritionTargetForDate } from './daily-energy-store.js';
+import {
+  deleteDailyNutritionTargetForDate,
+  patchDailyNutritionTargetForDate,
+} from './daily-target-store.js';
 import {
   FutureNutritionDateError,
   NutritionLogRequiredError,
@@ -195,6 +202,80 @@ export const nutritionRoutes: FastifyPluginAsync = async (app) => {
       const adherence = await getDailyEnergyAdherenceForDate(request.userId, request.params.date);
       reply.header('Cache-Control', 'private, no-cache');
       return reply.send({ data: adherence });
+    },
+  );
+
+  typedApp.get(
+    '/:date/target-override',
+    {
+      schema: {
+        params: dateParamsSchema,
+        response: {
+          200: apiDataResponseSchema(resolvedDailyNutritionTargetSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Get the resolved nutrition target for one date',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const target = await getResolvedDailyNutritionTargetForDate(
+        request.userId,
+        request.params.date,
+      );
+      reply.header('Cache-Control', 'private, no-cache');
+      return reply.send({ data: target });
+    },
+  );
+
+  typedApp.patch(
+    '/:date/target-override',
+    {
+      schema: {
+        params: dateParamsSchema,
+        body: patchDailyNutritionTargetInputSchema,
+        response: {
+          200: apiDataResponseSchema(resolvedDailyNutritionTargetSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Adjust the nutrition target for one date',
+        description:
+          'Omitted fields preserve the date override; null fields inherit the causal baseline. If every target field inherits, the override is deleted. This never changes the ongoing target program.',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const target = await patchDailyNutritionTargetForDate(
+        request.userId,
+        request.params.date,
+        request.body,
+      );
+      return reply.send({ data: target });
+    },
+  );
+
+  typedApp.delete(
+    '/:date/target-override',
+    {
+      schema: {
+        params: dateParamsSchema,
+        response: {
+          200: apiDataResponseSchema(resolvedDailyNutritionTargetSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+        },
+        tags: ['nutrition'],
+        summary: 'Restore one date to its baseline nutrition target',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const target = await deleteDailyNutritionTargetForDate(request.userId, request.params.date);
+      return reply.send({ data: target });
     },
   );
 

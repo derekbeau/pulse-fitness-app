@@ -1,0 +1,180 @@
+RECEIPT_FORMAT: pulse-132-raw-v1
+TESTED_COMMIT: ad9f259895a3b5732eae30cb3911d896d409ee9f
+TESTED_TREE: 33bd372571d5d6118101013afdf7b67d10a181d2
+BRANCH: feat/daily-nutrition-targets
+WORKTREE: /Users/meridian/Projects/pulse-daily-nutrition-targets
+WORKTREE_DIRTY_BEFORE: false
+DIRTY_PATCH_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STARTED_UTC: 2026-09-10T03:50:19.032Z
+COMMAND_ARGV_JSON: ["pnpm","build"]
+COMMAND: "pnpm" "build"
+CACHE_CONTROLS_JSON: {"TURBO_FORCE":"true","TURBO_CONCURRENCY":"1","TURBO_ENV_MODE":"strict","CI":"true"}
+STDOUT_STDERR_BEGIN
+
+> pulse@ build /Users/meridian/Projects/pulse-daily-nutrition-targets
+> turbo run build
+
+• Packages in scope: @pulse/api, @pulse/shared, @pulse/web
+• Running build in 3 packages
+• Remote caching disabled, using shared worktree cache
+@pulse/shared:build: cache bypass, force executing eb358c1bb0cc9a1f
+@pulse/shared:build: 
+@pulse/shared:build: > @pulse/shared@0.0.0 build /Users/meridian/Projects/pulse-daily-nutrition-targets/packages/shared
+@pulse/shared:build: > tsc -p tsconfig.json
+@pulse/shared:build: 
+@pulse/web:build: cache bypass, force executing c3d1e72ee200f499
+@pulse/web:build: 
+@pulse/web:build: > @pulse/web@0.0.0 build /Users/meridian/Projects/pulse-daily-nutrition-targets/apps/web
+@pulse/web:build: > tsc -b && vite build
+@pulse/web:build: 
+@pulse/web:build: [36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+@pulse/web:build: transforming...
+@pulse/web:build: [32m✓[39m 3921 modules transformed.
+@pulse/web:build: rendering chunks...
+@pulse/web:build: computing gzip size...
+@pulse/web:build: [2mdist/[22m[32mindex.html                                       [39m[1m[2m  2.15 kB[22m[1m[22m[2m │ gzip:   0.76 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[35mindex--uZa41wS.css                        [39m[1m[2m174.41 kB[22m[1m[22m[2m │ gzip:  25.13 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mquery-polling-CWrVhzp4.js                 [39m[1m[2m  0.09 kB[22m[1m[22m[2m │ gzip:   0.09 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mplus-DiHF_V91.js                          [39m[1m[2m  0.15 kB[22m[1m[22m[2m │ gzip:   0.15 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36marrow-up-D6l4uIic.js                      [39m[1m[2m  0.16 kB[22m[1m[22m[2m │ gzip:   0.16 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mclock-3-B_ZQqCUT.js                       [39m[1m[2m  0.17 kB[22m[1m[22m[2m │ gzip:   0.16 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36marrow-right-Cfcet-Fp.js                   [39m[1m[2m  0.17 kB[22m[1m[22m[2m │ gzip:   0.16 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msearch-BokZSz_t.js                        [39m[1m[2m  0.17 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mcircle-check-DqatT8YN.js                  [39m[1m[2m  0.17 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtrending-up-DCRDmOZR.js                   [39m[1m[2m  0.18 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mgauge-B9MekhXZ.js                         [39m[1m[2m  0.18 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtrending-down-DmP3QaFw.js                 [39m[1m[2m  0.18 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mflame-BcslXpk4.js                         [39m[1m[2m  0.20 kB[22m[1m[22m[2m │ gzip:   0.18 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36minfo-q-naPACP.js                          [39m[1m[2m  0.20 kB[22m[1m[22m[2m │ gzip:   0.18 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mrotate-ccw-Bo-RrZkN.js                    [39m[1m[2m  0.20 kB[22m[1m[22m[2m │ gzip:   0.18 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36museThemeContext-Dy-lilxY.js               [39m[1m[2m  0.23 kB[22m[1m[22m[2m │ gzip:   0.20 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mhistory-hnnh55EJ.js                       [39m[1m[2m  0.24 kB[22m[1m[22m[2m │ gzip:   0.20 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtimer-BvxthoXN.js                         [39m[1m[2m  0.24 kB[22m[1m[22m[2m │ gzip:   0.19 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mcircle-question-mark-Cb8_xvEY.js          [39m[1m[2m  0.24 kB[22m[1m[22m[2m │ gzip:   0.21 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36marrow-up-down-xEzbzWTN.js                 [39m[1m[2m  0.25 kB[22m[1m[22m[2m │ gzip:   0.19 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mroute-3GHyJHFI.js                         [39m[1m[2m  0.25 kB[22m[1m[22m[2m │ gzip:   0.20 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mcircle-alert-BAlvx8iL.js                  [39m[1m[2m  0.25 kB[22m[1m[22m[2m │ gzip:   0.19 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mchart-column-BUSt0YDt.js                  [39m[1m[2m  0.25 kB[22m[1m[22m[2m │ gzip:   0.20 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mheart-BTBeDnVC.js                         [39m[1m[2m  0.26 kB[22m[1m[22m[2m │ gzip:   0.22 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mpencil-B-mzvRvs.js                        [39m[1m[2m  0.28 kB[22m[1m[22m[2m │ gzip:   0.23 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mbook-open-DormeM8Y.js                     [39m[1m[2m  0.28 kB[22m[1m[22m[2m │ gzip:   0.21 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36marrow-up-right-zHJK7p7s.js                [39m[1m[2m  0.29 kB[22m[1m[22m[2m │ gzip:   0.21 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mpencil-line-ItZz4edY.js                   [39m[1m[2m  0.32 kB[22m[1m[22m[2m │ gzip:   0.25 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mrefresh-cw-B6cCzoQb.js                    [39m[1m[2m  0.32 kB[22m[1m[22m[2m │ gzip:   0.22 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtrash-2-CUekJVBo.js                       [39m[1m[2m  0.33 kB[22m[1m[22m[2m │ gzip:   0.22 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mprogram-local-midnight-zpIf3fgk.js        [39m[1m[2m  0.33 kB[22m[1m[22m[2m │ gzip:   0.27 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mscale-CWVkEsan.js                         [39m[1m[2m  0.33 kB[22m[1m[22m[2m │ gzip:   0.22 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mgrip-vertical-D4fAMOtJ.js                 [39m[1m[2m  0.37 kB[22m[1m[22m[2m │ gzip:   0.19 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mcalendar-clock-Bdcr3ciD.js                [39m[1m[2m  0.37 kB[22m[1m[22m[2m │ gzip:   0.25 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mlabel-DYyeiRS-.js                         [39m[1m[2m  0.37 kB[22m[1m[22m[2m │ gzip:   0.28 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36muse-today-key-mBeUTQ1s.js                 [39m[1m[2m  0.39 kB[22m[1m[22m[2m │ gzip:   0.26 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msliders-horizontal-S5Szrnqh.js            [39m[1m[2m  0.43 kB[22m[1m[22m[2m │ gzip:   0.24 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mindex--xBSDpua.js                         [39m[1m[2m  0.43 kB[22m[1m[22m[2m │ gzip:   0.29 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtemplate-tags-Ce0Nr_b0.js                 [39m[1m[2m  0.43 kB[22m[1m[22m[2m │ gzip:   0.29 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36maccent-card-styles-juGWYX3b.js            [39m[1m[2m  0.48 kB[22m[1m[22m[2m │ gzip:   0.21 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mcalendar-days-CWM9Ykz3.js                 [39m[1m[2m  0.50 kB[22m[1m[22m[2m │ gzip:   0.27 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msparkles-C5YkyRs_.js                      [39m[1m[2m  0.50 kB[22m[1m[22m[2m │ gzip:   0.28 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mdate-utils-hJv2Zwft.js                    [39m[1m[2m  0.52 kB[22m[1m[22m[2m │ gzip:   0.30 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mworkout-session-sets-CqGuqGnY.js          [39m[1m[2m  0.57 kB[22m[1m[22m[2m │ gzip:   0.34 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mcircle-dashed-64kgZhXY.js                 [39m[1m[2m  0.58 kB[22m[1m[22m[2m │ gzip:   0.29 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtextarea-CZfo_0oz.js                      [39m[1m[2m  0.64 kB[22m[1m[22m[2m │ gzip:   0.39 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mmarkdown-note-C8hyrDxA.js                 [39m[1m[2m  0.65 kB[22m[1m[22m[2m │ gzip:   0.39 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mchart-range-control-Cw7BIzOx.js           [39m[1m[2m  0.66 kB[22m[1m[22m[2m │ gzip:   0.41 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mempty-state-MdCYHvcV.js                   [39m[1m[2m  0.69 kB[22m[1m[22m[2m │ gzip:   0.42 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msuperset-utils-BDFqQxGr.js                [39m[1m[2m  0.70 kB[22m[1m[22m[2m │ gzip:   0.43 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msave-dQRWsy8x.js                          [39m[1m[2m  0.70 kB[22m[1m[22m[2m │ gzip:   0.34 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mformat-utils-Bsyxf4FY.js                  [39m[1m[2m  0.73 kB[22m[1m[22m[2m │ gzip:   0.35 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mwrench-BTYWpAFW.js                        [39m[1m[2m  0.74 kB[22m[1m[22m[2m │ gzip:   0.38 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mseparator-B1NqeGhj.js                     [39m[1m[2m  0.78 kB[22m[1m[22m[2m │ gzip:   0.42 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mchart-legend-BvUReYae.js                  [39m[1m[2m  0.85 kB[22m[1m[22m[2m │ gzip:   0.49 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mmarkdown-aUL2GTqK.js                      [39m[1m[2m  0.87 kB[22m[1m[22m[2m │ gzip:   0.43 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mpage-header-CPPcjtEC.js                   [39m[1m[2m  0.90 kB[22m[1m[22m[2m │ gzip:   0.42 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mrename-exercise-dialog-SDXdhiVq.js        [39m[1m[2m  0.94 kB[22m[1m[22m[2m │ gzip:   0.56 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36minput-oWMfqfa5.js                         [39m[1m[2m  0.95 kB[22m[1m[22m[2m │ gzip:   0.54 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36muse-date-authority-tFIuH-R8.js            [39m[1m[2m  0.96 kB[22m[1m[22m[2m │ gzip:   0.53 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtrend-weight-date-vlormCn4.js             [39m[1m[2m  1.00 kB[22m[1m[22m[2m │ gzip:   0.50 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mprogress-bar-CqeLfziM.js                  [39m[1m[2m  1.04 kB[22m[1m[22m[2m │ gzip:   0.58 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mprogress-ring-BVszikTj.js                 [39m[1m[2m  1.21 kB[22m[1m[22m[2m │ gzip:   0.64 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mindex-TvYcU2dV.js                         [39m[1m[2m  1.31 kB[22m[1m[22m[2m │ gzip:   0.66 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36muse-debounced-callback-ElCRCgBr.js        [39m[1m[2m  1.32 kB[22m[1m[22m[2m │ gzip:   0.61 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mbadge-E-gGh0Qc.js                         [39m[1m[2m  1.34 kB[22m[1m[22m[2m │ gzip:   0.64 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mpreview-banner-DaZ6rMao.js                [39m[1m[2m  1.40 kB[22m[1m[22m[2m │ gzip:   0.78 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mprogression-CFM51u9y.js                   [39m[1m[2m  1.47 kB[22m[1m[22m[2m │ gzip:   0.73 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mchart-exploration-CIVsEJBu.js             [39m[1m[2m  1.70 kB[22m[1m[22m[2m │ gzip:   0.76 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36madaptive-weekly-review--VUEssRc.js        [39m[1m[2m  1.80 kB[22m[1m[22m[2m │ gzip:   0.96 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mstat-card-CIDORqko.js                     [39m[1m[2m  2.30 kB[22m[1m[22m[2m │ gzip:   1.08 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mchart-tooltip-D28PIoRM.js                 [39m[1m[2m  2.49 kB[22m[1m[22m[2m │ gzip:   1.04 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mhelp-icon-CFKaRhwl.js                     [39m[1m[2m  2.66 kB[22m[1m[22m[2m │ gzip:   1.06 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mdialog-rNkHXjKz.js                        [39m[1m[2m  2.79 kB[22m[1m[22m[2m │ gzip:   1.07 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mlogin-YcIiLrG3.js                         [39m[1m[2m  3.12 kB[22m[1m[22m[2m │ gzip:   1.30 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mchart-summary-BhQUZrEK.js                 [39m[1m[2m  3.16 kB[22m[1m[22m[2m │ gzip:   1.38 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mjournal-entry-BefpcDEW.js                 [39m[1m[2m  3.45 kB[22m[1m[22m[2m │ gzip:   1.36 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mhabit-chain-dot-7TMNRQB5.js               [39m[1m[2m  3.45 kB[22m[1m[22m[2m │ gzip:   1.63 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mmock-data-C5acpO0F.js                     [39m[1m[2m  3.71 kB[22m[1m[22m[2m │ gzip:   1.57 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mprofile-zwZ4gem4.js                       [39m[1m[2m  4.10 kB[22m[1m[22m[2m │ gzip:   1.62 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mregister-BZ9d4Df5.js                      [39m[1m[2m  4.17 kB[22m[1m[22m[2m │ gzip:   1.53 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mresources-Bec-WIsM.js                     [39m[1m[2m  4.22 kB[22m[1m[22m[2m │ gzip:   1.73 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mswap-exercise-dialog-D_JQhG_m.js          [39m[1m[2m  4.43 kB[22m[1m[22m[2m │ gzip:   1.81 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mjournal-DNk_mqBN.js                       [39m[1m[2m  5.46 kB[22m[1m[22m[2m │ gzip:   2.07 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mresource-detail-BPO1AYv2.js               [39m[1m[2m  5.60 kB[22m[1m[22m[2m │ gzip:   1.80 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mpopover-WENE23uD.js                       [39m[1m[2m  6.03 kB[22m[1m[22m[2m │ gzip:   2.18 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36muse-dashboard-config-Lrd5ScQP.js          [39m[1m[2m  6.31 kB[22m[1m[22m[2m │ gzip:   2.06 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mnutrition-day-status-control-Dwi7vsDt.js  [39m[1m[2m  7.40 kB[22m[1m[22m[2m │ gzip:   2.51 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mview-toggle-Y-MivjJ9.js                   [39m[1m[2m  8.76 kB[22m[1m[22m[2m │ gzip:   3.22 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36minjuries-C_rj13SA.js                      [39m[1m[2m  9.27 kB[22m[1m[22m[2m │ gzip:   3.25 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mweight-history-BpTGgjNF.js                [39m[1m[2m  9.86 kB[22m[1m[22m[2m │ gzip:   3.55 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mdesign-system-DLRd0vIl.js                 [39m[1m[2m  9.95 kB[22m[1m[22m[2m │ gzip:   3.14 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mmock-data-CrTkwU6x.js                     [39m[1m[2m 10.15 kB[22m[1m[22m[2m │ gzip:   4.27 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mmock-data-wWdv1jkv.js                     [39m[1m[2m 14.00 kB[22m[1m[22m[2m │ gzip:   4.60 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msession-feedback-ClB8SOus.js              [39m[1m[2m 14.49 kB[22m[1m[22m[2m │ gzip:   4.70 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mequipment-L2HcsAm7.js                     [39m[1m[2m 15.22 kB[22m[1m[22m[2m │ gzip:   4.76 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mactivity-BRSoejDy.js                      [39m[1m[2m 15.87 kB[22m[1m[22m[2m │ gzip:   5.16 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mtrend-weight-workspace-rOl60sx9.js        [39m[1m[2m 17.30 kB[22m[1m[22m[2m │ gzip:   5.29 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mworkouts-CvMg0CuC.js                      [39m[1m[2m 19.70 kB[22m[1m[22m[2m │ gzip:   4.74 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mselect-Dx93Xj7z.js                        [39m[1m[2m 20.60 kB[22m[1m[22m[2m │ gzip:   7.29 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mactive-session-BRNApvvc.js                [39m[1m[2m 21.30 kB[22m[1m[22m[2m │ gzip:   6.53 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mdropdown-menu-C3W83BQV.js                 [39m[1m[2m 21.90 kB[22m[1m[22m[2m │ gzip:   6.83 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36menergy-balance-CcwtY-Cf.js                [39m[1m[2m 21.98 kB[22m[1m[22m[2m │ gzip:   6.58 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36minjury-detail-DFi_rIYh.js                 [39m[1m[2m 23.40 kB[22m[1m[22m[2m │ gzip:   7.27 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mdata-quality-Ciq332ov.js                  [39m[1m[2m 24.95 kB[22m[1m[22m[2m │ gzip:   7.73 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mworkout-template-detail-NzVyatHS.js       [39m[1m[2m 24.96 kB[22m[1m[22m[2m │ gzip:   7.82 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msettings-4DFkztbJ.js                      [39m[1m[2m 29.74 kB[22m[1m[22m[2m │ gzip:   8.11 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mzod-JVcXkWGO.js                           [39m[1m[2m 29.90 kB[22m[1m[22m[2m │ gzip:  10.78 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mgoal-trajectory-BdLdudXO.js               [39m[1m[2m 30.30 kB[22m[1m[22m[2m │ gzip:   8.65 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mweekly-decision-review-nFFli_DW.js        [39m[1m[2m 32.94 kB[22m[1m[22m[2m │ gzip:   8.62 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mworkout-session-detail-CIXUOU6d.js        [39m[1m[2m 36.77 kB[22m[1m[22m[2m │ gzip:  10.92 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mvendor-router-D-aEi-ws.js                 [39m[1m[2m 37.19 kB[22m[1m[22m[2m │ gzip:  13.40 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mhabits-B6C5R926.js                        [39m[1m[2m 39.34 kB[22m[1m[22m[2m │ gzip:  11.80 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mscheduled-workout-detail-C8Oij9Vb.js      [39m[1m[2m 41.62 kB[22m[1m[22m[2m │ gzip:  12.59 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mvendor-query-Y28iZGx7.js                  [39m[1m[2m 45.14 kB[22m[1m[22m[2m │ gzip:  13.84 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36msortable.esm-BWyE3VYJ.js                  [39m[1m[2m 51.01 kB[22m[1m[22m[2m │ gzip:  17.09 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36muse-workout-session-EEiLigXy.js           [39m[1m[2m 56.60 kB[22m[1m[22m[2m │ gzip:  16.44 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mvendor-zod-YR7vPrir.js                    [39m[1m[2m 57.86 kB[22m[1m[22m[2m │ gzip:  13.49 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mworkouts-jEusoU1m.js                      [39m[1m[2m 67.54 kB[22m[1m[22m[2m │ gzip:  18.36 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mdashboard-DdIQCHVN.js                     [39m[1m[2m 69.23 kB[22m[1m[22m[2m │ gzip:  20.13 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mgoal-editor-dialog-dgjlo7VC.js            [39m[1m[2m 69.87 kB[22m[1m[22m[2m │ gzip:  20.11 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mschedule-workout-dialog-BGlu8VmF.js       [39m[1m[2m 71.22 kB[22m[1m[22m[2m │ gzip:  21.27 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mactive-workout-C5Yj19YT.js                [39m[1m[2m 97.90 kB[22m[1m[22m[2m │ gzip:  28.30 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mnutrition-DEEvuf7e.js                     [39m[1m[2m158.96 kB[22m[1m[22m[2m │ gzip:  42.85 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mvendor-recharts-vi3UUqYC.js               [39m[1m[2m397.49 kB[22m[1m[22m[2m │ gzip: 115.25 kB[22m
+@pulse/web:build: [2mdist/[22m[2massets/[22m[36mindex-DFwVDdmX.js                         [39m[1m[33m543.03 kB[39m[22m[2m │ gzip: 160.49 kB[22m
+@pulse/web:build: [33m
+@pulse/web:build: (!) Some chunks are larger than 500 kB after minification. Consider:
+@pulse/web:build: - Using dynamic import() to code-split the application
+@pulse/web:build: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+@pulse/web:build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+@pulse/web:build: [32m✓ built in 4.41s[39m
+@pulse/api:build: cache bypass, force executing 38b02d152af60d9b
+@pulse/api:build: 
+@pulse/api:build: > @pulse/api@0.0.0 build /Users/meridian/Projects/pulse-daily-nutrition-targets/apps/api
+@pulse/api:build: > tsc
+@pulse/api:build: 
+
+ Tasks:    3 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    21.543s 
+
+
+STDOUT_STDERR_END
+ENDED_UTC: 2026-09-10T03:50:41.214Z
+EXIT_CODE: 0

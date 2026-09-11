@@ -8,7 +8,7 @@ import {
 } from '../foods/reuse-policy.js';
 import { listOwnedFoodsForReuse } from '../foods/store.js';
 import { refreshFoodUsage } from '../foods/store.js';
-import { and, asc, between, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
+import { and, asc, between, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import { type ProteinFloorProgress } from '@pulse/shared';
 import type {
@@ -33,7 +33,6 @@ import {
   mealItems,
   meals,
   nutritionLogs,
-  nutritionTargets,
 } from '../../db/schema/index.js';
 import { downgradeCompleteNutritionLogs } from '../../db/nutrition-completeness.js';
 import { getApplicationNow } from '../../lib/clock.js';
@@ -169,13 +168,6 @@ const nutritionSummarySelection = {
   carbs: sql<number>`coalesce(sum(${mealItems.carbs}), 0)`,
   fat: sql<number>`coalesce(sum(${mealItems.fat}), 0)`,
   meals: sql<number>`count(distinct ${meals.id})`,
-};
-
-const nutritionTargetMacroSelection = {
-  calories: nutritionTargets.calories,
-  protein: nutritionTargets.protein,
-  carbs: nutritionTargets.carbs,
-  fat: nutritionTargets.fat,
 };
 
 const toNullable = <T>(value: T | undefined): T | null => value ?? null;
@@ -651,15 +643,8 @@ export const getDailyNutritionSummaryForDate = async (
     notes: null,
   };
 
-  const target =
-    db
-      .select(nutritionTargetMacroSelection)
-      .from(nutritionTargets)
-      .where(and(eq(nutritionTargets.userId, userId), lte(nutritionTargets.effectiveDate, date)))
-      .orderBy(desc(nutritionTargets.effectiveDate))
-      .limit(1)
-      .get() ?? null;
   const dailyEnergy = await getDailyEnergyAdherenceForDate(userId, date);
+  const target = dailyEnergy.dailyTarget?.effective ?? null;
   const acceptedProteinFloorGrams = dailyEnergy.proteinFloor.proteinFloorGrams;
 
   return {
@@ -765,18 +750,9 @@ export const getNutritionWeekSummaryForDate = async (
     .groupBy(nutritionLogs.date)
     .all();
 
-  const targetRows = db
-    .select({
-      effectiveDate: nutritionTargets.effectiveDate,
-      calories: nutritionTargets.calories,
-      protein: nutritionTargets.protein,
-    })
-    .from(nutritionTargets)
-    .where(and(eq(nutritionTargets.userId, userId), lte(nutritionTargets.effectiveDate, weekTo)))
-    .orderBy(desc(nutritionTargets.effectiveDate))
-    .limit(WEEK_DAYS + 1)
-    .all();
-  const targetRowsAsc = targetRows.reverse();
+  const dailyEnergyRows = await Promise.all(
+    weekDates.map((date) => getDailyEnergyAdherenceForDate(userId, date)),
+  );
 
   const actualByDate = new Map(
     actualRows.map((row) => [
@@ -790,24 +766,15 @@ export const getNutritionWeekSummaryForDate = async (
     ]),
   );
 
-  const targetsByDate = new Map<string, { calories: number; protein: number }>();
-  let targetIndex = 0;
-  let currentTarget: { calories: number; protein: number } = { calories: 0, protein: 0 };
-
-  for (const date of weekDates) {
-    while (
-      targetIndex < targetRowsAsc.length &&
-      targetRowsAsc[targetIndex]?.effectiveDate <= date
-    ) {
-      const target = targetRowsAsc[targetIndex];
-      currentTarget = {
-        calories: Number(target.calories),
-        protein: Number(target.protein),
-      };
-      targetIndex += 1;
-    }
-    targetsByDate.set(date, currentTarget);
-  }
+  const targetsByDate = new Map(
+    dailyEnergyRows.map((dailyEnergy) => [
+      dailyEnergy.localDate,
+      {
+        calories: dailyEnergy.dailyTarget?.effective?.calories ?? 0,
+        protein: dailyEnergy.dailyTarget?.effective?.protein ?? 0,
+      },
+    ]),
+  );
 
   return weekDates.map<NutritionWeekDaySummary>((date) => {
     const actual = actualByDate.get(date) ?? {
