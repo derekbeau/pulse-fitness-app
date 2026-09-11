@@ -1,7 +1,8 @@
 {
   "issue": 132,
+  "pr": 167,
   "branch": "feat/daily-nutrition-targets",
-  "startingHead": "1090719b096ed4ce37f9af8ba3d87e93d11ae9aa",
+  "startingHead": "9456b347cf443c7d4acda3254695b521b6971c91",
   "testedCommit": "ad9f259895a3b5732eae30cb3911d896d409ee9f",
   "testedTree": "33bd372571d5d6118101013afdf7b67d10a181d2",
   "authoritativeReceipts": [
@@ -11,5 +12,18 @@
     "raw/10-lint-uncached-bound-final.json",
     "raw/11-build-uncached-bound-final.json"
   ],
-  "evidenceOnlyCommitMayDiffer": true
+  "migrationLifecycle": {
+    "testedCommit": "652a1bef41b081037f3e1f4393822e7469b16ec9",
+    "testedTree": "398f97dd44cba9ea976b65d655b57e571e85f159",
+    "manifest": "migration-0064-manifest.json",
+    "rawReceipts": [
+      "raw/migration-0064/stdout.log",
+      "raw/migration-0064/stderr.log",
+      "raw/migration-0064/exit-code",
+      "raw/migration-0064/git-identity"
+    ],
+    "scope": "fresh chain, exact populated predecessor, target/event preservation, FK/integrity, idempotence, transaction rollback, backup restore rollback"
+  },
+  "evidenceOnlyCommitMayDiffer": true,
+  "fullGateEvidenceRetained": true
 }
