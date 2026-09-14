@@ -4,73 +4,85 @@ Status: frozen implementation handoff; documentation/setup only. This branch con
 
 ## User outcome
 
-A future Pulse implementation must let an authenticated user manually paste or enter dated BodyProgress measurements, save one coherent measurement record per local date, correct or delete that record, and retrieve the history safely. This milestone is the persistence/API contract only. It does not build the BodyProgress screen, photos, charts/trends, coaching, or automatic measurement ingestion.
+An authenticated user can manually paste or enter dated BodyProgress measurements, save one coherent record per user-local date, correct or explicitly delete that record, and retrieve history safely. This milestone covers the API, persistence, and manual logging contract only. It does not build the BodyProgress screen, photos, charts/trends, coaching, reminders, or automatic measurement ingestion/estimation.
 
 ## Base and execution contract
 
 - Repository: `/Users/meridian/Projects/pulse-fitness-app`
-- Base: `origin/main` at `050ae6b209cc5679ec26efca03c2e540257e781b`
+- Preparation base: `origin/main` at `050ae6b209cc5679ec26efca03c2e540257e781b`
 - Implementation branch/worktree: `feat/body-measurements`, `/Users/meridian/Projects/pulse-body-measurements`
-- Runtime policy: primary GPT-5.6 Sol, medium, Fast OFF; internal review GPT-5.6 Luna, medium, Fast OFF. These are launcher/runtime settings, not acceptance gates.
-- The next agent must read this file and the listed source before editing, preserve the existing untracked main worktree, and make one bounded implementation plan. Manual-paste execution is authorized; do not launch Codex/app-server from this handoff.
+- Handoff starting commit: `0cb3a380e83f880a15230ef1117604a6ca3fd6e0`
+- Runtime policy: primary GPT-5.6 Sol, medium, Fast OFF; bounded review GPT-5.6 Luna, medium, Fast OFF. Runtime settings are not acceptance gates.
+- Manual-paste execution is authorized by this handoff; do not launch Codex/app-server. The next agent must read this file, inspect the named source contracts and live git status, preserve the existing untracked main worktree, and make one bounded implementation plan.
 
-## Current-state inventory to reuse (not duplicate)
+## Existing contracts to reuse
 
-- Weight persistence and date-scoped CRUD pattern: `apps/api/src/routes/weight/index.ts`, `apps/api/src/routes/weight/store.ts`, `packages/shared/src/schemas/weight.ts`, `apps/api/src/db/schema/body-weight.ts`.
-- Weight canonical-unit/range rules: `packages/shared/src/utils/weight-unit.ts`; migration/history guard: `apps/api/drizzle/0041_canonical_body_weight.sql`, `apps/api/src/db/canonical-weight-migration.ts`.
-- Auth and unified JWT/AgentToken route contract: `apps/api/src/middleware/auth.ts`, `apps/api/src/routes/weight/index.ts`, `docs/conventions/api-conventions.md`.
-- User-local date/timezone behavior: `apps/api/src/lib/user-time-zone.ts`, `apps/api/src/lib/date.ts`, weight relative-date handling in `apps/api/src/routes/weight/store.ts`.
-- Ownership and account deletion: `apps/api/src/routes/auth/store.ts` (`deleteUserAccount`), user foreign-key/cascade patterns in `apps/api/src/db/schema/*`.
-- Export/data-retention precedent: inspect the existing account/data export route and its integration tests before adding any export hook; do not invent a second export pipeline. Trash/purge is not the correct default for measurement rows unless an existing canonical account-deletion/export contract requires it.
-- Integration fixture/migration pattern: `apps/api/src/routes/weight/trend-store.integration.test.ts`; use a fresh migrated SQLite database, realistic populated rows, a second user, and restart/readback checks.
+- Weight persistence/date-scoped CRUD: `apps/api/src/routes/weight/index.ts`, `apps/api/src/routes/weight/store.ts`, `packages/shared/src/schemas/weight.ts`, `apps/api/src/db/schema/body-weight.ts`.
+- Weight canonical-unit conventions: `packages/shared/src/utils/weight-unit.ts`, `apps/api/drizzle/0041_canonical_body_weight.sql`, `apps/api/src/db/canonical-weight-migration.ts`.
+- Auth and unified JWT/AgentToken semantics: `apps/api/src/middleware/auth.ts`, `apps/api/src/routes/weight/index.ts`, `docs/conventions/api-conventions.md`.
+- User-local date authority and precedence: `apps/api/src/lib/user-time-zone.ts`, `apps/api/src/lib/date.ts`, `docs/specs/user-time-zone-v1.md`. The effective program time zone overrides the persisted profile time zone; otherwise the profile time zone is authoritative; unresolved authority fails closed with `TIME_ZONE_REQUIRED`.
+- Ownership/account deletion: `apps/api/src/routes/auth/store.ts` and user foreign-key/cascade patterns in `apps/api/src/db/schema/*`.
+- Migration/integration shape: `apps/api/src/routes/weight/trend-store.integration.test.ts`; use fresh migrated SQLite, realistic populated rows, a second user, restart/readback, and rollback checks.
 
-## Fixed v1 contract decisions
+Do not copy weight into the BodyProgress record. Do not create another date, timezone, auth, export, or weight engine. If the live repository has no canonical account-export route, do not invent one in 121; retain the established account-deletion cascade and document export as a follow-up integration point rather than claiming it is implemented.
 
-1. **One record per user per local date.** Re-submitting the same date replaces the editable record transactionally (upsert semantics), rather than creating same-day duplicates.
-2. **Date is an explicit `YYYY-MM-DD` user-local date.** No server timestamp conversion may silently move the record to an adjacent day. Future-date policy must match the nearest existing body-data policy; if no existing policy applies, reject future local dates with a named 400 error rather than silently clamping.
-3. **Numbers are canonical server values; display units are presentation.** Store each measurement in its declared canonical unit, preserve `unitAtEntry` where meaningful, validate finite positive bounded values, and return the user's configured display unit only when that is already the established pattern. Do not use floating-point strings as a second source of truth.
-4. **Notes are optional, trimmed, nullable, and bounded** using the existing notes convention; empty input becomes null/omitted consistently.
-5. **Ownership is mandatory on every read and write.** JWT and AgentToken callers use the same route/schema and response semantics. Cross-user IDs return 404, not an ownership leak.
-6. **CRUD surface is explicit:** create-or-replace for a date, list with bounded date range/pagination, get by id/date as needed by the existing route convention, patch, and delete. Delete is hard-delete only if the existing retention/export contract says measurement records are ordinary user data; otherwise implement the established account-deletion cascade, not a new trash type.
-7. **No derived interpretation in this milestone.** Do not calculate body-fat trends, deltas, goals, readiness, coaching, photos, or charts. Persist and return facts only.
-8. **No silent schema expansion.** The measurement names, canonical units, per-field bounds/precision, and whether a field is optional must be represented by one shared strict schema and one database contract.
+## Frozen v1 product contract
 
-## Consequential product decision to resolve before source edits
+### Fields and semantics
 
-The existing repo establishes weight but does not establish a BodyProgress measurement vocabulary. Before implementing, product must choose the exact v1 field set and semantics in one decision (not a low-stakes question loop):
+The strict shared schema and database contract contain exactly these user-reported fields:
 
-- proposed field set: `waist`, `hips`, `chest`, `neck`, `left_arm`, `right_arm`, `left_thigh`, `right_thigh`, and optional `body_fat_percent`;
-- proposed unit policy: circumferences in `cm` or `in`, one unit per record or per field; body fat in percentage points;
-- proposed bounds/precision for each field and whether missing fields are allowed on partial records;
-- whether a same-date partial submission replaces the whole record or merges fields.
+- `waist`, `hips`, `chest`, `neck`
+- `left_arm`, `right_arm`
+- `left_thigh`, `right_thigh`
+- optional `body_fat_percent`
 
-Until that single decision is confirmed, the implementation agent must not guess field names, units, or merge semantics. It may prepare schema/table scaffolding only after the decision is written into the implementation commit/PR description. Weight remains a separate source and must not be copied into this record.
+Every field is independently optional. A record is a log-only fact container: missing fields mean not recorded, not zero, not unchanged, and not inferred from weight or another field. Body fat is user-reported percentage points only; never diagnose, derive, estimate, trend, or infer it in 121.
 
-## Required implementation boundaries
+A non-empty create/upsert is required: at least one measurement must be present. A patch must include at least one field or notes change. An explicit `null` clears an optional measurement; omitted fields are untouched. A patch that would leave the record with no measurements is rejected with a named validation error; use delete to remove the record. Empty strings and whitespace-only numeric values are invalid, not implicit clears.
 
-- Prefer a new focused `body-measurements` shared schema, DB table, store, route plugin, and tests only if the chosen contract cannot reuse an existing generic measurement abstraction. Search first; do not create a parallel weight engine or duplicate date/auth helpers.
-- All user rows require `userId`, indexed/unique by `(userId, localDate)`, strict date checks, explicit unit/value checks, created/updated timestamps, and a foreign key with the repo's established account-deletion behavior.
-- Route registration, OpenAPI schemas, and generated/shared exports must follow the existing monorepo conventions.
-- No UI route/component, photos/media storage, trends, dashboard widget, agent context enrichment, production configuration, migration against a live database, deployment, merge, or PR publication.
+### Units, canonical storage, and precision
 
-## Acceptance and verification for the future implementation
+- Circumferences accept `cm` or `in`; one `unit` applies to every circumference value in a create/upsert or patch. `body_fat_percent` is unitless percentage points and is not converted.
+- Store circumferences canonically in millimetres as integers (`circumferenceMm`), converting from the declared request unit with a single shared conversion utility. Return values in the established user display unit only when the existing API convention supports that presentation; otherwise return canonical values plus the declared `unitAtEntry` without a second floating-point source of truth.
+- Preserve `unitAtEntry` for the write that established/updated each stored circumference set, following the weight provenance convention. A patch containing circumferences must include `unit`; a unit without a circumference value is invalid. Do not silently reinterpret omitted fields.
+- Accepted circumference range is 20.0 cm through 300.0 cm inclusive after conversion. Accepted body-fat range is 1.0 through 70.0 percentage points inclusive. Inputs must be finite, positive, and no more precise than one decimal place in the declared unit. Canonical conversion rounds once to the nearest millimetre and rejects any result outside the bounds; responses use stable numeric rounding appropriate to the established API pattern. These are technical data-quality bounds, not user-design guidance.
 
-Run focused shared-schema, store, route, and migration tests first, then one final risk-relevant regression gate. The final report must contain raw command output/log paths, exact clean commit SHA, and source/config identity.
+### Date, cadence, and same-date behavior
 
-Minimum cases:
+- `date` is an explicit valid `YYYY-MM-DD` user-local calendar date. It is never shifted through UTC. Future-date handling must match the nearest existing body-data policy; if none applies, reject future local dates with a named 400 error rather than clamping.
+- Manual logging has no minimum cadence, reminder, or automatic schedule. Users may submit any permitted local date; list/range/pagination behavior follows the weight contract.
+- There is exactly one record per `(userId, localDate)`. Same-date create/upsert is transactional merge: supplied non-null fields replace only those fields, supplied `null` fields clear only those fields, and omitted fields preserve their existing values. It is never a whole-record replace. An empty resulting record is rejected atomically.
+- The `(userId, localDate)` unique constraint is the owner/date conflict authority. All reads and writes are user-scoped; another user's id/date behaves as not found (404), with no mutation or ownership leak.
 
-- strict schema rejects unknown fields, malformed local dates, NaN/infinite/out-of-bound values, invalid units, empty invalid records, and forbidden future dates;
-- create returns 201, same-date retry returns 200 and leaves exactly one row, patch changes only supplied fields under the frozen merge rule, delete is idempotent/404 as specified;
-- JWT and AgentToken responses are identical for the same owner; missing/expired/invalid auth is rejected; cross-user read/patch/delete returns 404 with no mutation;
-- date range/list ordering and pagination are deterministic; local timezone boundary tests prove no UTC day shift;
-- fresh migration, populated migration/restore, schema constraints, unique index, foreign key, account-deletion behavior, and restart/readback all pass;
-- export includes the new records through the existing canonical export mechanism, and purge/account deletion removes or retains them exactly according to that mechanism; no orphan rows remain;
-- `git diff --check`, focused tests, and the agreed final regression command pass. Do not claim UI/browser acceptance because UI is explicitly out of scope.
+### Notes and CRUD
+
+Notes remain optional, trimmed, nullable, and bounded by the existing notes convention; empty notes normalize consistently to null/omitted. CRUD is explicit: create-or-merge by date, bounded list/range/pagination, get by id/date when established by the route convention, patch with the merge/null/omission rules above, and explicit delete. Delete is hard-delete only if the existing ordinary-user-data retention convention supports it; otherwise use the established account-deletion behavior, never a new trash type.
+
+## Implementation boundaries
+
+Search for a reusable generic measurement abstraction first. If none exists, use one focused `body-measurements` shared strict schema, DB table, store, route plugin, migration, OpenAPI registration, exports, and tests. Rows require `userId`, unique/indexed `(userId, localDate)`, strict date/unit/value checks, created/updated timestamps, and the repository's established foreign-key/account-deletion behavior. Keep JWT and AgentToken route schemas and response semantics identical.
+
+Out of scope: UI routes/components, manual-paste UI, photos/media, charts/trends, dashboard widgets, coaching/context enrichment, automatic estimates, production configuration/data, live migrations, deployment, merge, push, PR publication, or any server/Codex launch.
+
+## Acceptance and verification
+
+Run focused shared-schema, store, route, migration, and OpenAPI checks first, then one final uncached risk-relevant regression gate. Capture raw receipts, exact tested SHA, source/config identity, `git diff --check`, and clean status. Do not claim UI/browser acceptance for this backend-only milestone.
+
+Minimum evidence:
+
+- strict schema rejects unknown fields, malformed dates, invalid units, mixed/absent required unit usage, NaN/infinite/out-of-bound/over-precision values, empty creates, and empty-result patches;
+- cm/in conversions round-trip through canonical millimetres; body fat remains user-reported percentage points with no derived interpretation;
+- same-date create/upsert returns one row and merges supplied fields while preserving omitted fields; null clears only the named field; failed empty-result updates are atomic;
+- JWT and AgentToken owner responses match; invalid auth is rejected; cross-user get/patch/delete returns 404 without mutation;
+- local-timezone authority and future-date behavior match existing weight/body-data contracts; list ordering, date ranges, and pagination are deterministic;
+- fresh migration, populated migration/restore, constraints/unique index, foreign key, account-deletion cascade, rollback, restart/readback, and ordinary-data retention evidence pass; do not claim a nonexistent export endpoint;
+- `git diff --check` and the agreed final uncached regression command pass.
 
 ## Forbidden actions
 
-Do not touch production data or environment, run deployment, alter `.env`, start Codex/app-server, launch a server for this preparation, implement the UI, add photos/trends, merge/push, or publish a PR. Do not modify the dirty main worktree's untracked files.
+Do not touch production data or environment, alter `.env`, launch Codex/app-server or a server, implement UI/photos/trends, merge/push, publish a PR, or modify the dirty main worktree's untracked files.
 
 ## Return contract
 
-Return: decision status if the field-set decision is still blocked; otherwise exact branch/worktree, base and final SHA, changed files, verification commands with raw results, migration/export/purge evidence, clean status, and explicit confirmation that forbidden actions were not taken.
+Return exact branch/worktree, starting and final SHA, changed files, verification commands with raw results/paths, migration and account-deletion evidence, clean status, and explicit confirmation that forbidden actions were not taken. No product decisions remain open in this handoff.
