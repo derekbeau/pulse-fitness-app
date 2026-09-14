@@ -195,6 +195,17 @@ describe('OpenAPI docs', () => {
         tags: ['weight'],
         security: [{ bearerAuth: [] }, { agentToken: [] }],
       });
+      expect(body.paths?.['/api/v1/body-measurements/']?.post).toMatchObject({
+        summary: 'Create or merge body measurements for a local date',
+        tags: ['body-measurements'],
+        security: [{ bearerAuth: [] }, { agentToken: [] }],
+      });
+      expect(body.paths?.['/api/v1/body-measurements/']?.post.requestBody).toBeTruthy();
+      expect(body.paths?.['/api/v1/body-measurements/{id}']?.patch).toMatchObject({
+        summary: 'Merge changes into a body measurement entry',
+        tags: ['body-measurements'],
+        security: [{ bearerAuth: [] }, { agentToken: [] }],
+      });
       expect(body.paths?.['/api/v1/dashboard/snapshot']?.get).toMatchObject({
         summary: 'Get the dashboard snapshot for a day',
         tags: ['dashboard'],

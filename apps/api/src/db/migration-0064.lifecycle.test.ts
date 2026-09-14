@@ -21,9 +21,19 @@ const makeDir = () => {
   return dir;
 };
 
-const makePredecessorMigrations = () => {
+const makeMigrationsThrough0064 = () => {
   const dir = join(makeDir(), 'drizzle');
   cpSync(migrationsFolder, dir, { recursive: true });
+  rmSync(join(dir, '0065_body_measurements.sql'));
+  const journalPath = join(dir, 'meta', '_journal.json');
+  const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as { entries: unknown[] };
+  journal.entries = journal.entries.slice(0, 65);
+  writeFileSync(journalPath, `${JSON.stringify(journal, null, 2)}\n`);
+  return dir;
+};
+
+const makePredecessorMigrations = () => {
+  const dir = makeMigrationsThrough0064();
   rmSync(join(dir, '0064_daily_nutrition_target_overrides.sql'));
   const journalPath = join(dir, 'meta', '_journal.json');
   const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as { entries: unknown[] };
@@ -63,7 +73,12 @@ describe('migration 0064 lifecycle', () => {
     const dir = makeDir();
     const sqlite = openDb(join(dir, 'fresh.db'));
     try {
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 65 });
+      const migrationsThrough0064 = makeMigrationsThrough0064();
+      expect(
+        migratePulseDatabase(sqlite, { migrationsFolder: migrationsThrough0064 }),
+      ).toMatchObject({
+        applied: 65,
+      });
       expect(
         sqlite
           .prepare(
@@ -81,7 +96,7 @@ describe('migration 0064 lifecycle', () => {
           .run(),
       ).toThrow(/FOREIGN KEY/);
       assertIntegrity(sqlite);
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toEqual({
+      expect(migratePulseDatabase(sqlite, { migrationsFolder: migrationsThrough0064 })).toEqual({
         applied: 0,
         projectionRevisions: undefined,
       });
@@ -113,7 +128,10 @@ describe('migration 0064 lifecycle', () => {
       sqlite.close();
       sqlite = openDb(dbPath);
 
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 1 });
+      const migrationsThrough0064 = makeMigrationsThrough0064();
+      expect(
+        migratePulseDatabase(sqlite, { migrationsFolder: migrationsThrough0064 }),
+      ).toMatchObject({ applied: 1 });
       expect(schemaState(sqlite).targets).toEqual(before.targets);
       expect(schemaState(sqlite).events).toEqual(before.events);
       assertIntegrity(sqlite);
@@ -134,7 +152,9 @@ describe('migration 0064 lifecycle', () => {
       expect(schemaState(sqlite)).toEqual(before);
       assertIntegrity(sqlite);
 
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 1 });
+      expect(
+        migratePulseDatabase(sqlite, { migrationsFolder: migrationsThrough0064 }),
+      ).toMatchObject({ applied: 1 });
       expect(schemaState(sqlite).targets).toEqual(before.targets);
       expect(schemaState(sqlite).events).toEqual(before.events);
       assertIntegrity(sqlite);
