@@ -1,0 +1,22 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-body-measurements/apps/api
+
+ ✓ src/db/migrations.test.ts (19 tests) 56ms
+ ✓ src/db/schema.test.ts (49 tests) 25ms
+ ✓ src/routes/weight/store.test.ts (10 tests) 57ms
+ ✓ src/db/migration-0065.lifecycle.test.ts (3 tests) 300ms
+ ✓ src/db/migration-0064.lifecycle.test.ts (3 tests) 329ms
+ ✓ src/routes/body-measurements/api.integration.test.ts (3 tests) 1452ms
+     ✓ merges same-date partial writes, isolates owners, and preserves facts atomically  1275ms
+ ✓ src/routes/weight/index.test.ts (17 tests) 325ms
+ ✓ src/index.test.ts (8 tests) 421ms
+ ✓ src/routes/auth/index.test.ts (6 tests) 1482ms
+     ✓ registers a new user, normalizes the username, hashes the password, and returns a 7-day JWT  592ms
+     ✓ logs in a user and returns the auth envelope  429ms
+     ✓ returns INVALID_CREDENTIALS for incorrect passwords  423ms
+
+ Test Files  9 passed (9)
+      Tests  118 passed (118)
+   Start at  17:07:28
+   Duration  2.82s (transform 3.33s, setup 0ms, import 6.00s, tests 4.45s, environment 1ms)
+

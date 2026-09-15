@@ -1,0 +1,8 @@
+
+> @pulse/shared@0.0.0 typecheck /Users/meridian/Projects/pulse-body-measurements/packages/shared
+> tsc --noEmit -p tsconfig.json
+
+
+> @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-body-measurements/apps/api
+> tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+

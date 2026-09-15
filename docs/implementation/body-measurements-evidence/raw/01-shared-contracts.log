@@ -1,0 +1,11 @@
+
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-body-measurements/packages/shared
+
+ ✓ src/utils/circumference-unit.test.ts (2 tests) 2ms
+ ✓ src/schemas/body-measurements.test.ts (19 tests) 5ms
+
+ Test Files  2 passed (2)
+      Tests  21 passed (21)
+   Start at  17:07:27
+   Duration  138ms (transform 29ms, setup 0ms, import 51ms, tests 7ms, environment 0ms)
+

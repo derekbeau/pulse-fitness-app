@@ -31,6 +31,7 @@ import {
   adaptiveNutritionPrograms,
   agentTokens,
   bodyWeight,
+  bodyMeasurements,
   conditionProtocols,
   conditionSeverityPoints,
   conditionTimelineEvents,
@@ -220,6 +221,49 @@ describe('bodyWeight schema', () => {
       'body_weight_unit_at_entry_check',
       'body_weight_weight_check',
       'body_weight_weight_kg_check',
+    ]);
+  });
+});
+
+describe('bodyMeasurements schema', () => {
+  it('defines canonical optional measurements with owner/date and integrity constraints', () => {
+    expect(getTableName(bodyMeasurements)).toBe('body_measurements');
+    const columns = getTableColumns(bodyMeasurements);
+    expect(Object.keys(columns)).toEqual([
+      'id',
+      'userId',
+      'date',
+      'waistMm',
+      'hipsMm',
+      'chestMm',
+      'neckMm',
+      'leftArmMm',
+      'rightArmMm',
+      'leftThighMm',
+      'rightThighMm',
+      'bodyFatPercent',
+      'unitAtEntry',
+      'notes',
+      'createdAt',
+      'updatedAt',
+    ]);
+    const config = getTableConfig(bodyMeasurements);
+    expect(config.foreignKeys).toHaveLength(1);
+    expect(config.foreignKeys[0]?.onDelete).toBe('cascade');
+    expect(getTableName(config.foreignKeys[0].reference().foreignTable)).toBe('users');
+    expect(config.uniqueConstraints[0]?.getName()).toBe(
+      'body_measurements_user_id_local_date_unique',
+    );
+    expect(config.indexes.map((value) => value.config.name)).toEqual([
+      'body_measurements_user_id_local_date_idx',
+    ]);
+    expect(config.checks.map((value) => value.name).sort()).toEqual([
+      'body_measurements_circumference_unit_check',
+      'body_measurements_local_date_check',
+      'body_measurements_nonempty_check',
+      'body_measurements_notes_check',
+      'body_measurements_unit_at_entry_check',
+      'body_measurements_values_check',
     ]);
   });
 });

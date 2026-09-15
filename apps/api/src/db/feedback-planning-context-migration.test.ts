@@ -34,19 +34,26 @@ function stageThrough(root: string, maximumIndex: number) {
 }
 
 function stageInterruptedMigration(root: string) {
-  const destination = stageThrough(root, 64);
+  const sourceJournal = JSON.parse(
+    readFileSync(join(migrationsFolder, 'meta/_journal.json'), 'utf8'),
+  ) as Journal;
+  const latestEntry = sourceJournal.entries.at(-1);
+  if (!latestEntry) throw new Error('Expected at least one migration journal entry');
+
+  const destination = stageThrough(root, latestEntry.idx);
   const journalPath = join(destination, 'meta/_journal.json');
   const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as Journal;
-  journal.entries.push({
-    idx: 65,
+  const interruptedEntry = {
+    idx: latestEntry.idx + 1,
     version: '6',
-    when: 1789084800001,
-    tag: '0065_synthetic_interrupted_feedback_planning',
+    when: latestEntry.when + 1,
+    tag: `${String(latestEntry.idx + 1).padStart(4, '0')}_synthetic_interrupted_feedback_planning`,
     breakpoints: true,
-  });
+  };
+  journal.entries.push(interruptedEntry);
   writeFileSync(journalPath, `${JSON.stringify(journal, null, 2)}\n`);
   writeFileSync(
-    join(destination, '0065_synthetic_interrupted_feedback_planning.sql'),
+    join(destination, `${interruptedEntry.tag}.sql`),
     'CREATE TABLE synthetic_interrupted_feedback_planning(id TEXT PRIMARY KEY);\n--> statement-breakpoint\nTHIS IS INVALID SQL;\n',
   );
   return destination;
