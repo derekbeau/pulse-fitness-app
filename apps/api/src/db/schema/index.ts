@@ -4,6 +4,7 @@ export * from './adaptive-nutrition.js';
 export * from './body-weight.js';
 export * from './body-measurements.js';
 export * from './body-check-ins.js';
+export * from './body-progress-photos.js';
 export * from './dashboard-config.js';
 export * from './entity-links.js';
 export * from './equipment.js';

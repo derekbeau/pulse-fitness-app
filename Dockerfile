@@ -45,7 +45,7 @@ COPY packages/shared/package.json packages/shared/
 COPY --from=build /app/packages/shared/package.json packages/shared/package.json
 
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts && \
-    cd apps/api && pnpm rebuild better-sqlite3
+    cd apps/api && pnpm rebuild better-sqlite3 sharp
 
 # Copy compiled code
 COPY --from=build /app/apps/api/dist apps/api/dist
@@ -54,6 +54,7 @@ COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY scripts/verify-body-weight-map-mount.mjs scripts/verify-body-weight-map-mount.mjs
 COPY scripts/api-container-entrypoint.sh scripts/api-container-entrypoint.sh
 RUN chmod 0555 scripts/api-container-entrypoint.sh
+RUN mkdir -p /data/private/body-progress && chmod 0700 /data/private /data/private/body-progress
 
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0

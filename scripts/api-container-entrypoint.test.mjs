@@ -23,6 +23,7 @@ const runPreflight = (databasePath, mapPath) =>
     env: {
       ...process.env,
       BODY_WEIGHT_LEGACY_UNIT_MAP_PATH: mapPath,
+      BODY_PROGRESS_MEDIA_ROOT: join(dirname(databasePath), 'private/body-progress'),
       DATABASE_URL: databasePath,
       PULSE_APP_ROOT: repoRoot,
       PULSE_ENTRYPOINT_PREFLIGHT_ONLY: '1',

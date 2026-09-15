@@ -470,6 +470,20 @@
       "when": 1789430400000,
       "tag": "0066_body_check_in_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "6",
+      "when": 1789516800000,
+      "tag": "0067_body_progress_photo_storage",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "6",
+      "when": 1789603200000,
+      "tag": "0068_body_progress_photo_deletion_intents",
+      "breakpoints": true
     }
   ]
 }

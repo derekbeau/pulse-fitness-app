@@ -10,6 +10,7 @@ export * from './schemas/auth.js';
 export * from './schemas/body-measurements.js';
 export * from './schemas/body-check-ins.js';
 export * from './schemas/body-progress-analytics.js';
+export * from './schemas/body-progress-photos.js';
 export * from './schemas/activities.js';
 export * from './schemas/agent-tokens.js';
 export * from './schemas/common.js';
