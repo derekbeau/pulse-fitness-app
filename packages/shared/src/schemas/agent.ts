@@ -5,6 +5,7 @@ import { habitTrackingTypeSchema } from './habits.js';
 import { weightUnitSchema } from './users.js';
 import { proteinFloorProgressSchema } from './protein-floor.js';
 import { createWeightInputSchema } from './weight.js';
+import { bodyProgressContextSummarySchema } from './body-progress-analytics.js';
 
 const requiredText = (maxLength = 255) => z.string().trim().min(1).max(maxLength);
 
@@ -124,6 +125,7 @@ export const agentContextResponseSchema = z.object({
   }),
   habits: z.array(agentContextHabitSchema),
   scheduledWorkouts: z.array(agentContextScheduledWorkoutSchema),
+  bodyProgress: bodyProgressContextSummarySchema,
 });
 
 export type AgentExerciseDedupCandidate = z.infer<typeof agentExerciseDedupCandidateSchema>;

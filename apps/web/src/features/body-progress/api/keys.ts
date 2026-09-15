@@ -1,5 +1,8 @@
 export const bodyProgressQueryKeys = {
   all: ['body-progress'] as const,
+  analyticsRoot: () => ['body-progress', 'analytics'] as const,
+  analytics: (range: string, end: string | undefined) =>
+    ['body-progress', 'analytics', { range, end: end ?? null }] as const,
   preferences: () => ['body-progress', 'preferences'] as const,
   due: () => ['body-progress', 'due'] as const,
   list: () => ['body-progress', 'list'] as const,

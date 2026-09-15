@@ -1680,4 +1680,37 @@ describe('workout progression store', () => {
     });
     expect(parsedLegacy?.evidence.performance[0]?.prescribed).toMatchObject({ weight: null });
   });
+
+  it('exposes bounded current server-owned decisions for Body Progress without reevaluating them', async () => {
+    prepareDatabase();
+    const store = await loadStore();
+    const preview = await store.previewWorkoutProgression({
+      generatedAt: 500,
+      scheduledWorkoutId: 'scheduled-1',
+      userId: 'user-1',
+    });
+    expect(preview?.[0]).toMatchObject({ decision: 'increase', confidence: 'supported' });
+
+    const evidence = await store.readWorkoutProgressionEvidenceForBodyProgress({
+      userId: 'user-1',
+      startDate: '2026-08-01',
+      endDate: '2026-08-31',
+    });
+    expect(evidence.staleSourceCount).toBe(0);
+    expect(evidence.recommendations).toEqual([
+      expect.objectContaining({
+        id: preview?.[0]?.id,
+        decision: 'increase',
+        sourceFingerprint: preview?.[0]?.sourceFingerprint,
+        evidence: expect.objectContaining({ sourceSessionDate: '2026-08-20' }),
+      }),
+    ]);
+    await expect(
+      store.readWorkoutProgressionEvidenceForBodyProgress({
+        userId: 'user-1',
+        startDate: '2026-07-01',
+        endDate: '2026-07-31',
+      }),
+    ).resolves.toEqual({ recommendations: [], staleSourceCount: 0 });
+  });
 });

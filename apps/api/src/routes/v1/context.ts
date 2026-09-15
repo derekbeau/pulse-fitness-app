@@ -4,6 +4,7 @@ import {
   applyFeedbackPrecautionDecisionInputSchema,
   feedbackPlanningContextQuerySchema,
   feedbackPlanningContextResponseSchema,
+  type BodyProgressContextSummary,
   feedbackPrecautionDecisionSchema,
 } from '@pulse/shared';
 import type { FastifyPluginAsync } from 'fastify';
@@ -11,6 +12,7 @@ import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import { addUtcDays } from '../../lib/date.js';
 import { getApplicationNow } from '../../lib/clock.js';
+import { UserTimeZoneRequiredError } from '../../lib/user-time-zone.js';
 import { requireAgentOnly, requireAuth } from '../../middleware/auth.js';
 import {
   agentTokenSecurity,
@@ -35,6 +37,7 @@ import {
   FeedbackPlanningNotFoundError,
   readFeedbackPlanningContext,
 } from '../feedback-planning/store.js';
+import { getBodyProgressContextSummary } from '../body-check-ins/analytics-store.js';
 
 export const contextRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', requireAuth);
@@ -144,20 +147,44 @@ export const contextRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const today = await getNutritionLocalDateForUser(request.userId, getApplicationNow());
       const scheduleEnd = addUtcDays(today, 6);
+      const bodyProgressPromise = getBodyProgressContextSummary(request.userId).catch(
+        (error): BodyProgressContextSummary => {
+          if (!(error instanceof UserTimeZoneRequiredError)) throw error;
+          return {
+            contractVersion: 'body-progress-analytics-v1',
+            asOfDate: today,
+            signal: 'insufficient_data',
+            confidence: 'unavailable',
+            supportingFacts: [],
+            contradictoryFacts: [],
+            unavailableInputs: ['time_zone'],
+            sourceDates: [],
+            sourceFingerprint: null,
+          };
+        },
+      );
 
-      const [user, recentWorkouts, todayNutrition, weight, habits, scheduledWorkouts] =
-        await Promise.all([
-          findAgentContextUser(request.userId),
-          listAgentContextRecentWorkouts(request.userId, 5),
-          getAgentContextTodayNutrition(request.userId, today),
-          getAgentContextWeight(request.userId),
-          listAgentContextHabits(request.userId, today),
-          listAgentContextScheduledWorkouts({
-            userId: request.userId,
-            from: today,
-            to: scheduleEnd,
-          }),
-        ]);
+      const [
+        user,
+        recentWorkouts,
+        todayNutrition,
+        weight,
+        habits,
+        scheduledWorkouts,
+        bodyProgress,
+      ] = await Promise.all([
+        findAgentContextUser(request.userId),
+        listAgentContextRecentWorkouts(request.userId, 5),
+        getAgentContextTodayNutrition(request.userId, today),
+        getAgentContextWeight(request.userId),
+        listAgentContextHabits(request.userId, today),
+        listAgentContextScheduledWorkouts({
+          userId: request.userId,
+          from: today,
+          to: scheduleEnd,
+        }),
+        bodyProgressPromise,
+      ]);
 
       reply.header('Cache-Control', 'private, no-cache');
       return reply.send({
@@ -168,6 +195,7 @@ export const contextRoutes: FastifyPluginAsync = async (app) => {
           weight,
           habits,
           scheduledWorkouts,
+          bodyProgress,
         },
       });
     },

@@ -61,9 +61,14 @@ export const crossFeatureInvalidationMap = {
       adaptiveNutritionQueryKey,
       dataQualityQueryKey,
       ...currentDayAuthorityQueryKeys(),
+      bodyProgressQueryKeys.analyticsRoot(),
     ] as const satisfies readonly QueryKey[],
   adaptiveGoalMutation: () =>
-    [adaptiveNutritionQueryKey, dataQualityQueryKey] as const satisfies readonly QueryKey[],
+    [
+      adaptiveNutritionQueryKey,
+      dataQualityQueryKey,
+      bodyProgressQueryKeys.analyticsRoot(),
+    ] as const satisfies readonly QueryKey[],
   adaptivePreviewMutation: () =>
     [adaptiveNutritionQueryKey, dataQualityQueryKey] as const satisfies readonly QueryKey[],
   adaptiveResolutionMutation: () =>
@@ -111,6 +116,7 @@ export const crossFeatureInvalidationMap = {
       habitQueryKeys.list(),
       habitQueryKeys.entryList(),
       habitChainQueryKeys.all,
+      bodyProgressQueryKeys.analyticsRoot(),
     ] as const satisfies readonly QueryKey[],
   scheduledWorkoutMutation: () =>
     [dashboardSnapshotQueryKeys.all, dataQualityQueryKey] as const satisfies readonly QueryKey[],
@@ -126,6 +132,7 @@ export const crossFeatureInvalidationMap = {
       habitQueryKeys.list(),
       habitQueryKeys.entryList(),
       habitChainQueryKeys.all,
+      bodyProgressQueryKeys.analyticsRoot(),
     ] as const satisfies readonly QueryKey[],
 };
 

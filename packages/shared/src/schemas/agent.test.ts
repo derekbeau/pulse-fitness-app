@@ -65,6 +65,17 @@ describe('agentContextResponseSchema', () => {
     weight: { current: 180, trend7d: -0.5, unit: 'lbs' },
     habits: [],
     scheduledWorkouts: [],
+    bodyProgress: {
+      contractVersion: 'body-progress-analytics-v1',
+      asOfDate: '2026-03-12',
+      signal: 'insufficient_data',
+      confidence: 'unavailable',
+      supportingFacts: [],
+      contradictoryFacts: [],
+      unavailableInputs: ['trend_weight', 'waist'],
+      sourceDates: [],
+      sourceFingerprint: 'a'.repeat(64),
+    },
   } as const;
 
   it('requires Agent macro totals to agree with the structured floor fact', () => {

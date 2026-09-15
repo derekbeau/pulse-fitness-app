@@ -1,10 +1,11 @@
 import {
   createBodyCheckInInputSchema,
+  createWeightInputSchema,
   patchBodyCheckInPreferenceSchema,
 } from '../../../packages/shared/src/index';
 
 export const bodyProgressFixtureContract = {
-  fixtureVersion: 'body-progress-ui-v1',
+  fixtureVersion: 'body-progress-ui-v2',
   serverTimeZone: 'America/Detroit',
   preference: patchBodyCheckInPreferenceSchema.parse({
     measurementCadenceDays: 14,
@@ -52,6 +53,94 @@ export const bodyProgressFixtureContract = {
     countAsScheduledOccurrence: false,
     idempotencyKey: 'body-progress-e2e-complete-v1',
   }),
+  completedHistory: [
+    createBodyCheckInInputSchema.parse({
+      date: '2026-08-15',
+      localTime: '07:38',
+      status: 'completed',
+      measurements: [
+        {
+          site: 'waist_iliac_crest_nhanes',
+          laterality: 'none',
+          unit: 'cm',
+          readings: [85.2, 85.6],
+        },
+        {
+          site: 'chest_nipple_line_relaxed',
+          laterality: 'none',
+          unit: 'cm',
+          readings: [100.8, 101.2],
+        },
+        { site: 'hips_maximum', laterality: 'none', unit: 'cm', readings: [99.8, 100.2] },
+      ],
+      mealContext: 'pre_meal',
+      workoutContext: 'pre_workout',
+      pumpPresent: false,
+      unusualBloating: false,
+      notes: 'Source-bound baseline: same tape before breakfast.',
+      countAsScheduledOccurrence: false,
+      idempotencyKey: 'body-progress-e2e-history-1-v2',
+    }),
+    createBodyCheckInInputSchema.parse({
+      date: '2026-08-30',
+      localTime: '07:41',
+      status: 'completed',
+      measurements: [
+        {
+          site: 'waist_iliac_crest_nhanes',
+          laterality: 'none',
+          unit: 'cm',
+          readings: [84.7, 85.1],
+        },
+        {
+          site: 'chest_nipple_line_relaxed',
+          laterality: 'none',
+          unit: 'cm',
+          readings: [101, 101.4],
+        },
+        { site: 'hips_maximum', laterality: 'none', unit: 'cm', readings: [99.5, 99.9] },
+      ],
+      mealContext: 'pre_meal',
+      workoutContext: 'pre_workout',
+      pumpPresent: false,
+      unusualBloating: false,
+      notes: 'Source-bound midpoint: same tape before breakfast.',
+      countAsScheduledOccurrence: false,
+      idempotencyKey: 'body-progress-e2e-history-2-v2',
+    }),
+  ],
+  weights: [
+    createWeightInputSchema.parse({
+      date: '2026-08-15',
+      weight: 181.8,
+      unit: 'lbs',
+      notes: 'Body Progress source fixture.',
+    }),
+    createWeightInputSchema.parse({
+      date: '2026-08-30',
+      weight: 181.5,
+      unit: 'lbs',
+      notes: 'Body Progress source fixture.',
+    }),
+    createWeightInputSchema.parse({
+      date: '2026-09-05',
+      weight: 181.6,
+      unit: 'lbs',
+      notes: 'Body Progress recent pace fixture.',
+    }),
+    createWeightInputSchema.parse({
+      date: '2026-09-10',
+      weight: 181.5,
+      unit: 'lbs',
+      notes: 'Body Progress recent pace fixture.',
+    }),
+    createWeightInputSchema.parse({
+      date: '2026-09-14',
+      weight: 181.4,
+      unit: 'lbs',
+      notes: 'Body Progress source fixture.',
+    }),
+  ],
   draft: createBodyCheckInInputSchema.parse({
     date: '2026-09-15',
     localTime: '07:45',

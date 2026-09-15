@@ -1,6 +1,8 @@
 import {
   apiDataResponseSchema,
   apiPaginatedResponseSchema,
+  bodyProgressAnalyticsQuerySchema,
+  bodyProgressAnalyticsSchema,
   bodyCheckInListQuerySchema,
   bodyCheckInExportSchema,
   bodyCheckInHistorySchema,
@@ -48,6 +50,7 @@ import {
   snoozeBodyDueOccurrence,
   upsertBodyCheckInPreference,
 } from './store.js';
+import { getBodyProgressAnalytics } from './analytics-store.js';
 
 const nullablePreferenceResponse = apiDataResponseSchema(bodyCheckInPreferenceSchema.nullable());
 const deleteResultSchema = z.object({ deleted: z.literal(true), id: z.string() }).strict();
@@ -149,6 +152,37 @@ export const bodyCheckInRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request, reply) =>
       reply.send({ data: await getBodyDueState(request.userId, request.query.date) }),
+  );
+
+  typedApp.get(
+    '/analytics',
+    {
+      schema: {
+        querystring: bodyProgressAnalyticsQuerySchema,
+        response: {
+          200: apiDataResponseSchema(bodyProgressAnalyticsSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          409: apiErrorResponseSchema,
+        },
+        tags: ['body-check-ins'],
+        summary: 'Get server-owned Body Progress trends and signal evidence',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      try {
+        reply.header('Cache-Control', 'private, no-cache');
+        return reply.send({
+          data: await getBodyProgressAnalytics(request.userId, request.query),
+        });
+      } catch (error) {
+        if (error instanceof RangeError) {
+          return sendError(reply, 400, 'BODY_PROGRESS_RANGE_INVALID', error.message);
+        }
+        throw error;
+      }
+    },
   );
 
   typedApp.post(
