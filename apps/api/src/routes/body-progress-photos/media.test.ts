@@ -1,4 +1,15 @@
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -46,7 +57,7 @@ describe('progress photo media security', () => {
   let directory = '';
   let mediaRoot = '';
   beforeEach(async () => {
-    directory = await mkdtemp(join(tmpdir(), 'pulse-photo-media-'));
+    directory = await realpath(await mkdtemp(join(tmpdir(), 'pulse-photo-media-')));
     mediaRoot = join(directory, 'private');
     process.env.BODY_PROGRESS_MEDIA_ROOT = mediaRoot;
     process.env.BODY_PROGRESS_MEDIA_KEY = TEST_KEY;
@@ -79,6 +90,10 @@ describe('progress photo media security', () => {
       expect(new Set(processed.variants.map(({ nonce }) => nonce)).size).toBe(4);
       const encrypted = await readFile(join(mediaRoot, processed.normalized.storageKey));
       expect(encrypted.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))).toBe(false);
+      expect((await lstat(mediaRoot)).mode & 0o777).toBe(0o700);
+      expect((await lstat(join(mediaRoot, processed.normalized.storageKey))).mode & 0o777).toBe(
+        0o600,
+      );
       const original = processed.variants.find((variant) => variant.variant === 'original');
       if (!original) throw new Error('Sanitized original variant is missing');
       const decryptedOriginal = await decryptVariantToTemporaryFile({
@@ -256,6 +271,61 @@ describe('progress photo media security', () => {
       }),
     ).rejects.toMatchObject({ code: 'BODY_PROGRESS_PHOTO_STORAGE_UNAVAILABLE' });
     expect(await readdir(mediaRoot)).toEqual([]);
+  });
+
+  it('rejects configured roots with a symlink final component or ancestor without target ciphertext', async () => {
+    const jpeg = await makeImage('jpeg');
+    const target = join(directory, 'symlink-target');
+    await mkdir(target, { mode: 0o700 });
+    await symlink(target, mediaRoot);
+    await expect(
+      processAndEncryptPhoto({
+        part: part(jpeg, 'synthetic-clothed.jpg', 'image/jpeg'),
+        photoId: '33333333-3333-4333-8333-333333333333',
+        userId: 'fixture-user',
+        view: 'front',
+      }),
+    ).rejects.toMatchObject({ code: 'BODY_PROGRESS_PHOTO_STORAGE_UNAVAILABLE' });
+    expect(await readdir(target)).toEqual([]);
+
+    await rm(mediaRoot);
+    const ancestorTarget = join(directory, 'ancestor-target');
+    const ancestorLink = join(directory, 'ancestor-link');
+    await mkdir(ancestorTarget, { mode: 0o700 });
+    await symlink(ancestorTarget, ancestorLink);
+    process.env.BODY_PROGRESS_MEDIA_ROOT = join(ancestorLink, 'private');
+    await expect(
+      processAndEncryptPhoto({
+        part: part(jpeg, 'synthetic-clothed.jpg', 'image/jpeg'),
+        photoId: '33333333-3333-4333-8333-333333333333',
+        userId: 'fixture-user',
+        view: 'front',
+      }),
+    ).rejects.toMatchObject({ code: 'BODY_PROGRESS_PHOTO_STORAGE_UNAVAILABLE' });
+    expect(await readdir(ancestorTarget)).toEqual([]);
+  });
+
+  it('revalidates the configured root after an ancestor replacement race before commit', async () => {
+    const attackerTarget = join(directory, 'race-target');
+    const movedRoot = join(directory, 'private-original');
+    await mkdir(attackerTarget, { mode: 0o700 });
+    let replaced = false;
+    await expect(
+      processAndEncryptPhoto({
+        part: part(await makeImage('jpeg'), 'synthetic-clothed.jpg', 'image/jpeg'),
+        photoId: '33333333-3333-4333-8333-333333333333',
+        userId: 'fixture-user',
+        view: 'front',
+        beforeAtomicCommit: async () => {
+          if (replaced) return;
+          replaced = true;
+          await rename(mediaRoot, movedRoot);
+          await symlink(attackerTarget, mediaRoot);
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'BODY_PROGRESS_PHOTO_STORAGE_UNAVAILABLE' });
+    expect(await readdir(attackerTarget)).toEqual([]);
+    expect((await readdir(movedRoot)).filter((name) => name.endsWith('.enc'))).toEqual([]);
   });
 
   it.each([

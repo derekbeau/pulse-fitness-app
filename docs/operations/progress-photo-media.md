@@ -38,9 +38,14 @@ Do not overwrite the live volume until both metadata and media verification succ
 
 ## Deletion and orphan audit
 
-Live deletion atomically quarantines generated ciphertext names, commits scoped metadata deletion,
-then removes the quarantine. A database failure restores the files. Missing files are counted without
-exposing filesystem paths. Account deletion uses the same staging contract before the user cascade.
+Live deletion atomically quarantines generated ciphertext names and records durable deletion intents in
+the same SQLite transaction that removes scoped metadata. A database failure restores the referenced
+files. After that transaction commits, quarantine removal never restores now-unreferenced ciphertext:
+each successfully removed object clears its intent, while a removal failure leaves both the quarantine
+and intent for retry and returns storage-unavailable rather than false success. API startup finalizes
+committed intents and restores only abandoned pre-transaction quarantines that still have live metadata.
+Missing files are counted without exposing filesystem paths. Single-photo, set, bulk, and account
+deletion all use this protocol.
 
 Run the orphan command report-only by default:
 
@@ -52,3 +57,34 @@ Metadata-without-file results contain only owned photo ids and counts; file-with
 are counts only. Repair requires `--repair --user-id <uuid>` and only removes that user's broken
 metadata. Unreferenced ciphertext is never deleted by the user-scoped repair because ownership cannot
 be proven from a generated filename; global file repair requires a separate reviewed recovery action.
+Pending deletion intent and quarantine counts are reported separately and are never silently folded into
+ordinary orphan counts.
+
+## Migration rollback and removal boundary
+
+Migrations `0067_body_progress_photo_storage` and `0068_body_progress_photo_deletion_intents` are
+additive forward migrations. Dropping their tables or deleting their journal rows is **not** a routine or
+supported live rollback: doing so can sever the only ownership and recovery metadata for encrypted
+objects. Stop if the database or media tree cannot be backed up together, any integrity/foreign-key check
+fails, the matching separately protected media key is unavailable, deletion intents remain unresolved,
+or the restored ciphertext cannot be authenticated.
+
+Rollback/removal is permitted only in a disposable rehearsal or an explicitly reviewed outage recovery.
+The safe boundary is restoration of one matched snapshot set, never hand-written reverse DDL:
+
+1. Stop all writers and preserve the failed database, WAL/SHM files, encrypted media tree, and key
+   version for investigation.
+2. Restore the complete predecessor database backup **and its matching predecessor media snapshot** to
+   an isolated location. Do not combine a pre-0067 database with post-0067 ciphertext.
+3. Run the production migrator and integrity checks against that isolated copy. An idempotent rerun must
+   apply zero migrations.
+4. For a forward restore, restore the matched migrated database and encrypted media snapshot together,
+   provide the matching key separately, and authenticate every referenced object before service start.
+5. Replace live state only under a separately approved recovery plan after all checks pass. The #123
+   tooling does not claim online reverse migration, automatic key recovery, or safe selective table
+   removal.
+
+The synthetic migration rehearsal exercises fresh and populated predecessors, malformed/conflicting
+partial schema rollback, idempotent rerun, matched predecessor restoration, and matched forward
+database/media/key restoration. It uses disposable databases, synthetic clothed image bytes, and a
+synthetic local key only.

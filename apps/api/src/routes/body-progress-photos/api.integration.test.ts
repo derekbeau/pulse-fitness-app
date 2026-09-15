@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,7 +49,7 @@ const multipartMany = (
 
 describe('progress photo API security contract', () => {
   beforeEach(async () => {
-    directory = mkdtempSync(join(tmpdir(), 'pulse-photo-api-'));
+    directory = realpathSync(mkdtempSync(join(tmpdir(), 'pulse-photo-api-')));
     process.env.DATABASE_URL = join(directory, 'api.db');
     mediaRoot = join(directory, 'private');
     process.env.BODY_PROGRESS_MEDIA_ROOT = mediaRoot;

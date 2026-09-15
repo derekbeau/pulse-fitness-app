@@ -2,19 +2,18 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID }
 import {
   chmod,
   lstat,
-  link,
   mkdir,
   mkdtemp,
   open,
   readFile,
+  readdir,
   realpath,
   rename,
   rm,
-  stat,
 } from 'node:fs/promises';
-import { createReadStream, createWriteStream } from 'node:fs';
+import { constants, createReadStream, createWriteStream } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, extname, join, resolve, sep } from 'node:path';
+import { basename, extname, join, parse, resolve, sep } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
@@ -36,6 +35,10 @@ const TAG_BYTES = 16;
 const HEADER_BYTES = FORMAT_MAGIC.length + NONCE_BYTES;
 const STORAGE_KEY_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.enc$/u;
+const DELETION_QUARANTINE_PATTERN = new RegExp(
+  `^\\.delete-(${STORAGE_KEY_PATTERN.source.slice(1, -1)})$`,
+  'u',
+);
 const PRIVATE_DIR_MODE = 0o700;
 const PRIVATE_FILE_MODE = 0o600;
 const DEFAULT_MEDIA_ROOT =
@@ -127,19 +130,70 @@ const buildAad = (input: {
     'utf8',
   );
 
+const storageUnavailable = () =>
+  new ProgressPhotoMediaError(
+    'BODY_PROGRESS_PHOTO_STORAGE_UNAVAILABLE',
+    'Progress photo storage is unavailable',
+  );
+
+const isMissing = (error: unknown) =>
+  typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
+
+/**
+ * Walk the configured absolute path one component at a time. Recursive mkdir and
+ * realpath-first validation both follow symlinks, so neither is safe at this boundary.
+ */
+const validatePrivateRootComponents = async (configured: string, createMissing: boolean) => {
+  const parsed = parse(configured);
+  let current = parsed.root;
+  const components = configured.slice(parsed.root.length).split(sep).filter(Boolean);
+  for (const component of components) {
+    current = join(current, component);
+    let componentStat;
+    try {
+      componentStat = await lstat(current);
+    } catch (error) {
+      if (!createMissing || !isMissing(error)) throw error;
+      try {
+        await mkdir(current, { mode: PRIVATE_DIR_MODE });
+      } catch (mkdirError) {
+        if (
+          typeof mkdirError !== 'object' ||
+          mkdirError === null ||
+          !('code' in mkdirError) ||
+          mkdirError.code !== 'EEXIST'
+        )
+          throw mkdirError;
+      }
+      componentStat = await lstat(current);
+    }
+    if (componentStat.isSymbolicLink() || !componentStat.isDirectory()) throw storageUnavailable();
+  }
+  if ((await realpath(configured)) !== configured) throw storageUnavailable();
+};
+
+const assertPrivateRoot = async (root: string) => {
+  try {
+    await validatePrivateRootComponents(root, false);
+    const rootStat = await lstat(root);
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) throw storageUnavailable();
+  } catch (error) {
+    if (error instanceof ProgressPhotoMediaError) throw error;
+    throw storageUnavailable();
+  }
+};
+
 const ensurePrivateRoot = async () => {
   const configured = getProgressPhotoMediaRoot();
-  await mkdir(configured, { recursive: true, mode: PRIVATE_DIR_MODE });
-  await chmod(configured, PRIVATE_DIR_MODE);
-  const root = await realpath(configured);
-  const rootStat = await lstat(root);
-  if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) {
-    throw new ProgressPhotoMediaError(
-      'BODY_PROGRESS_PHOTO_STORAGE_UNAVAILABLE',
-      'Progress photo storage is unavailable',
-    );
+  try {
+    await validatePrivateRootComponents(configured, true);
+    await chmod(configured, PRIVATE_DIR_MODE);
+    await assertPrivateRoot(configured);
+    return configured;
+  } catch (error) {
+    if (error instanceof ProgressPhotoMediaError) throw error;
+    throw storageUnavailable();
   }
-  return root;
 };
 
 const resolveStoragePath = (root: string, storageKey: string) => {
@@ -202,14 +256,18 @@ export const decryptVariantToTemporaryFile = async (input: {
 }) => {
   const root = await ensurePrivateRoot();
   const sourcePath = resolveStoragePath(root, input.variant.storageKey);
-  const sourceStat = await stat(sourcePath).catch(() => null);
-  if (!sourceStat?.isFile() || sourceStat.size <= HEADER_BYTES + TAG_BYTES) {
+  const sourceStat = await lstat(sourcePath).catch(() => null);
+  if (
+    !sourceStat?.isFile() ||
+    sourceStat.isSymbolicLink() ||
+    sourceStat.size <= HEADER_BYTES + TAG_BYTES
+  ) {
     throw new ProgressPhotoMediaError(
       'BODY_PROGRESS_PHOTO_INTEGRITY_FAILURE',
       'Progress photo content could not be verified',
     );
   }
-  const handle = await open(sourcePath, 'r');
+  const handle = await open(sourcePath, constants.O_RDONLY | constants.O_NOFOLLOW);
   let header: Buffer;
   let tag: Buffer;
   try {
@@ -241,9 +299,14 @@ export const decryptVariantToTemporaryFile = async (input: {
     buildAad({ ...input.variant, userId: input.userId, photoId: input.photoId, view: input.view }),
   );
   decipher.setAuthTag(tag);
+  const ciphertextHandle = await open(sourcePath, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     await pipeline(
-      createReadStream(sourcePath, { start: HEADER_BYTES, end: sourceStat.size - TAG_BYTES - 1 }),
+      ciphertextHandle.createReadStream({
+        autoClose: false,
+        start: HEADER_BYTES,
+        end: sourceStat.size - TAG_BYTES - 1,
+      }),
       decipher,
       createWriteStream(outputPath, { flags: 'wx', mode: PRIVATE_FILE_MODE }),
     );
@@ -254,6 +317,8 @@ export const decryptVariantToTemporaryFile = async (input: {
       'BODY_PROGRESS_PHOTO_INTEGRITY_FAILURE',
       'Progress photo content could not be verified',
     );
+  } finally {
+    await ciphertextHandle.close();
   }
 };
 
@@ -346,7 +411,7 @@ const writePartToTemp = async (part: MultipartFile, path: string) => {
       'BODY_PROGRESS_PHOTO_SIZE_LIMIT',
       'Image exceeds the 12 MiB input limit',
     );
-  const size = (await stat(path)).size;
+  const size = (await lstat(path)).size;
   if (size <= 0 || size > BODY_PROGRESS_PHOTO_MAX_INPUT_BYTES) {
     throw new ProgressPhotoMediaError(
       'BODY_PROGRESS_PHOTO_SIZE_LIMIT',
@@ -368,10 +433,12 @@ export const processAndEncryptPhoto = async (input: {
 }) => {
   assertProgressPhotoMediaKey();
   const root = await ensurePrivateRoot();
-  const tempDirectory = await mkdtemp(join(root, '.processing-'));
+  const canonicalTemporaryRoot = await realpath(tmpdir());
+  const tempDirectory = await mkdtemp(join(canonicalTemporaryRoot, 'pulse-photo-processing-'));
   await chmod(tempDirectory, PRIVATE_DIR_MODE);
   const stagedPath = join(tempDirectory, `${randomUUID()}.upload`);
   const committedPaths: string[] = [];
+  const pendingPaths = new Set<string>();
   try {
     await writePartToTemp(input.part, stagedPath);
     const headerHandle = await open(stagedPath, 'r');
@@ -492,7 +559,8 @@ export const processAndEncryptPhoto = async (input: {
     const variants: StoredPhotoVariant[] = [];
     for (const variantInput of variantInputs) {
       const storageKey = `${randomUUID()}.enc`;
-      const pendingPath = join(tempDirectory, storageKey);
+      const pendingPath = join(root, `.pending-${randomUUID()}`);
+      pendingPaths.add(pendingPath);
       const destinationPath = resolveStoragePath(root, storageKey);
       const checksum = await sha256File(variantInput.path);
       const aad = buildAad({
@@ -513,9 +581,11 @@ export const processAndEncryptPhoto = async (input: {
         aad,
       });
       await input.beforeAtomicCommit?.(storageKey);
-      await link(pendingPath, destinationPath);
-      await rm(pendingPath);
+      await assertPrivateRoot(root);
+      await rename(pendingPath, destinationPath);
+      pendingPaths.delete(pendingPath);
       await chmod(destinationPath, PRIVATE_FILE_MODE);
+      await assertPrivateRoot(root);
       committedPaths.push(destinationPath);
       variants.push({
         variant: variantInput.variant,
@@ -542,7 +612,9 @@ export const processAndEncryptPhoto = async (input: {
         Promise.all(committedPaths.map((path) => rm(path, { force: true }))).then(() => undefined),
     };
   } catch (error) {
-    await Promise.all(committedPaths.map((path) => rm(path, { force: true })));
+    await Promise.all(
+      [...committedPaths, ...pendingPaths].map((path) => rm(path, { force: true })),
+    );
     if (error instanceof ProgressPhotoMediaError) throw error;
     throw new ProgressPhotoMediaError(
       'BODY_PROGRESS_PHOTO_STORAGE_UNAVAILABLE',
@@ -555,47 +627,77 @@ export const processAndEncryptPhoto = async (input: {
 
 export const deleteStoredVariants = async (variants: StoredPhotoVariant[]) => {
   const staged = await stageStoredVariantsForDeletion(variants);
-  await staged.commit();
+  await staged.finalize();
   return { deleted: staged.staged, missing: staged.missing };
 };
+
+export type StagedDeletionEntry = {
+  storageKey: string;
+  quarantineKey: string;
+};
+
+const quarantineKeyFor = (storageKey: string) => `.delete-${storageKey}`;
 
 export const stageStoredVariantsForDeletion = async (variants: StoredPhotoVariant[]) => {
   if (variants.length === 0) {
     return {
       staged: 0,
       missing: 0,
-      commit: async () => undefined,
+      entries: [] as StagedDeletionEntry[],
+      finalize: async () => undefined,
       rollback: async () => undefined,
     };
   }
   const root = await ensurePrivateRoot();
   let missing = 0;
-  const staged: Array<{ source: string; quarantine: string }> = [];
+  const staged: Array<StagedDeletionEntry & { source: string; quarantine: string }> = [];
+  const rollbackStaged = async () =>
+    Promise.all(staged.map((item) => rename(item.quarantine, item.source).catch(() => undefined)));
   for (const variant of variants) {
+    await assertPrivateRoot(root);
     const path = resolveStoragePath(root, variant.storageKey);
-    const quarantine = join(root, `.delete-${randomUUID()}`);
+    const quarantineKey = quarantineKeyFor(variant.storageKey);
+    const quarantine = join(root, quarantineKey);
     try {
       await rename(path, quarantine);
-      staged.push({ source: path, quarantine });
+      const quarantineStat = await lstat(quarantine);
+      if (!quarantineStat.isFile() || quarantineStat.isSymbolicLink()) {
+        await rename(quarantine, path).catch(() => undefined);
+        await rollbackStaged();
+        throw storageUnavailable();
+      }
+      staged.push({ source: path, quarantine, storageKey: variant.storageKey, quarantineKey });
     } catch (error) {
-      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT')
-        missing += 1;
-      else {
-        await Promise.all(
-          staged.map((item) => rename(item.quarantine, item.source).catch(() => undefined)),
-        );
-        throw new ProgressPhotoMediaError(
-          'BODY_PROGRESS_PHOTO_STORAGE_UNAVAILABLE',
-          'Progress photo storage is unavailable',
-        );
+      if (isMissing(error)) {
+        const quarantineStat = await lstat(quarantine).catch(() => null);
+        if (quarantineStat?.isFile() && !quarantineStat.isSymbolicLink()) {
+          staged.push({ source: path, quarantine, storageKey: variant.storageKey, quarantineKey });
+        } else if (quarantineStat) {
+          await rollbackStaged();
+          throw storageUnavailable();
+        } else {
+          missing += 1;
+        }
+      } else {
+        await rollbackStaged();
+        throw storageUnavailable();
       }
     }
   }
   return {
     staged: staged.length,
     missing,
-    commit: async () => {
-      await Promise.all(staged.map((item) => rm(item.quarantine, { force: true })));
+    entries: staged.map(({ storageKey, quarantineKey }) => ({ storageKey, quarantineKey })),
+    finalize: async (options?: {
+      beforeRemove?: (entry: StagedDeletionEntry) => void | Promise<void>;
+      afterRemove?: (entry: StagedDeletionEntry) => void | Promise<void>;
+    }) => {
+      for (const item of staged) {
+        await assertPrivateRoot(root);
+        await options?.beforeRemove?.(item);
+        await rm(item.quarantine, { force: true });
+        await options?.afterRemove?.(item);
+      }
     },
     rollback: async () => {
       await Promise.all(staged.map((item) => rename(item.quarantine, item.source)));
@@ -605,7 +707,6 @@ export const stageStoredVariantsForDeletion = async (variants: StoredPhotoVarian
 
 export const listEncryptedStorageKeys = async () => {
   const root = await ensurePrivateRoot();
-  const { readdir } = await import('node:fs/promises');
   return (await readdir(root, { withFileTypes: true }))
     .filter((entry) => entry.isFile() && STORAGE_KEY_PATTERN.test(entry.name))
     .map((entry) => entry.name);
@@ -614,8 +715,8 @@ export const listEncryptedStorageKeys = async () => {
 export const storedVariantExists = async (storageKey: string) => {
   const root = await ensurePrivateRoot();
   try {
-    const result = await stat(resolveStoragePath(root, storageKey));
-    return result.isFile();
+    const result = await lstat(resolveStoragePath(root, storageKey));
+    return result.isFile() && !result.isSymbolicLink();
   } catch (error) {
     if (error instanceof ProgressPhotoMediaError) throw error;
     if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT')
@@ -625,4 +726,43 @@ export const storedVariantExists = async (storageKey: string) => {
       'Progress photo storage is unavailable',
     );
   }
+};
+
+export const listDeletionQuarantines = async () => {
+  const root = await ensurePrivateRoot();
+  const entries = await readdir(root, { withFileTypes: true });
+  return entries.flatMap((entry) => {
+    if (!entry.isFile() || entry.isSymbolicLink()) return [];
+    const match = DELETION_QUARANTINE_PATTERN.exec(entry.name);
+    return match?.[1] ? [{ quarantineKey: entry.name, storageKey: match[1] }] : [];
+  });
+};
+
+export const finalizeDeletionQuarantine = async (
+  entry: StagedDeletionEntry,
+  beforeRemove?: (entry: StagedDeletionEntry) => void | Promise<void>,
+) => {
+  if (
+    quarantineKeyFor(entry.storageKey) !== entry.quarantineKey ||
+    !DELETION_QUARANTINE_PATTERN.test(entry.quarantineKey)
+  )
+    throw storageUnavailable();
+  const root = await ensurePrivateRoot();
+  await beforeRemove?.(entry);
+  await rm(join(root, entry.quarantineKey), { force: true });
+};
+
+export const restoreAbandonedDeletionQuarantine = async (entry: StagedDeletionEntry) => {
+  if (quarantineKeyFor(entry.storageKey) !== entry.quarantineKey) throw storageUnavailable();
+  const root = await ensurePrivateRoot();
+  const source = resolveStoragePath(root, entry.storageKey);
+  const quarantine = join(root, entry.quarantineKey);
+  const sourceStat = await lstat(source).catch(() => null);
+  if (sourceStat) {
+    if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) throw storageUnavailable();
+    await rm(quarantine, { force: true });
+    return;
+  }
+  await rename(quarantine, source);
+  await chmod(source, PRIVATE_FILE_MODE);
 };

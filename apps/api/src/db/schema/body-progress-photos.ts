@@ -214,3 +214,33 @@ export const bodyProgressPhotos = sqliteTable(
     ),
   ],
 );
+
+export const bodyProgressPhotoDeletionIntents = sqliteTable(
+  'body_progress_photo_deletion_intents',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    userId: text('user_id').notNull(),
+    scope: text('scope').$type<'photo' | 'set' | 'all' | 'account'>().notNull(),
+    scopeId: text('scope_id').notNull(),
+    storageKey: text('storage_key').notNull(),
+    quarantineKey: text('quarantine_key').notNull(),
+    createdAt: integer('created_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => [
+    unique('body_progress_photo_deletion_intents_storage_key_unique').on(table.storageKey),
+    unique('body_progress_photo_deletion_intents_quarantine_key_unique').on(table.quarantineKey),
+    index('body_progress_photo_deletion_intents_scope_idx').on(
+      table.userId,
+      table.scope,
+      table.scopeId,
+    ),
+    check(
+      'body_progress_photo_deletion_intents_scope_check',
+      sql`${table.scope} in ('photo','set','all','account')`,
+    ),
+  ],
+);

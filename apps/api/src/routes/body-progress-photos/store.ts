@@ -24,6 +24,7 @@ import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 
 import {
   bodyCheckIns,
+  bodyProgressPhotoDeletionIntents,
   bodyProgressPhotoPreferences,
   bodyProgressPhotos,
   bodyProgressPhotoSets,
@@ -38,10 +39,135 @@ import {
 
 import {
   assertProgressPhotoMediaKey,
+  finalizeDeletionQuarantine,
+  listDeletionQuarantines,
   processAndEncryptPhoto,
   ProgressPhotoMediaError,
+  restoreAbandonedDeletionQuarantine,
   stageStoredVariantsForDeletion,
+  type StagedDeletionEntry,
 } from './media.js';
+
+type DeletionScope = 'photo' | 'set' | 'all' | 'account';
+type DeletionFaultInjection = {
+  beforeRemove?: (entry: StagedDeletionEntry) => void | Promise<void>;
+};
+
+export const buildProgressPhotoDeletionIntentValues = (
+  userId: string,
+  scope: DeletionScope,
+  scopeId: string,
+  entries: StagedDeletionEntry[],
+) =>
+  entries.map((entry) => ({
+    id: randomUUID(),
+    userId,
+    scope,
+    scopeId,
+    storageKey: entry.storageKey,
+    quarantineKey: entry.quarantineKey,
+  }));
+
+const clearDeletionIntent = async (storageKey: string) => {
+  const { db } = await import('../../db/index.js');
+  db.delete(bodyProgressPhotoDeletionIntents)
+    .where(eq(bodyProgressPhotoDeletionIntents.storageKey, storageKey))
+    .run();
+};
+
+export const finalizeCommittedProgressPhotoDeletion = async (
+  staged: Awaited<ReturnType<typeof stageStoredVariantsForDeletion>>,
+  fault?: DeletionFaultInjection,
+) => {
+  try {
+    await staged.finalize({
+      beforeRemove: fault?.beforeRemove,
+      afterRemove: async (entry) => clearDeletionIntent(entry.storageKey),
+    });
+  } catch (error) {
+    if (error instanceof ProgressPhotoMediaError) throw error;
+    throw new ProgressPhotoMediaError(
+      'BODY_PROGRESS_PHOTO_STORAGE_UNAVAILABLE',
+      'Progress photo storage is unavailable',
+    );
+  }
+};
+
+export const recoverPendingProgressPhotoDeletions = async (
+  options: { userId?: string; fault?: DeletionFaultInjection } = {},
+) => {
+  const { db } = await import('../../db/index.js');
+  const intents = options.userId
+    ? db
+        .select()
+        .from(bodyProgressPhotoDeletionIntents)
+        .where(eq(bodyProgressPhotoDeletionIntents.userId, options.userId))
+        .all()
+    : db.select().from(bodyProgressPhotoDeletionIntents).all();
+  const referenced = await allReferencedStorageKeys();
+  let finalizedIntentCount = 0;
+  let restoredReferencedCount = 0;
+  for (const intent of intents) {
+    const entry = { storageKey: intent.storageKey, quarantineKey: intent.quarantineKey };
+    if (referenced.has(intent.storageKey)) {
+      await restoreAbandonedDeletionQuarantine(entry);
+      restoredReferencedCount += 1;
+    } else {
+      await finalizeDeletionQuarantine(entry, options.fault?.beforeRemove);
+      finalizedIntentCount += 1;
+    }
+    await clearDeletionIntent(intent.storageKey);
+  }
+
+  let restoredAbandonedCount = 0;
+  let removedAbandonedCount = 0;
+  if (!options.userId) {
+    const stillTracked = new Set(
+      db
+        .select({ storageKey: bodyProgressPhotoDeletionIntents.storageKey })
+        .from(bodyProgressPhotoDeletionIntents)
+        .all()
+        .map(({ storageKey }) => storageKey),
+    );
+    for (const entry of await listDeletionQuarantines()) {
+      if (stillTracked.has(entry.storageKey)) continue;
+      if (referenced.has(entry.storageKey)) {
+        await restoreAbandonedDeletionQuarantine(entry);
+        restoredAbandonedCount += 1;
+      } else {
+        await finalizeDeletionQuarantine(entry, options.fault?.beforeRemove);
+        removedAbandonedCount += 1;
+      }
+    }
+  }
+  return {
+    pendingIntentCount: intents.length,
+    finalizedIntentCount,
+    restoredReferencedCount,
+    restoredAbandonedCount,
+    removedAbandonedCount,
+  };
+};
+
+export const getPendingProgressPhotoDeletionFacts = async (userId?: string) => {
+  const { db } = await import('../../db/index.js');
+  const intents = userId
+    ? db
+        .select()
+        .from(bodyProgressPhotoDeletionIntents)
+        .where(eq(bodyProgressPhotoDeletionIntents.userId, userId))
+        .all()
+    : db.select().from(bodyProgressPhotoDeletionIntents).all();
+  const quarantines = await listDeletionQuarantines();
+  return {
+    pendingDeletionIntentCount: intents.length,
+    pendingDeletionQuarantineCount: userId
+      ? quarantines.filter((entry) =>
+          intents.some((intent) => intent.storageKey === entry.storageKey),
+        ).length
+      : quarantines.length,
+  };
+};
 
 const DEFAULT_CONTEXT = {
   meal: 'unspecified' as const,
@@ -630,13 +756,16 @@ export const uploadPhotos = async (
   return updated;
 };
 
-export const deletePhoto = async (id: string, userId: string) => {
+export const deletePhoto = async (id: string, userId: string, fault?: DeletionFaultInjection) => {
   const row = await getPhotoInternal(id, userId);
   if (!row) return null;
   const staged = await stageStoredVariantsForDeletion(row.variants);
   const { db } = await import('../../db/index.js');
+  let metadataCommitted = false;
   try {
     db.transaction((tx) => {
+      const intents = buildProgressPhotoDeletionIntentValues(userId, 'photo', id, staged.entries);
+      if (intents.length) tx.insert(bodyProgressPhotoDeletionIntents).values(intents).run();
       tx.delete(bodyProgressPhotos)
         .where(and(eq(bodyProgressPhotos.id, id), eq(bodyProgressPhotos.userId, userId)))
         .run();
@@ -647,15 +776,20 @@ export const deletePhoto = async (id: string, userId: string) => {
         .get();
       recomputeSetStatus(tx, row.setId, userId, preference?.sideView ?? 'side_right');
     });
-    await staged.commit();
+    metadataCommitted = true;
+    await finalizeCommittedProgressPhotoDeletion(staged, fault);
     return { id, deleted: staged.staged, missing: staged.missing };
   } catch (error) {
-    await staged.rollback();
+    if (!metadataCommitted) await staged.rollback();
     throw error;
   }
 };
 
-export const deletePhotoSet = async (id: string, userId: string) => {
+export const deletePhotoSet = async (
+  id: string,
+  userId: string,
+  fault?: DeletionFaultInjection,
+) => {
   const { db } = await import('../../db/index.js');
   const rows = db
     .select({ variants: bodyProgressPhotos.variants })
@@ -672,8 +806,11 @@ export const deletePhotoSet = async (id: string, userId: string) => {
     .get();
   if (!owner) return null;
   const staged = await stageStoredVariantsForDeletion(rows.flatMap(({ variants }) => variants));
+  let metadataCommitted = false;
   try {
     const result = db.transaction((tx) => {
+      const intents = buildProgressPhotoDeletionIntentValues(userId, 'set', id, staged.entries);
+      if (intents.length) tx.insert(bodyProgressPhotoDeletionIntents).values(intents).run();
       const deleted = tx
         .delete(bodyProgressPhotoSets)
         .where(and(eq(bodyProgressPhotoSets.id, id), eq(bodyProgressPhotoSets.userId, userId)))
@@ -683,15 +820,16 @@ export const deletePhotoSet = async (id: string, userId: string) => {
       return deleted;
     });
     if (result.changes !== 1) throw new Error('Progress photo set disappeared during deletion');
-    await staged.commit();
+    metadataCommitted = true;
+    await finalizeCommittedProgressPhotoDeletion(staged, fault);
     return { id, deleted: staged.staged, missing: staged.missing };
   } catch (error) {
-    await staged.rollback();
+    if (!metadataCommitted) await staged.rollback();
     throw error;
   }
 };
 
-export const deleteAllPhotos = async (userId: string) => {
+export const deleteAllPhotos = async (userId: string, fault?: DeletionFaultInjection) => {
   const { db } = await import('../../db/index.js');
   const rows = db
     .select({ variants: bodyProgressPhotos.variants })
@@ -704,12 +842,16 @@ export const deleteAllPhotos = async (userId: string) => {
     .where(eq(bodyProgressPhotoSets.userId, userId))
     .all();
   const staged = await stageStoredVariantsForDeletion(rows.flatMap(({ variants }) => variants));
+  let metadataCommitted = false;
   try {
     db.transaction((tx) => {
+      const intents = buildProgressPhotoDeletionIntentValues(userId, 'all', userId, staged.entries);
+      if (intents.length) tx.insert(bodyProgressPhotoDeletionIntents).values(intents).run();
       tx.delete(bodyProgressPhotoSets).where(eq(bodyProgressPhotoSets.userId, userId)).run();
       recomputeLastScheduledOccurrence(tx, userId, Date.now());
     });
-    await staged.commit();
+    metadataCommitted = true;
+    await finalizeCommittedProgressPhotoDeletion(staged, fault);
     return {
       deletedSets: sets.length,
       deletedPhotos: rows.length,
@@ -719,7 +861,7 @@ export const deleteAllPhotos = async (userId: string) => {
         'Encrypted backup copies age out when rotated beyond the newest 30 archives.',
     };
   } catch (error) {
-    await staged.rollback();
+    if (!metadataCommitted) await staged.rollback();
     throw error;
   }
 };

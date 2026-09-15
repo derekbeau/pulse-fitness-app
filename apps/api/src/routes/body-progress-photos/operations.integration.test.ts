@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,9 +7,11 @@ import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 import type { MultipartFile } from '@fastify/multipart';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { eq } from 'drizzle-orm';
 import sharp from 'sharp';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { migratePulseDatabase } from '../../db/migrate.js';
 
 const migrationsFolder = fileURLToPath(new URL('../../../drizzle', import.meta.url));
 const TEST_KEY = Buffer.alloc(32, 3).toString('base64');
@@ -30,15 +32,26 @@ const part = (contents: Buffer) =>
     toBuffer: async () => contents,
   }) as unknown as MultipartFile;
 
-const seedStoredPhoto = async () => {
+const seedStoredPhoto = async (
+  input: {
+    userId?: string;
+    setId?: string;
+    photoId?: string;
+    view?: 'front' | 'back';
+  } = {},
+) => {
+  const userId = input.userId ?? 'fixture-user';
+  const setId = input.setId ?? '22222222-2222-4222-8222-222222222222';
+  const photoId = input.photoId ?? '33333333-3333-4333-8333-333333333333';
+  const view = input.view ?? 'front';
   const { bodyProgressPhotos, bodyProgressPhotoSets, users } =
     await import('../../db/schema/index.js');
   const { processAndEncryptPhoto } = await import('./media.js');
   dbModule.db
     .insert(users)
     .values({
-      id: 'fixture-user',
-      username: 'fixture-user',
+      id: userId,
+      username: userId,
       passwordHash: 'fictional',
       preferences: { timeZone: 'America/Detroit' },
     })
@@ -46,8 +59,8 @@ const seedStoredPhoto = async () => {
   dbModule.db
     .insert(bodyProgressPhotoSets)
     .values({
-      id: '22222222-2222-4222-8222-222222222222',
-      userId: 'fixture-user',
+      id: setId,
+      userId,
       date: '2026-09-15',
       guideVersion: 'body-progress-photo-guide-v1',
       context: {},
@@ -64,17 +77,17 @@ const seedStoredPhoto = async () => {
     .toBuffer();
   const processed = await processAndEncryptPhoto({
     part: part(fixture),
-    photoId: '33333333-3333-4333-8333-333333333333',
-    userId: 'fixture-user',
-    view: 'front',
+    photoId,
+    userId,
+    view,
   });
   dbModule.db
     .insert(bodyProgressPhotos)
     .values({
-      id: '33333333-3333-4333-8333-333333333333',
-      setId: '22222222-2222-4222-8222-222222222222',
-      userId: 'fixture-user',
-      view: 'front',
+      id: photoId,
+      setId,
+      userId,
+      view,
       normalizedMediaType: 'image/jpeg',
       byteSize: processed.normalized.byteSize,
       width: processed.normalized.width,
@@ -89,15 +102,24 @@ const seedStoredPhoto = async () => {
 };
 
 describe('progress photo backup, restore, and orphan lifecycle', () => {
+  const restartDisposableProcess = async () => {
+    dbModule.sqlite.close();
+    vi.resetModules();
+    dbModule = await import('../../db/index.js');
+    expect(migratePulseDatabase(dbModule.sqlite, { migrationsFolder })).toMatchObject({
+      applied: 0,
+    });
+  };
+
   beforeEach(async () => {
-    directory = mkdtempSync(join(tmpdir(), 'pulse-photo-operations-'));
+    directory = realpathSync(mkdtempSync(join(tmpdir(), 'pulse-photo-operations-')));
     process.env.DATABASE_URL = join(directory, 'live.db');
     mediaRoot = join(directory, 'private/body-progress');
     process.env.BODY_PROGRESS_MEDIA_ROOT = mediaRoot;
     process.env.BODY_PROGRESS_MEDIA_KEY = TEST_KEY;
     vi.resetModules();
     dbModule = await import('../../db/index.js');
-    migrate(dbModule.db, { migrationsFolder });
+    migratePulseDatabase(dbModule.sqlite, { migrationsFolder });
   });
   afterEach(() => {
     dbModule.sqlite.close();
@@ -281,5 +303,174 @@ describe('progress photo backup, restore, and orphan lifecycle', () => {
     await expect(deleteUserAccount('fixture-user')).resolves.toBe(true);
     expect(dbModule.db.select().from(bodyProgressPhotos).all()).toHaveLength(0);
     expect((await readdir(mediaRoot)).filter((name) => name.endsWith('.enc'))).toHaveLength(0);
+  });
+
+  it('durably recovers a post-transaction photo removal failure after process restart', async () => {
+    const { bodyProgressPhotoDeletionIntents, bodyProgressPhotos } =
+      await import('../../db/schema/index.js');
+    const { deletePhoto } = await import('./store.js');
+    await seedStoredPhoto();
+    let removalAttempt = 0;
+    await expect(
+      deletePhoto('33333333-3333-4333-8333-333333333333', 'fixture-user', {
+        beforeRemove: () => {
+          removalAttempt += 1;
+          if (removalAttempt === 2) {
+            throw new Error('synthetic post-transaction removal failure');
+          }
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'BODY_PROGRESS_PHOTO_STORAGE_UNAVAILABLE' });
+    expect(dbModule.db.select().from(bodyProgressPhotos).all()).toHaveLength(0);
+    expect(dbModule.db.select().from(bodyProgressPhotoDeletionIntents).all()).toHaveLength(3);
+    expect((await readdir(mediaRoot)).filter((name) => name.startsWith('.delete-'))).toHaveLength(
+      3,
+    );
+    const reportBeforeRestart = await (
+      await import('../../scripts/audit-progress-photo-orphans.js')
+    ).auditProgressPhotoOrphans();
+    expect(reportBeforeRestart).toMatchObject({
+      pendingDeletionIntentCount: 3,
+      pendingDeletionQuarantineCount: 3,
+      fileWithoutMetadataCount: 0,
+    });
+
+    await restartDisposableProcess();
+    const restartedStore = await import('./store.js');
+    await expect(restartedStore.recoverPendingProgressPhotoDeletions()).resolves.toMatchObject({
+      pendingIntentCount: 3,
+      finalizedIntentCount: 3,
+    });
+    expect(
+      dbModule.db
+        .select()
+        .from((await import('../../db/schema/index.js')).bodyProgressPhotoDeletionIntents)
+        .all(),
+    ).toHaveLength(0);
+    expect(await readdir(mediaRoot)).toEqual([]);
+    await expect(
+      restartedStore.deletePhoto('33333333-3333-4333-8333-333333333333', 'fixture-user'),
+    ).resolves.toBeNull();
+    await expect(
+      (await import('../../scripts/audit-progress-photo-orphans.js')).auditProgressPhotoOrphans(),
+    ).resolves.toMatchObject({
+      pendingDeletionIntentCount: 0,
+      pendingDeletionQuarantineCount: 0,
+      fileWithoutMetadataCount: 0,
+    });
+  });
+
+  it('restores referenced quarantine after a pre-transaction crash and removes none as an orphan', async () => {
+    const processed = await seedStoredPhoto();
+    const { stageStoredVariantsForDeletion } = await import('./media.js');
+    await stageStoredVariantsForDeletion(processed.variants);
+    expect((await readdir(mediaRoot)).filter((name) => name.startsWith('.delete-'))).toHaveLength(
+      4,
+    );
+    await expect(
+      (await import('../../scripts/audit-progress-photo-orphans.js')).auditProgressPhotoOrphans(),
+    ).resolves.toMatchObject({
+      metadataWithoutFileCount: 1,
+      fileWithoutMetadataCount: 0,
+      pendingDeletionIntentCount: 0,
+      pendingDeletionQuarantineCount: 4,
+    });
+
+    await restartDisposableProcess();
+    const restartedStore = await import('./store.js');
+    await expect(restartedStore.recoverPendingProgressPhotoDeletions()).resolves.toMatchObject({
+      pendingIntentCount: 0,
+      restoredAbandonedCount: 4,
+      removedAbandonedCount: 0,
+    });
+    expect((await readdir(mediaRoot)).filter((name) => name.endsWith('.enc'))).toHaveLength(4);
+    expect((await readdir(mediaRoot)).filter((name) => name.startsWith('.delete-'))).toHaveLength(
+      0,
+    );
+  });
+
+  it('uses the durable protocol for set, bulk, and account deletion and treats missing files idempotently', async () => {
+    const schema = await import('../../db/schema/index.js');
+    const store = await import('./store.js');
+    const failFirstRemoval = () => {
+      let injected = false;
+      return {
+        beforeRemove: () => {
+          if (!injected) {
+            injected = true;
+            throw new Error('synthetic post-transaction removal failure');
+          }
+        },
+      };
+    };
+
+    await seedStoredPhoto({
+      userId: 'set-user',
+      setId: '22222222-2222-4222-8222-222222222223',
+      photoId: '33333333-3333-4333-8333-333333333334',
+    });
+    await expect(
+      store.deletePhotoSet('22222222-2222-4222-8222-222222222223', 'set-user', failFirstRemoval()),
+    ).rejects.toMatchObject({ code: 'BODY_PROGRESS_PHOTO_STORAGE_UNAVAILABLE' });
+    expect(
+      dbModule.db
+        .select()
+        .from(schema.bodyProgressPhotoDeletionIntents)
+        .where(eq(schema.bodyProgressPhotoDeletionIntents.userId, 'set-user'))
+        .all(),
+    ).toHaveLength(4);
+    await store.recoverPendingProgressPhotoDeletions({ userId: 'set-user' });
+
+    const bulk = await seedStoredPhoto({
+      userId: 'bulk-user',
+      setId: '22222222-2222-4222-8222-222222222224',
+      photoId: '33333333-3333-4333-8333-333333333335',
+    });
+    const missingVariant = bulk.variants[0];
+    if (!missingVariant) throw new Error('Synthetic bulk fixture produced no variants');
+    await rm(join(mediaRoot, missingVariant.storageKey));
+    await expect(store.deleteAllPhotos('bulk-user', failFirstRemoval())).rejects.toMatchObject({
+      code: 'BODY_PROGRESS_PHOTO_STORAGE_UNAVAILABLE',
+    });
+    expect(
+      dbModule.db
+        .select()
+        .from(schema.bodyProgressPhotoDeletionIntents)
+        .where(eq(schema.bodyProgressPhotoDeletionIntents.userId, 'bulk-user'))
+        .all(),
+    ).toHaveLength(3);
+    await store.recoverPendingProgressPhotoDeletions({ userId: 'bulk-user' });
+
+    await seedStoredPhoto({
+      userId: 'account-user',
+      setId: '22222222-2222-4222-8222-222222222225',
+      photoId: '33333333-3333-4333-8333-333333333336',
+    });
+    const { deleteUserAccount } = await import('../auth/store.js');
+    await expect(
+      deleteUserAccount('account-user', {
+        beforePhotoMediaRemove: failFirstRemoval().beforeRemove,
+      }),
+    ).rejects.toMatchObject({ code: 'BODY_PROGRESS_PHOTO_STORAGE_UNAVAILABLE' });
+    expect(
+      dbModule.db.select().from(schema.users).where(eq(schema.users.id, 'account-user')).get(),
+    ).toBeUndefined();
+    expect(
+      dbModule.db
+        .select()
+        .from(schema.bodyProgressPhotoDeletionIntents)
+        .where(eq(schema.bodyProgressPhotoDeletionIntents.userId, 'account-user'))
+        .all(),
+    ).toHaveLength(4);
+    await store.recoverPendingProgressPhotoDeletions({ userId: 'account-user' });
+    expect(
+      dbModule.db
+        .select()
+        .from(schema.bodyProgressPhotoDeletionIntents)
+        .where(eq(schema.bodyProgressPhotoDeletionIntents.userId, 'account-user'))
+        .all(),
+    ).toHaveLength(0);
+    await expect(deleteUserAccount('account-user')).resolves.toBe(false);
+    expect(await readdir(mediaRoot)).toEqual([]);
   });
 });

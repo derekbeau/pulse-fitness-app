@@ -24,6 +24,7 @@ const makePredecessorMigrations = () => {
   rmSync(join(dir, '0065_body_measurements.sql'));
   rmSync(join(dir, '0066_body_check_in_foundation.sql'));
   rmSync(join(dir, '0067_body_progress_photo_storage.sql'));
+  rmSync(join(dir, '0068_body_progress_photo_deletion_intents.sql'));
   const journalPath = join(dir, 'meta', '_journal.json');
   const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as { entries: unknown[] };
   journal.entries = journal.entries.slice(0, 65);
@@ -50,7 +51,7 @@ describe('migration 0065 lifecycle', () => {
   it('runs the fresh chain and enforces owner, date, unit, value, and uniqueness constraints', () => {
     const sqlite = openDb(join(makeDir(), 'fresh.db'));
     try {
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 68 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 69 });
       sqlite.exec(
         "insert into users (id, username, password_hash) values ('owner', 'owner', 'hash')",
       );
@@ -112,7 +113,7 @@ describe('migration 0065 lifecycle', () => {
       sqlite.close();
       sqlite = openDb(dbPath);
 
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 3 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 4 });
       expect(
         sqlite.prepare("select weight from body_weight where id = 'legacy-weight'").pluck().get(),
       ).toBe(180);

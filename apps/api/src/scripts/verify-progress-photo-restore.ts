@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -17,7 +17,7 @@ export const verifyProgressPhotoRestore = async (archivePath: string) => {
   if (!process.env.BODY_PROGRESS_MEDIA_KEY) {
     throw new Error('BODY_PROGRESS_MEDIA_KEY is required separately to verify this restore');
   }
-  const directory = await mkdtemp(join(tmpdir(), 'pulse-photo-restore-'));
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'pulse-photo-restore-')));
   const originalMediaRoot = process.env.BODY_PROGRESS_MEDIA_ROOT;
   try {
     execFileSync('tar', ['-xzf', resolve(archivePath), '-C', directory], { stdio: 'pipe' });

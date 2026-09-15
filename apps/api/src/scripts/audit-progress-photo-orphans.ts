@@ -5,7 +5,10 @@ import {
   listEncryptedStorageKeys,
   storedVariantExists,
 } from '../routes/body-progress-photos/media.js';
-import { deletePhoto } from '../routes/body-progress-photos/store.js';
+import {
+  deletePhoto,
+  getPendingProgressPhotoDeletionFacts,
+} from '../routes/body-progress-photos/store.js';
 
 export const auditProgressPhotoOrphans = async (
   options: {
@@ -33,6 +36,7 @@ export const auditProgressPhotoOrphans = async (
     }
   }
   const stored = await listEncryptedStorageKeys();
+  const deletionFacts = await getPendingProgressPhotoDeletionFacts(options.userId);
   const unreferencedFileCount = options.userId
     ? null
     : stored.filter((key) => !referenced.has(key)).length;
@@ -49,6 +53,7 @@ export const auditProgressPhotoOrphans = async (
     metadataWithoutFileCount: missingPhotoIds.size,
     metadataWithoutFilePhotoIds: [...missingPhotoIds].sort(),
     fileWithoutMetadataCount: unreferencedFileCount,
+    ...deletionFacts,
     repairedMetadataCount,
     fileRepairPerformed: false as const,
   };

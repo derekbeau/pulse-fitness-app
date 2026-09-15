@@ -365,6 +365,10 @@ const start = async () => {
 
     const migration = migratePulseDatabase(sqlite, { migrationsFolder });
     app.log.info(migration, 'Atomic database migrations passed');
+    const { recoverPendingProgressPhotoDeletions } =
+      await import('./routes/body-progress-photos/store.js');
+    const photoDeletionRecovery = await recoverPendingProgressPhotoDeletions();
+    app.log.info(photoDeletionRecovery, 'Progress photo deletion recovery passed');
     const postMigrationIntegrity = assertDatabaseIntegrity(sqlite, 'migration postflight');
     app.log.info(
       {

@@ -1,11 +1,11 @@
 # Frozen implementation goal: secure encrypted progress-photo storage and media API
 
-**Issue:** #123 — Build secure encrypted progress-photo storage and media API  
-**Parent:** #120 — Body Progress check-ins  
-**Prerequisite:** #121 is closed and merged into the base below.  
-**Consumer:** #125 — private progress-photo capture, timeline, comparison, and privacy UX (separate PR; no UI implementation here).  
-**Base:** `origin/main` at `99afa36b33ae01b40aa39fec497775a04b76d19b`  
-**Branch:** `feat/progress-photo-storage`  
+**Issue:** #123 — Build secure encrypted progress-photo storage and media API
+**Parent:** #120 — Body Progress check-ins
+**Prerequisite:** #121 is closed and merged into the base below.
+**Consumer:** #125 — private progress-photo capture, timeline, comparison, and privacy UX (separate PR; no UI implementation here).
+**Base:** `origin/main` at `99afa36b33ae01b40aa39fec497775a04b76d19b`
+**Branch:** `feat/progress-photo-storage`
 **Scope:** API/backend, shared contracts, persistence, encrypted filesystem media, backup/restore and verification tooling. No deployment or production data access.
 
 ## 1. Outcome and non-goals
