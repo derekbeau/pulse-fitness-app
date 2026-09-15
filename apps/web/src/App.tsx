@@ -136,6 +136,11 @@ const BodyCheckInDetailPage = lazy(async () => {
   return { default: module.BodyCheckInDetailPage };
 });
 
+const ProgressPhotosPage = lazy(async () => {
+  const module = await import('./pages/progress-photos');
+  return { default: module.ProgressPhotosPage };
+});
+
 const ScheduledWorkoutDetailPage = lazy(async () => {
   const module = await import('./pages/scheduled-workout-detail');
   return { default: module.ScheduledWorkoutDetailPage };
@@ -228,6 +233,7 @@ function AppRoutes() {
         <Route element={renderWithPageFallback(<WeightHistoryPage />)} path="weight" />
         <Route element={renderWithPageFallback(<WeightHistoryPage />)} path="weight/history" />
         <Route element={renderWithPageFallback(<BodyProgressPage />)} path="body" />
+        <Route element={renderWithPageFallback(<ProgressPhotosPage />)} path="body/photos" />
         <Route
           element={renderWithPageFallback(<BodyCheckInDetailPage />)}
           path="body/check-ins/:id"

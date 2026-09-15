@@ -10,4 +10,12 @@ export const bodyProgressQueryKeys = {
   detail: (id: string) => ['body-progress', 'detail', id] as const,
   history: (id: string) => ['body-progress', 'history', id] as const,
   context: () => ['body-progress', 'context'] as const,
+  photos: {
+    all: () => ['body-progress', 'photos'] as const,
+    preferences: () => ['body-progress', 'photos', 'preferences'] as const,
+    list: (page: number) => ['body-progress', 'photos', 'list', page] as const,
+    detail: (id: string) => ['body-progress', 'photos', 'detail', id] as const,
+    content: (id: string, variant: string) =>
+      ['body-progress', 'photos', 'content', id, variant] as const,
+  },
 };

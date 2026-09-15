@@ -384,3 +384,19 @@ export async function apiRequestWithMeta<T, M>(
     meta: payload.meta,
   };
 }
+
+/** Fetch authenticated response bytes without attempting to JSON-decode them. */
+export async function apiRequestBlob(path: string, init?: ApiRequestInit): Promise<Blob> {
+  const isAuthPath = normalizePath(path).startsWith(AUTH_PATH_PREFIX);
+  const token = await resolveSessionToken({ allowDevAutoSession: !isAuthPath });
+  let response = await fetch(buildUrl(path), createRequestInit(init, token));
+
+  if (response.status === 401 && !isAuthPath && isDevMode() && !getEnvToken()) {
+    clearStoredAuthState();
+    const retryToken = await resolveSessionToken({ allowDevAutoSession: true });
+    if (retryToken) response = await fetch(buildUrl(path), createRequestInit(init, retryToken));
+  }
+
+  if (!response.ok) throw await toApiError(response);
+  return response.blob();
+}

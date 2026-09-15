@@ -25,7 +25,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `PORT=${apiPort} DATABASE_URL=${e2eDatabasePath} pnpm --filter api dev`,
+      command: `PORT=${apiPort} DATABASE_URL=${e2eDatabasePath} pnpm --filter api exec tsx src/index.ts`,
       cwd: path.resolve(__dirname, '../..'),
       reuseExistingServer: !process.env.CI,
       url: `${apiBaseURL}/health`,
