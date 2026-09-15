@@ -22,6 +22,7 @@ import {
 } from '@/features/body-progress/components/body-format';
 import { BodyPreferencesForm } from '@/features/body-progress/components/body-preferences-form';
 import { GuidedCheckInForm } from '@/features/body-progress/components/guided-check-in-form';
+import { PhotoEntryCard } from '@/features/body-progress/photos/photo-entry-card';
 
 export function BodyProgressPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -95,6 +96,8 @@ export function BodyProgressPage() {
       {!showSetup && showCheckIn && (dueQuery.isPending || dueQuery.isError) ? (
         <BodyDueCard />
       ) : null}
+
+      {!showCheckIn ? <PhotoEntryCard /> : null}
 
       {!showSetup && !showCheckIn ? (
         <>
