@@ -7,9 +7,12 @@ import {
   calculateCanonicalBodyReading,
   defaultBodyEnabledSites,
   type BodyCheckIn,
+  type BodyCheckInChangeKind,
+  type BodyCheckInHistory,
   type BodyCheckInMeasurement,
   type BodyCheckInMeasurementInput,
   type BodyCheckInPreference,
+  type BodyCheckInVersion,
   type BodyDueState,
   type CreateBodyCheckInInput,
   type PatchBodyCheckInInput,
@@ -19,8 +22,10 @@ import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 
 import {
   bodyCheckInMeasurements,
+  bodyCheckInMeasurementVersions,
   bodyCheckInPreferences,
   bodyCheckIns,
+  bodyCheckInVersions,
 } from '../../db/schema/index.js';
 import { getApplicationNow } from '../../lib/clock.js';
 import { addUtcDays } from '../../lib/date.js';
@@ -48,6 +53,25 @@ export class BodyCheckInCompletionError extends Error {
   readonly code = 'BODY_CHECK_IN_THIRD_READING_REQUIRED';
   constructor() {
     super('Completed check-ins cannot contain a discordant two-reading measurement');
+  }
+}
+
+export class BodyCheckInVersionConflictError extends Error {
+  readonly code = 'BODY_CHECK_IN_VERSION_CONFLICT';
+  constructor(
+    readonly expectedVersion: number,
+    readonly currentVersion: number,
+  ) {
+    super(
+      `Body check-in version ${expectedVersion} is stale; current version is ${currentVersion}`,
+    );
+  }
+}
+
+export class BodyCheckInCorrectionReasonError extends Error {
+  readonly code = 'BODY_CHECK_IN_CORRECTION_REASON_REQUIRED';
+  constructor() {
+    super('Correcting a completed body check-in requires a correction reason');
   }
 }
 
@@ -81,6 +105,7 @@ const preferenceSelection = {
 
 const checkInSelection = {
   id: bodyCheckIns.id,
+  version: bodyCheckIns.version,
   date: bodyCheckIns.date,
   localTime: bodyCheckIns.localTime,
   status: bodyCheckIns.status,
@@ -102,6 +127,30 @@ const checkInSelection = {
   updatedAt: bodyCheckIns.updatedAt,
 };
 
+const versionSelection = {
+  id: bodyCheckInVersions.id,
+  checkInId: bodyCheckInVersions.checkInId,
+  version: bodyCheckInVersions.version,
+  date: bodyCheckInVersions.date,
+  localTime: bodyCheckInVersions.localTime,
+  status: bodyCheckInVersions.status,
+  mealContext: bodyCheckInVersions.mealContext,
+  workoutContext: bodyCheckInVersions.workoutContext,
+  pumpPresent: bodyCheckInVersions.pumpPresent,
+  unusualBloating: bodyCheckInVersions.unusualBloating,
+  notes: bodyCheckInVersions.notes,
+  protocolVersion: bodyCheckInVersions.protocolVersion,
+  source: bodyCheckInVersions.source,
+  sourceId: bodyCheckInVersions.sourceId,
+  countAsScheduledOccurrence: bodyCheckInVersions.countAsScheduledOccurrence,
+  completedAt: bodyCheckInVersions.completedAt,
+  actorSource: bodyCheckInVersions.actorSource,
+  actorSourceId: bodyCheckInVersions.actorSourceId,
+  changeKind: bodyCheckInVersions.changeKind,
+  changeReason: bodyCheckInVersions.changeReason,
+  recordedAt: bodyCheckInVersions.recordedAt,
+};
+
 const measurementSelection = {
   id: bodyCheckInMeasurements.id,
   site: bodyCheckInMeasurements.site,
@@ -120,6 +169,26 @@ const measurementSelection = {
   protocolSourceUrls: bodyCheckInMeasurements.protocolSourceUrls,
   createdAt: bodyCheckInMeasurements.createdAt,
   updatedAt: bodyCheckInMeasurements.updatedAt,
+};
+
+const measurementVersionSelection = {
+  id: bodyCheckInMeasurementVersions.id,
+  site: bodyCheckInMeasurementVersions.site,
+  laterality: bodyCheckInMeasurementVersions.laterality,
+  unitAtEntry: bodyCheckInMeasurementVersions.unitAtEntry,
+  reading1Mm: bodyCheckInMeasurementVersions.reading1Mm,
+  reading2Mm: bodyCheckInMeasurementVersions.reading2Mm,
+  reading3Mm: bodyCheckInMeasurementVersions.reading3Mm,
+  canonicalMm: bodyCheckInMeasurementVersions.canonicalMm,
+  quality: bodyCheckInMeasurementVersions.quality,
+  selectedReadingPair: bodyCheckInMeasurementVersions.selectedReadingPair,
+  protocolId: bodyCheckInMeasurementVersions.protocolId,
+  protocolVersion: bodyCheckInMeasurementVersions.protocolVersion,
+  protocolName: bodyCheckInMeasurementVersions.protocolName,
+  protocolInstructions: bodyCheckInMeasurementVersions.protocolInstructions,
+  protocolSourceUrls: bodyCheckInMeasurementVersions.protocolSourceUrls,
+  createdAt: bodyCheckInMeasurementVersions.createdAt,
+  updatedAt: bodyCheckInMeasurementVersions.updatedAt,
 };
 
 const toPreference = (row: typeof bodyCheckInPreferences.$inferSelect): BodyCheckInPreference => ({
@@ -208,7 +277,11 @@ export const upsertBodyCheckInPreference = async (
   return toPreference({ ...row, userId });
 };
 
-const buildMeasurementValues = (checkInId: string, input: BodyCheckInMeasurementInput) => {
+const buildMeasurementValues = (
+  checkInId: string,
+  input: BodyCheckInMeasurementInput,
+  timestamp = Date.now(),
+) => {
   const canonical = calculateCanonicalBodyReading(input.readings, input.unit);
   const protocol = bodyMeasurementProtocols[input.site];
   return {
@@ -228,7 +301,18 @@ const buildMeasurementValues = (checkInId: string, input: BodyCheckInMeasurement
     protocolName: protocol.name,
     protocolInstructions: protocol.instructions,
     protocolSourceUrls: [...protocol.sourceUrls],
+    createdAt: timestamp,
+    updatedAt: timestamp,
   };
+};
+
+const buildMeasurementVersionValues = (
+  versionId: string,
+  measurement: typeof bodyCheckInMeasurements.$inferSelect,
+) => {
+  const { checkInId: _checkInId, ...snapshot } = measurement;
+  void _checkInId;
+  return { ...snapshot, id: randomUUID(), versionId };
 };
 
 const findMeasurements = async (checkInId: string): Promise<BodyCheckInMeasurement[]> => {
@@ -238,6 +322,16 @@ const findMeasurements = async (checkInId: string): Promise<BodyCheckInMeasureme
     .from(bodyCheckInMeasurements)
     .where(eq(bodyCheckInMeasurements.checkInId, checkInId))
     .orderBy(asc(bodyCheckInMeasurements.createdAt))
+    .all() as BodyCheckInMeasurement[];
+};
+
+const findVersionMeasurements = async (versionId: string): Promise<BodyCheckInMeasurement[]> => {
+  const { db } = await import('../../db/index.js');
+  return db
+    .select(measurementVersionSelection)
+    .from(bodyCheckInMeasurementVersions)
+    .where(eq(bodyCheckInMeasurementVersions.versionId, versionId))
+    .orderBy(asc(bodyCheckInMeasurementVersions.createdAt), asc(bodyCheckInMeasurementVersions.id))
     .all() as BodyCheckInMeasurement[];
 };
 
@@ -259,6 +353,36 @@ export const findBodyCheckInById = async (
         measurements: await findMeasurements(row.id),
       }
     : null;
+};
+
+export const findBodyCheckInHistory = async (
+  id: string,
+  userId: string,
+): Promise<BodyCheckInHistory | null> => {
+  const { db } = await import('../../db/index.js');
+  const owner = db
+    .select({ version: bodyCheckIns.version })
+    .from(bodyCheckIns)
+    .where(and(eq(bodyCheckIns.id, id), eq(bodyCheckIns.userId, userId)))
+    .get();
+  if (!owner) return null;
+  const rows = db
+    .select(versionSelection)
+    .from(bodyCheckInVersions)
+    .where(eq(bodyCheckInVersions.checkInId, id))
+    .orderBy(asc(bodyCheckInVersions.version))
+    .all();
+  const versions = await Promise.all(
+    rows.map(async (row) => ({
+      ...row,
+      measurements: await findVersionMeasurements(row.id),
+    })),
+  );
+  return {
+    checkInId: id,
+    currentVersion: owner.version,
+    versions: versions as BodyCheckInVersion[],
+  };
 };
 
 const assertCompletable = (measurements: BodyCheckInMeasurementInput[]) => {
@@ -314,6 +438,9 @@ export const createBodyCheckIn = async ({
   if (existing) throw new BodyCheckInConflictError(existing.id);
   const id = randomUUID();
   const now = Date.now();
+  const measurementValues = input.measurements.map((measurement) =>
+    buildMeasurementValues(id, measurement, now),
+  );
   try {
     db.transaction((tx) => {
       tx.insert(bodyCheckIns)
@@ -323,6 +450,7 @@ export const createBodyCheckIn = async ({
           date: input.date,
           localTime: input.localTime ?? null,
           status: input.status,
+          version: 1,
           mealContext: input.mealContext ?? 'unspecified',
           workoutContext: input.workoutContext ?? 'unspecified',
           pumpPresent: input.pumpPresent ?? null,
@@ -338,8 +466,41 @@ export const createBodyCheckIn = async ({
         })
         .run();
       if (input.measurements.length > 0) {
-        tx.insert(bodyCheckInMeasurements)
-          .values(input.measurements.map((measurement) => buildMeasurementValues(id, measurement)))
+        tx.insert(bodyCheckInMeasurements).values(measurementValues).run();
+      }
+      const versionId = randomUUID();
+      tx.insert(bodyCheckInVersions)
+        .values({
+          id: versionId,
+          checkInId: id,
+          version: 1,
+          date: input.date,
+          localTime: input.localTime ?? null,
+          status: input.status,
+          mealContext: input.mealContext ?? 'unspecified',
+          workoutContext: input.workoutContext ?? 'unspecified',
+          pumpPresent: input.pumpPresent ?? null,
+          unusualBloating: input.unusualBloating ?? null,
+          notes: input.notes ?? null,
+          protocolVersion: BODY_PROTOCOL_VERSION,
+          source,
+          sourceId,
+          countAsScheduledOccurrence: input.countAsScheduledOccurrence ?? true,
+          completedAt: input.status === 'completed' ? now : null,
+          actorSource: source,
+          actorSourceId: sourceId,
+          changeKind: 'created',
+          changeReason: 'created',
+          recordedAt: now,
+        })
+        .run();
+      if (measurementValues.length > 0) {
+        tx.insert(bodyCheckInMeasurementVersions)
+          .values(
+            measurementValues.map((measurement) =>
+              buildMeasurementVersionValues(versionId, measurement),
+            ),
+          )
           .run();
       }
     });
@@ -387,25 +548,59 @@ export const patchBodyCheckIn = async (
   input: PatchBodyCheckInInput,
   actor: { source: 'user' | 'agent_token'; sourceId: string | null },
 ): Promise<BodyCheckIn | null> => {
-  const existing = await findBodyCheckInById(id, userId);
-  if (!existing) return null;
-  const targetStatus = input.status ?? existing.status;
-  const measurements =
-    input.measurements ??
-    existing.measurements.map((measurement) => ({
-      site: measurement.site,
-      laterality: measurement.laterality,
-      unit: measurement.unitAtEntry,
-      readings: [measurement.reading1Mm, measurement.reading2Mm, measurement.reading3Mm]
-        .filter((value): value is number => value !== null)
-        .map((value) => value / (measurement.unitAtEntry === 'cm' ? 10 : 25.4)),
-    }));
-  if (targetStatus === 'completed') assertCompletable(measurements);
   const { db } = await import('../../db/index.js');
   const now = Date.now();
+  let found = true;
   db.transaction((tx) => {
-    tx.update(bodyCheckIns)
+    const existing = tx
+      .select(checkInSelection)
+      .from(bodyCheckIns)
+      .where(and(eq(bodyCheckIns.id, id), eq(bodyCheckIns.userId, userId)))
+      .get();
+    if (!existing) {
+      found = false;
+      return;
+    }
+    if (existing.version !== input.expectedVersion) {
+      throw new BodyCheckInVersionConflictError(input.expectedVersion, existing.version);
+    }
+    if (existing.status === 'completed' && !input.correctionReason) {
+      throw new BodyCheckInCorrectionReasonError();
+    }
+    const existingMeasurements = tx
+      .select(measurementSelection)
+      .from(bodyCheckInMeasurements)
+      .where(eq(bodyCheckInMeasurements.checkInId, id))
+      .orderBy(asc(bodyCheckInMeasurements.createdAt), asc(bodyCheckInMeasurements.id))
+      .all();
+    const measurementInputs =
+      input.measurements ??
+      existingMeasurements.map((measurement) => ({
+        site: measurement.site,
+        laterality: measurement.laterality,
+        unit: measurement.unitAtEntry,
+        readings: [measurement.reading1Mm, measurement.reading2Mm, measurement.reading3Mm]
+          .filter((value): value is number => value !== null)
+          .map((value) => value / (measurement.unitAtEntry === 'cm' ? 10 : 25.4)),
+      }));
+    const targetStatus = input.status ?? existing.status;
+    if (targetStatus === 'completed') assertCompletable(measurementInputs);
+    const nextVersion = existing.version + 1;
+    const completedAt = targetStatus === 'completed' ? (existing.completedAt ?? now) : null;
+    const correctedAt = existing.status === 'completed' ? now : existing.correctedAt;
+    const changeKind: BodyCheckInChangeKind =
+      existing.status === 'completed'
+        ? 'correction'
+        : targetStatus === 'completed'
+          ? 'completed'
+          : 'draft_update';
+    const changeReason =
+      input.correctionReason ??
+      (changeKind === 'completed' ? 'completed check-in' : 'updated draft');
+    const updateResult = tx
+      .update(bodyCheckIns)
       .set({
+        version: nextVersion,
         ...(input.status === undefined ? {} : { status: input.status }),
         ...(input.localTime === undefined ? {} : { localTime: input.localTime }),
         ...(input.mealContext === undefined ? {} : { mealContext: input.mealContext }),
@@ -419,24 +614,86 @@ export const patchBodyCheckIn = async (
         ...(input.correctionReason === undefined
           ? {}
           : { correctionReason: input.correctionReason }),
-        completedAt: targetStatus === 'completed' ? (existing.completedAt ?? now) : null,
-        correctedAt: existing.status === 'completed' ? now : existing.correctedAt,
+        completedAt,
+        correctedAt,
         correctedBySource:
           existing.status === 'completed' ? actor.source : existing.correctedBySource,
         correctedBySourceId:
           existing.status === 'completed' ? actor.sourceId : existing.correctedBySourceId,
         updatedAt: sql<number>`max(${bodyCheckIns.updatedAt} + 1, ${now})`,
       })
-      .where(and(eq(bodyCheckIns.id, id), eq(bodyCheckIns.userId, userId)))
+      .where(
+        and(
+          eq(bodyCheckIns.id, id),
+          eq(bodyCheckIns.userId, userId),
+          eq(bodyCheckIns.version, input.expectedVersion),
+        ),
+      )
       .run();
+    if (updateResult.changes !== 1) {
+      const current = tx
+        .select({ version: bodyCheckIns.version })
+        .from(bodyCheckIns)
+        .where(and(eq(bodyCheckIns.id, id), eq(bodyCheckIns.userId, userId)))
+        .get();
+      if (!current) {
+        found = false;
+        return;
+      }
+      throw new BodyCheckInVersionConflictError(input.expectedVersion, current.version);
+    }
+    let snapshotMeasurements = existingMeasurements.map((measurement) => ({
+      ...measurement,
+      checkInId: id,
+    }));
     if (input.measurements) {
       tx.delete(bodyCheckInMeasurements).where(eq(bodyCheckInMeasurements.checkInId, id)).run();
-      if (input.measurements.length > 0)
-        tx.insert(bodyCheckInMeasurements)
-          .values(input.measurements.map((measurement) => buildMeasurementValues(id, measurement)))
-          .run();
+      snapshotMeasurements = input.measurements.map((measurement) =>
+        buildMeasurementValues(id, measurement, now),
+      );
+      if (snapshotMeasurements.length > 0) {
+        tx.insert(bodyCheckInMeasurements).values(snapshotMeasurements).run();
+      }
+    }
+    const versionId = randomUUID();
+    tx.insert(bodyCheckInVersions)
+      .values({
+        id: versionId,
+        checkInId: id,
+        version: nextVersion,
+        date: existing.date,
+        localTime: input.localTime === undefined ? existing.localTime : input.localTime,
+        status: targetStatus,
+        mealContext: input.mealContext ?? existing.mealContext,
+        workoutContext: input.workoutContext ?? existing.workoutContext,
+        pumpPresent: input.pumpPresent === undefined ? existing.pumpPresent : input.pumpPresent,
+        unusualBloating:
+          input.unusualBloating === undefined ? existing.unusualBloating : input.unusualBloating,
+        notes: input.notes === undefined ? existing.notes : input.notes,
+        protocolVersion: existing.protocolVersion,
+        source: existing.source,
+        sourceId: existing.sourceId,
+        countAsScheduledOccurrence:
+          input.countAsScheduledOccurrence ?? existing.countAsScheduledOccurrence,
+        completedAt,
+        actorSource: actor.source,
+        actorSourceId: actor.sourceId,
+        changeKind,
+        changeReason,
+        recordedAt: now,
+      })
+      .run();
+    if (snapshotMeasurements.length > 0) {
+      tx.insert(bodyCheckInMeasurementVersions)
+        .values(
+          snapshotMeasurements.map((measurement) =>
+            buildMeasurementVersionValues(versionId, measurement),
+          ),
+        )
+        .run();
     }
   });
+  if (!found) return null;
   return findBodyCheckInById(id, userId);
 };
 
@@ -693,10 +950,14 @@ export const exportBodyCheckIns = async (userId: string) => {
   const entries = (
     await Promise.all(rows.map((row) => findBodyCheckInById(row.id, userId)))
   ).filter((row): row is BodyCheckIn => row !== null);
+  const histories = (
+    await Promise.all(entries.map((entry) => findBodyCheckInHistory(entry.id, userId)))
+  ).filter((history): history is BodyCheckInHistory => history !== null);
   return {
     contractVersion: BODY_CHECK_IN_CONTRACT_VERSION,
     exportedAt: Date.now(),
     preferences: preference,
     checkIns: entries,
+    histories,
   };
 };

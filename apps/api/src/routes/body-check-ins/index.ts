@@ -3,6 +3,7 @@ import {
   apiPaginatedResponseSchema,
   bodyCheckInListQuerySchema,
   bodyCheckInExportSchema,
+  bodyCheckInHistorySchema,
   bodyCheckInPreferenceSchema,
   bodyCheckInSchema,
   bodyContextFactsSchema,
@@ -30,11 +31,14 @@ import {
 import {
   BodyCheckInCompletionError,
   BodyCheckInConflictError,
+  BodyCheckInCorrectionReasonError,
   BodyCheckInIdempotencyConflictError,
+  BodyCheckInVersionConflictError,
   createBodyCheckIn,
   deleteBodyCheckIn,
   exportBodyCheckIns,
   findBodyCheckInById,
+  findBodyCheckInHistory,
   findBodyCheckInPreference,
   getBodyContextFacts,
   getBodyDueState,
@@ -54,6 +58,14 @@ const conflictResponseSchema = z.object({
     existingId: z.string().optional(),
   }),
 });
+const versionConflictResponseSchema = z.object({
+  error: z.object({
+    code: z.literal('BODY_CHECK_IN_VERSION_CONFLICT'),
+    message: z.string(),
+    expectedVersion: z.number().int(),
+    currentVersion: z.number().int(),
+  }),
+});
 
 const handleMutationError = (reply: Parameters<typeof sendError>[0], error: unknown) => {
   if (error instanceof BodyCheckInConflictError) {
@@ -63,9 +75,20 @@ const handleMutationError = (reply: Parameters<typeof sendError>[0], error: unkn
   }
   if (
     error instanceof BodyCheckInIdempotencyConflictError ||
-    error instanceof BodyCheckInCompletionError
+    error instanceof BodyCheckInCompletionError ||
+    error instanceof BodyCheckInCorrectionReasonError
   ) {
     return sendError(reply, 409, error.code, error.message);
+  }
+  if (error instanceof BodyCheckInVersionConflictError) {
+    return reply.code(409).send({
+      error: {
+        code: error.code,
+        message: error.message,
+        expectedVersion: error.expectedVersion,
+        currentVersion: error.currentVersion,
+      },
+    });
   }
   if (error instanceof RangeError)
     return sendError(reply, 400, 'BODY_CHECK_IN_INVALID', error.message);
@@ -286,6 +309,29 @@ export const bodyCheckInRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
+  typedApp.get(
+    '/:id/history',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(bodyCheckInHistorySchema),
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['body-check-ins'],
+        summary: 'Replay immutable body check-in versions and raw readings',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const history = await findBodyCheckInHistory(request.params.id, request.userId);
+      return history
+        ? reply.send({ data: history })
+        : sendError(reply, 404, 'BODY_CHECK_IN_NOT_FOUND', 'Body check-in not found');
+    },
+  );
+
   typedApp.patch(
     '/:id',
     {
@@ -297,7 +343,7 @@ export const bodyCheckInRoutes: FastifyPluginAsync = async (app) => {
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
-          409: apiErrorResponseSchema,
+          409: z.union([versionConflictResponseSchema, apiErrorResponseSchema]),
         },
         tags: ['body-check-ins'],
         summary: 'Resume or correct a body check-in',

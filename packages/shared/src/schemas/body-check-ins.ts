@@ -306,6 +306,7 @@ export const createBodyCheckInInputSchema = z
 
 export const patchBodyCheckInInputSchema = z
   .object({
+    expectedVersion: z.number().int().min(1),
     status: bodyCheckInStatusSchema.optional(),
     measurements: z.array(bodyCheckInMeasurementDraftInputSchema).max(7).optional(),
     correctionReason: z.string().trim().min(1).max(500).optional(),
@@ -313,7 +314,7 @@ export const patchBodyCheckInInputSchema = z
   })
   .strict()
   .superRefine((value, context) => {
-    if (Object.keys(value).length === 0) {
+    if (Object.keys(value).every((key) => key === 'expectedVersion')) {
       context.addIssue({ code: z.ZodIssueCode.custom, message: 'At least one field is required' });
     }
     if (value.measurements) uniqueMeasurements(value.measurements, context);
@@ -333,6 +334,7 @@ export const bodyCheckInSchema = z
   .object({
     contractVersion: z.literal(BODY_CHECK_IN_CONTRACT_VERSION),
     id: z.string(),
+    version: z.number().int().min(1),
     date: dateSchema,
     localTime: localTimeSchema.nullable(),
     status: bodyCheckInStatusSchema,
@@ -353,6 +355,48 @@ export const bodyCheckInSchema = z
     correctionReason: z.string().nullable(),
     createdAt: z.number().int(),
     updatedAt: z.number().int(),
+  })
+  .strict();
+
+export const bodyCheckInChangeKindSchema = z.enum([
+  'created',
+  'draft_update',
+  'completed',
+  'correction',
+]);
+
+export const bodyCheckInVersionSchema = z
+  .object({
+    id: z.string(),
+    checkInId: z.string(),
+    version: z.number().int().min(1),
+    date: dateSchema,
+    localTime: localTimeSchema.nullable(),
+    status: bodyCheckInStatusSchema,
+    mealContext: bodyMealContextSchema,
+    workoutContext: bodyWorkoutContextSchema,
+    pumpPresent: z.boolean().nullable(),
+    unusualBloating: z.boolean().nullable(),
+    notes: z.string().nullable(),
+    protocolVersion: z.literal(BODY_PROTOCOL_VERSION),
+    source: bodyCheckInSourceSchema,
+    sourceId: z.string().nullable(),
+    countAsScheduledOccurrence: z.boolean(),
+    completedAt: z.number().int().nullable(),
+    actorSource: bodyCheckInSourceSchema,
+    actorSourceId: z.string().nullable(),
+    changeKind: bodyCheckInChangeKindSchema,
+    changeReason: z.string().min(1),
+    recordedAt: z.number().int(),
+    measurements: z.array(bodyCheckInMeasurementSchema),
+  })
+  .strict();
+
+export const bodyCheckInHistorySchema = z
+  .object({
+    checkInId: z.string(),
+    currentVersion: z.number().int().min(1),
+    versions: z.array(bodyCheckInVersionSchema),
   })
   .strict();
 
@@ -429,6 +473,7 @@ export const bodyCheckInExportSchema = z
     exportedAt: z.number().int(),
     preferences: bodyCheckInPreferenceSchema.nullable(),
     checkIns: z.array(bodyCheckInSchema),
+    histories: z.array(bodyCheckInHistorySchema),
   })
   .strict();
 
@@ -442,6 +487,9 @@ export type BodyCheckInMeasurement = z.infer<typeof bodyCheckInMeasurementSchema
 export type CreateBodyCheckInInput = z.infer<typeof createBodyCheckInInputSchema>;
 export type PatchBodyCheckInInput = z.infer<typeof patchBodyCheckInInputSchema>;
 export type BodyCheckIn = z.infer<typeof bodyCheckInSchema>;
+export type BodyCheckInChangeKind = z.infer<typeof bodyCheckInChangeKindSchema>;
+export type BodyCheckInVersion = z.infer<typeof bodyCheckInVersionSchema>;
+export type BodyCheckInHistory = z.infer<typeof bodyCheckInHistorySchema>;
 export type BodyDueState = z.infer<typeof bodyDueStateSchema>;
 export type BodyCheckInSource = z.infer<typeof bodyCheckInSourceSchema>;
 export type BodyMealContext = z.infer<typeof bodyMealContextSchema>;

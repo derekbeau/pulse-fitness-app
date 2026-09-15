@@ -197,6 +197,7 @@ describe('body check-in API bridge', () => {
         url: `/api/v1/body-check-ins/${draftId}`,
         headers: ownerHeaders,
         payload: {
+          expectedVersion: 1,
           status: 'completed',
           correctionReason: 'completed after repeat',
           measurements: [
@@ -247,7 +248,11 @@ describe('body check-in API bridge', () => {
         method: 'PATCH',
         url: `/api/v1/body-check-ins/${scheduledId}`,
         headers: agentHeaders,
-        payload: { notes: 'agent correction', correctionReason: 'fixed context note' },
+        payload: {
+          expectedVersion: 1,
+          notes: 'agent correction',
+          correctionReason: 'fixed context note',
+        },
       });
       expect(corrected.json().data).toMatchObject({
         source: 'user',
@@ -288,7 +293,7 @@ describe('body check-in API bridge', () => {
           method,
           url: `/api/v1/body-check-ins/${scheduledId}`,
           headers: otherHeaders,
-          ...(method === 'PATCH' ? { payload: { notes: 'leak' } } : {}),
+          ...(method === 'PATCH' ? { payload: { expectedVersion: 1, notes: 'leak' } } : {}),
         });
         expect(response.statusCode).toBe(404);
       }
@@ -413,6 +418,7 @@ describe('body check-in API bridge', () => {
       expect(document.paths['/api/v1/body-check-ins/due/{date}/snooze']?.post).toBeDefined();
       expect(document.paths['/api/v1/context/body']?.get).toBeDefined();
       expect(document.paths['/api/v1/body-check-ins/export']?.get).toBeDefined();
+      expect(document.paths['/api/v1/body-check-ins/{id}/history']?.get).toBeDefined();
     } finally {
       await app.close();
     }
@@ -460,6 +466,219 @@ describe('body check-in API bridge', () => {
     }
   });
 
+  it('preserves immutable version snapshots for authenticated history and export replay', async () => {
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const jwt = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '1h' },
+      );
+      const headers = { authorization: `Bearer ${jwt}` };
+      const agentHeaders = { authorization: 'AgentToken body-agent-secret' };
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/v1/body-check-ins/',
+        headers,
+        payload: {
+          date: '2026-09-15',
+          localTime: '07:30',
+          status: 'completed',
+          mealContext: 'pre_meal',
+          notes: 'original context',
+          measurements: [
+            {
+              site: 'waist_iliac_crest_nhanes',
+              laterality: 'none',
+              unit: 'cm',
+              readings: [80, 80.4],
+            },
+          ],
+        },
+      });
+      expect(created.statusCode).toBe(201);
+      const id = created.json().data.id as string;
+      expect(created.json().data.version).toBe(1);
+
+      const corrected = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/body-check-ins/${id}`,
+        headers: agentHeaders,
+        payload: {
+          expectedVersion: 1,
+          correctionReason: 'tape was angled',
+          localTime: '07:35',
+          mealContext: 'post_meal',
+          notes: 'corrected context',
+          measurements: [
+            {
+              site: 'waist_iliac_crest_nhanes',
+              laterality: 'none',
+              unit: 'cm',
+              readings: [81, 82.2, 80.8],
+            },
+          ],
+        },
+      });
+      expect(corrected.statusCode).toBe(200);
+      expect(corrected.json().data).toMatchObject({ version: 2, notes: 'corrected context' });
+
+      const history = await app.inject({
+        method: 'GET',
+        url: `/api/v1/body-check-ins/${id}/history`,
+        headers,
+      });
+      expect(history.statusCode).toBe(200);
+      expect(history.json().data).toMatchObject({ checkInId: id, currentVersion: 2 });
+      expect(history.json().data.versions).toEqual([
+        expect.objectContaining({
+          version: 1,
+          localTime: '07:30',
+          mealContext: 'pre_meal',
+          notes: 'original context',
+          actorSource: 'user',
+          actorSourceId: null,
+          changeReason: 'created',
+          measurements: [
+            expect.objectContaining({
+              reading1Mm: 800,
+              reading2Mm: 804,
+              reading3Mm: null,
+              canonicalMm: 802,
+              quality: 'replicated',
+              protocolName: 'NHANES iliac-crest waist',
+              protocolSourceUrls: expect.arrayContaining([
+                'https://www.phenxtoolkit.org/protocols/view/21604',
+              ]),
+            }),
+          ],
+        }),
+        expect.objectContaining({
+          version: 2,
+          localTime: '07:35',
+          mealContext: 'post_meal',
+          notes: 'corrected context',
+          actorSource: 'agent_token',
+          actorSourceId: 'body-agent-token',
+          changeReason: 'tape was angled',
+          measurements: [
+            expect.objectContaining({
+              reading1Mm: 810,
+              reading2Mm: 822,
+              reading3Mm: 808,
+              canonicalMm: 809,
+              quality: 'replicated_with_tiebreaker',
+              selectedReadingPair: [1, 3],
+            }),
+          ],
+        }),
+      ]);
+
+      const exported = await app.inject({
+        method: 'GET',
+        url: '/api/v1/body-check-ins/export',
+        headers,
+      });
+      expect(exported.statusCode).toBe(200);
+      expect(exported.json().data.histories).toEqual([history.json().data]);
+
+      const otherJwt = app.jwt.sign(
+        { sub: 'user-2', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '1h' },
+      );
+      expect(
+        (
+          await app.inject({
+            method: 'GET',
+            url: `/api/v1/body-check-ins/${id}/history`,
+            headers: { authorization: `Bearer ${otherJwt}` },
+          })
+        ).statusCode,
+      ).toBe(404);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('allows exactly one concurrent owner-scoped correction for an expected version', async () => {
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const jwt = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '1h' },
+      );
+      const headers = { authorization: `Bearer ${jwt}` };
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/v1/body-check-ins/',
+        headers,
+        payload: {
+          date: '2026-09-15',
+          status: 'completed',
+          measurements: [{ site: 'hips_maximum', laterality: 'none', unit: 'cm', readings: [95] }],
+        },
+      });
+      const id = created.json().data.id as string;
+      const responses = await Promise.all([
+        app.inject({
+          method: 'PATCH',
+          url: `/api/v1/body-check-ins/${id}`,
+          headers,
+          payload: { expectedVersion: 1, notes: 'correction A', correctionReason: 'reason A' },
+        }),
+        app.inject({
+          method: 'PATCH',
+          url: `/api/v1/body-check-ins/${id}`,
+          headers,
+          payload: { expectedVersion: 1, notes: 'correction B', correctionReason: 'reason B' },
+        }),
+      ]);
+      expect(responses.map((response) => response.statusCode).sort()).toEqual([200, 409]);
+      const conflict = responses.find((response) => response.statusCode === 409);
+      expect(conflict?.json().error).toMatchObject({
+        code: 'BODY_CHECK_IN_VERSION_CONFLICT',
+        currentVersion: 2,
+      });
+      const history = await app.inject({
+        method: 'GET',
+        url: `/api/v1/body-check-ins/${id}/history`,
+        headers,
+      });
+      expect(
+        history.json().data.versions.map((version: { version: number }) => version.version),
+      ).toEqual([1, 2]);
+      expect(
+        history
+          .json()
+          .data.versions.filter(
+            (version: { changeKind: string }) => version.changeKind === 'correction',
+          ),
+      ).toHaveLength(1);
+      const missingReason = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/body-check-ins/${id}`,
+        headers,
+        payload: { expectedVersion: 2, notes: 'must not persist' },
+      });
+      expect(missingReason.statusCode).toBe(409);
+      expect(missingReason.json().error.code).toBe('BODY_CHECK_IN_CORRECTION_REASON_REQUIRED');
+      expect(
+        (
+          await app.inject({
+            method: 'GET',
+            url: `/api/v1/body-check-ins/${id}/history`,
+            headers,
+          })
+        ).json().data.versions,
+      ).toHaveLength(2);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('cascades preferences, check-ins, and raw readings when the owner is deleted', async () => {
     const { upsertBodyCheckInPreference, createBodyCheckIn } = await import('./store.js');
     await upsertBodyCheckInPreference('user-1', { anchorDate: '2026-09-15', lengthUnit: 'cm' });
@@ -475,10 +694,17 @@ describe('body check-in API bridge', () => {
     });
     const { deleteUserAccount } = await import('../auth/store.js');
     await expect(deleteUserAccount('user-1')).resolves.toBe(true);
-    const { bodyCheckInMeasurements, bodyCheckInPreferences, bodyCheckIns } =
-      await import('../../db/schema/index.js');
+    const {
+      bodyCheckInMeasurements,
+      bodyCheckInMeasurementVersions,
+      bodyCheckInPreferences,
+      bodyCheckIns,
+      bodyCheckInVersions,
+    } = await import('../../db/schema/index.js');
     expect(dbModule.db.select().from(bodyCheckInPreferences).all()).toEqual([]);
     expect(dbModule.db.select().from(bodyCheckIns).all()).toEqual([]);
     expect(dbModule.db.select().from(bodyCheckInMeasurements).all()).toEqual([]);
+    expect(dbModule.db.select().from(bodyCheckInVersions).all()).toEqual([]);
+    expect(dbModule.db.select().from(bodyCheckInMeasurementVersions).all()).toEqual([]);
   });
 });

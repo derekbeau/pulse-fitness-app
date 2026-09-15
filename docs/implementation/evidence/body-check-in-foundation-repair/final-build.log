@@ -1,0 +1,168 @@
+^D
+Update available v2.8.13 ≫ v2.10.13
+Changelog: https://github.com/vercel/turborepo/releases/tag/v2.10.13
+Run "pnpm dlx @turbo/codemod@latest update" to update
+
+Follow [38;2;0;153;247m@[0m[38;2;88;145;235mt[0m[38;2;122;137;221mu[0m[38;2;147;127;206mr[0m[38;2;167;117;190mb[0m[38;2;185;106;172mo[0m[38;2;201;94;152mr[0m[38;2;215;78;126me[0m[38;2;229;58;92mp[0m[38;2;241;23;18mo[0m for updates: https://x.com/turborepo
+• turbo 2.8.13
+[2m• Packages in scope: @pulse/api, @pulse/shared, @pulse/web[0m
+[2m• Running [0m[1m[2mbuild[0m[2m in 3 packages
+[0m[2m• Remote caching disabled, using shared worktree cache[0m
+[32m@pulse/shared:build: [0mcache bypass, force executing [2m681201d3f6e7f18c[0m
+[32m@pulse/shared:build: [0m
+[32m@pulse/shared:build: [0m> @pulse/shared@0.0.0 build /Users/meridian/Projects/pulse-body-check-in-foundation/packages/shared
+[32m@pulse/shared:build: [0m> tsc -p tsconfig.json
+[32m@pulse/shared:build: [0m
+[33m@pulse/web:build: [0mcache bypass, force executing [2me579cd79d2c52312[0m
+[33m@pulse/web:build: [0m
+[33m@pulse/web:build: [0m> @pulse/web@0.0.0 build /Users/meridian/Projects/pulse-body-check-in-foundation/apps/web
+[33m@pulse/web:build: [0m> tsc -b && vite build
+[33m@pulse/web:build: [0m
+[33m@pulse/web:build: [0mvite v7.3.1 building client environment for production...
+[33m@pulse/web:build: [0mtransforming...
+[33m@pulse/web:build: [0m✓ 3925 modules transformed.
+[33m@pulse/web:build: [0mrendering chunks...
+[33m@pulse/web:build: [0mcomputing gzip size...
+[33m@pulse/web:build: [0mdist/index.html                                         2.15 kB │ gzip:   0.76 kB
+[33m@pulse/web:build: [0mdist/assets/index--uZa41wS.css                        174.41 kB │ gzip:  25.13 kB
+[33m@pulse/web:build: [0mdist/assets/query-polling-CWrVhzp4.js                   0.09 kB │ gzip:   0.09 kB
+[33m@pulse/web:build: [0mdist/assets/plus-CjKTESlk.js                            0.15 kB │ gzip:   0.15 kB
+[33m@pulse/web:build: [0mdist/assets/arrow-up-DqezE8J_.js                        0.16 kB │ gzip:   0.16 kB
+[33m@pulse/web:build: [0mdist/assets/clock-3-BzDzaB98.js                         0.17 kB │ gzip:   0.17 kB
+[33m@pulse/web:build: [0mdist/assets/arrow-right-BCXL77It.js                     0.17 kB │ gzip:   0.16 kB
+[33m@pulse/web:build: [0mdist/assets/search-SjKtVob3.js                          0.17 kB │ gzip:   0.17 kB
+[33m@pulse/web:build: [0mdist/assets/circle-check-CmBU3o0r.js                    0.17 kB │ gzip:   0.17 kB
+[33m@pulse/web:build: [0mdist/assets/trending-up-BfrX7-AR.js                     0.18 kB │ gzip:   0.17 kB
+[33m@pulse/web:build: [0mdist/assets/gauge-D4QrlGge.js                           0.18 kB │ gzip:   0.17 kB
+[33m@pulse/web:build: [0mdist/assets/trending-down-CO4ScZOc.js                   0.18 kB │ gzip:   0.17 kB
+[33m@pulse/web:build: [0mdist/assets/flame-EqhClB_2.js                           0.20 kB │ gzip:   0.18 kB
+[33m@pulse/web:build: [0mdist/assets/info-8NvBwzXg.js                            0.20 kB │ gzip:   0.18 kB
+[33m@pulse/web:build: [0mdist/assets/rotate-ccw-BIy2znwb.js                      0.20 kB │ gzip:   0.18 kB
+[33m@pulse/web:build: [0mdist/assets/useThemeContext-CJBi--or.js                 0.23 kB │ gzip:   0.19 kB
+[33m@pulse/web:build: [0mdist/assets/history-DGmyFHVm.js                         0.24 kB │ gzip:   0.20 kB
+[33m@pulse/web:build: [0mdist/assets/timer-h9Aud1_n.js                           0.24 kB │ gzip:   0.19 kB
+[33m@pulse/web:build: [0mdist/assets/circle-question-mark-C0vLlorh.js            0.24 kB │ gzip:   0.21 kB
+[33m@pulse/web:build: [0mdist/assets/arrow-up-down-ZvjSfkKN.js                   0.25 kB │ gzip:   0.19 kB
+[33m@pulse/web:build: [0mdist/assets/route-sJ-i13MA.js                           0.25 kB │ gzip:   0.20 kB
+[33m@pulse/web:build: [0mdist/assets/circle-alert-BrU1P1PY.js                    0.25 kB │ gzip:   0.19 kB
+[33m@pulse/web:build: [0mdist/assets/chart-column-FUtVWYuR.js                    0.25 kB │ gzip:   0.20 kB
+[33m@pulse/web:build: [0mdist/assets/heart-D3PfCCGS.js                           0.26 kB │ gzip:   0.22 kB
+[33m@pulse/web:build: [0mdist/assets/pencil-ETlMyFNd.js                          0.28 kB │ gzip:   0.23 kB
+[33m@pulse/web:build: [0mdist/assets/book-open-UlmGAE7q.js                       0.28 kB │ gzip:   0.21 kB
+[33m@pulse/web:build: [0mdist/assets/arrow-up-right-_kEJ3Zys.js                  0.29 kB │ gzip:   0.21 kB
+[33m@pulse/web:build: [0mdist/assets/pencil-line-CINUoqCo.js                     0.32 kB │ gzip:   0.25 kB
+[33m@pulse/web:build: [0mdist/assets/refresh-cw-BIv7bS-f.js                      0.32 kB │ gzip:   0.23 kB
+[33m@pulse/web:build: [0mdist/assets/trash-2-ByDOeFEJ.js                         0.33 kB │ gzip:   0.22 kB
+[33m@pulse/web:build: [0mdist/assets/program-local-midnight-B2drBT7v.js          0.33 kB │ gzip:   0.27 kB
+[33m@pulse/web:build: [0mdist/assets/scale-vHF61LmE.js                           0.33 kB │ gzip:   0.23 kB
+[33m@pulse/web:build: [0mdist/assets/grip-vertical-C6St16FH.js                   0.37 kB │ gzip:   0.19 kB
+[33m@pulse/web:build: [0mdist/assets/calendar-clock-DdkX8YF5.js                  0.37 kB │ gzip:   0.25 kB
+[33m@pulse/web:build: [0mdist/assets/label-CNXItO32.js                           0.37 kB │ gzip:   0.28 kB
+[33m@pulse/web:build: [0mdist/assets/use-today-key-DmnNu-1s.js                   0.39 kB │ gzip:   0.27 kB
+[33m@pulse/web:build: [0mdist/assets/sliders-horizontal-DVvBal9E.js              0.43 kB │ gzip:   0.24 kB
+[33m@pulse/web:build: [0mdist/assets/index-Dn8bgd75.js                           0.43 kB │ gzip:   0.29 kB
+[33m@pulse/web:build: [0mdist/assets/template-tags-Ce0Nr_b0.js                   0.43 kB │ gzip:   0.29 kB
+[33m@pulse/web:build: [0mdist/assets/accent-card-styles-juGWYX3b.js              0.48 kB │ gzip:   0.21 kB
+[33m@pulse/web:build: [0mdist/assets/calendar-days-DQkiVECE.js                   0.50 kB │ gzip:   0.27 kB
+[33m@pulse/web:build: [0mdist/assets/sparkles-821_MiIt.js                        0.50 kB │ gzip:   0.28 kB
+[33m@pulse/web:build: [0mdist/assets/date-utils-hJv2Zwft.js                      0.52 kB │ gzip:   0.30 kB
+[33m@pulse/web:build: [0mdist/assets/workout-session-sets-CqGuqGnY.js            0.57 kB │ gzip:   0.34 kB
+[33m@pulse/web:build: [0mdist/assets/circle-dashed-Hbupgdjb.js                   0.58 kB │ gzip:   0.29 kB
+[33m@pulse/web:build: [0mdist/assets/textarea-D7REdVAp.js                        0.64 kB │ gzip:   0.40 kB
+[33m@pulse/web:build: [0mdist/assets/markdown-note-D3WftfL2.js                   0.65 kB │ gzip:   0.40 kB
+[33m@pulse/web:build: [0mdist/assets/chart-range-control-DbmXWqnu.js             0.66 kB │ gzip:   0.41 kB
+[33m@pulse/web:build: [0mdist/assets/empty-state-De6qcPx4.js                     0.69 kB │ gzip:   0.43 kB
+[33m@pulse/web:build: [0mdist/assets/superset-utils-VMYlREJh.js                  0.70 kB │ gzip:   0.43 kB
+[33m@pulse/web:build: [0mdist/assets/save-B4iCNeTS.js                            0.70 kB │ gzip:   0.34 kB
+[33m@pulse/web:build: [0mdist/assets/format-utils-Bsyxf4FY.js                    0.73 kB │ gzip:   0.35 kB
+[33m@pulse/web:build: [0mdist/assets/wrench-BjNl6bw4.js                          0.74 kB │ gzip:   0.38 kB
+[33m@pulse/web:build: [0mdist/assets/separator-DZlc-6hp.js                       0.78 kB │ gzip:   0.43 kB
+[33m@pulse/web:build: [0mdist/assets/chart-legend-CA4QNANO.js                    0.85 kB │ gzip:   0.49 kB
+[33m@pulse/web:build: [0mdist/assets/markdown-aUL2GTqK.js                        0.87 kB │ gzip:   0.43 kB
+[33m@pulse/web:build: [0mdist/assets/page-header-Bj25Nt38.js                     0.90 kB │ gzip:   0.42 kB
+[33m@pulse/web:build: [0mdist/assets/rename-exercise-dialog-yQrbHG--.js          0.94 kB │ gzip:   0.56 kB
+[33m@pulse/web:build: [0mdist/assets/input-BHEP89yp.js                           0.95 kB │ gzip:   0.55 kB
+[33m@pulse/web:build: [0mdist/assets/use-date-authority-CsI0BTpu.js              0.96 kB │ gzip:   0.53 kB
+[33m@pulse/web:build: [0mdist/assets/trend-weight-date-vlormCn4.js               1.00 kB │ gzip:   0.50 kB
+[33m@pulse/web:build: [0mdist/assets/progress-bar-Cxfhk6Xh.js                    1.04 kB │ gzip:   0.58 kB
+[33m@pulse/web:build: [0mdist/assets/progress-ring-FteH4uvQ.js                   1.21 kB │ gzip:   0.64 kB
+[33m@pulse/web:build: [0mdist/assets/index-Dp1AKGOh.js                           1.31 kB │ gzip:   0.66 kB
+[33m@pulse/web:build: [0mdist/assets/use-debounced-callback-Vru_0bNp.js          1.32 kB │ gzip:   0.61 kB
+[33m@pulse/web:build: [0mdist/assets/badge-DX_U0Db8.js                           1.34 kB │ gzip:   0.64 kB
+[33m@pulse/web:build: [0mdist/assets/preview-banner-DqFOqqDw.js                  1.40 kB │ gzip:   0.78 kB
+[33m@pulse/web:build: [0mdist/assets/progression-CNB7mJ6k.js                     1.47 kB │ gzip:   0.73 kB
+[33m@pulse/web:build: [0mdist/assets/chart-exploration-CIVsEJBu.js               1.70 kB │ gzip:   0.76 kB
+[33m@pulse/web:build: [0mdist/assets/adaptive-weekly-review-CxZihFpc.js          1.80 kB │ gzip:   0.96 kB
+[33m@pulse/web:build: [0mdist/assets/stat-card-ROpuN051.js                       2.30 kB │ gzip:   1.08 kB
+[33m@pulse/web:build: [0mdist/assets/chart-tooltip-BEfL6T79.js                   2.49 kB │ gzip:   1.04 kB
+[33m@pulse/web:build: [0mdist/assets/help-icon-CM_jU5ES.js                       2.66 kB │ gzip:   1.06 kB
+[33m@pulse/web:build: [0mdist/assets/dialog-BJQuv4n6.js                          2.79 kB │ gzip:   1.07 kB
+[33m@pulse/web:build: [0mdist/assets/login-Cn02vWez.js                           3.12 kB │ gzip:   1.30 kB
+[33m@pulse/web:build: [0mdist/assets/chart-summary-DJmW7Vsc.js                   3.16 kB │ gzip:   1.38 kB
+[33m@pulse/web:build: [0mdist/assets/journal-entry-Bkv1Cih5.js                   3.45 kB │ gzip:   1.36 kB
+[33m@pulse/web:build: [0mdist/assets/habit-chain-dot-BkvnwmHc.js                 3.45 kB │ gzip:   1.63 kB
+[33m@pulse/web:build: [0mdist/assets/mock-data-C5acpO0F.js                       3.71 kB │ gzip:   1.57 kB
+[33m@pulse/web:build: [0mdist/assets/profile-hqM1hgx1.js                         4.10 kB │ gzip:   1.63 kB
+[33m@pulse/web:build: [0mdist/assets/register-HmAb-5vs.js                        4.17 kB │ gzip:   1.53 kB
+[33m@pulse/web:build: [0mdist/assets/resources-G60znSz3.js                       4.22 kB │ gzip:   1.74 kB
+[33m@pulse/web:build: [0mdist/assets/swap-exercise-dialog-e23ONG3r.js            4.43 kB │ gzip:   1.81 kB
+[33m@pulse/web:build: [0mdist/assets/journal-BM0QBJXc.js                         5.46 kB │ gzip:   2.08 kB
+[33m@pulse/web:build: [0mdist/assets/resource-detail-p6VXHG__.js                 5.60 kB │ gzip:   1.80 kB
+[33m@pulse/web:build: [0mdist/assets/popover-BvZiY57X.js                         6.03 kB │ gzip:   2.18 kB
+[33m@pulse/web:build: [0mdist/assets/use-dashboard-config-DDqV3VJG.js            6.31 kB │ gzip:   2.06 kB
+[33m@pulse/web:build: [0mdist/assets/nutrition-day-status-control-CKmWNcL1.js    7.40 kB │ gzip:   2.50 kB
+[33m@pulse/web:build: [0mdist/assets/view-toggle-BZlgChZB.js                     8.76 kB │ gzip:   3.22 kB
+[33m@pulse/web:build: [0mdist/assets/injuries-DpaVLnrh.js                        9.27 kB │ gzip:   3.26 kB
+[33m@pulse/web:build: [0mdist/assets/weight-history-C3jf9yoW.js                  9.86 kB │ gzip:   3.56 kB
+[33m@pulse/web:build: [0mdist/assets/design-system-CeyHQ8Eh.js                   9.95 kB │ gzip:   3.15 kB
+[33m@pulse/web:build: [0mdist/assets/mock-data-CC2pq8QH.js                      10.15 kB │ gzip:   4.27 kB
+[33m@pulse/web:build: [0mdist/assets/mock-data-IW2r9AOy.js                      14.00 kB │ gzip:   4.60 kB
+[33m@pulse/web:build: [0mdist/assets/session-feedback-DzhHGTVJ.js               14.49 kB │ gzip:   4.70 kB
+[33m@pulse/web:build: [0mdist/assets/equipment-mNU16R2Z.js                      15.22 kB │ gzip:   4.76 kB
+[33m@pulse/web:build: [0mdist/assets/activity-3QbABaCR.js                       15.87 kB │ gzip:   5.16 kB
+[33m@pulse/web:build: [0mdist/assets/trend-weight-workspace-2VB3MPls.js         17.30 kB │ gzip:   5.29 kB
+[33m@pulse/web:build: [0mdist/assets/workouts-CGBQaCRw.js                       19.70 kB │ gzip:   4.74 kB
+[33m@pulse/web:build: [0mdist/assets/select-CKb7k6jC.js                         20.60 kB │ gzip:   7.29 kB
+[33m@pulse/web:build: [0mdist/assets/active-session-D7F2Ddv1.js                 21.30 kB │ gzip:   6.53 kB
+[33m@pulse/web:build: [0mdist/assets/dropdown-menu-CNSLxfe0.js                  21.90 kB │ gzip:   6.83 kB
+[33m@pulse/web:build: [0mdist/assets/energy-balance-Dqs-kHg-.js                 21.98 kB │ gzip:   6.57 kB
+[33m@pulse/web:build: [0mdist/assets/injury-detail-CTChyg1P.js                  23.40 kB │ gzip:   7.27 kB
+[33m@pulse/web:build: [0mdist/assets/data-quality-DeZDjmBn.js                   24.95 kB │ gzip:   7.73 kB
+[33m@pulse/web:build: [0mdist/assets/workout-template-detail-ByV4dITj.js        24.96 kB │ gzip:   7.82 kB
+[33m@pulse/web:build: [0mdist/assets/settings-BSy0CWPf.js                       29.74 kB │ gzip:   8.12 kB
+[33m@pulse/web:build: [0mdist/assets/zod-CS_2uH66.js                            29.90 kB │ gzip:  10.78 kB
+[33m@pulse/web:build: [0mdist/assets/goal-trajectory-DQqze3mZ.js                30.30 kB │ gzip:   8.65 kB
+[33m@pulse/web:build: [0mdist/assets/weekly-decision-review-CnLcb9mE.js         32.94 kB │ gzip:   8.62 kB
+[33m@pulse/web:build: [0mdist/assets/workout-session-detail-BK0U2rj2.js         36.77 kB │ gzip:  10.92 kB
+[33m@pulse/web:build: [0mdist/assets/vendor-router-D-aEi-ws.js                  37.19 kB │ gzip:  13.40 kB
+[33m@pulse/web:build: [0mdist/assets/habits-BSv7cfNT.js                         39.34 kB │ gzip:  11.79 kB
+[33m@pulse/web:build: [0mdist/assets/scheduled-workout-detail-DrEgk_FC.js       41.62 kB │ gzip:  12.59 kB
+[33m@pulse/web:build: [0mdist/assets/vendor-query-Y28iZGx7.js                   45.14 kB │ gzip:  13.84 kB
+[33m@pulse/web:build: [0mdist/assets/sortable.esm-CA35HQYp.js                   51.01 kB │ gzip:  17.09 kB
+[33m@pulse/web:build: [0mdist/assets/use-workout-session-BVXlRU9k.js            56.60 kB │ gzip:  16.45 kB
+[33m@pulse/web:build: [0mdist/assets/vendor-zod-HKtZy-kK.js                     57.87 kB │ gzip:  13.50 kB
+[33m@pulse/web:build: [0mdist/assets/workouts-B0yeRMIY.js                       67.54 kB │ gzip:  18.36 kB
+[33m@pulse/web:build: [0mdist/assets/dashboard-CwIIsMci.js                      69.23 kB │ gzip:  20.12 kB
+[33m@pulse/web:build: [0mdist/assets/goal-editor-dialog-j_aPPlFs.js             69.87 kB │ gzip:  20.11 kB
+[33m@pulse/web:build: [0mdist/assets/schedule-workout-dialog-C-QhUhRm.js        71.22 kB │ gzip:  21.27 kB
+[33m@pulse/web:build: [0mdist/assets/active-workout-BU_Ktz22.js                 97.90 kB │ gzip:  28.30 kB
+[33m@pulse/web:build: [0mdist/assets/nutrition-BQyIXFWi.js                     158.96 kB │ gzip:  42.85 kB
+[33m@pulse/web:build: [0mdist/assets/vendor-recharts-vi3UUqYC.js               397.49 kB │ gzip: 115.25 kB
+[33m@pulse/web:build: [0mdist/assets/index-CCXRGCz5.js                         554.93 kB │ gzip: 163.44 kB
+[33m@pulse/web:build: [0m
+[33m@pulse/web:build: [0m(!) Some chunks are larger than 500 kB after minification. Consider:
+[33m@pulse/web:build: [0m- Using dynamic import() to code-split the application
+[33m@pulse/web:build: [0m- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+[33m@pulse/web:build: [0m- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[33m@pulse/web:build: [0m✓ built in 4.56s
+[35m@pulse/api:build: [0mcache bypass, force executing [2m914596158eed6489[0m
+[35m@pulse/api:build: [0m
+[35m@pulse/api:build: [0m> @pulse/api@0.0.0 build /Users/meridian/Projects/pulse-body-check-in-foundation/apps/api
+[35m@pulse/api:build: [0m> tsc
+[35m@pulse/api:build: [0m
+
+[1m Tasks:    [32m[1m3 successful[0m, 3 total[0m
+[1mCached:    [1m0 cached[0m, 3 total[0m
+[1m  Time:    [1m24.268s[0m [0m
+
+    ...Finishing writing to cache...                                            [2K>   ...Finishing writing to cache...                                            [2K

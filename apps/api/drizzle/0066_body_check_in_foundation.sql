@@ -22,6 +22,7 @@ CREATE TABLE body_check_ins (
  local_date TEXT NOT NULL,
  local_time TEXT,
  status TEXT NOT NULL,
+ version INTEGER NOT NULL DEFAULT 1,
  meal_context TEXT NOT NULL DEFAULT 'unspecified',
  workout_context TEXT NOT NULL DEFAULT 'unspecified',
  pump_present INTEGER,
@@ -45,6 +46,7 @@ CREATE TABLE body_check_ins (
  CHECK(local_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(local_date, '+0 days') = local_date),
  CHECK(local_time IS NULL OR local_time GLOB '[0-2][0-9]:[0-5][0-9]'),
  CHECK(status IN ('draft', 'completed')),
+ CHECK(version >= 1),
  CHECK(meal_context IN ('unspecified', 'pre_meal', 'post_meal')),
  CHECK(workout_context IN ('unspecified', 'pre_workout', 'post_workout')),
  CHECK(source IN ('user', 'agent_token')),
@@ -83,3 +85,69 @@ CREATE TABLE body_check_in_measurements (
 );
 --> statement-breakpoint
 CREATE INDEX body_check_in_measurements_check_in_idx ON body_check_in_measurements(check_in_id);
+--> statement-breakpoint
+CREATE TABLE body_check_in_versions (
+ id TEXT PRIMARY KEY NOT NULL,
+ check_in_id TEXT NOT NULL REFERENCES body_check_ins(id) ON DELETE CASCADE,
+ version INTEGER NOT NULL,
+ local_date TEXT NOT NULL,
+ local_time TEXT,
+ status TEXT NOT NULL,
+ meal_context TEXT NOT NULL,
+ workout_context TEXT NOT NULL,
+ pump_present INTEGER,
+ unusual_bloating INTEGER,
+ notes TEXT,
+ protocol_version TEXT NOT NULL,
+ source TEXT NOT NULL,
+ source_id TEXT,
+ count_as_scheduled_occurrence INTEGER NOT NULL,
+ completed_at INTEGER,
+ actor_source TEXT NOT NULL,
+ actor_source_id TEXT,
+ change_kind TEXT NOT NULL,
+ change_reason TEXT NOT NULL,
+ recorded_at INTEGER NOT NULL,
+ UNIQUE(check_in_id, version),
+ CHECK(version >= 1),
+ CHECK(local_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(local_date, '+0 days') = local_date),
+ CHECK(local_time IS NULL OR local_time GLOB '[0-2][0-9]:[0-5][0-9]'),
+ CHECK(status IN ('draft', 'completed')),
+ CHECK(meal_context IN ('unspecified', 'pre_meal', 'post_meal')),
+ CHECK(workout_context IN ('unspecified', 'pre_workout', 'post_workout')),
+ CHECK(change_kind IN ('created', 'draft_update', 'completed', 'correction')),
+ CHECK(source IN ('user', 'agent_token') AND actor_source IN ('user', 'agent_token')),
+ CHECK(count_as_scheduled_occurrence IN (0, 1)),
+ CHECK((status = 'completed' AND completed_at IS NOT NULL) OR (status = 'draft' AND completed_at IS NULL))
+);
+--> statement-breakpoint
+CREATE INDEX body_check_in_versions_check_in_idx ON body_check_in_versions(check_in_id, version);
+--> statement-breakpoint
+CREATE TABLE body_check_in_measurement_versions (
+ id TEXT PRIMARY KEY NOT NULL,
+ version_id TEXT NOT NULL REFERENCES body_check_in_versions(id) ON DELETE CASCADE,
+ site TEXT NOT NULL,
+ laterality TEXT NOT NULL,
+ unit_at_entry TEXT NOT NULL,
+ reading_1_mm INTEGER NOT NULL,
+ reading_2_mm INTEGER,
+ reading_3_mm INTEGER,
+ canonical_mm INTEGER NOT NULL,
+ quality TEXT NOT NULL,
+ selected_reading_pair TEXT,
+ protocol_id TEXT NOT NULL,
+ protocol_version TEXT NOT NULL,
+ protocol_name TEXT NOT NULL,
+ protocol_instructions TEXT NOT NULL,
+ protocol_source_urls TEXT NOT NULL,
+ created_at INTEGER NOT NULL,
+ updated_at INTEGER NOT NULL,
+ UNIQUE(version_id, site, laterality),
+ CHECK(unit_at_entry IN ('cm', 'in')),
+ CHECK(reading_1_mm BETWEEN 200 AND 3000 AND (reading_2_mm IS NULL OR reading_2_mm BETWEEN 200 AND 3000) AND (reading_3_mm IS NULL OR reading_3_mm BETWEEN 200 AND 3000) AND canonical_mm BETWEEN 200 AND 3000),
+ CHECK(reading_3_mm IS NULL OR reading_2_mm IS NOT NULL),
+ CHECK(quality IN ('single_reading','replicated','needs_third_reading','replicated_with_tiebreaker','high_variance')),
+ CHECK((site IN ('waist_iliac_crest_nhanes','chest_nipple_line_relaxed','hips_maximum') AND laterality = 'none') OR (site IN ('upper_arm_midpoint_flexed','thigh_midpoint') AND laterality IN ('left','right')))
+);
+--> statement-breakpoint
+CREATE INDEX body_check_in_measurement_versions_version_idx ON body_check_in_measurement_versions(version_id);

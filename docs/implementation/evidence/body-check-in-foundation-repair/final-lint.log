@@ -1,0 +1,58 @@
+^D
+Update available v2.8.13 ≫ v2.10.13
+Changelog: https://github.com/vercel/turborepo/releases/tag/v2.10.13
+Run "pnpm dlx @turbo/codemod@latest update" to update
+
+Follow [38;2;0;153;247m@[0m[38;2;88;145;235mt[0m[38;2;122;137;221mu[0m[38;2;147;127;206mr[0m[38;2;167;117;190mb[0m[38;2;185;106;172mo[0m[38;2;201;94;152mr[0m[38;2;215;78;126me[0m[38;2;229;58;92mp[0m[38;2;241;23;18mo[0m for updates: https://x.com/turborepo
+• turbo 2.8.13
+[2m• Packages in scope: @pulse/api, @pulse/shared, @pulse/web[0m
+[2m• Running [0m[1m[2mlint[0m[2m in 3 packages
+[0m[2m• Remote caching disabled, using shared worktree cache[0m
+[32m@pulse/shared:lint: [0mcache bypass, force executing [2mc911f0ea964995de[0m
+[32m@pulse/shared:lint: [0m
+[32m@pulse/shared:lint: [0m> @pulse/shared@0.0.0 lint /Users/meridian/Projects/pulse-body-check-in-foundation/packages/shared
+[32m@pulse/shared:lint: [0m> eslint .
+[32m@pulse/shared:lint: [0m
+[33m@pulse/web:lint: [0mcache bypass, force executing [2m576aaa68cf3ae2c2[0m
+[33m@pulse/web:lint: [0m
+[33m@pulse/web:lint: [0m> @pulse/web@0.0.0 lint /Users/meridian/Projects/pulse-body-check-in-foundation/apps/web
+[33m@pulse/web:lint: [0m> eslint .
+[33m@pulse/web:lint: [0m
+[33m@pulse/web:lint: [0m
+[33m@pulse/web:lint: [0m/Users/meridian/Projects/pulse-body-check-in-foundation/apps/web/src/features/adaptive-nutrition/components/energy-balance-workspace.tsx
+[33m@pulse/web:lint: [0m  129:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+[33m@pulse/web:lint: [0m  158:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+[33m@pulse/web:lint: [0m
+[33m@pulse/web:lint: [0m/Users/meridian/Projects/pulse-body-check-in-foundation/apps/web/src/features/workouts/components/session-detail-exercise-card.tsx
+[33m@pulse/web:lint: [0m  352:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+[33m@pulse/web:lint: [0m
+[33m@pulse/web:lint: [0m/Users/meridian/Projects/pulse-body-check-in-foundation/apps/web/src/features/workouts/components/workout-exercise-card/index.tsx
+[33m@pulse/web:lint: [0m  23:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+[33m@pulse/web:lint: [0m  27:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+[33m@pulse/web:lint: [0m
+[33m@pulse/web:lint: [0m/Users/meridian/Projects/pulse-body-check-in-foundation/apps/web/src/pages/active-workout.tsx
+[33m@pulse/web:lint: [0m  2501:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+[33m@pulse/web:lint: [0m
+[33m@pulse/web:lint: [0m✖ 6 problems (0 errors, 6 warnings)
+[33m@pulse/web:lint: [0m
+[35m@pulse/api:lint: [0mcache bypass, force executing [2m50f822ebb4d10d17[0m
+[35m@pulse/api:lint: [0m
+[35m@pulse/api:lint: [0m> @pulse/api@0.0.0 lint /Users/meridian/Projects/pulse-body-check-in-foundation/apps/api
+[35m@pulse/api:lint: [0m> eslint .
+[35m@pulse/api:lint: [0m
+[35m@pulse/api:lint: [0m
+[35m@pulse/api:lint: [0m/Users/meridian/Projects/pulse-body-check-in-foundation/apps/api/src/routes/body-check-ins/store.ts
+[35m@pulse/api:lint: [0m  313:22  error  '_checkInId' is assigned a value but never used  @typescript-eslint/no-unused-vars
+[35m@pulse/api:lint: [0m
+[35m@pulse/api:lint: [0m✖ 1 problem (1 error, 0 warnings)
+[35m@pulse/api:lint: [0m
+[35m@pulse/api:lint: [0m ELIFECYCLE  Command failed with exit code 1.
+[35m@pulse/api:lint: [0mERROR: command finished with error: command (/Users/meridian/Projects/pulse-body-check-in-foundation/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run lint exited (1)
+@pulse/api#lint: command (/Users/meridian/Projects/pulse-body-check-in-foundation/apps/api) /Users/meridian/Library/pnpm/.tools/pnpm/10.30.3/bin/pnpm run lint exited (1)
+
+[1m Tasks:    [32m[1m2 successful[0m, 3 total[0m
+[1mCached:    [1m0 cached[0m, 3 total[0m
+[1m  Time:    [1m25.312s[0m [0m
+[1mFailed:    [31m[1m@pulse/api#lint[0m[0m
+
+⠁                                                                               [2K>   ...Finishing writing to cache...                                            [2K[31;40m ERROR [0m [31;49mrun failed: command  exited (1)[0m

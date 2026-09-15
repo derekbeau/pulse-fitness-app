@@ -1,0 +1,31 @@
+^D
+Update available v2.8.13 ≫ v2.10.13
+Changelog: https://github.com/vercel/turborepo/releases/tag/v2.10.13
+Run "pnpm dlx @turbo/codemod@latest update" to update
+
+Follow [38;2;0;153;247m@[0m[38;2;88;145;235mt[0m[38;2;122;137;221mu[0m[38;2;147;127;206mr[0m[38;2;167;117;190mb[0m[38;2;185;106;172mo[0m[38;2;201;94;152mr[0m[38;2;215;78;126me[0m[38;2;229;58;92mp[0m[38;2;241;23;18mo[0m for updates: https://x.com/turborepo
+• turbo 2.8.13
+[2m• Packages in scope: @pulse/api, @pulse/shared, @pulse/web[0m
+[2m• Running [0m[1m[2mtypecheck[0m[2m in 3 packages
+[0m[2m• Remote caching disabled, using shared worktree cache[0m
+[35m@pulse/api:typecheck: [0mcache bypass, force executing [2m93a73892ad924d8c[0m
+[35m@pulse/api:typecheck: [0m
+[35m@pulse/api:typecheck: [0m> @pulse/api@0.0.0 typecheck /Users/meridian/Projects/pulse-body-check-in-foundation/apps/api
+[35m@pulse/api:typecheck: [0m> tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json
+[35m@pulse/api:typecheck: [0m
+[32m@pulse/shared:typecheck: [0mcache bypass, force executing [2m36c6f6eafb9692b7[0m
+[32m@pulse/shared:typecheck: [0m
+[32m@pulse/shared:typecheck: [0m> @pulse/shared@0.0.0 typecheck /Users/meridian/Projects/pulse-body-check-in-foundation/packages/shared
+[32m@pulse/shared:typecheck: [0m> tsc --noEmit -p tsconfig.json
+[32m@pulse/shared:typecheck: [0m
+[33m@pulse/web:typecheck: [0mcache bypass, force executing [2m3fe0ab5aa4f2304d[0m
+[33m@pulse/web:typecheck: [0m
+[33m@pulse/web:typecheck: [0m> @pulse/web@0.0.0 typecheck /Users/meridian/Projects/pulse-body-check-in-foundation/apps/web
+[33m@pulse/web:typecheck: [0m> tsc --noEmit
+[33m@pulse/web:typecheck: [0m
+
+[1m Tasks:    [32m[1m3 successful[0m, 3 total[0m
+[1mCached:    [1m0 cached[0m, 3 total[0m
+[1m  Time:    [1m26.922s[0m [0m
+
+    ...Finishing writing to cache...                                            [2K>   ...Finishing writing to cache...                                            [2K

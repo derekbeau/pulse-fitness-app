@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createBodyCheckInInputSchema,
+  patchBodyCheckInInputSchema,
   patchBodyCheckInPreferenceSchema,
 } from './body-check-ins.js';
 
@@ -64,5 +65,15 @@ describe('body check-in shared contracts', () => {
         anchorDate: '2026-09-20',
       }),
     ).toThrow(/cannot replace/);
+  });
+
+  it('requires optimistic concurrency on every check-in patch', () => {
+    expect(() => patchBodyCheckInInputSchema.parse({ notes: 'stale write' })).toThrow();
+    expect(() => patchBodyCheckInInputSchema.parse({ expectedVersion: 1 })).toThrow(
+      /At least one field/,
+    );
+    expect(
+      patchBodyCheckInInputSchema.parse({ expectedVersion: 1, notes: 'serialized write' }),
+    ).toMatchObject({ expectedVersion: 1 });
   });
 });
