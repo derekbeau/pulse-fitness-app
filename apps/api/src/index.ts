@@ -27,6 +27,7 @@ import { trashRoutes } from './routes/trash/index.js';
 import { v1Routes } from './routes/v1/index.js';
 import { weightRoutes } from './routes/weight/index.js';
 import { bodyMeasurementRoutes } from './routes/body-measurements/index.js';
+import { bodyCheckInRoutes, bodyContextRoutes } from './routes/body-check-ins/index.js';
 import { workoutSessionRoutes } from './routes/workout-sessions/index.js';
 import { workoutProgressionRoutes } from './routes/workout-progression/index.js';
 import { workoutTemplateRoutes } from './routes/workout-templates/index.js';
@@ -258,6 +259,8 @@ export const buildServer = () => {
   app.register(v1Routes, { prefix: '/api/v1' });
   app.register(weightRoutes, { prefix: '/api/v1/weight' });
   app.register(bodyMeasurementRoutes, { prefix: '/api/v1/body-measurements' });
+  app.register(bodyCheckInRoutes, { prefix: '/api/v1/body-check-ins' });
+  app.register(bodyContextRoutes, { prefix: '/api/v1/context' });
   app.register(workoutSessionRoutes, { prefix: '/api/v1/workout-sessions' });
   app.register(workoutProgressionRoutes, { prefix: '/api/v1/workout-progression' });
   app.register(workoutTemplateRoutes, { prefix: '/api/v1/workout-templates' });

@@ -1,0 +1,170 @@
+^D[?25l
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-body-check-in-foundation/apps/api
+
+[?2026h
+ ❯ src/routes/body-check-ins/api.integration.test.ts [queued]
+
+ Test Files 0 passed (2)
+      Tests 0 passed (0)
+   Start at 23:28:02
+   Duration 103ms
+[?2026l[?2026h[K
+ ❯ src/routes/body-check-ins/api.integration.test.ts 0/6
+
+ Test Files 0 passed (2)
+      Tests 0 passed (6)
+   Start at 23:28:02
+   Duration 914ms
+[?2026l[?2026h[K
+ ❯ src/routes/body-check-ins/api.integration.test.ts 0/6
+
+ Test Files 0 passed (2)
+      Tests 0 passed (6)
+   Start at 23:28:02
+   Duration 1.93s
+[?2026l[?2026h[K
+ ❯ src/routes/body-check-ins/api.integration.test.ts 1/6
+
+ Test Files 0 passed (2)
+      Tests 1 passed (6)
+   Start at 23:28:02
+   Duration 2.44s
+[?2026l[?2026h[K
+ ❯ src/routes/body-check-ins/api.integration.test.ts 2/6
+
+ Test Files 0 passed (2)
+      Tests 2 passed (6)
+   Start at 23:28:02
+   Duration 2.64s
+[?2026l[?2026h[K
+ ❯ src/routes/body-check-ins/api.integration.test.ts 3/6
+
+ Test Files 0 passed (2)
+      Tests 3 passed (6)
+   Start at 23:28:02
+   Duration 2.84s
+[?2026l[?2026h[K
+ ❯ src/routes/body-check-ins/api.integration.test.ts 4/6
+
+ Test Files 0 passed (2)
+      Tests 1 failed | 3 passed (6)
+   Start at 23:28:02
+   Duration 2.94s
+[?2026l[?2026h[K
+ ❯ src/routes/body-check-ins/api.integration.test.ts 5/6
+
+ Test Files 0 passed (2)
+      Tests 2 failed | 3 passed (6)
+   Start at 23:28:02
+   Duration 3.05s
+[?2026l[?2026h[K ❯ src/routes/body-check-ins/api.integration.test.ts (6 tests | 2 failed) 2896ms
+     ✓ persists preferences, due lifecycle, drafts, completion, raw readings, provenance, and context  2141ms
+     ✓ keeps cadence anchored through snooze and skip and exposes OpenAPI contracts 260ms
+     ✓ serializes same-date creates and replays concurrent identical retries 133ms
+     × preserves immutable version snapshots for authenticated history and export replay 131ms
+     × allows exactly one concurrent owner-scoped correction for an expected version 125ms
+     ✓ cascades preferences, check-ins, and raw readings when the owner is deleted 104ms
+
+ ❯ src/db/body-check-in-migration.test.ts [queued]
+
+ Test Files 1 failed | 0 passed (2)
+      Tests 2 failed | 4 passed (6)
+   Start at 23:28:02
+   Duration 3.25s
+[?2026l[?2026h[K
+ ❯ src/db/body-check-in-migration.test.ts 0/3
+
+ Test Files 1 failed | 0 passed (2)
+      Tests 2 failed | 4 passed (9)
+   Start at 23:28:02
+   Duration 3.35s
+[?2026l[?2026h[K
+ ❯ src/db/body-check-in-migration.test.ts 1/3
+
+ Test Files 1 failed | 0 passed (2)
+      Tests 3 failed | 4 passed (9)
+   Start at 23:28:02
+   Duration 3.55s
+[?2026l[?2026h[K
+ ❯ src/db/body-check-in-migration.test.ts 2/3
+
+ Test Files 1 failed | 0 passed (2)
+      Tests 3 failed | 5 passed (9)
+   Start at 23:28:02
+   Duration 3.65s
+[?2026l[K ❯ src/db/body-check-in-migration.test.ts (3 tests | 1 failed) 313ms
+     × runs the complete fresh chain and is idempotent 85ms
+     ✓ upgrades a populated 0065 predecessor, preserves every scalar through restart, and restores its raw backup 118ms
+     ✓ rolls back a failed 0066 atomically and preserves raw predecessor facts 101ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/db/body-check-in-migration.test.ts > 0066 body check-in migration lifecycle > runs the complete fresh chain and is idempotent
+AssertionError: body_check_in_versions: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/db/body-check-in-migration.test.ts:94:51
+     92|         'body_check_in_measurement_versions',
+     93|       ]) {
+     94|         expect(tableExists(sqlite, table), table).toBe(true);
+       |                                                   ^
+     95|       }
+     96|       expect(migratePulseDatabase(sqlite, { migrationsFolder })).toEqu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/routes/body-check-ins/api.integration.test.ts > body check-in API bridge > preserves immutable version snapshots for authenticated history and export replay
+AssertionError: expected undefined to be 1 // Object.is equality
+
+- Expected: 
+1
+
++ Received: 
+undefined
+
+ ❯ src/routes/body-check-ins/api.integration.test.ts:495:43
+    493|       expect(created.statusCode).toBe(201);
+    494|       const id = created.json().data.id as string;
+    495|       expect(created.json().data.version).toBe(1);
+       |                                           ^
+    496| 
+    497|       const corrected = await app.inject({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/routes/body-check-ins/api.integration.test.ts > body check-in API bridge > allows exactly one concurrent owner-scoped correction for an expected version
+AssertionError: expected [ 400, 400 ] to deeply equal [ 200, 409 ]
+
+- Expected
++ Received
+
+  [
+-   200,
+-   409,
++   400,
++   400,
+  ]
+
+ ❯ src/routes/body-check-ins/api.integration.test.ts:632:71
+    630|         }),
+    631|       ]);
+    632|       expect(responses.map((response) => response.statusCode).sort()).…
+       |                                                                       ^
+    633|       const conflict = responses.find((response) => response.statusCod…
+    634|       expect(conflict?.json().error).toMatchObject({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  3 failed | 6 passed (9)
+   Start at  23:28:02
+   Duration  3.71s (transform 1.04s, setup 0ms, import 187ms, tests 3.21s, environment 0ms)
+
+[?25h/Users/meridian/Projects/pulse-body-check-in-foundation/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --no-file-parallelism --maxWorkers=1 src/routes/body-check-ins/api.integration.test.ts src/db/body-check-in-migration.test.ts

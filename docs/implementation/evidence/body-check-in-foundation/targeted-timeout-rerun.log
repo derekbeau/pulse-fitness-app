@@ -1,0 +1,281 @@
+^D[?25l
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-body-check-in-foundation/apps/api
+
+[?2026h
+ ❯ src/scripts/seed-adaptive-tdee-preview.test.ts [queued]
+
+ Test Files 0 passed (1)
+      Tests 0 passed (0)
+   Start at 22:01:55
+   Duration 102ms
+[?2026l[?2026h[K
+ ❯ src/scripts/seed-adaptive-tdee-preview.test.ts [queued]
+
+ Test Files 0 passed (1)
+      Tests 0 passed (0)
+   Start at 22:01:55
+   Duration 910ms
+[?2026l[?2026h[K
+ ❯ src/scripts/seed-adaptive-tdee-preview.test.ts 0/3
+
+ Test Files 0 passed (1)
+      Tests 0 passed (3)
+   Start at 22:01:55
+   Duration 1.92s
+[?2026l[?2026h[K
+ ❯ src/scripts/seed-adaptive-tdee-preview.test.ts 0/3
+
+ Test Files 0 passed (1)
+      Tests 0 passed (3)
+   Start at 22:01:55
+   Duration 2.93s
+[?2026l[?2026h[K
+ ❯ src/scripts/seed-adaptive-tdee-preview.test.ts 0/3
+
+ Test Files 0 passed (1)
+      Tests 0 passed (3)
+   Start at 22:01:55
+   Duration 3.94s
+[?2026l[?2026h[K
+ ❯ src/scripts/seed-adaptive-tdee-preview.test.ts 0/3
+
+ Test Files 0 passed (1)
+      Tests 0 passed (3)
+   Start at 22:01:55
+   Duration 4.95s
+[?2026l[?2026h[K
+ ❯ src/scripts/seed-adaptive-tdee-preview.test.ts 0/3
+
+ Test Files 0 passed (1)
+      Tests 0 passed (3)
+   Start at 22:01:55
+   Duration 5.96s
+[?2026l[?2026h[K
+ ❯ src/scripts/seed-adaptive-tdee-preview.test.ts 0/3
+
+ Test Files 0 passed (1)
+      Tests 0 passed (3)
+   Start at 22:01:55
+   Duration 6.97s
+[?2026l[?2026h[K
+ ❯ src/scripts/seed-adaptive-tdee-preview.test.ts 1/3
+
+ Test Files 0 passed (1)
+      Tests 0 passed | 1 skipped (3)
+   Start at 22:01:55
+   Duration 7.48s
+[?2026l[K ✓ src/scripts/seed-adaptive-tdee-preview.test.ts (3 tests | 2 skipped) 6502ms
+   ✓ Adaptive TDEE preview fixtures (3)
+     ↓ never seeds a same-local-day revision in the future of the running preview
+     ✓ rebuilds every Coach state and keeps goal completion explicit  6501ms
+     ↓ matches the independent 2026-08-23 fixture contract across all repaired domains
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 2 skipped (3)
+   Start at  22:01:55
+   Duration  7.54s (transform 509ms, setup 0ms, import 911ms, tests 6.50s, environment 0ms)
+
+[?25h[?25l
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-body-check-in-foundation/apps/api
+
+[?2026h
+ ❯ src/__tests__/food-usage-reconciliation.test.ts [queued]
+
+ Test Files 0 passed (1)
+      Tests 0 passed (0)
+   Start at 22:02:03
+   Duration 101ms
+[?2026l[?2026h[K
+ ❯ src/__tests__/food-usage-reconciliation.test.ts 0/22
+
+ Test Files 0 passed (1)
+      Tests 0 passed (22)
+   Start at 22:02:03
+   Duration 912ms
+[?2026l[?2026h[K
+ ❯ src/__tests__/food-usage-reconciliation.test.ts 0/22
+
+ Test Files 0 passed (1)
+      Tests 0 passed (22)
+   Start at 22:02:03
+   Duration 1.92s
+[?2026l[?2026h[K
+ ❯ src/__tests__/food-usage-reconciliation.test.ts 0/22
+
+ Test Files 0 passed (1)
+      Tests 0 passed (22)
+   Start at 22:02:03
+   Duration 2.93s
+[?2026l[?2026h[K
+ ❯ src/__tests__/food-usage-reconciliation.test.ts 0/22
+
+ Test Files 0 passed (1)
+      Tests 0 passed (22)
+   Start at 22:02:03
+   Duration 3.94s
+[?2026l[?2026h[K
+ ❯ src/__tests__/food-usage-reconciliation.test.ts 1/22
+
+ Test Files 0 passed (1)
+      Tests 0 passed | 1 skipped (22)
+   Start at 22:02:03
+   Duration 4.54s
+[?2026l[?2026h[K
+ ❯ src/__tests__/food-usage-reconciliation.test.ts 5/22
+
+ Test Files 0 passed (1)
+      Tests 0 passed | 5 skipped (22)
+   Start at 22:02:03
+   Duration 4.95s
+[?2026l[?2026h[K
+ ❯ src/__tests__/food-usage-reconciliation.test.ts 5/22
+
+ Test Files 0 passed (1)
+      Tests 0 passed | 5 skipped (22)
+   Start at 22:02:03
+   Duration 5.96s
+[?2026l[?2026h[K
+ ❯ src/__tests__/food-usage-reconciliation.test.ts 5/22
+
+ Test Files 0 passed (1)
+      Tests 0 passed | 5 skipped (22)
+   Start at 22:02:03
+   Duration 6.97s
+[?2026l[?2026h[K
+ ❯ src/__tests__/food-usage-reconciliation.test.ts 6/22
+
+ Test Files 0 passed (1)
+      Tests 1 passed | 5 skipped (22)
+   Start at 22:02:03
+   Duration 7.17s
+[?2026l[K ✓ src/__tests__/food-usage-reconciliation.test.ts (22 tests | 21 skipped) 6320ms
+   ✓ food usage reconciliation endpoint (22)
+     ↓ recomputes usage counts and lastUsedAt from meal item references
+     ↓ corrects stale usageCount values to the true meal item count
+     ↓ counts rows as updated when only lastUsedAt changes
+     ↓ sets usageCount to 0 and clears lastUsedAt for foods with no references
+     ↓ rejects agent token callers because reconciliation is JWT-only
+     ✓ defaults to a byte-identical dry run, isolates hostile links and deleted foods, then applies idempotently  5413ms
+     ↓ rejects malformed or broadened scope {"mode":"invalid"} without writes
+     ↓ rejects malformed or broadened scope {"mode":null} without writes
+     ↓ rejects malformed or broadened scope {"limit":0} without writes
+     ↓ rejects malformed or broadened scope {"limit":501} without writes
+     ↓ rejects malformed or broadened scope {"limit":1.5} without writes
+     ↓ rejects malformed or broadened scope {"limit":"1"} without writes
+     ↓ rejects malformed or broadened scope {"cursor":"anything"} without writes
+     ↓ rejects malformed or broadened scope {"userId":"user-2"} without writes
+     ↓ rejects malformed or broadened scope {"allUsers":true} without writes
+     ↓ rejects malformed or broadened scope {"foodId":"foreign"} without writes
+     ↓ fails closed on excessive scope, missing users and invalid JWT claims
+     ↓ rolls back earlier target writes when a later update fails
+     ↓ rejects query selectors and explicit null bodies without writes
+     ↓ previews and repairs malformed stored count -1 without a post-commit serialization error
+     ↓ previews and repairs malformed stored count 1.5 without a post-commit serialization error
+     ↓ rolls back all apply writes if a malformed source timestamp cannot produce a valid response
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 21 skipped (22)
+   Start at  22:02:03
+   Duration  7.25s (transform 876ms, setup 0ms, import 778ms, tests 6.32s, environment 0ms)
+
+[?25h[?25l
+ RUN  v4.0.18 /Users/meridian/Projects/pulse-body-check-in-foundation/apps/web
+
+[?2026h
+ ❯ src/pages/active-workout.test.tsx [queued]
+
+ Test Files 0 passed (1)
+      Tests 0 passed (0)
+   Start at 22:02:11
+   Duration 308ms
+[?2026l[?2026h[K
+ ❯ src/pages/active-workout.test.tsx [queued]
+
+ Test Files 0 passed (1)
+      Tests 0 passed (0)
+   Start at 22:02:11
+   Duration 940ms
+[?2026l[?2026h[K
+ ❯ src/pages/active-workout.test.tsx [queued]
+
+ Test Files 0 passed (1)
+      Tests 0 passed (0)
+   Start at 22:02:11
+   Duration 1.95s
+[?2026l[?2026h[K
+ ❯ src/pages/active-workout.test.tsx [queued]
+
+ Test Files 0 passed (1)
+      Tests 0 passed (0)
+   Start at 22:02:11
+   Duration 2.96s
+[?2026l[?2026h[K
+ ❯ src/pages/active-workout.test.tsx 0/39
+
+ Test Files 0 passed (1)
+      Tests 0 passed (39)
+   Start at 22:02:11
+   Duration 3.76s
+[?2026l[?2026h[K
+ ❯ src/pages/active-workout.test.tsx 0/39
+
+ Test Files 0 passed (1)
+      Tests 0 passed (39)
+   Start at 22:02:11
+   Duration 3.96s
+[?2026l[?2026h[K
+ ❯ src/pages/active-workout.test.tsx 1/39
+
+ Test Files 0 passed (1)
+      Tests 1 passed (39)
+   Start at 22:02:11
+   Duration 4.47s
+[?2026l[K ✓ src/pages/active-workout.test.tsx (39 tests | 38 skipped) 779ms
+   ✓ ActiveWorkoutPage (33)
+     ✓ renders the active workout UI and does not auto-focus any set after rest timer completion  778ms
+     ↓ keeps focus unchanged when a superset rest timer expires
+     ↓ keeps the rest timer running when editing an incomplete set
+     ↓ moves from session logging to feedback, summary, and back to workouts
+     ↓ clears persisted section/exercise ui state when a session is already completed
+     ↓ hydrates completed server sets over empty autosaved draft values on session switch
+     ↓ ungroups a superset in a live session by sending null and updating the UI
+     ↓ preserves in-progress local set values when the server set is still incomplete
+     ↓ drops local-only exercises that are missing from server session payloads
+     ↓ prefers server exercise notes when local and server notes differ
+     ↓ preserves local session cues during session hydration
+     ↓ uses the selected template from the route query string
+     ↓ starts fallback elapsed time from now for unsaved sessions
+     ↓ polls for agent session updates and preserves in-progress inputs
+     ↓ controls per-section timers and switches sections via section-timer endpoint
+     ↓ starts the completed set section timer when saving a set from another section
+     ↓ ticks the active section timer live and sums per-section total time
+     ↓ resumes a paused session in the section selected by the start button
+     ↓ re-reads session data after completion and closes the final open segment
+     ↓ renders an empty state when there is no active session and no selected template
+     ↓ shows a session picker when multiple active sessions exist
+     ↓ shows back-to-session-list navigation while editing one of multiple active sessions
+     ↓ skips the session picker and opens the editor when exactly one active session exists
+     ↓ supports manually finishing an active workout with confirmation and set summary ratio
+     ↓ keeps the session active after the last set until completion is explicitly confirmed
+     ↓ shows standard feedback controls and requires pain details when pain is yes
+     ↓ loads API templates for UUID template ids instead of falling back to mock defaults
+     ↓ fetches inline last performance from the API for server-backed template sessions
+     ↓ renders reps_only and seconds_only inputs from API template tracking types
+     ↓ creates a completed session without a pre-stored token by using dev auto-session auth
+     ↓ extracts one exercise note per exercise from persisted session set rows
+     ↓ maps exercise notes into completion payload session sets
+     ↓ forces weight to null for non-weighted tracking types in completion payloads
+   ↓ buildTemplateFromSession (6)
+     ↓ keeps session supplemental exercises when the snapshot already has supplemental rows
+     ↓ orders session-derived sections before cooldown when supplemental is present
+     ↓ uses template supplemental exercises when the snapshot has no supplemental rows
+     ↓ never restores removed supplemental exercises or cleared notes from a scheduled template
+     ↓ omits supplemental when neither snapshot nor template has supplemental exercises
+     ↓ keeps explicit null session superset groups instead of falling back to the template group
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 38 skipped (39)
+   Start at  22:02:11
+   Duration  4.55s (transform 1.21s, setup 99ms, import 3.28s, tests 779ms, environment 261ms)
+
+[?25h
