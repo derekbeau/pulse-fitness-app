@@ -28,6 +28,7 @@ import { v1Routes } from './routes/v1/index.js';
 import { weightRoutes } from './routes/weight/index.js';
 import { bodyMeasurementRoutes } from './routes/body-measurements/index.js';
 import { bodyCheckInRoutes, bodyContextRoutes } from './routes/body-check-ins/index.js';
+import { bodyProgressPhotoRoutes } from './routes/body-progress-photos/index.js';
 import { workoutSessionRoutes } from './routes/workout-sessions/index.js';
 import { workoutProgressionRoutes } from './routes/workout-progression/index.js';
 import { workoutTemplateRoutes } from './routes/workout-templates/index.js';
@@ -78,6 +79,7 @@ const normalizeOpenApiRequestBodySchemas = (openapiObject: unknown) => {
                 };
               };
             };
+            responses?: Record<string | number, unknown>;
           }
         >
       >
@@ -122,6 +124,51 @@ const normalizeOpenApiRequestBodySchemas = (openapiObject: unknown) => {
 
       jsonContent.schema = selectedSchema as Record<string, unknown>;
     }
+  }
+
+  const upload = paths['/api/v1/body-progress/photo-sets/{id}/photos']?.post;
+  if (upload) {
+    upload.requestBody = {
+      required: true,
+      content: {
+        'multipart/form-data': {
+          schema: {
+            type: 'object',
+            minProperties: 1,
+            maxProperties: 3,
+            additionalProperties: false,
+            properties: Object.fromEntries(
+              ['front', 'side_left', 'side_right', 'back'].map((view) => [
+                view,
+                { type: 'string', format: 'binary' },
+              ]),
+            ),
+          },
+        },
+      },
+    } as never;
+  }
+
+  const content = paths['/api/v1/body-progress/photos/{id}/content']?.get;
+  if (content) {
+    content.responses = {
+      ...(content.responses ?? {}),
+      200: {
+        description: 'Verified normalized private image bytes',
+        content: { 'image/jpeg': { schema: { type: 'string', format: 'binary' } } },
+      },
+    } as never;
+  }
+
+  const exportOperation = paths['/api/v1/body-progress/photos/export']?.post;
+  if (exportOperation) {
+    exportOperation.responses = {
+      ...(exportOperation.responses ?? {}),
+      200: {
+        description: 'Transient password-reauthenticated ZIP export',
+        content: { 'application/zip': { schema: { type: 'string', format: 'binary' } } },
+      },
+    } as never;
   }
 
   return openapiObject;
@@ -224,6 +271,20 @@ export const buildServer = () => {
       });
     }
 
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'FST_ERR_CTP_BODY_TOO_LARGE'
+    ) {
+      return reply.code(413).send({
+        error: {
+          code: 'BODY_PROGRESS_PHOTO_SIZE_LIMIT',
+          message: 'Request exceeds the progress photo upload limit',
+        },
+      });
+    }
+
     const statusCode =
       typeof error === 'object' &&
       error !== null &&
@@ -260,6 +321,7 @@ export const buildServer = () => {
   app.register(weightRoutes, { prefix: '/api/v1/weight' });
   app.register(bodyMeasurementRoutes, { prefix: '/api/v1/body-measurements' });
   app.register(bodyCheckInRoutes, { prefix: '/api/v1/body-check-ins' });
+  app.register(bodyProgressPhotoRoutes, { prefix: '/api/v1/body-progress' });
   app.register(bodyContextRoutes, { prefix: '/api/v1/context' });
   app.register(workoutSessionRoutes, { prefix: '/api/v1/workout-sessions' });
   app.register(workoutProgressionRoutes, { prefix: '/api/v1/workout-progression' });

@@ -25,6 +25,7 @@ const makeMigrationsThrough0065 = () => {
   const dir = join(makeDir(), 'drizzle');
   cpSync(migrationsFolder, dir, { recursive: true });
   rmSync(join(dir, '0066_body_check_in_foundation.sql'));
+  rmSync(join(dir, '0067_body_progress_photo_storage.sql'));
   const journalPath = join(dir, 'meta', '_journal.json');
   const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as { entries: unknown[] };
   journal.entries = journal.entries.slice(0, 66);
@@ -81,7 +82,7 @@ describe('0066 body check-in migration lifecycle', () => {
   it('runs the complete fresh chain and is idempotent', () => {
     const sqlite = openDb(join(makeDir(), 'fresh.db'));
     try {
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 67 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 68 });
       for (const table of [
         'body_check_in_preferences',
         'body_check_ins',
@@ -117,7 +118,7 @@ describe('0066 body check-in migration lifecycle', () => {
       sqlite.close();
       sqlite = openDb(dbPath);
 
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 1 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 2 });
       expect(legacyBodyRows(sqlite)).toEqual(before);
       expect(sqlite.prepare('select count(*) from body_check_ins').pluck().get()).toBe(0);
       assertIntegrity(sqlite);

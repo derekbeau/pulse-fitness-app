@@ -193,6 +193,16 @@ Scheduled-workout structural edits use the unified route surface and shared Zod 
 
 ## Response Envelope
 
+### Private progress photo API
+
+The `/api/v1/body-progress` photo routes use shared `body-progress-photos-v1` schemas. Preference,
+due, capability, and photo-set metadata reads accept JWT or AgentToken. Every mutation, upload,
+content response, deletion, bulk purge, and password-reauthenticated ZIP export is JWT-only.
+HEIC/HEIF is explicitly rejected with `BODY_PROGRESS_PHOTO_HEIC_CLIENT_CONVERSION_REQUIRED`;
+clients convert it to JPEG before upload. Content is served only through authenticated `thumbnail`,
+`comparison`, and `full` routes with `private, no-store`, `nosniff`, restrictive CSP, and inline
+disposition.
+
 Base success responses return `{ data: T }`.
 
 Unified routes that add agent guidance may return `{ data: T, agent?: AgentEnrichment }`.

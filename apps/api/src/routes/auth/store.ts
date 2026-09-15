@@ -180,43 +180,59 @@ export const ensureStarterHabitsForUser = async (userId: string): Promise<void> 
 
 export const deleteUserAccount = async (userId: string): Promise<boolean> => {
   const { db } = await import('../../db/index.js');
+  const { stageUserPhotoMediaDeletion } = await import('../body-progress-photos/store.js');
+  const stagedPhotoMedia = await stageUserPhotoMediaDeletion(userId);
 
-  return db.transaction((tx) => {
-    const user = tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).get();
-    if (!user) {
-      return false;
-    }
+  try {
+    const deleted = db.transaction((tx) => {
+      const user = tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).get();
+      if (!user) {
+        return false;
+      }
 
-    // The scope row exists only inside this write transaction. SQLite's single-writer lock prevents
-    // another account deletion from borrowing it, and rollback restores every ordered deletion.
-    tx.insert(adaptiveNutritionAccountDeletionScope).values({ userId }).run();
-    tx.insert(workoutProgressionAccountDeletionScope).values({ userId }).run();
-    tx.delete(workoutProgressionActions).where(eq(workoutProgressionActions.userId, userId)).run();
-    tx.delete(workoutProgressionRecommendations)
-      .where(eq(workoutProgressionRecommendations.userId, userId))
-      .run();
-    tx.delete(exerciseMuscleContributions)
-      .where(eq(exerciseMuscleContributions.ownerUserId, userId))
-      .run();
-    tx.delete(adaptiveNutritionReviewActions)
-      .where(eq(adaptiveNutritionReviewActions.userId, userId))
-      .run();
-    tx.delete(adaptiveNutritionReviews).where(eq(adaptiveNutritionReviews.userId, userId)).run();
-    tx.delete(adaptiveNutritionReviewContexts)
-      .where(eq(adaptiveNutritionReviewContexts.userId, userId))
-      .run();
-    tx.delete(nutritionTargetEvents).where(eq(nutritionTargetEvents.userId, userId)).run();
-    tx.delete(nutritionTargets).where(eq(nutritionTargets.userId, userId)).run();
-    tx.delete(adaptiveNutritionGoalCompletions)
-      .where(eq(adaptiveNutritionGoalCompletions.userId, userId))
-      .run();
-    tx.delete(adaptiveNutritionCheckIns).where(eq(adaptiveNutritionCheckIns.userId, userId)).run();
-    tx.delete(adaptiveNutritionGoalRevisions)
-      .where(eq(adaptiveNutritionGoalRevisions.userId, userId))
-      .run();
-    tx.delete(adaptiveNutritionGoals).where(eq(adaptiveNutritionGoals.userId, userId)).run();
-    tx.delete(adaptiveNutritionPrograms).where(eq(adaptiveNutritionPrograms.userId, userId)).run();
-    const result = tx.delete(users).where(eq(users.id, userId)).run();
-    return result.changes === 1;
-  });
+      // The scope row exists only inside this write transaction. SQLite's single-writer lock prevents
+      // another account deletion from borrowing it, and rollback restores every ordered deletion.
+      tx.insert(adaptiveNutritionAccountDeletionScope).values({ userId }).run();
+      tx.insert(workoutProgressionAccountDeletionScope).values({ userId }).run();
+      tx.delete(workoutProgressionActions)
+        .where(eq(workoutProgressionActions.userId, userId))
+        .run();
+      tx.delete(workoutProgressionRecommendations)
+        .where(eq(workoutProgressionRecommendations.userId, userId))
+        .run();
+      tx.delete(exerciseMuscleContributions)
+        .where(eq(exerciseMuscleContributions.ownerUserId, userId))
+        .run();
+      tx.delete(adaptiveNutritionReviewActions)
+        .where(eq(adaptiveNutritionReviewActions.userId, userId))
+        .run();
+      tx.delete(adaptiveNutritionReviews).where(eq(adaptiveNutritionReviews.userId, userId)).run();
+      tx.delete(adaptiveNutritionReviewContexts)
+        .where(eq(adaptiveNutritionReviewContexts.userId, userId))
+        .run();
+      tx.delete(nutritionTargetEvents).where(eq(nutritionTargetEvents.userId, userId)).run();
+      tx.delete(nutritionTargets).where(eq(nutritionTargets.userId, userId)).run();
+      tx.delete(adaptiveNutritionGoalCompletions)
+        .where(eq(adaptiveNutritionGoalCompletions.userId, userId))
+        .run();
+      tx.delete(adaptiveNutritionCheckIns)
+        .where(eq(adaptiveNutritionCheckIns.userId, userId))
+        .run();
+      tx.delete(adaptiveNutritionGoalRevisions)
+        .where(eq(adaptiveNutritionGoalRevisions.userId, userId))
+        .run();
+      tx.delete(adaptiveNutritionGoals).where(eq(adaptiveNutritionGoals.userId, userId)).run();
+      tx.delete(adaptiveNutritionPrograms)
+        .where(eq(adaptiveNutritionPrograms.userId, userId))
+        .run();
+      const result = tx.delete(users).where(eq(users.id, userId)).run();
+      return result.changes === 1;
+    });
+    if (deleted) await stagedPhotoMedia.commit();
+    else await stagedPhotoMedia.rollback();
+    return deleted;
+  } catch (error) {
+    await stagedPhotoMedia.rollback();
+    throw error;
+  }
 };

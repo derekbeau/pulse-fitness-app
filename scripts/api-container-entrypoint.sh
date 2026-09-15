@@ -4,6 +4,10 @@ set -eu
 database_path="${DATABASE_URL:-/data/pulse.db}"
 map_path="${BODY_WEIGHT_LEGACY_UNIT_MAP_PATH:-/run/pulse-secrets/body-weight-legacy-unit-map.json}"
 app_root="${PULSE_APP_ROOT:-/app}"
+media_root="${BODY_PROGRESS_MEDIA_ROOT:-/data/private/body-progress}"
+
+mkdir -p "$media_root"
+chmod 0700 "$(dirname "$media_root")" "$media_root"
 
 # A reviewed map is sensitive and necessary only while migrating a non-empty legacy table.
 # Let the application perform the authoritative schema/row checks; this container guard makes
