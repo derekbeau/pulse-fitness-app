@@ -14,6 +14,7 @@ import {
   useLegacyBodyMeasurements,
 } from '@/features/body-progress/api/body-progress';
 import { BodyDueCard } from '@/features/body-progress/components/body-due-card';
+import { BodyProgressAnalyticsWorkspace } from '@/features/body-progress/components/body-progress-analytics-workspace';
 import {
   formatLength,
   qualityLabel,
@@ -115,6 +116,9 @@ export function BodyProgressPage() {
                 </Button>
               </CardContent>
             </Card>
+          ) : null}
+          {preferencesQuery.data ? (
+            <BodyProgressAnalyticsWorkspace lengthUnit={lengthUnit} />
           ) : null}
           <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
             <Card className="min-w-0 border-border/70">

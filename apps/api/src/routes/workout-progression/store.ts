@@ -949,6 +949,47 @@ export async function getWorkoutProgressionRecommendation(
   return row ? projectRecommendation(db, row) : undefined;
 }
 
+export async function readWorkoutProgressionEvidenceForBodyProgress(input: {
+  userId: string;
+  startDate: string;
+  endDate: string;
+}) {
+  const rows = db
+    .select()
+    .from(workoutProgressionRecommendations)
+    .where(
+      and(
+        eq(workoutProgressionRecommendations.userId, input.userId),
+        lte(workoutProgressionRecommendations.effectiveDate, input.endDate),
+      ),
+    )
+    .orderBy(
+      desc(workoutProgressionRecommendations.generatedAt),
+      desc(workoutProgressionRecommendations.id),
+    )
+    .limit(500)
+    .all();
+  const projected = await Promise.all(rows.map((row) => projectRecommendation(db, row)));
+  const inRange = projected.filter((recommendation) => {
+    const sourceDate = recommendation.evidence.sourceSessionDate;
+    return sourceDate !== null && sourceDate >= input.startDate && sourceDate <= input.endDate;
+  });
+  const latestByExerciseAndSession = new Map<string, WorkoutProgressionRecommendation>();
+  for (const recommendation of inRange) {
+    const key = `${recommendation.evidence.exerciseId}:${recommendation.evidence.sourceSessionId}`;
+    if (!latestByExerciseAndSession.has(key)) latestByExerciseAndSession.set(key, recommendation);
+  }
+  const latest = [...latestByExerciseAndSession.values()];
+  const current = latest.filter(
+    (recommendation) =>
+      recommendation.state !== 'stale' && recommendation.confidence !== 'unavailable',
+  );
+  return {
+    recommendations: current.slice(0, 100),
+    staleSourceCount: latest.filter((recommendation) => recommendation.state === 'stale').length,
+  };
+}
+
 function assertBoundedEdit(
   original: WorkoutProgressionTarget[],
   edited: WorkoutProgressionTarget[],

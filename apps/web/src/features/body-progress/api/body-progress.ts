@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   apiMetaSchema,
   bodyCheckInHistorySchema,
+  bodyProgressAnalyticsSchema,
   bodyCheckInPreferenceSchema,
   bodyCheckInSchema,
   bodyContextFactsSchema,
@@ -11,6 +12,7 @@ import {
   type CreateBodyCheckInInput,
   type PatchBodyCheckInInput,
   type PatchBodyCheckInPreference,
+  type BodyProgressRange,
 } from '@pulse/shared';
 
 import { apiRequest, apiRequestWithMeta } from '@/lib/api-client';
@@ -61,6 +63,20 @@ export function useBodyContext() {
   return useQuery({
     queryKey: bodyProgressQueryKeys.context(),
     queryFn: async () => bodyContextFactsSchema.parse(await apiRequest('/api/v1/context/body')),
+    retry: false,
+  });
+}
+
+export function useBodyProgressAnalytics(range: BodyProgressRange, end?: string) {
+  return useQuery({
+    queryKey: bodyProgressQueryKeys.analytics(range, end),
+    queryFn: async () => {
+      const search = new URLSearchParams({ range });
+      if (end) search.set('end', end);
+      return bodyProgressAnalyticsSchema.parse(
+        await apiRequest(`/api/v1/body-check-ins/analytics?${search.toString()}`),
+      );
+    },
     retry: false,
   });
 }

@@ -29,6 +29,7 @@ describe('crossFeatureInvalidationMap', () => {
       habitQueryKeys.list(),
       habitQueryKeys.entryList(),
       habitChainQueryKeys.all,
+      bodyProgressQueryKeys.analyticsRoot(),
     ]);
   });
 
@@ -72,6 +73,7 @@ describe('crossFeatureInvalidationMap', () => {
       habitQueryKeys.list(),
       habitQueryKeys.entryList(),
       habitChainQueryKeys.all,
+      bodyProgressQueryKeys.analyticsRoot(),
     ]);
   });
 
@@ -99,10 +101,12 @@ describe('crossFeatureInvalidationMap', () => {
       scheduledWorkoutQueryKey,
       bodyProgressQueryKeys.due(),
       bodyProgressQueryKeys.context(),
+      bodyProgressQueryKeys.analyticsRoot(),
     ]);
     expect(crossFeatureInvalidationMap.adaptiveGoalMutation()).toEqual([
       adaptiveNutritionQueryKey,
       dataQualityQueryKey,
+      bodyProgressQueryKeys.analyticsRoot(),
     ]);
     expect(crossFeatureInvalidationMap.adaptivePreviewMutation()).toEqual([
       adaptiveNutritionQueryKey,

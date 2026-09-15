@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildServer } from '../../index.js';
+import { UserTimeZoneRequiredError } from '../../lib/user-time-zone.js';
 import {
   findAgentTokenByHash,
   findUserAuthById,
@@ -15,6 +16,7 @@ import {
   listAgentContextScheduledWorkouts,
 } from '../agent/context-store.js';
 import { getNutritionLocalDateForUser } from '../nutrition/status-store.js';
+import { getBodyProgressContextSummary } from '../body-check-ins/analytics-store.js';
 
 vi.mock('../../middleware/store.js', () => ({
   findAgentTokenByHash: vi.fn(),
@@ -35,6 +37,10 @@ vi.mock('../nutrition/status-store.js', () => ({
   getNutritionLocalDateForUser: vi.fn(),
 }));
 
+vi.mock('../body-check-ins/analytics-store.js', () => ({
+  getBodyProgressContextSummary: vi.fn(),
+}));
+
 const createAuthorizationHeader = (token: string, scheme: 'Bearer' | 'AgentToken' = 'Bearer') => ({
   authorization: `${scheme} ${token}`,
 });
@@ -51,8 +57,20 @@ describe('v1 context routes', () => {
     vi.mocked(listAgentContextRecentWorkouts).mockReset();
     vi.mocked(listAgentContextScheduledWorkouts).mockReset();
     vi.mocked(getNutritionLocalDateForUser).mockReset();
+    vi.mocked(getBodyProgressContextSummary).mockReset();
     vi.mocked(getNutritionLocalDateForUser).mockResolvedValue('2026-03-09');
     vi.mocked(updateAgentTokenLastUsedAt).mockResolvedValue(undefined);
+    vi.mocked(getBodyProgressContextSummary).mockResolvedValue({
+      contractVersion: 'body-progress-analytics-v1',
+      asOfDate: '2026-03-09',
+      signal: 'insufficient_data',
+      confidence: 'unavailable',
+      supportingFacts: [],
+      contradictoryFacts: [],
+      unavailableInputs: ['trend_weight', 'waist'],
+      sourceDates: [],
+      sourceFingerprint: 'a'.repeat(64),
+    });
     process.env.JWT_SECRET = 'test-context-route-secret';
   });
 
@@ -126,6 +144,17 @@ describe('v1 context routes', () => {
           weight: { current: 180, trend7d: -1.2, unit: 'lbs' },
           habits: [],
           scheduledWorkouts: [],
+          bodyProgress: {
+            contractVersion: 'body-progress-analytics-v1',
+            asOfDate: '2026-03-09',
+            signal: 'insufficient_data',
+            confidence: 'unavailable',
+            supportingFacts: [],
+            contradictoryFacts: [],
+            unavailableInputs: ['trend_weight', 'waist'],
+            sourceDates: [],
+            sourceFingerprint: 'a'.repeat(64),
+          },
         },
       });
       expect(legacyResponse.statusCode).toBe(404);
@@ -155,6 +184,57 @@ describe('v1 context routes', () => {
           code: 'FORBIDDEN',
           message: 'Agent token authentication required',
         },
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('keeps agent context available when Body Progress time-zone authority is unresolved', async () => {
+    vi.mocked(findAgentTokenByHash).mockResolvedValue({ id: 'agent-token-1', userId: 'user-1' });
+    vi.mocked(findAgentContextUser).mockResolvedValue({ name: 'Derek' });
+    vi.mocked(listAgentContextRecentWorkouts).mockResolvedValue([]);
+    vi.mocked(getAgentContextTodayNutrition).mockResolvedValue({
+      actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+      target: { calories: 2200, protein: 180, carbs: 250, fat: 70 },
+      proteinFloor: {
+        actualProteinGrams: 0,
+        proteinFloorGrams: 180,
+        remainingToFloorGrams: 180,
+        amountAboveFloorGrams: 0,
+        state: 'below_floor',
+        isFinal: false,
+      },
+      meals: [],
+    });
+    vi.mocked(getAgentContextWeight).mockResolvedValue({
+      current: 180,
+      trend7d: 0,
+      unit: 'lbs',
+    });
+    vi.mocked(listAgentContextHabits).mockResolvedValue([]);
+    vi.mocked(listAgentContextScheduledWorkouts).mockResolvedValue([]);
+    vi.mocked(getBodyProgressContextSummary).mockRejectedValue(new UserTimeZoneRequiredError());
+    const app = buildServer();
+
+    try {
+      await app.ready();
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/context',
+        headers: createAuthorizationHeader('plain-agent-token', 'AgentToken'),
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().data.bodyProgress).toEqual({
+        contractVersion: 'body-progress-analytics-v1',
+        asOfDate: '2026-03-09',
+        signal: 'insufficient_data',
+        confidence: 'unavailable',
+        supportingFacts: [],
+        contradictoryFacts: [],
+        unavailableInputs: ['time_zone'],
+        sourceDates: [],
+        sourceFingerprint: null,
       });
     } finally {
       await app.close();

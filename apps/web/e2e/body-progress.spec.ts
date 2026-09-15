@@ -38,12 +38,20 @@ async function createUser(api: APIRequestContext, populated: boolean): Promise<S
     headers,
   });
   expect(preference.ok(), await preference.text()).toBeTruthy();
+  for (const checkIn of bodyProgressFixtureContract.completedHistory) {
+    const response = await api.post('/api/v1/body-check-ins', { data: checkIn, headers });
+    expect(response.ok(), await response.text()).toBeTruthy();
+  }
   const completed = await api.post('/api/v1/body-check-ins', {
     data: bodyProgressFixtureContract.completed,
     headers,
   });
   expect(completed.ok(), await completed.text()).toBeTruthy();
   const completedPayload = (await completed.json()) as { data: { id: string } };
+  for (const weight of bodyProgressFixtureContract.weights) {
+    const response = await api.post('/api/v1/weight', { data: weight, headers });
+    expect(response.ok(), await response.text()).toBeTruthy();
+  }
   const draft = await api.post('/api/v1/body-check-ins', {
     data: bodyProgressFixtureContract.draft,
     headers,
@@ -146,7 +154,12 @@ test('populated Body Progress acceptance is responsive, accessible, and evidence
     await expect(page.getByRole('heading', { name: 'Body Progress' })).toBeVisible();
     await expect(page.getByText('Paused for a third waist reading.')).toBeHidden();
     await expect(page.getByText('Added by agent')).toHaveCount(0);
-    await expect(page.getByText('High variance').first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Circumference trends' })).toBeVisible();
+    await expect(
+      page.getByRole('img', { name: 'Body Progress circumference chart' }),
+    ).toBeVisible();
+    await expect(page.getByText('Product Trend Weight · current')).toBeVisible();
+    await expect(page.getByText(/Workout exposure is not treated as strength/)).toBeVisible();
     await expectNoOverflow(page);
     await expectHitAreas(page);
     await page.keyboard.press('Tab');
@@ -170,6 +183,21 @@ test('populated Body Progress acceptance is responsive, accessible, and evidence
       path: path.join(evidenceRoot, `body-progress-guided-${width}.png`),
     });
   }
+
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto('/body');
+  await page.getByText('View exact chart values and raw readings').click();
+  await expect(page.getByText('High variance').first()).toBeVisible();
+  await expect(
+    page.getByRole('table', { name: 'Exact Body Progress chart values and provenance' }),
+  ).toContainText('84.2 cm · 84.8 cm');
+  await page.getByRole('button', { name: '6M' }).click();
+  await expect(page.getByRole('button', { name: '6M' })).toHaveAttribute('aria-pressed', 'true');
+  await page
+    .getByRole('button', { name: /Body check-in/ })
+    .first()
+    .click();
+  await expect(page.getByLabel('Selected Body Progress evidence')).toContainText('Body check-in');
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/body?check-in=1');
