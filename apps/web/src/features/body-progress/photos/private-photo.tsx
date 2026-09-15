@@ -67,7 +67,7 @@ export function PrivatePhoto({ alt, id, variant, eager = false, className }: Pri
           aria-hidden="true"
           className="size-5 animate-spin motion-reduce:animate-none"
         />
-        <span className="ml-2">Decrypting private image…</span>
+        <span className="ml-2">Loading private image…</span>
       </div>
     );
   if (error)

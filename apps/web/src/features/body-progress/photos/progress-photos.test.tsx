@@ -100,6 +100,31 @@ describe('private progress photos', () => {
     expect(new Headers(contentRequests[0].headers).get('Authorization')).toBe('Bearer test-token');
   });
 
+  it('uses honest loading copy while fetching a private image', async () => {
+    let resolveFetch!: (response: Response) => void;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveFetch = resolve;
+          }),
+      ) as typeof fetch,
+    );
+    render(
+      <PrivatePhoto
+        alt="Synthetic private image"
+        eager
+        id={photoSetFixtureA.photos[0].id}
+        variant="full"
+      />,
+    );
+    expect(screen.getByText('Loading private image…')).toBeInTheDocument();
+    await waitFor(() => expect(resolveFetch).toBeTypeOf('function'));
+    resolveFetch(new Response(new Blob(['synthetic'], { type: 'image/jpeg' })));
+    await screen.findByRole('img', { name: 'Synthetic private image' });
+  });
+
   it('revokes every private object URL on unmount', async () => {
     vi.stubGlobal(
       'fetch',
