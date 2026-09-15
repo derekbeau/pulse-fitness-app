@@ -20,6 +20,10 @@ interface ApiErrorEnvelope {
   error?: {
     code?: string;
     message?: string;
+    currentVersion?: number;
+    expectedVersion?: number;
+    existingId?: string;
+    details?: unknown;
   };
 }
 
@@ -38,12 +42,20 @@ export { API_TOKEN_STORAGE_KEY } from './auth-storage';
 export class ApiError extends Error {
   readonly status: number;
   readonly code?: string;
+  readonly currentVersion?: number;
+  readonly expectedVersion?: number;
+  readonly existingId?: string;
+  readonly details?: unknown;
 
-  constructor(status: number, message: string, code?: string) {
+  constructor(status: number, message: string, code?: string, payload?: ApiErrorEnvelope['error']) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.currentVersion = payload?.currentVersion;
+    this.expectedVersion = payload?.expectedVersion;
+    this.existingId = payload?.existingId;
+    this.details = payload?.details;
   }
 }
 
@@ -234,7 +246,7 @@ function toApiErrorFromPayload(status: number, payload: ApiErrorEnvelope | null)
     clearStoredAuthState();
   }
 
-  return new ApiError(status, message, code);
+  return new ApiError(status, message, code, payload?.error);
 }
 
 function shouldRecoverStaleUserSession(
@@ -242,7 +254,11 @@ function shouldRecoverStaleUserSession(
   status: number,
   payload: ApiErrorEnvelope | null,
 ): boolean {
-  return normalizePath(path) === '/api/v1/users/me' && status === 404 && payload?.error?.code === 'NOT_FOUND';
+  return (
+    normalizePath(path) === '/api/v1/users/me' &&
+    status === 404 &&
+    payload?.error?.code === 'NOT_FOUND'
+  );
 }
 
 function createRequestInit(init: ApiRequestInit | undefined, token: string | null): RequestInit {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { bodyProgressQueryKeys } from '@/features/body-progress/api/keys';
 import { habitQueryKeys } from '@/features/habits/api/keys';
 import { dashboardSnapshotQueryKeys } from '@/hooks/use-dashboard-snapshot';
 import { habitChainQueryKeys } from '@/hooks/use-habit-chains';
@@ -74,6 +75,14 @@ describe('crossFeatureInvalidationMap', () => {
     ]);
   });
 
+  it('returns all Body Progress consumer invalidations', () => {
+    expect(crossFeatureInvalidationMap.bodyProgressMutation()).toEqual([
+      bodyProgressQueryKeys.all,
+      dashboardSnapshotQueryKeys.all,
+      ['user'],
+    ]);
+  });
+
   it('returns complete adaptive lifecycle invalidations', () => {
     expect(crossFeatureInvalidationMap.adaptiveProgramMutation()).toEqual([
       adaptiveNutritionQueryKey,
@@ -88,6 +97,8 @@ describe('crossFeatureInvalidationMap', () => {
       habitChainQueryKeys.all,
       weightQueryKey,
       scheduledWorkoutQueryKey,
+      bodyProgressQueryKeys.due(),
+      bodyProgressQueryKeys.context(),
     ]);
     expect(crossFeatureInvalidationMap.adaptiveGoalMutation()).toEqual([
       adaptiveNutritionQueryKey,

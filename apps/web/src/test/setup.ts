@@ -53,3 +53,11 @@ if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.setPointerCaptu
 if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.releasePointerCapture) {
   HTMLElement.prototype.releasePointerCapture = () => {};
 }
+
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}

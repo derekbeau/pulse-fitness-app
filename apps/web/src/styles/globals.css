@@ -278,6 +278,24 @@ body {
   to { opacity: 1; }
 }
 
+@keyframes body-protocol-scan {
+  0%, 100% { opacity: 0.7; transform: translateX(-3px); }
+  50% { opacity: 1; transform: translateX(3px); }
+}
+
+@keyframes body-protocol-pulse {
+  0%, 100% { transform: scale(0.9); transform-origin: center; }
+  50% { transform: scale(1.15); transform-origin: center; }
+}
+
+.body-protocol-tape { animation: body-protocol-scan 2.4s ease-in-out infinite; }
+.body-protocol-marker { animation: body-protocol-pulse 2.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .body-protocol-tape,
+  .body-protocol-marker { animation: none; }
+}
+
 @keyframes slide-up {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }

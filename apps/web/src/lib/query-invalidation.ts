@@ -8,6 +8,7 @@ import { recentWorkoutQueryKeys } from '@/hooks/use-recent-workouts';
 import { dashboardWeightTrendQueryKeys } from '@/hooks/use-weight-trend';
 import { nutritionQueryKeys } from '@/features/nutrition/api/keys';
 import { foodQueryKeys } from '@/features/foods/api/keys';
+import { bodyProgressQueryKeys } from '@/features/body-progress/api/keys';
 
 export const adaptiveNutritionQueryKey = ['adaptive-nutrition'] as const;
 export const dataQualityQueryKey = ['data-quality'] as const;
@@ -27,6 +28,8 @@ const currentDayAuthorityQueryKeys = () =>
     habitChainQueryKeys.all,
     weightQueryKey,
     scheduledWorkoutQueryKey,
+    bodyProgressQueryKeys.due(),
+    bodyProgressQueryKeys.context(),
   ] as const satisfies readonly QueryKey[];
 
 /**
@@ -45,6 +48,12 @@ const currentDayAuthorityQueryKeys = () =>
  * - Weight mutations refresh dashboard weight widgets and referential habit caches.
  */
 export const crossFeatureInvalidationMap = {
+  bodyProgressMutation: () =>
+    [
+      bodyProgressQueryKeys.all,
+      dashboardSnapshotQueryKeys.all,
+      ['user'],
+    ] as const satisfies readonly QueryKey[],
   activeWorkoutSessionMutation: () =>
     [dashboardSnapshotQueryKeys.all, dataQualityQueryKey] as const satisfies readonly QueryKey[],
   adaptiveProgramMutation: () =>
