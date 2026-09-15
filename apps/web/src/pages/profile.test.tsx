@@ -119,7 +119,7 @@ describe('ProfilePage', () => {
 
     expect(screen.getByTestId('profile-quick-access-grid')).toHaveClass('grid-cols-2');
     expect(screen.getByTestId('profile-quick-access-grid')).toHaveClass('gap-3');
-    expect(screen.getByTestId('profile-quick-access-grid')).toHaveClass('lg:grid-cols-4');
+    expect(screen.getByTestId('profile-quick-access-grid')).toHaveClass('lg:grid-cols-5');
     expect(container.querySelector('section')).toHaveClass('gap-5', 'pb-8');
   });
 });

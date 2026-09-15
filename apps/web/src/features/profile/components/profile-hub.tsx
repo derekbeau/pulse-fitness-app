@@ -1,4 +1,4 @@
-import { BookOpen, Heart, Settings, Wrench } from 'lucide-react';
+import { Activity, BookOpen, Heart, Settings, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 
@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useUser } from '@/hooks/use-user';
 import { cn } from '@/lib/utils';
+import { useBodyDue } from '@/features/body-progress/api/body-progress';
 
 type ProfileDestination = {
   accentClassName?: string;
@@ -35,6 +36,7 @@ type ProfileHubProps = {
 };
 
 export function ProfileHub({ equipmentSummary }: ProfileHubProps) {
+  const bodyDueQuery = useBodyDue();
   const { data: user } = useUser();
   const displayName = user?.name?.trim() || user?.username || 'User';
   const initials = getInitials(displayName);
@@ -45,6 +47,18 @@ export function ProfileHub({ equipmentSummary }: ProfileHubProps) {
     : '--';
 
   const profileDestinations: ProfileDestination[] = [
+    {
+      accentClassName: 'hover:border-emerald-400/45 focus-within:border-emerald-400/55',
+      description: 'Guided circumference check-ins, raw readings, and schedule.',
+      href: '/body',
+      icon: Activity,
+      summary: bodyDueQuery.isPending
+        ? 'Loading schedule…'
+        : bodyDueQuery.isError
+          ? 'Schedule unavailable'
+          : bodyDueQuery.data.state.replaceAll('_', ' '),
+      title: 'Body Progress',
+    },
     {
       description: 'Inventory across every gym setup and storage spot.',
       href: '/profile/equipment',
@@ -111,7 +125,7 @@ export function ProfileHub({ equipmentSummary }: ProfileHubProps) {
         </div>
 
         <div
-          className="grid grid-cols-2 gap-3 lg:grid-cols-4"
+          className="grid grid-cols-2 gap-3 lg:grid-cols-5"
           data-testid="profile-quick-access-grid"
         >
           {profileDestinations.map((destination) => {

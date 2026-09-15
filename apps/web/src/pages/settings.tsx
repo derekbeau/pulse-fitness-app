@@ -24,6 +24,8 @@ import { useUpdateUser, useUser } from '@/hooks/use-user';
 import type { Theme } from '@/hooks/useTheme';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { cn } from '@/lib/utils';
+import { Link } from 'react-router';
+import { BodyDueCard } from '@/features/body-progress/components/body-due-card';
 
 type ThemePreview = {
   background: string;
@@ -615,6 +617,23 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <section aria-labelledby="body-progress-settings-title" className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold" id="body-progress-settings-title">
+              Body Progress
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              The same server-owned schedule shown on Dashboard and Profile.
+            </p>
+          </div>
+          <Button asChild variant="outline">
+            <Link to="/body?setup=1">Measurement preferences</Link>
+          </Button>
+        </div>
+        <BodyDueCard compact />
+      </section>
 
       <AgentTokensCard />
 

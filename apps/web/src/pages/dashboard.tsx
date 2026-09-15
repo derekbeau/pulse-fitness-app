@@ -56,6 +56,7 @@ import {
 import { addDays, parseDateInput, toDateKey } from '@/lib/date';
 import { formatWeight as formatDisplayWeight } from '@/lib/format-utils';
 import { cn } from '@/lib/utils';
+import { BodyDueCard } from '@/features/body-progress/components/body-due-card';
 
 const dashboardDateFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'long',
@@ -765,6 +766,8 @@ export function DashboardPage() {
           stale={isSnapshotRefreshError}
         />
       ) : null}
+
+      <BodyDueCard compact />
 
       {isEditMode ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/15 px-3 py-2.5 sm:px-4">
