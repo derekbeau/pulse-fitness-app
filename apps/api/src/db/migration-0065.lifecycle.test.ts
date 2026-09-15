@@ -22,9 +22,10 @@ const makePredecessorMigrations = () => {
   const dir = join(makeDir(), 'drizzle');
   cpSync(migrationsFolder, dir, { recursive: true });
   rmSync(join(dir, '0065_body_measurements.sql'));
+  rmSync(join(dir, '0066_body_check_in_foundation.sql'));
   const journalPath = join(dir, 'meta', '_journal.json');
   const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as { entries: unknown[] };
-  journal.entries = journal.entries.slice(0, -1);
+  journal.entries = journal.entries.slice(0, 65);
   writeFileSync(journalPath, `${JSON.stringify(journal, null, 2)}\n`);
   return dir;
 };
@@ -48,7 +49,7 @@ describe('migration 0065 lifecycle', () => {
   it('runs the fresh chain and enforces owner, date, unit, value, and uniqueness constraints', () => {
     const sqlite = openDb(join(makeDir(), 'fresh.db'));
     try {
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 66 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 67 });
       sqlite.exec(
         "insert into users (id, username, password_hash) values ('owner', 'owner', 'hash')",
       );
@@ -110,7 +111,7 @@ describe('migration 0065 lifecycle', () => {
       sqlite.close();
       sqlite = openDb(dbPath);
 
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 1 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 2 });
       expect(
         sqlite.prepare("select weight from body_weight where id = 'legacy-weight'").pluck().get(),
       ).toBe(180);
