@@ -4,7 +4,7 @@ Complete this specification 100%. Two coherent logical fixes land in one isolate
 
 ## Exact execution context
 
-- Repository worktree (runtime cwd / only writable root): `/Users/meridian/Projects/pulse-184-185-tdee-occurrence`
+- Repository worktree (implementation command cwd / only writable source root): `/Users/meridian/Projects/pulse-184-185-tdee-occurrence`. Desktop may open through the existing Pulse project; before editing, verify actual command cwd, branch and permission to write this isolated worktree. Do not edit the canonical project root. Receipts may also be written under `/Users/meridian/Projects/qa-reports/pulse-184-185/`. If supported permissions do not permit these paths, stop for approval rather than switching to main or widening scope.
 - Canonical checkout (do not edit): `/Users/meridian/Projects/pulse-fitness-app` on `main` at `a22cfd8f33d23b06cde430cdf91f581202efeb59`, with unrelated untracked historical docs/artifacts. Preserve all of them.
 - Other worktree to preserve (do not reset/reuse/remove): `/Users/meridian/Projects/pulse-body-progress-ui` on `feat/body-progress-ui`
 - Approved base: `origin/main` exact SHA `a22cfd8f33d23b06cde430cdf91f581202efeb59`
@@ -98,7 +98,7 @@ Do not implement Activity epic #175. Related issues #104/#134/#90/#130/#139/#153
 
 ### #184
 
-1. Regression: unchanged inputs that produced 2410 → 2450 → 2480. First accept may move 2410 → 2450 (or the fixture’s equivalent). Immediate second preview/accept with the same analysis window (`analysisEnd` unchanged, same complete nutrition dates, same observed TDEE) is blocked: no 2480, no 2760 → 2790, no new adaptive target row. Prefer reproducing those exact kcal figures in a fixture if the algorithm+seed can; otherwise use an equivalent documented fixture and still prove the second adjustment is blocked.
+1. Regression: unchanged inputs that produced 2410 → 2450 → 2480. First accept may move 2410 → 2450 (or the fixture’s equivalent). Immediate second preview/accept with the same analysis window (`analysisEnd` unchanged, same complete nutrition dates, same observed TDEE) is blocked: no 2480, no 2760 → 2790, no new adaptive target row. Reproduce the exact 2410 → 2450 → 2480 sequence against unchanged fixture inputs on the old behavior and prove the second adjustment is blocked after the fix. An equivalent-number case may supplement but does not replace this issue acceptance requirement; report a blocker if exact reproduction cannot be established.
 2. Repeat **Check in now** (manual) and weekly preview/scheduler after accept: deterministic hold/no-new-evidence; idempotent; no extra target events.
 3. New eligible completed-day evidence **does** allow a later recommendation (boundary advanced). Incomplete/pending today does not.
 4. Same-date adaptive-on-adaptive replacement blocked. Manual-then-first-adaptive behavior covered by test.
