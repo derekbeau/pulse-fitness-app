@@ -247,6 +247,12 @@ export function ActiveWorkoutPage() {
   const restTimerTokenRef = useRef(0);
   const hydratedSessionIdRef = useRef<string | null>(null);
   const hydratedDraftKeyRef = useRef<string | null>(null);
+  const pendingDraftHydrationRef = useRef<{
+    id: string;
+    exerciseNotes: Record<string, string>;
+    sessionCuesByExercise: Record<string, string[]>;
+    setDrafts: ActiveWorkoutSetDrafts;
+  } | null>(null);
   const lastServerUpdateRef = useRef<number | null>(null);
   const lastSessionStructureRef = useRef<string | null>(null);
   const suppressStructureToastRef = useRef(false);
@@ -349,12 +355,19 @@ export function ActiveWorkoutPage() {
       const mergedSetDrafts = autosavedDraft
         ? mergeServerSetDrafts(autosavedSetDrafts ?? {}, serverSetDrafts)
         : serverSetDrafts;
+      const mergedExerciseNotes = mergeExerciseNotes(autosavedExerciseNotes, serverExerciseNotes);
       setSetDrafts(mergedSetDrafts);
-      setExerciseNotes(mergeExerciseNotes(autosavedExerciseNotes, serverExerciseNotes));
+      setExerciseNotes(mergedExerciseNotes);
       setSessionCuesByExercise(autosavedSessionCues);
       setExerciseOrderBySection(serverExerciseOrder);
       hydratedSessionIdRef.current = activeSession.id;
       hydratedDraftKeyRef.current = activeSession.id;
+      pendingDraftHydrationRef.current = {
+        id: activeSession.id,
+        exerciseNotes: mergedExerciseNotes,
+        sessionCuesByExercise: autosavedSessionCues,
+        setDrafts: mergedSetDrafts,
+      };
 
       if (previousDraftKey && previousDraftKey !== activeSession.id) {
         clearStoredActiveWorkoutDraft(previousDraftKey);
@@ -463,6 +476,18 @@ export function ActiveWorkoutPage() {
 
     if (hydratedDraftKeyRef.current !== activeWorkoutDraftId) {
       return;
+    }
+
+    const pendingHydration = pendingDraftHydrationRef.current;
+    if (pendingHydration?.id === activeWorkoutDraftId) {
+      if (
+        pendingHydration.exerciseNotes !== exerciseNotes ||
+        pendingHydration.sessionCuesByExercise !== sessionCuesByExercise ||
+        pendingHydration.setDrafts !== setDrafts
+      ) {
+        return;
+      }
+      pendingDraftHydrationRef.current = null;
     }
 
     setStoredActiveWorkoutDraft(activeWorkoutDraftId, {

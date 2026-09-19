@@ -797,6 +797,74 @@ describe('ActiveWorkoutPage', () => {
     expect(within(seatedCard).getByDisplayValue('Server note')).toBeVisible();
   });
 
+  it('hydrates local occurrence notes when the server has no saved note yet', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-merge-local-note';
+    seedActiveWorkoutDraft(sessionId, {
+      exerciseNotes: {
+        'seated-dumbbell-shoulder-press': 'Local note',
+      },
+      sessionCuesByExercise: {},
+      setDrafts: {
+        'seated-dumbbell-shoulder-press': [
+          createStoredDraftSet({
+            completed: false,
+            id: 'set-1',
+            number: 1,
+            reps: 9,
+            weight: 35,
+          }),
+        ],
+      },
+    });
+    mockActiveSessionFetch(
+      sessionId,
+      buildHydrationSessionResponse(sessionId, {
+        exercises: [
+          createHydrationSessionExercise({
+            exerciseId: 'seated-dumbbell-shoulder-press',
+            exerciseName: 'Seated Dumbbell Shoulder Press',
+            orderIndex: 0,
+            section: 'main',
+            sets: [
+              createHydrationSessionSet({
+                completed: false,
+                exerciseId: 'seated-dumbbell-shoulder-press',
+                id: 'set-1',
+                notes: null,
+                orderIndex: 0,
+                reps: 9,
+                section: 'main',
+                setNumber: 1,
+                weight: 35,
+              }),
+            ],
+          }),
+        ],
+        sets: [
+          createHydrationSessionSet({
+            completed: false,
+            exerciseId: 'seated-dumbbell-shoulder-press',
+            id: 'set-1',
+            notes: null,
+            orderIndex: 0,
+            reps: 9,
+            section: 'main',
+            setNumber: 1,
+            weight: 35,
+          }),
+        ],
+      }),
+    );
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
+    const seatedCard = getExerciseCard('Seated Dumbbell Shoulder Press');
+    fireEvent.click(within(seatedCard).getByText('Session notes'));
+    expect(within(seatedCard).getByDisplayValue('Local note')).toBeVisible();
+  });
+
   it('preserves local session cues during session hydration', async () => {
     vi.useRealTimers();
     const sessionId = 'session-merge-preserve-cues';
@@ -920,7 +988,9 @@ describe('ActiveWorkoutPage', () => {
     });
     const fetchMock = mockActiveSessionFetch(sessionId, session);
 
-    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
+    const rendered = renderActiveWorkoutPage(
+      `/workouts/active?sessionId=${sessionId}&template=upper-push`,
+    );
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
     const headings = await screen.findAllByRole('heading', { level: 3, name: 'Peloton Bike' });
@@ -963,6 +1033,29 @@ describe('ActiveWorkoutPage', () => {
     });
     expect(within(warmupCard).getByLabelText('Seconds for set 1')).toHaveValue(300);
 
+    fireEvent.click(within(warmupCard).getByText('Session notes'));
+    fireEvent.click(within(supplementalCard).getByText('Session notes'));
+    const warmupNotes = within(warmupCard).getByPlaceholderText(
+      'Add any technique reminders, machine settings, or quick context.',
+    );
+    const supplementalNotes = within(supplementalCard).getByPlaceholderText(
+      'Add any technique reminders, machine settings, or quick context.',
+    );
+    fireEvent.change(warmupNotes, { target: { value: 'Warmup cadence note' } });
+    fireEvent.blur(warmupNotes);
+    fireEvent.change(supplementalNotes, { target: { value: 'Supplemental resistance note' } });
+    fireEvent.blur(supplementalNotes);
+
+    await waitFor(() => {
+      const draft = JSON.parse(
+        window.localStorage.getItem(`${ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX}:${sessionId}`) ?? '{}',
+      ) as { exerciseNotes?: Record<string, string> };
+      expect(draft.exerciseNotes).toMatchObject({
+        'scheduled-bike-warmup': 'Warmup cadence note',
+        'scheduled-bike-supplemental': 'Supplemental resistance note',
+      });
+    });
+
     const storedDraft = JSON.parse(
       window.localStorage.getItem(`${ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX}:${sessionId}`) ?? '{}',
     ) as { setDrafts?: Record<string, Array<{ seconds: number | null }>> };
@@ -970,6 +1063,28 @@ describe('ActiveWorkoutPage', () => {
       'scheduled-bike-warmup': [expect.objectContaining({ seconds: 300 })],
       'scheduled-bike-supplemental': [expect.objectContaining({ seconds: 500 })],
     });
+
+    rendered.unmount();
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
+    const refreshedHeadings = await screen.findAllByRole('heading', {
+      level: 3,
+      name: 'Peloton Bike',
+    });
+    const refreshedWarmupCard = refreshedHeadings[0]?.closest('[data-slot="card"]') as HTMLElement;
+    const refreshedSupplementalCard = refreshedHeadings[1]?.closest(
+      '[data-slot="card"]',
+    ) as HTMLElement;
+    for (const card of [refreshedWarmupCard, refreshedSupplementalCard]) {
+      const toggle = within(card)
+        .getAllByRole('button')
+        .find((button) => button.getAttribute('aria-controls')?.startsWith('exercise-panel-'));
+      if (toggle?.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
+      fireEvent.click(within(card).getByText('Session notes'));
+    }
+    expect(within(refreshedWarmupCard).getByDisplayValue('Warmup cadence note')).toBeVisible();
+    expect(
+      within(refreshedSupplementalCard).getByDisplayValue('Supplemental resistance note'),
+    ).toBeVisible();
   });
 
   it('uses the selected template from the route query string', () => {

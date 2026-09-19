@@ -61,7 +61,8 @@ export function mergeExerciseNotes(
 ): Record<string, string> {
   const mergedNotes: Record<string, string> = {};
 
-  for (const [exerciseId, serverNote] of Object.entries(server)) {
+  for (const exerciseId of new Set([...Object.keys(local), ...Object.keys(server)])) {
+    const serverNote = server[exerciseId];
     const localNote = local[exerciseId];
 
     if (typeof serverNote === 'string' && serverNote.trim().length > 0) {
@@ -74,7 +75,9 @@ export function mergeExerciseNotes(
       continue;
     }
 
-    mergedNotes[exerciseId] = serverNote;
+    if (serverNote !== undefined) {
+      mergedNotes[exerciseId] = serverNote;
+    }
   }
 
   return mergedNotes;

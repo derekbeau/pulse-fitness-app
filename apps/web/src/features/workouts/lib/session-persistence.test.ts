@@ -271,7 +271,18 @@ describe('mergeExerciseNotes', () => {
     });
   });
 
-  it('drops local-only exercise notes that are not in server payload', () => {
-    expect(mergeExerciseNotes({ squat: 'Local note' }, {})).toEqual({});
+  it('keeps occurrence-scoped draft notes when the server has no saved notes yet', () => {
+    expect(
+      mergeExerciseNotes(
+        {
+          'warmup::peloton': 'Warmup cadence note',
+          'supplemental::peloton': 'Supplemental resistance note',
+        },
+        {},
+      ),
+    ).toEqual({
+      'warmup::peloton': 'Warmup cadence note',
+      'supplemental::peloton': 'Supplemental resistance note',
+    });
   });
 });
