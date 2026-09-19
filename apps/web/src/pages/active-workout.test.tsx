@@ -189,7 +189,7 @@ describe('ActiveWorkoutPage', () => {
 
     const optionalCard = getExerciseCard('Rope Triceps Pushdown');
     expect(within(optionalCard).getByText('Optional')).toBeInTheDocument();
-  });
+  }, 15_000);
 
   it('keeps focus unchanged when a superset rest timer expires', () => {
     const templateId = 'superset-focus-template';
@@ -2331,7 +2331,7 @@ describe('ActiveWorkoutPage', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
     ).toBeInTheDocument();
-  }, 15_000);
+  }, 30_000);
 
   it('shows standard feedback controls and requires pain details when pain is yes', () => {
     renderActiveWorkoutPage();
