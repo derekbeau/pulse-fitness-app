@@ -2,90 +2,69 @@
 
 ## Checkpoint
 
-- Current checkpoint: #176 canonical foundation
+- Accepted predecessor: #176 canonical foundation at `e32812100d73af2cd23be380ce275895c0459488`
+- Current checkpoint: #177 Activity persistence and API runtime
 - Branch: `feat/activity-journal-release`
-- Product base: `a2525a61347f7b62c9014fc47d1518e38f34d3ef`
-- Original checkpoint starting HEAD: `b86d2f3f99b8fd20da33b242eee6f899d3c67394`
-- Repair 1 starting HEAD: `c5114765866b9c347eda5c0db95b1e21f7a258c0`
-- Checkpoint commit: the commit containing this status file; report its exact resolved SHA in the independent-review handoff
-- Runtime claim: shared contract only; no new endpoint, database persistence, migration, UI, or deployment
+- Checkpoint starting HEAD: `459a032bc5fb420f338466e95c68663672f00004`
+- Checkpoint commit: the commit containing this status file; resolve its exact SHA in the independent-review handoff
+- Runtime claim: additive Activity persistence and backend API only; no #178+, browser UI, production migration, PR, merge, or deployment
+
+## Implemented boundary
+
+- `0069_activity_runtime.sql` adds canonical Activity goals, Activity roots/revisions, goal links, assignments and immutable reschedule revisions, actual executions and immutable corrections, recurrence roots/revisions, owned links, and durable idempotency receipts.
+- The legacy `activities` table and its rows are unchanged. Unified reads label those records `legacy_date_only` and explicitly disclose that time, timezone, actor, and provenance were never recorded.
+- External Activity inputs are strict. Authentication supplies `subjectUserId` and agent actor identity; the server supplies route, operation, and the canonical semantic-payload fingerprint.
+- All Activity mutations require AgentToken auth. List/detail/goal reads use the repository's shared JWT-or-AgentToken auth policy.
+- Activity detail exposes planned assignments, actual executions, immutable histories, recurrence revisions, goals, and source links separately.
+- Recurrence revisions apply prospectively to newly materialized dates. Existing assignments keep their original recurrence revision until an explicit reschedule.
+- Idempotency receipts and writes share one immediate SQLite transaction. Replays survive server restart, changed payloads conflict, and failed writes leave no receipt.
 
 ## Requirements to executable evidence
 
-| Requirement                                             | Executable evidence                                                                                                       |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Actor versus subject ownership                          | `keeps the user subject distinct from the acting agent identity`                                                          |
-| Cross-user/link rejection shape                         | `rejects a cross-user entity link and uses a non-disclosing rejection shape`                                              |
-| Four provenance classes survive                         | `preserves all four provenance classes without collapsing their source`                                                   |
-| Planned Tuesday / actual Thursday and timezone boundary | `preserves planned Tuesday separately from actual Thursday across a timezone boundary`; disagreement rejection test       |
-| Duplicate retry versus changed-payload conflict         | `distinguishes a duplicate retry from a changed-payload idempotency conflict`; scope test                                 |
-| Immutable prior revision and visible stale conflict     | `retains immutable correction history and exposes a visible stale conflict`                                               |
-| Recurrence preserves past assignment                    | `applies recurrence revisions prospectively while preserving past assignment identity`                                    |
-| Meaningful proposal cannot be implicitly approved       | `cannot represent a meaningful proposal as approved without explicit bound approval`                                      |
-| Approval binds exact proposal and target revisions      | `binds approval to both the exact proposal revision and target revision set`                                              |
-| Unknown differs from negative                           | `keeps unknown distinct from an answered negative`                                                                        |
-| Structured workout identity remains separate            | `keeps structured workout identity separate from activity identity`                                                       |
-| Concern state policy is executable                      | `uses explicit conservative concern transitions`                                                                          |
-| Idempotency scope is bound to every write subject       | Repair suite parameterizes all 15 exported idempotent write schemas with matching and mismatched subjects                 |
-| Nested owned references stay within the subject         | Repair suite covers routine/correction/check-in/journal/proposal/approval writes and daily/session/weekly/calendar reads  |
-| Occurrence dates survive UTC and DST boundaries         | Repair suite exercises ordinary, spring-forward, and both fall-back instants for observation, flare, and calendar schemas |
-| Empty corrections are rejected                          | Repair suite accepts a changed field and rejects empty `correctedFields` on write and immutable revision schemas          |
+| Requirement                                       | Executable evidence                                                                                                |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Fresh and populated additive migration            | `activity-runtime-migration.test.ts` runs the production migration runner on both databases                        |
+| Legacy data is byte-for-byte preserved            | populated predecessor test snapshots the exact legacy row before and after 0069                                    |
+| Rerun and atomic failure                          | production runner no-op assertion and intentionally broken copied 0069 rollback rehearsal                          |
+| Agent-only capture and derived ownership          | API test rejects JWT mutation and reads derived agent actor/user subject from persisted response                   |
+| Five-minute PT readback                           | lifecycle test captures a source-labeled PT Activity and reads it back through the registered API                  |
+| Planned Tuesday / rescheduled and actual Thursday | lifecycle test retains all assignment revisions and the distinct execution occurrence                              |
+| Goals and owned links are usable                  | API creates/retrieves multiple goal links and rejects foreign goal/workout links atomically                        |
+| Durable retry and changed-payload conflict        | same result before and after Fastify restart; altered semantic request returns `IDEMPOTENCY_KEY_REUSE`             |
+| Subject isolation without disclosure              | foreign list/detail/correction/reschedule/execution/link probes return empty/404 and leave no partial receipt      |
+| Concurrent retry/stale writes                     | concurrent HTTP creates converge to one row; competing reschedules and corrections produce one 200 and one 409     |
+| Recurrence create/materialize/revise              | test retains old occurrence revision and assigns later dates to the effective revision                             |
+| UTC/local/DST safety                              | execution read schema rejects an instant/local-date disagreement across the Detroit fallback boundary              |
+| Account erasure                                   | deleting the fictional owner cascades Activity roots, revisions, assignments, and receipts with clean foreign keys |
+| OpenAPI exactness                                 | test verifies registered lifecycle routes, AgentToken mutation security, and absence of spoofable derived fields   |
 
-Fixtures are fictional and live in `packages/shared/src/schemas/activity-journal-contracts.fixtures.ts`. The test file is `packages/shared/src/schemas/activity-journal-contracts.test.ts`; the runner config is `packages/shared/vitest.config.ts`.
+Focused tests:
 
-Repair-specific regressions live in `packages/shared/src/schemas/activity-journal-contracts.repair.test.ts`. They retain the original fixtures and evidence while exercising the independently reported boundary failures with valid controls.
+- `apps/api/src/db/activity-runtime-migration.test.ts`
+- `apps/api/src/routes/activities/api.integration.test.ts`
 
-## Command results
+## Evidence receipts
 
-Evidence directory: `/Users/meridian/Projects/qa-reports/pulse-activity-journal-release/checkpoint-176`
+Evidence directory: `/Users/meridian/Projects/qa-reports/pulse-activity-journal-release/checkpoint-177`
 
-| Evidence                                       | Command                                                                  | Result                                                                                                                                  |
-| ---------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `01-shared-contract-focused-first-run.txt`     | `pnpm --filter @pulse/shared test -- activity-journal-contracts.test.ts` | Exit 1 before test execution: isolated worktree had no `node_modules`; `vitest` was not found. Preserved as environment/setup evidence. |
-| dependency setup                               | `pnpm install --frozen-lockfile`                                         | Passed after network authorization; lockfile unchanged.                                                                                 |
-| `02-shared-contract-focused-after-install.txt` | same shared test command                                                 | Exit 0: 59 files, 809 tests passed, including the initial 14 contract tests. The package script ran the complete shared suite.          |
-| `03-shared-typecheck-first-run.txt`            | `pnpm --filter @pulse/shared typecheck`                                  | Exit 2: fixture freshness array inferred readonly; runtime schemas/tests were not the cause. Preserved.                                 |
-| `04-shared-typecheck-repaired.txt`             | same shared typecheck                                                    | Exit 0 after narrowing the fixture annotation.                                                                                          |
-| interim self-review rerun                      | shared test + typecheck + diff check                                     | Test import failed because a refined Zod schema was used as though it still exposed `.shape`; the later chained commands did not run.   |
-| `05-shared-tests-final.txt`                    | shared test command                                                      | Exit 0: 59 files and 810 tests passed, including 15 final contract tests.                                                               |
-| `06-shared-typecheck-final.txt`                | shared typecheck                                                         | Exit 0.                                                                                                                                 |
-| `07-root-typecheck-final.txt`                  | `pnpm typecheck`                                                         | Exit 0, but API/web results were cache replays from another worktree, so this is not the final consumer receipt.                        |
-| `07b-root-typecheck-forced.txt`                | `pnpm exec turbo run typecheck --force`                                  | Exit 0: API, shared, and web all ran in this worktree; 0 cached.                                                                        |
-| `08-root-lint-forced.txt`                      | `pnpm exec turbo run lint --force`                                       | Exit 0: 0 cached; seven pre-existing web warnings and no errors.                                                                        |
-| `09-root-build-forced.txt`                     | `pnpm exec turbo run build --force`                                      | Exit 0: API, shared, and web built; 0 cached. Vite retained its existing large-chunk warning.                                           |
+| Receipt                       | Result                                                                                                                                   |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `00-before-state.txt`         | verified starting branch, HEAD, clean state, runtime identity, and frozen checkpoint hash                                                |
+| `01-focused-final.txt`        | 7 files / 43 Activity, migration, auth, and OpenAPI regression tests passed                                                              |
+| `02-root-test-final.txt`      | preserved exit 1: the new SQLite writer pragmas correctly exposed one exact bootstrap expectation that still listed only the old pragmas |
+| `03-root-test-repaired.txt`   | uncached exit 0: repo scripts 15/15, shared 853/853, API 1318/1318, web 1467/1467; 0 cached                                              |
+| `04-root-typecheck-final.txt` | uncached exit 0 across API, shared, and web; 0 cached                                                                                    |
+| `05-root-lint-final.txt`      | uncached exit 0; seven pre-existing web warnings, no errors; 0 cached                                                                    |
+| `06-root-build-final.txt`     | uncached exit 0 across API, shared, and web; existing Vite large-chunk warning; 0 cached                                                 |
+| `07-post-audit-delta.txt`     | exit 0 for final `includeLegacy=false` parsing delta: shared/API typecheck and build, affected lint, Activity tests, exact source hashes |
 
-`git diff --check` also passed after formatting. The forced commands are used as final affected-consumer evidence because the public `@pulse/shared` export changed.
+## Deferred owners and explicit gaps
 
-### Repair 1 evidence
+- #178: body concerns, capabilities, guidance, flare transaction, and meaningful proposal/approval runtime.
+- #179: daily context, canonical check-in claims/answers, and cross-thread state.
+- #180: canonical Journal persistence, routes, corrections, and weekly reflection.
+- #181: session-specific context.
+- #182: shared Calendar aggregation.
+- #183: Activity/Journal/Context/Calendar UI and integrated release acceptance.
 
-Evidence directory: `/Users/meridian/Projects/qa-reports/pulse-activity-journal-release/checkpoint-176-repair-1`
-
-The repair receipts are captured separately from the original checkpoint evidence.
-
-| Evidence                        | Command                                                                         | Result                                                                                                |
-| ------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `00-before-state.txt`           | branch/HEAD/status and source evidence hashes                                   | Repair began clean at `c5114765866b9c347eda5c0db95b1e21f7a258c0`; original review artifacts retained. |
-| `01-shared-tests-final.txt`     | `pnpm --filter @pulse/shared test -- activity-journal-contracts.repair.test.ts` | Exit 0: 60 files and 853 tests passed, including 43 repair regressions.                               |
-| `02-shared-typecheck-final.txt` | `pnpm --filter @pulse/shared typecheck`                                         | Exit 0.                                                                                               |
-| `03-shared-lint-final.txt`      | `pnpm --filter @pulse/shared lint`                                              | Exit 0.                                                                                               |
-| `04-shared-build-final.txt`     | `pnpm --filter @pulse/shared build`                                             | Exit 0.                                                                                               |
-| `05-root-typecheck-forced.txt`  | `pnpm exec turbo run typecheck --force`                                         | Exit 0: API, shared, and web all ran in this worktree; 0 cached.                                      |
-| final git receipt               | `git diff --check`; post-push branch/HEAD/upstream/status verification          | Captured after commit and push.                                                                       |
-
-The repair changes contract refinements only; it does not add a runtime route, migration, persistence, UI, or deployment claim. The original forced root lint/build receipts remain applicable because the repair adds no consumer implementation or build configuration; shared lint/build and a forced all-consumer typecheck were rerun.
-
-## Deferred runtime owners and real gaps
-
-- #177: additive Activity persistence, migrations, goals, assignment/execution lifecycle, recurrence materialization, rescheduling/corrections, owned links, idempotency receipts, and Activity APIs.
-- #178: concern/capability/guidance persistence, flare transaction, lifecycle enforcement, meaningful proposal/approval execution, stale-target checks, and safe planning mutations.
-- #179: canonical daily-context aggregation, deduplicated question claims, answer revisions/current projection, atomic concurrency behavior, and cross-thread API.
-- #180: Journal persistence/routes, immutable correction history, source links, and fact-traced weekly reflection.
-- #181: session-specific context derivation and replacement of preview cards with source/freshness/missing-data UI.
-- #182: shared Calendar read model, cross-domain deduplication/filtering, navigation, and Workouts as a filtered view.
-- #183: remaining UI, agent guide/examples, populated persistence/auth/concurrency/browser gates, migration rehearsals, and integrated acceptance.
-
-Open runtime gaps are intentionally not hidden behind placeholder routes: there is no Activity or Journal route registration today; legacy tables cannot satisfy the new contract; current Activity/Journal/Session Context surfaces remain mock/preview-driven; canonical daily check-in, concern/guidance stores, proposal approval, session-context read, and shared Calendar read do not exist yet.
-
-## Evidence boundary
-
-The current green evidence establishes shared Zod/type and pure-policy behavior only. It is not deployed persistence, endpoint verification, concurrency proof, migration proof, or UI acceptance. No production data, secrets, migration, PR, merge, issue closure, or deployment is part of checkpoint #176.
+No #177 evidence establishes production-data compatibility, production deployment, UI behavior, or any downstream checkpoint.

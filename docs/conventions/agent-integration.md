@@ -109,6 +109,41 @@ Notes:
 
 ## Endpoint Reference
 
+### Activity capture and scheduling
+
+Activity mutations are AgentToken-only. Reads accept either normal session JWT or AgentToken auth. The server derives the subject, actor, route, operation, and request fingerprint; do not send those fields. Every mutation requires an `idempotencyKey`. Repeating the same semantic request returns the original `{ data }` result and the `Idempotent-Replay: true` header; changing the payload under the same route/operation/key returns `409 IDEMPOTENCY_KEY_REUSE`.
+
+Create a goal, then capture an Activity linked to it:
+
+```bash
+curl -sS -X POST "$PULSE_API_URL/api/v1/activity-goals" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"kind":"physical_therapy","label":"Restore shoulder motion","idempotencyKey":"goal-2026-09-19-01"}'
+
+curl -sS -X POST "$PULSE_API_URL/api/v1/activities" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"kind":"physical_therapy","name":"Five-minute PT","goalIds":["<goal-id>"],"structuredWorkoutSessionId":null,"source":{"class":"user_observation","sourceId":"conversation-2026-09-19","sourceLabel":"User described five-minute PT routine","sourceOccurredAt":"2026-09-18T21:15:00-04:00","capturedAt":"2026-09-19T14:00:00Z","uncertainty":"known","freshness":{"state":"current","asOf":"2026-09-18T21:15:00-04:00","reasons":[]}},"idempotencyKey":"activity-2026-09-19-01"}'
+```
+
+Create a planned day, record the actual occurrence, and read both facts and their histories:
+
+```bash
+curl -sS -X POST "$PULSE_API_URL/api/v1/activities/<activity-id>/assignments" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN" -H 'Content-Type: application/json' \
+  --data '{"plannedLocalDate":"2026-09-22","timeZone":"America/Detroit","recurrenceRevisionId":null,"idempotencyKey":"assignment-2026-09-22-01"}'
+
+curl -sS -X POST "$PULSE_API_URL/api/v1/activities/<activity-id>/executions" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN" -H 'Content-Type: application/json' \
+  --data '{"assignmentId":"<assignment-id>","actualOccurredAt":"2026-09-24T07:30:00-04:00","actualLocalDate":"2026-09-24","timeZone":"America/Detroit","durationMinutes":5,"outcome":"completed","structuredWorkoutSessionId":null,"source":{"class":"user_observation","sourceId":"conversation-2026-09-24","sourceLabel":"User reported completed PT","sourceOccurredAt":"2026-09-24T07:35:00-04:00","capturedAt":"2026-09-24T11:36:00Z","uncertainty":"known","freshness":{"state":"current","asOf":"2026-09-24T07:35:00-04:00","reasons":[]}},"idempotencyKey":"execution-2026-09-24-01"}'
+
+curl -sS "$PULSE_API_URL/api/v1/activities/<activity-id>" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN"
+```
+
+Legacy date-only Activity rows appear on the same read surface with `recordType: "legacy_date_only"`. They intentionally contain no invented occurrence time, timezone, actor, or provenance.
+
 ### Adaptive TDEE and goals
 
 AgentToken callers may read coaching state and create a reviewable preview, but all account, target, and goal

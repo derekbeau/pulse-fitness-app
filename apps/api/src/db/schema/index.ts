@@ -1,5 +1,6 @@
 export * from './users.js';
 export * from './activities.js';
+export * from './activity-runtime.js';
 export * from './adaptive-nutrition.js';
 export * from './body-weight.js';
 export * from './body-measurements.js';

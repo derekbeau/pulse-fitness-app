@@ -53,6 +53,8 @@ ensureDatabaseDirectory(databaseUrl);
 export const sqlite = new Database(databasePath);
 sqlite.pragma('journal_mode = WAL');
 sqlite.pragma('foreign_keys = ON');
+sqlite.pragma('busy_timeout = 5000');
+sqlite.pragma('synchronous = NORMAL');
 
 // Periodically checkpoint the WAL into the main DB to prevent unbounded WAL
 // growth and reduce corruption risk from unclean container shutdowns.

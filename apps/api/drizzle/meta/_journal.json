@@ -484,6 +484,13 @@
       "when": 1789603200000,
       "tag": "0068_body_progress_photo_deletion_intents",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "6",
+      "when": 1789862400000,
+      "tag": "0069_activity_runtime",
+      "breakpoints": true
     }
   ]
 }
