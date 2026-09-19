@@ -410,6 +410,121 @@ describe('SessionDetail', () => {
     expect(within(distanceCard).queryByText('Target: 3 mi')).not.toBeInTheDocument();
   });
 
+  it('keeps repeated scheduled occurrences isolated in completed view and corrections', async () => {
+    const warmupSet = createSet({
+      id: 'bike-warmup-set',
+      exerciseId: 'peloton-bike',
+      reps: 10,
+      section: 'warmup',
+      sourceScheduledSetId: 'scheduled-bike-warmup-set',
+      targetWeight: 50,
+      weight: 50,
+    });
+    const supplementalSet = createSet({
+      id: 'bike-supplemental-set',
+      exerciseId: 'peloton-bike',
+      reps: 8,
+      section: 'supplemental',
+      sourceScheduledSetId: 'scheduled-bike-supplemental-set',
+      targetWeight: 75,
+      weight: 70,
+    });
+    const exercises: NonNullable<WorkoutSession['exercises']> = [
+      {
+        exerciseId: 'peloton-bike',
+        exerciseName: 'Peloton Bike',
+        sourceScheduledExerciseId: 'scheduled-bike-warmup',
+        supersetGroup: null,
+        trackingType: 'weight_reps',
+        orderIndex: 0,
+        section: 'warmup',
+        programmingNotes: 'Easy cadence',
+        agentNotes: null,
+        agentNotesMeta: null,
+        sets: [warmupSet],
+      },
+      {
+        exerciseId: 'peloton-bike',
+        exerciseName: 'Peloton Bike',
+        sourceScheduledExerciseId: 'scheduled-bike-supplemental',
+        supersetGroup: null,
+        trackingType: 'weight_reps',
+        orderIndex: 0,
+        section: 'supplemental',
+        programmingNotes: 'Working resistance',
+        agentNotes: null,
+        agentNotesMeta: null,
+        sets: [supplementalSet],
+      },
+    ];
+    const currentSession = createSession({
+      id: 'session-repeated-bike-completed',
+      scheduledWorkoutId: 'scheduled-bike-workout',
+      templateId: null,
+      exercises,
+      sets: [warmupSet, supplementalSet],
+    });
+    const correctedSupplementalSet = { ...supplementalSet, weight: 72 };
+    const correctedSession = createSession({
+      ...currentSession,
+      exercises: exercises.map((exercise) =>
+        exercise.sourceScheduledExerciseId === 'scheduled-bike-supplemental'
+          ? { ...exercise, sets: [correctedSupplementalSet] }
+          : exercise,
+      ),
+      sets: [warmupSet, correctedSupplementalSet],
+    });
+    let correctionPayload: unknown = null;
+
+    mockSessionDetailRequests({
+      correctedSession,
+      onCorrectionRequest: (payload) => {
+        correctionPayload = payload;
+      },
+      sessionId: currentSession.id,
+      session: currentSession,
+      sessions: [createSessionListItem({ id: currentSession.id, templateId: null })],
+    });
+
+    renderSessionDetail(currentSession.id);
+    await screen.findByText('Workout receipt');
+
+    const warmupCard = screen.getByTestId('workout-exercise-card-scheduled-bike-warmup');
+    const supplementalCard = screen.getByTestId(
+      'workout-exercise-card-scheduled-bike-supplemental',
+    );
+    const warmupSummary = screen
+      .getByRole('heading', { level: 3, name: 'Warmup' })
+      .closest('summary');
+    const supplementalSummary = screen
+      .getByRole('heading', { level: 3, name: 'Supplemental' })
+      .closest('summary');
+    expect(warmupSummary).not.toBeNull();
+    expect(supplementalSummary).not.toBeNull();
+    if (!warmupSummary || !supplementalSummary) {
+      throw new Error('Expected completed workout section summaries.');
+    }
+    fireEvent.click(warmupSummary);
+    fireEvent.click(supplementalSummary);
+    expect(within(warmupCard).getByText('Set 1: 50 lbs × 10 reps')).toBeVisible();
+    expect(within(supplementalCard).getByText('Set 1: 70 lbs × 8 reps')).toBeVisible();
+    expect(within(warmupCard).getByText('Easy cadence')).toBeVisible();
+    expect(within(supplementalCard).getByText('Working resistance')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.change(within(supplementalCard).getByLabelText('Weight for set 1'), {
+      target: { value: '72' },
+    });
+    expect(within(warmupCard).getByLabelText('Weight for set 1')).toHaveValue(50);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(correctionPayload).toEqual({
+        corrections: [{ setId: 'bike-supplemental-set', weight: 72 }],
+      });
+    });
+  });
+
   it('does not render a programming notes block when programmingNotes is null', async () => {
     const currentSession = createSession({
       id: 'session-no-programming-notes',

@@ -211,9 +211,9 @@ describe('ActiveWorkoutPage remove-set flow', () => {
     expect(within(inclineCard).getByLabelText('Reps for set 3')).toBeInTheDocument();
     await waitFor(() => {
       expect(
-        getStoredActiveWorkoutDraft(sessionId)?.setDrafts['incline-dumbbell-press']?.map(
-          (set) => set.id,
-        ),
+        Object.values(getStoredActiveWorkoutDraft(sessionId)?.setDrafts ?? {})
+          .flat()
+          .map((set) => set.id),
       ).toEqual(['set-main-1', 'set-main-2', 'set-main-3']);
     });
 
@@ -295,7 +295,11 @@ describe('ActiveWorkoutPage remove-set flow', () => {
     await waitFor(() => {
       expect(within(getExerciseCard('Incline Dumbbell Press')).queryByLabelText('Reps for set 3')).toBeNull();
       const draft = getStoredActiveWorkoutDraft(sessionId);
-      expect(draft?.setDrafts['incline-dumbbell-press']?.map((set) => set.number)).toEqual([1, 2]);
+      expect(
+        Object.values(draft?.setDrafts ?? {})
+          .flat()
+          .map((set) => set.number),
+      ).toEqual([1, 2]);
     });
 
     await act(async () => {
@@ -436,9 +440,9 @@ describe('ActiveWorkoutPage remove-set flow', () => {
     expect(within(inclineCard).getByLabelText('Reps for set 3')).toBeInTheDocument();
     await waitFor(() => {
       expect(
-        getStoredActiveWorkoutDraft(sessionId)?.setDrafts['incline-dumbbell-press']?.map(
-          (set) => set.id,
-        ),
+        Object.values(getStoredActiveWorkoutDraft(sessionId)?.setDrafts ?? {})
+          .flat()
+          .map((set) => set.id),
       ).toEqual(['set-main-1', 'set-main-2', 'set-main-3']);
     });
 
@@ -479,11 +483,11 @@ describe('ActiveWorkoutPage remove-set flow', () => {
       expect(within(getExerciseCard('Incline Dumbbell Press')).getByLabelText('Reps for set 3')).toBeInTheDocument();
       expect(screen.getByText('Unable to remove set. Try again.')).toBeInTheDocument();
       const draft = getStoredActiveWorkoutDraft(sessionId);
-      expect(draft?.setDrafts['incline-dumbbell-press']?.map((set) => set.number)).toEqual([
-        1,
-        2,
-        3,
-      ]);
+      expect(
+        Object.values(draft?.setDrafts ?? {})
+          .flat()
+          .map((set) => set.number),
+      ).toEqual([1, 2, 3]);
     });
   });
 });

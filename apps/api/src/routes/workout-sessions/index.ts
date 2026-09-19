@@ -1005,6 +1005,22 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         };
       }
 
+      const seenSetOccurrenceKeys = new Set<string>();
+      const duplicateSetOccurrence = input.sets.find((set) => {
+        const key = `${set.section ?? 'main'}::${set.exerciseId}::${set.setNumber}`;
+        if (seenSetOccurrenceKeys.has(key)) return true;
+        seenSetOccurrenceKeys.add(key);
+        return false;
+      });
+      if (duplicateSetOccurrence) {
+        return sendError(
+          reply,
+          400,
+          'AMBIGUOUS_EXERCISE_OCCURRENCE',
+          'The same exercise cannot appear twice in one section without a persisted occurrence id',
+        );
+      }
+
       const invalidExerciseIds = await findInvalidSessionExerciseIds({
         userId: request.userId,
         exerciseIds: getReferencedExerciseIds(input.sets),
@@ -1788,7 +1804,10 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
         };
       } else {
         const setMap = new Map(
-          merged.sets.map((set) => [`${set.exerciseId}:${set.setNumber}`, { ...set }]),
+          merged.sets.map((set) => [
+            `${set.section ?? 'main'}:${set.exerciseId}:${set.setNumber}`,
+            { ...set },
+          ]),
         );
         const exerciseOrder = new Map<string, number>();
         const siblingSectionByExerciseId = new Map<string, SessionSetInput['section']>();
@@ -1808,9 +1827,33 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
             exerciseOrder.set(exerciseId, exerciseOrder.size);
           }
 
-          const key = `${exerciseId}:${set.setNumber}`;
+          const matchingKeys = [...setMap.entries()]
+            .filter(
+              ([, existingSet]) =>
+                existingSet.exerciseId === exerciseId && existingSet.setNumber === set.setNumber,
+            )
+            .map(([existingKey]) => existingKey);
+          if (set.section === null && matchingKeys.length > 1) {
+            return sendError(
+              reply,
+              400,
+              'AMBIGUOUS_EXERCISE_OCCURRENCE',
+              'section is required when the same exercise and set number occur more than once',
+            );
+          }
+          const key =
+            set.section === null && matchingKeys.length === 1
+              ? (matchingKeys[0] ?? '')
+              : `${set.section ?? 'main'}:${exerciseId}:${set.setNumber}`;
           const previous = setMap.get(key);
-          const hasLoggedFields = set.weight !== null || set.reps !== null;
+          const hasLoggedFields =
+            set.weight != null ||
+            set.reps != null ||
+            set.seconds != null ||
+            set.distance != null ||
+            set.rpe != null ||
+            set.rir != null ||
+            set.zone != null;
           const shouldPreserveCompletionState =
             previous !== undefined &&
             set.completed === undefined &&
@@ -1834,6 +1877,12 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
               ...previous,
               weight: set.weight ?? previous.weight,
               reps: set.reps ?? previous.reps,
+              seconds: Object.hasOwn(set, 'seconds')
+                ? (set.seconds ?? null)
+                : (previous.seconds ?? null),
+              distance: Object.hasOwn(set, 'distance')
+                ? (set.distance ?? null)
+                : (previous.distance ?? null),
               rpe: Object.hasOwn(set, 'rpe') ? (set.rpe ?? null) : (previous.rpe ?? null),
               rir: Object.hasOwn(set, 'rir') ? (set.rir ?? null) : (previous.rir ?? null),
               zone: Object.hasOwn(set, 'zone') ? (set.zone ?? null) : (previous.zone ?? null),
@@ -2038,19 +2087,32 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       const supersetGroupEntries = body.exercises.flatMap((exercise) =>
         exercise.supersetGroup === undefined
           ? []
-          : ([[exercise.exerciseId, exercise.supersetGroup]] as const),
+          : [
+              [
+                exercise.section
+                  ? toExerciseSectionKey(exercise.exerciseId, exercise.section)
+                  : exercise.exerciseId,
+                exercise.supersetGroup,
+              ] as const,
+            ],
       );
-      const supersetGroupByExerciseId = new Map(supersetGroupEntries);
+      const supersetGroupByOccurrence = new Map(supersetGroupEntries);
       merged = {
         ...merged,
-        sets: merged.sets.map((set) =>
-          supersetGroupByExerciseId.has(set.exerciseId)
+        sets: merged.sets.map((set) => {
+          const occurrenceKey = toExerciseSectionKey(set.exerciseId, set.section);
+          const updateKey = supersetGroupByOccurrence.has(occurrenceKey)
+            ? occurrenceKey
+            : supersetGroupByOccurrence.has(set.exerciseId)
+              ? set.exerciseId
+              : null;
+          return updateKey
             ? {
                 ...set,
-                supersetGroup: supersetGroupByExerciseId.get(set.exerciseId) ?? null,
+                supersetGroup: supersetGroupByOccurrence.get(updateKey) ?? null,
               }
-            : set,
-        ),
+            : set;
+        }),
       };
     }
 

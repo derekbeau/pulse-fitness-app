@@ -39,6 +39,7 @@ import {
   type ActiveWorkoutFeedbackDraft,
   type ActiveWorkoutSetDrafts,
 } from '@/features/workouts';
+import { getWorkoutOccurrenceId } from '@/features/workouts/lib/active-session';
 import { estimateRemainingTime, estimateTotalTime } from '@/features/workouts/lib/time-estimates';
 import { Button } from '@/components/ui/button';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
@@ -99,7 +100,11 @@ import {
   setStoredActiveWorkoutSessionId,
   setStoredActiveWorkoutDraft,
 } from '@/features/workouts/lib/session-persistence';
-import { buildSessionSetInputs, extractExerciseNotes } from '@/features/workouts/lib/session-notes';
+import {
+  buildExerciseNotesPayload,
+  buildSessionSetInputs,
+  extractExerciseNotes,
+} from '@/features/workouts/lib/session-notes';
 import { startCase } from '@/features/workouts/lib/start-case';
 import { ApiError, apiRequest } from '@/lib/api-client';
 import { crossFeatureInvalidationMap, invalidateQueryKeys } from '@/lib/query-invalidation';
@@ -242,6 +247,12 @@ export function ActiveWorkoutPage() {
   const restTimerTokenRef = useRef(0);
   const hydratedSessionIdRef = useRef<string | null>(null);
   const hydratedDraftKeyRef = useRef<string | null>(null);
+  const pendingDraftHydrationRef = useRef<{
+    id: string;
+    exerciseNotes: Record<string, string>;
+    sessionCuesByExercise: Record<string, string[]>;
+    setDrafts: ActiveWorkoutSetDrafts;
+  } | null>(null);
   const lastServerUpdateRef = useRef<number | null>(null);
   const lastSessionStructureRef = useRef<string | null>(null);
   const suppressStructureToastRef = useRef(false);
@@ -286,7 +297,7 @@ export function ActiveWorkoutPage() {
       new Map(
         template.sections.flatMap((section) =>
           section.exercises.map((exercise) => [
-            exercise.exerciseId,
+            getWorkoutOccurrenceId(exercise, section.type),
             {
               exercise,
               section: section.type,
@@ -317,7 +328,9 @@ export function ActiveWorkoutPage() {
       activeSession.sets,
       templateExerciseById,
     );
-    const serverExerciseNotes = extractExerciseNotes(activeSession.sets);
+    const serverExerciseNotes = extractExerciseNotes(activeSession.sets, (set) =>
+      resolveSessionSetOccurrenceId(template, set),
+    );
     const serverExerciseOrder = buildExerciseOrderFromSessionSets(template, activeSession.sets);
     const sessionStructureSignature = buildSessionStructureSignature(activeSession);
     const isSessionSwitch = hydratedSessionIdRef.current !== activeSession.id;
@@ -330,17 +343,31 @@ export function ActiveWorkoutPage() {
 
     if (isSessionSwitch) {
       const autosavedDraft = getStoredActiveWorkoutDraft(activeSession.id);
+      const autosavedSetDrafts = autosavedDraft
+        ? migrateLegacyOccurrenceRecord(template, autosavedDraft.setDrafts)
+        : null;
+      const autosavedExerciseNotes = autosavedDraft
+        ? migrateLegacyOccurrenceRecord(template, autosavedDraft.exerciseNotes)
+        : {};
+      const autosavedSessionCues = autosavedDraft
+        ? migrateLegacyOccurrenceRecord(template, autosavedDraft.sessionCuesByExercise)
+        : {};
       const mergedSetDrafts = autosavedDraft
-        ? mergeServerSetDrafts(autosavedDraft.setDrafts, serverSetDrafts)
+        ? mergeServerSetDrafts(autosavedSetDrafts ?? {}, serverSetDrafts)
         : serverSetDrafts;
+      const mergedExerciseNotes = mergeExerciseNotes(autosavedExerciseNotes, serverExerciseNotes);
       setSetDrafts(mergedSetDrafts);
-      setExerciseNotes(
-        mergeExerciseNotes(autosavedDraft?.exerciseNotes ?? {}, serverExerciseNotes),
-      );
-      setSessionCuesByExercise(autosavedDraft?.sessionCuesByExercise ?? {});
+      setExerciseNotes(mergedExerciseNotes);
+      setSessionCuesByExercise(autosavedSessionCues);
       setExerciseOrderBySection(serverExerciseOrder);
       hydratedSessionIdRef.current = activeSession.id;
       hydratedDraftKeyRef.current = activeSession.id;
+      pendingDraftHydrationRef.current = {
+        id: activeSession.id,
+        exerciseNotes: mergedExerciseNotes,
+        sessionCuesByExercise: autosavedSessionCues,
+        setDrafts: mergedSetDrafts,
+      };
 
       if (previousDraftKey && previousDraftKey !== activeSession.id) {
         clearStoredActiveWorkoutDraft(previousDraftKey);
@@ -356,8 +383,8 @@ export function ActiveWorkoutPage() {
         const nextNotes: Record<string, string> = {};
         const activeExerciseIds = new Set(
           activeSession.sets
-            .map((set) => set.exerciseId)
-            .filter((exerciseId): exerciseId is string => typeof exerciseId === 'string'),
+            .map((set) => resolveSessionSetOccurrenceId(template, set))
+            .filter((occurrenceId): occurrenceId is string => typeof occurrenceId === 'string'),
         );
 
         for (const exerciseId of activeExerciseIds) {
@@ -402,13 +429,22 @@ export function ActiveWorkoutPage() {
 
     const initialSetDrafts = createInitialWorkoutSetDrafts(template, new Set<string>());
     const autosavedDraft = getStoredActiveWorkoutDraft(activeWorkoutDraftId);
+    const autosavedSetDrafts = autosavedDraft
+      ? migrateLegacyOccurrenceRecord(template, autosavedDraft.setDrafts)
+      : null;
+    const autosavedExerciseNotes = autosavedDraft
+      ? migrateLegacyOccurrenceRecord(template, autosavedDraft.exerciseNotes)
+      : {};
+    const autosavedSessionCues = autosavedDraft
+      ? migrateLegacyOccurrenceRecord(template, autosavedDraft.sessionCuesByExercise)
+      : {};
     const preferAutosavedDraft =
       autosavedDraft &&
-      (!hasDraftStructure(initialSetDrafts) || hasDraftStructure(autosavedDraft.setDrafts));
+      (!hasDraftStructure(initialSetDrafts) || hasDraftStructure(autosavedSetDrafts ?? {}));
 
-    setSetDrafts(preferAutosavedDraft ? autosavedDraft.setDrafts : initialSetDrafts);
-    setExerciseNotes(preferAutosavedDraft ? autosavedDraft.exerciseNotes : {});
-    setSessionCuesByExercise(preferAutosavedDraft ? autosavedDraft.sessionCuesByExercise : {});
+    setSetDrafts(preferAutosavedDraft ? (autosavedSetDrafts ?? {}) : initialSetDrafts);
+    setExerciseNotes(preferAutosavedDraft ? autosavedExerciseNotes : {});
+    setSessionCuesByExercise(preferAutosavedDraft ? autosavedSessionCues : {});
     setExerciseOrderBySection(buildExerciseOrderFromTemplate(template));
     hydratedSessionIdRef.current = null;
     hydratedDraftKeyRef.current = activeWorkoutDraftId;
@@ -440,6 +476,18 @@ export function ActiveWorkoutPage() {
 
     if (hydratedDraftKeyRef.current !== activeWorkoutDraftId) {
       return;
+    }
+
+    const pendingHydration = pendingDraftHydrationRef.current;
+    if (pendingHydration?.id === activeWorkoutDraftId) {
+      if (
+        pendingHydration.exerciseNotes !== exerciseNotes ||
+        pendingHydration.sessionCuesByExercise !== sessionCuesByExercise ||
+        pendingHydration.setDrafts !== setDrafts
+      ) {
+        return;
+      }
+      pendingDraftHydrationRef.current = null;
     }
 
     setStoredActiveWorkoutDraft(activeWorkoutDraftId, {
@@ -508,7 +556,7 @@ export function ActiveWorkoutPage() {
                 setNumber: set.number,
                 weight: set.weight,
               })),
-              id: exercise.id,
+              id: exercise.occurrenceId,
               metricLabel,
               metricValue: completedSets.reduce(
                 (total, set) => total + getSetSummaryMetricValue(exercise.trackingType, set),
@@ -808,12 +856,7 @@ export function ActiveWorkoutPage() {
             enableApiLastPerformance={enableApiLastPerformance}
             focusSetId={focusSetId}
             onAddSet={handleAddSet}
-            onExerciseNotesChange={(exerciseId, notes) =>
-              setExerciseNotes((current) => ({
-                ...current,
-                [exerciseId]: notes,
-              }))
-            }
+            onExerciseNotesChange={handleExerciseNotesChange}
             onFocusSetHandled={() => setFocusSetId(null)}
             onReorderExercises={handleReorderExercises}
             onRemoveExercise={handleRemoveExercise}
@@ -951,6 +994,7 @@ export function ActiveWorkoutPage() {
                       feedbackExpectedRevision: expectedRevision,
                     }
                   : {}),
+                exerciseNotes: buildExerciseNotesPayload(template, exerciseNotes),
                 // Existing session sets and notes were persisted while logging. Completion
                 // attaches feedback without replacing their identities, timestamps or notes.
               },
@@ -1120,16 +1164,17 @@ export function ActiveWorkoutPage() {
     </section>
   );
 
-  function handleAddSet(exerciseId: string) {
-    const templateExercise = templateExerciseById.get(exerciseId);
+  function handleAddSet(occurrenceId: string) {
+    const templateExercise = templateExerciseById.get(occurrenceId);
 
     if (!templateExercise) {
       return;
     }
 
-    const exerciseSets = setDrafts[exerciseId] ?? [];
+    const exerciseId = templateExercise.exercise.exerciseId;
+    const exerciseSets = setDrafts[occurrenceId] ?? [];
     const serverMaxSetNumber = (activeSession?.sets ?? [])
-      .filter((s) => s.exerciseId === exerciseId)
+      .filter((set) => set.exerciseId === exerciseId && set.section === templateExercise.section)
       .reduce((max, s) => Math.max(max, s.setNumber), 0);
     const nextSetNumber = Math.max(exerciseSets.length, serverMaxSetNumber) + 1;
 
@@ -1154,11 +1199,11 @@ export function ActiveWorkoutPage() {
           },
           onSuccess: (createdSet) => {
             setSetDrafts((current) => {
-              const currentExerciseSets = current[exerciseId] ?? [];
+              const currentExerciseSets = current[occurrenceId] ?? [];
 
               return {
                 ...current,
-                [exerciseId]: [
+                [occurrenceId]: [
                   ...currentExerciseSets,
                   {
                     completed: createdSet.completed,
@@ -1187,19 +1232,24 @@ export function ActiveWorkoutPage() {
       return;
     }
 
-    const nextSet = createWorkoutSetDraft(templateExercise.exercise, nextSetNumber);
+    const nextSet = createWorkoutSetDraft(
+      templateExercise.exercise,
+      nextSetNumber,
+      false,
+      occurrenceId,
+    );
 
     setSetDrafts((current) => ({
       ...current,
-      [exerciseId]: [...(current[exerciseId] ?? []), nextSet],
+      [occurrenceId]: [...(current[occurrenceId] ?? []), nextSet],
     }));
 
     setRestTimer(null);
     setFocusSetId(nextSet.id);
   }
 
-  function handleRemoveSet(exerciseId: string) {
-    const exerciseSets = setDrafts[exerciseId] ?? [];
+  function handleRemoveSet(occurrenceId: string) {
+    const exerciseSets = setDrafts[occurrenceId] ?? [];
 
     if (exerciseSets.length <= 1) {
       return;
@@ -1221,7 +1271,7 @@ export function ActiveWorkoutPage() {
 
     setSetDrafts((current) => ({
       ...current,
-      [exerciseId]: nextExerciseSets,
+      [occurrenceId]: nextExerciseSets,
     }));
 
     if (shouldClearRestTimer) {
@@ -1258,7 +1308,7 @@ export function ActiveWorkoutPage() {
 
           setSetDrafts((current) => ({
             ...current,
-            [exerciseId]: sortedSets,
+            [occurrenceId]: sortedSets,
           }));
 
           if (shouldClearRestTimer && previousRestTimer) {
@@ -1275,14 +1325,21 @@ export function ActiveWorkoutPage() {
     );
   }
 
-  function removeExerciseFromLocalState(exerciseId: string, section: WorkoutTemplateSectionType) {
+  function removeExerciseFromLocalState(
+    occurrenceId: string,
+    exerciseId: string,
+    section: WorkoutTemplateSectionType,
+  ) {
     const remainingExerciseSectionKeys = new Set(
       (Object.entries(exerciseOrderBySection) as Array<[WorkoutTemplateSectionType, string[]]>)
         .flatMap(([sectionType, exerciseIds]) =>
-          exerciseIds.map((entryExerciseId) => toExerciseSectionKey(entryExerciseId, sectionType)),
+          exerciseIds.map((entryOccurrenceId) =>
+            toExerciseSectionKey(entryOccurrenceId, sectionType),
+          ),
         )
         .filter(
-          (exerciseSectionKey) => exerciseSectionKey !== toExerciseSectionKey(exerciseId, section),
+          (exerciseSectionKey) =>
+            exerciseSectionKey !== toExerciseSectionKey(occurrenceId, section),
         ),
     );
     const hasExerciseInAnotherSection = (
@@ -1290,7 +1347,7 @@ export function ActiveWorkoutPage() {
     ).some(
       (sectionType) =>
         sectionType !== section &&
-        remainingExerciseSectionKeys.has(toExerciseSectionKey(exerciseId, sectionType)),
+        remainingExerciseSectionKeys.has(toExerciseSectionKey(occurrenceId, sectionType)),
     );
     const removedSetIds = new Set(
       (activeSession?.sets ?? [])
@@ -1304,12 +1361,12 @@ export function ActiveWorkoutPage() {
         return current;
       }
 
-      if (!(exerciseId in current)) {
+      if (!(occurrenceId in current)) {
         return current;
       }
 
       const next = { ...current };
-      Reflect.deleteProperty(next, exerciseId);
+      Reflect.deleteProperty(next, occurrenceId);
       return next;
     });
     setExerciseNotes((current) => {
@@ -1317,12 +1374,12 @@ export function ActiveWorkoutPage() {
         return current;
       }
 
-      if (!(exerciseId in current)) {
+      if (!(occurrenceId in current)) {
         return current;
       }
 
       const next = { ...current };
-      Reflect.deleteProperty(next, exerciseId);
+      Reflect.deleteProperty(next, occurrenceId);
       return next;
     });
     setSessionCuesByExercise((current) => {
@@ -1330,12 +1387,12 @@ export function ActiveWorkoutPage() {
         return current;
       }
 
-      if (!(exerciseId in current)) {
+      if (!(occurrenceId in current)) {
         return current;
       }
 
       const next = { ...current };
-      Reflect.deleteProperty(next, exerciseId);
+      Reflect.deleteProperty(next, occurrenceId);
       return next;
     });
     setExerciseSupersetOverrides((current) => {
@@ -1343,21 +1400,21 @@ export function ActiveWorkoutPage() {
         return current;
       }
 
-      if (!(exerciseId in current)) {
+      if (!(occurrenceId in current)) {
         return current;
       }
 
       const next = { ...current };
-      Reflect.deleteProperty(next, exerciseId);
+      Reflect.deleteProperty(next, occurrenceId);
       return next;
     });
     setExerciseOrderBySection((current) => ({
       ...current,
-      [section]: current[section].filter((id) => id !== exerciseId),
+      [section]: current[section].filter((id) => id !== occurrenceId),
     }));
 
     if (
-      (shouldRemoveExerciseScopedState && restTimer?.exerciseId === exerciseId) ||
+      (shouldRemoveExerciseScopedState && restTimer?.exerciseId === occurrenceId) ||
       removedSetIds.has(restTimer?.setId ?? '')
     ) {
       setRestTimer(null);
@@ -1369,12 +1426,13 @@ export function ActiveWorkoutPage() {
   }
 
   async function commitExerciseRemoval(
+    occurrenceId: string,
     exerciseId: string,
     section: WorkoutTemplateSectionType,
     options?: { force?: boolean },
   ) {
     if (!activeSessionId) {
-      removeExerciseFromLocalState(exerciseId, section);
+      removeExerciseFromLocalState(occurrenceId, exerciseId, section);
       return;
     }
 
@@ -1395,14 +1453,18 @@ export function ActiveWorkoutPage() {
         queryKey: workoutQueryKeys.session(activeSessionId),
       }),
     ]);
-    removeExerciseFromLocalState(exerciseId, section);
+    removeExerciseFromLocalState(occurrenceId, exerciseId, section);
   }
 
-  async function handleRemoveExercise(exerciseId: string, section: WorkoutTemplateSectionType) {
+  async function handleRemoveExercise(
+    occurrenceId: string,
+    exerciseId: string,
+    section: WorkoutTemplateSectionType,
+  ) {
     setSessionError(null);
 
     try {
-      await commitExerciseRemoval(exerciseId, section);
+      await commitExerciseRemoval(occurrenceId, exerciseId, section);
     } catch (error) {
       if (isSessionNotActiveError(error)) {
         redirectToCompletedSessionNotice();
@@ -1422,7 +1484,7 @@ export function ActiveWorkoutPage() {
           variant: 'destructive',
           onConfirm: async () => {
             try {
-              await commitExerciseRemoval(exerciseId, section, { force: true });
+              await commitExerciseRemoval(occurrenceId, exerciseId, section, { force: true });
             } catch (forceError) {
               if (isSessionNotActiveError(forceError)) {
                 redirectToCompletedSessionNotice();
@@ -1441,7 +1503,7 @@ export function ActiveWorkoutPage() {
   }
 
   function handleSetUpdate(
-    exerciseId: string,
+    occurrenceId: string,
     setId: string,
     update: {
       completed?: boolean;
@@ -1454,8 +1516,8 @@ export function ActiveWorkoutPage() {
       zone?: number | null;
     },
   ) {
-    const exerciseSets = setDrafts[exerciseId] ?? [];
-    const templateExercise = templateExerciseById.get(exerciseId);
+    const exerciseSets = setDrafts[occurrenceId] ?? [];
+    const templateExercise = templateExerciseById.get(occurrenceId);
     const previousSet = exerciseSets.find((set) => set.id === setId);
 
     if (!previousSet || !templateExercise) {
@@ -1477,7 +1539,7 @@ export function ActiveWorkoutPage() {
     );
     const nextDrafts = {
       ...setDrafts,
-      [exerciseId]: updatedSets,
+      [occurrenceId]: updatedSets,
     };
 
     setSetDrafts(nextDrafts);
@@ -1513,7 +1575,7 @@ export function ActiveWorkoutPage() {
           onError: (error) => {
             setSetDrafts((current) => ({
               ...current,
-              [exerciseId]: (current[exerciseId] ?? []).map((set) =>
+              [occurrenceId]: (current[occurrenceId] ?? []).map((set) =>
                 set.id === setId ? previousSet : set,
               ),
             }));
@@ -1567,16 +1629,65 @@ export function ActiveWorkoutPage() {
     restTimerTokenRef.current += 1;
     setRestTimer({
       duration: templateExercise.exercise.restSeconds,
-      exerciseId,
+      exerciseId: occurrenceId,
       exerciseName:
         updatedSession.sections
           .flatMap((section) => section.exercises)
-          .find((exercise) => exercise.id === exerciseId)?.name ?? 'Next set',
+          .find((exercise) => exercise.occurrenceId === occurrenceId)?.name ?? 'Next set',
       setId: updatedSet.id,
       setNumber: updatedSet.number,
       token: restTimerTokenRef.current,
     });
     setFocusSetId(null);
+  }
+
+  function handleExerciseNotesChange(occurrenceId: string, notes: string) {
+    const previousNote = exerciseNotes[occurrenceId];
+    setExerciseNotes((current) => ({
+      ...current,
+      [occurrenceId]: notes,
+    }));
+
+    if (!activeSessionId) {
+      return;
+    }
+
+    const firstSet = [...(setDrafts[occurrenceId] ?? [])].sort(
+      (left, right) => left.number - right.number,
+    )[0];
+    if (!firstSet) {
+      return;
+    }
+
+    setSessionError(null);
+    updateSetMutation.mutate(
+      {
+        setId: firstSet.id,
+        update: { notes: notes.trim() || null },
+      },
+      {
+        onError: (error) => {
+          setExerciseNotes((current) => {
+            if (current[occurrenceId] !== notes) {
+              return current;
+            }
+
+            const next = { ...current };
+            if (previousNote === undefined) {
+              Reflect.deleteProperty(next, occurrenceId);
+            } else {
+              next[occurrenceId] = previousNote;
+            }
+            return next;
+          });
+          if (isSessionNotActiveError(error)) {
+            redirectToCompletedSessionNotice();
+            return;
+          }
+          setSessionError('Unable to save session notes. Try again.');
+        },
+      },
+    );
   }
 
   function startSetSectionTimerIfNeeded(section: WorkoutTemplateSectionType) {
@@ -1629,7 +1740,9 @@ export function ActiveWorkoutPage() {
     reorderSessionExercisesMutation.mutate(
       {
         section,
-        exerciseIds,
+        exerciseIds: exerciseIds
+          .map((occurrenceId) => templateExerciseById.get(occurrenceId)?.exercise.exerciseId)
+          .filter((exerciseId): exerciseId is string => Boolean(exerciseId)),
       },
       {
         onError: (error) => {
@@ -1661,7 +1774,7 @@ export function ActiveWorkoutPage() {
     }
 
     const targetSectionExerciseIds = new Set(
-      targetSection.exercises.map((exercise) => exercise.id),
+      targetSection.exercises.map((exercise) => exercise.occurrenceId),
     );
     const scopedExerciseIds = exerciseIds.filter((exerciseId) =>
       targetSectionExerciseIds.has(exerciseId),
@@ -1675,7 +1788,7 @@ export function ActiveWorkoutPage() {
     // When creating a superset, reorder exercises so the selected ones are adjacent.
     // Move all selected exercises to be directly after the first selected exercise.
     if (supersetGroup !== null && scopedExerciseIds.length > 1) {
-      const currentOrder = targetSection.exercises.map((exercise) => exercise.id);
+      const currentOrder = targetSection.exercises.map((exercise) => exercise.occurrenceId);
       const selectedSet = new Set(scopedExerciseIds);
       const firstSelectedIndex = currentOrder.findIndex((id) => selectedSet.has(id));
 
@@ -1703,7 +1816,7 @@ export function ActiveWorkoutPage() {
 
     const allExercises = session.sections.flatMap((sessionSection) => sessionSection.exercises);
     const previousSupersetByExerciseId = new Map(
-      allExercises.map((exercise) => [exercise.id, exercise.supersetGroup] as const),
+      allExercises.map((exercise) => [exercise.occurrenceId, exercise.supersetGroup] as const),
     );
     const previousValues = new Map(
       scopedExerciseIds.map((exerciseId) => [
@@ -1729,7 +1842,8 @@ export function ActiveWorkoutPage() {
     try {
       const updatedSession = await persistSessionSupersetGroups({
         exerciseUpdates: scopedExerciseIds.map((exerciseId) => ({
-          exerciseId,
+          exerciseId: templateExerciseById.get(exerciseId)?.exercise.exerciseId ?? exerciseId,
+          section,
           supersetGroup,
         })),
         sessionId: activeSessionId,
@@ -1981,8 +2095,9 @@ function createSessionSetDrafts(
       continue;
     }
 
-    const trackingType =
-      templateExerciseById.get(sessionSet.exerciseId)?.trackingType ?? 'weight_reps';
+    const occurrenceId = resolveSessionSetOccurrenceId(template, sessionSet);
+    if (!occurrenceId) continue;
+    const trackingType = templateExerciseById.get(occurrenceId)?.trackingType ?? 'weight_reps';
     const isTimeBased = isTimeBasedTrackingType(trackingType);
     const nextSeconds = isTimeBased ? (sessionSet.seconds ?? sessionSet.reps) : null;
     const nextReps =
@@ -2015,11 +2130,11 @@ function createSessionSetDrafts(
         ? { zone: sessionSet.zone }
         : {}),
     };
-    const existingSets = drafts[sessionSet.exerciseId] ?? [];
+    const existingSets = drafts[occurrenceId] ?? [];
     const existingSetIndex = existingSets.findIndex((set) => set.number === sessionSet.setNumber);
 
     if (existingSetIndex === -1) {
-      drafts[sessionSet.exerciseId] = [...existingSets, nextSet].sort(
+      drafts[occurrenceId] = [...existingSets, nextSet].sort(
         (left, right) => left.number - right.number,
       );
       continue;
@@ -2027,14 +2142,49 @@ function createSessionSetDrafts(
 
     const nextExerciseSets = [...existingSets];
     nextExerciseSets[existingSetIndex] = nextSet;
-    drafts[sessionSet.exerciseId] = nextExerciseSets;
+    drafts[occurrenceId] = nextExerciseSets;
   }
 
   return drafts;
 }
 
+function resolveSessionSetOccurrenceId(template: ActiveWorkoutTemplate, sessionSet: SessionSet) {
+  if (!sessionSet.exerciseId) return null;
+  const section = sessionSet.section ?? 'main';
+  const matching = template.sections
+    .find((entry) => entry.type === section)
+    ?.exercises.find((exercise) => exercise.exerciseId === sessionSet.exerciseId);
+  return matching
+    ? getWorkoutOccurrenceId(matching, section)
+    : `${section}::${sessionSet.exerciseId}`;
+}
+
 function hasDraftStructure(setDrafts: ActiveWorkoutSetDrafts) {
   return Object.values(setDrafts).some((exerciseDrafts) => exerciseDrafts.length > 0);
+}
+
+function migrateLegacyOccurrenceRecord<T>(
+  template: ActiveWorkoutTemplate,
+  record: Record<string, T>,
+) {
+  const next = { ...record };
+  const counts = new Map<string, number>();
+  for (const exercise of template.sections.flatMap((section) => section.exercises)) {
+    counts.set(exercise.exerciseId, (counts.get(exercise.exerciseId) ?? 0) + 1);
+  }
+
+  for (const section of template.sections) {
+    for (const exercise of section.exercises) {
+      if (counts.get(exercise.exerciseId) !== 1) continue;
+      const occurrenceId = getWorkoutOccurrenceId(exercise, section.type);
+      if (Object.hasOwn(next, occurrenceId) || !Object.hasOwn(next, exercise.exerciseId)) continue;
+      const legacyValue = next[exercise.exerciseId];
+      if (legacyValue === undefined) continue;
+      next[occurrenceId] = legacyValue;
+      Reflect.deleteProperty(next, exercise.exerciseId);
+    }
+  }
+  return next;
 }
 
 function buildSessionStructureSignature(session: ApiWorkoutSession) {
@@ -2069,19 +2219,19 @@ function buildExerciseOrderFromTemplate(template: ActiveWorkoutTemplate): Exerci
     warmup:
       template.sections
         .find((section) => section.type === 'warmup')
-        ?.exercises.map((exercise) => exercise.exerciseId) ?? [],
+        ?.exercises.map((exercise) => getWorkoutOccurrenceId(exercise, 'warmup')) ?? [],
     main:
       template.sections
         .find((section) => section.type === 'main')
-        ?.exercises.map((exercise) => exercise.exerciseId) ?? [],
+        ?.exercises.map((exercise) => getWorkoutOccurrenceId(exercise, 'main')) ?? [],
     cooldown:
       template.sections
         .find((section) => section.type === 'cooldown')
-        ?.exercises.map((exercise) => exercise.exerciseId) ?? [],
+        ?.exercises.map((exercise) => getWorkoutOccurrenceId(exercise, 'cooldown')) ?? [],
     supplemental:
       template.sections
         .find((section) => section.type === 'supplemental')
-        ?.exercises.map((exercise) => exercise.exerciseId) ?? [],
+        ?.exercises.map((exercise) => getWorkoutOccurrenceId(exercise, 'supplemental')) ?? [],
   };
 }
 
@@ -2123,11 +2273,12 @@ function buildExerciseOrderFromSessionSets(
       continue;
     }
 
-    if (sectionOrder[set.section].includes(set.exerciseId)) {
+    const occurrenceId = resolveSessionSetOccurrenceId(template, set);
+    if (!occurrenceId || sectionOrder[set.section].includes(occurrenceId)) {
       continue;
     }
 
-    sectionOrder[set.section].push(set.exerciseId);
+    sectionOrder[set.section].push(occurrenceId);
   }
 
   return {
@@ -2148,7 +2299,7 @@ function buildExerciseOrderIndexById(
 ) {
   const fallbackOrder = buildExerciseOrderFromTemplate(template);
   const orderIndexById: Record<string, number> = {};
-  const sections: WorkoutTemplateSectionType[] = ['warmup', 'main', 'cooldown'];
+  const sections: WorkoutTemplateSectionType[] = ['warmup', 'main', 'supplemental', 'cooldown'];
 
   for (const section of sections) {
     const mergedOrder = mergeExerciseOrder(exerciseOrderBySection[section], fallbackOrder[section]);
@@ -2258,7 +2409,11 @@ async function persistSessionSupersetGroups({
   exerciseUpdates,
   sessionId,
 }: {
-  exerciseUpdates: Array<{ exerciseId: string; supersetGroup: string | null }>;
+  exerciseUpdates: Array<{
+    exerciseId: string;
+    section: WorkoutTemplateSectionType;
+    supersetGroup: string | null;
+  }>;
   sessionId: string;
 }) {
   const payload = updateWorkoutSessionInputSchema.parse({
@@ -2466,6 +2621,7 @@ function toActiveWorkoutTemplate(template: ApiWorkoutTemplate): ActiveWorkoutTem
         agentNotes: null,
         agentNotesMeta: null,
         exerciseId: exercise.exerciseId,
+        occurrenceId: exercise.id,
         exerciseName: exercise.exerciseName,
         trackingType: exercise.trackingType,
         supersetGroup: exercise.supersetGroup,
@@ -2510,7 +2666,7 @@ export function buildTemplateFromSession(
   const fallbackExerciseById = new Map(
     fallbackTemplate.sections.flatMap((section) =>
       section.exercises.map((exercise) => [
-        exercise.exerciseId,
+        `${section.type}::${exercise.exerciseId}`,
         { exercise, section: section.type },
       ]),
     ),
@@ -2542,7 +2698,7 @@ export function buildTemplateFromSession(
 
     const fallbackExercise = activeSession.scheduledWorkoutId
       ? undefined
-      : fallbackExerciseById.get(sessionExercise.exerciseId)?.exercise;
+      : fallbackExerciseById.get(`${sectionType}::${sessionExercise.exerciseId}`)?.exercise;
     const defaultReps = fallbackExercise?.reps ?? inferExerciseRepsFromSets(sessionExercise.sets);
 
     const sessionSetCount = sessionExercise.sets.reduce(
@@ -2552,6 +2708,10 @@ export function buildTemplateFromSession(
 
     targetSection.exercises.push({
       exerciseId: sessionExercise.exerciseId,
+      occurrenceId:
+        sessionExercise.sourceScheduledExerciseId ??
+        fallbackExercise?.occurrenceId ??
+        `${sectionType}::${sessionExercise.exerciseId}`,
       exerciseName:
         sessionExercise.exerciseName ||
         fallbackExerciseNameById.get(sessionExercise.exerciseId) ||
@@ -2599,11 +2759,17 @@ export function buildTemplateFromSession(
 
   for (const section of sectionsByType.values()) {
     section.exercises.sort((left, right) => {
+      const leftOccurrenceId = left.occurrenceId ?? `${section.type}::${left.exerciseId}`;
+      const rightOccurrenceId = right.occurrenceId ?? `${section.type}::${right.exerciseId}`;
       const leftOrder = sessionExercises.find(
-        (exercise) => exercise.exerciseId === left.exerciseId,
+        (exercise) =>
+          (exercise.sourceScheduledExerciseId ??
+            `${exercise.section ?? 'main'}::${exercise.exerciseId}`) === leftOccurrenceId,
       )?.orderIndex;
       const rightOrder = sessionExercises.find(
-        (exercise) => exercise.exerciseId === right.exerciseId,
+        (exercise) =>
+          (exercise.sourceScheduledExerciseId ??
+            `${exercise.section ?? 'main'}::${exercise.exerciseId}`) === rightOccurrenceId,
       )?.orderIndex;
       if ((leftOrder ?? 0) !== (rightOrder ?? 0)) {
         return (leftOrder ?? 0) - (rightOrder ?? 0);

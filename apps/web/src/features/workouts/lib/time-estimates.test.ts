@@ -24,6 +24,7 @@ function makeExercise(overrides: Partial<ActiveWorkoutExercise> = {}): ActiveWor
     completedSets: 0,
     formCues: [],
     id: 'exercise-1',
+    occurrenceId: 'exercise-1',
     injuryCues: [],
     lastPerformance: null,
     name: 'Back Squat',

@@ -6,6 +6,7 @@ import type {
 } from '@pulse/shared';
 
 import type { ActiveWorkoutSetDrafts, ActiveWorkoutTemplate } from '@/features/workouts/types';
+import { getWorkoutOccurrenceId } from './active-session';
 import { isRepTrackingType, isTimeBasedTrackingType, isWeightedTrackingType } from './tracking';
 
 type TemplateExerciseLookup = Map<
@@ -17,11 +18,15 @@ type TemplateExerciseLookup = Map<
   }
 >;
 
-export function extractExerciseNotes(sessionSets: SessionSet[]) {
+export function extractExerciseNotes(
+  sessionSets: SessionSet[],
+  resolveOccurrenceId: (set: SessionSet) => string | null = (set) =>
+    set.exerciseId ?? null,
+) {
   const exerciseNotes: Record<string, string> = {};
   const sortedSessionSets = [...sessionSets].sort((left, right) => {
-    const leftExerciseId = left.exerciseId ?? '';
-    const rightExerciseId = right.exerciseId ?? '';
+    const leftExerciseId = resolveOccurrenceId(left) ?? '';
+    const rightExerciseId = resolveOccurrenceId(right) ?? '';
     if (leftExerciseId !== rightExerciseId) {
       return leftExerciseId.localeCompare(rightExerciseId);
     }
@@ -34,16 +39,17 @@ export function extractExerciseNotes(sessionSets: SessionSet[]) {
   });
 
   for (const set of sortedSessionSets) {
-    if (!set.exerciseId) {
+    const occurrenceId = resolveOccurrenceId(set);
+    if (!occurrenceId) {
       continue;
     }
 
     const normalizedNotes = normalizeExerciseNote(set.notes);
-    if (!normalizedNotes || exerciseNotes[set.exerciseId]) {
+    if (!normalizedNotes || exerciseNotes[occurrenceId]) {
       continue;
     }
 
-    exerciseNotes[set.exerciseId] = normalizedNotes;
+    exerciseNotes[occurrenceId] = normalizedNotes;
   }
 
   return exerciseNotes;
@@ -57,9 +63,11 @@ export function buildSessionSetInputs(
 ): SessionSetInput[] {
   const sessionSets: SessionSetInput[] = [];
 
-  for (const [exerciseId, draftSets] of Object.entries(setDrafts)) {
-    const templateExercise = templateExerciseById.get(exerciseId);
-    const normalizedExerciseNote = normalizeExerciseNote(exerciseNotes[exerciseId]);
+  for (const [occurrenceId, draftSets] of Object.entries(setDrafts)) {
+    const templateExercise = templateExerciseById.get(occurrenceId);
+    if (!templateExercise) continue;
+    const exerciseId = templateExercise.exercise.exerciseId;
+    const normalizedExerciseNote = normalizeExerciseNote(exerciseNotes[occurrenceId]);
     const trackingType = templateExercise?.trackingType ?? 'weight_reps';
     const tracksDistance = trackingType === 'distance' || trackingType === 'cardio';
 
@@ -67,7 +75,7 @@ export function buildSessionSetInputs(
       sessionSets.push({
         completed: draftSet.completed,
         exerciseId,
-        orderIndex: exerciseOrderIndexById[exerciseId] ?? 0,
+        orderIndex: exerciseOrderIndexById[occurrenceId] ?? 0,
         notes: normalizedExerciseNote && draftSet.number === 1 ? normalizedExerciseNote : null,
         reps: isRepTrackingType(trackingType) ? draftSet.reps : null,
         seconds: isTimeBasedTrackingType(trackingType) ? draftSet.seconds : null,
@@ -85,6 +93,20 @@ export function buildSessionSetInputs(
   }
 
   return sessionSets;
+}
+
+export function buildExerciseNotesPayload(
+  template: ActiveWorkoutTemplate,
+  exerciseNotes: Record<string, string>,
+) {
+  return Object.fromEntries(
+    template.sections.flatMap((section) =>
+      section.exercises.flatMap((exercise) => {
+        const note = exerciseNotes[getWorkoutOccurrenceId(exercise, section.type)]?.trim();
+        return note ? [[`${exercise.exerciseId}::${section.type}`, note]] : [];
+      }),
+    ),
+  );
 }
 
 function normalizeExerciseNote(note: string | null | undefined) {

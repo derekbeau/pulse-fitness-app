@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SessionSet, WorkoutSession } from '@pulse/shared';
 
 import { habitQueryKeys } from '@/features/habits/api/keys';
 import { workoutQueryKeys } from '@/features/workouts/api/workouts';
@@ -128,7 +129,7 @@ describe('use-session-sets hooks', () => {
       ).toEqual([
         expect.objectContaining({
           exerciseId: 'incline-dumbbell-press',
-          id: 'optimistic-session-1-incline-dumbbell-press-1',
+          id: 'optimistic-session-1-main-incline-dumbbell-press-1',
           reps: 8,
           weight: 60,
         }),
@@ -186,6 +187,108 @@ describe('use-session-sets hooks', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitQueryKeys.list() });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitQueryKeys.entryList() });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: habitChainQueryKeys.all });
+  });
+
+  it('does not overwrite a same-number set for the same exercise in another section', async () => {
+    const deferred = createDeferredPromise<SessionSet>();
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const warmupSet = {
+      ...sessionSetResponse,
+      id: 'warmup-set-1',
+      exerciseId: 'peloton-bike',
+      section: 'warmup' as const,
+      setNumber: 1,
+      reps: null,
+      seconds: 300,
+    };
+    const repeatedSession: WorkoutSession = {
+      ...sessionResponse,
+      sectionDurations: { warmup: 0, main: 0, supplemental: 0, cooldown: 0 },
+      exercises: [
+        {
+          ...sessionResponse.exercises[0],
+          exerciseId: 'peloton-bike',
+          exerciseName: 'Peloton Bike',
+          section: 'warmup' as const,
+          supersetGroup: null,
+          programmingNotes: null,
+          agentNotes: null,
+          agentNotesMeta: null,
+          sets: [warmupSet],
+        },
+        {
+          ...sessionResponse.exercises[0],
+          exerciseId: 'peloton-bike',
+          exerciseName: 'Peloton Bike',
+          section: 'supplemental' as const,
+          supersetGroup: null,
+          programmingNotes: null,
+          agentNotes: null,
+          agentNotesMeta: null,
+          sets: [],
+        },
+      ],
+      sets: [warmupSet],
+    };
+    queryClient.setQueryData(workoutSessionQueryKeys.detail('session-1'), repeatedSession);
+    mockFetch.mockImplementationOnce(() =>
+      deferred.promise.then((data) => createJsonResponse(data, 201)),
+    );
+    const { result } = renderHook(() => useLogSet('session-1'), { wrapper });
+
+    act(() => {
+      result.current.mutate({
+        exerciseId: 'peloton-bike',
+        seconds: 500,
+        section: 'supplemental',
+        setNumber: 1,
+      });
+    });
+
+    await waitFor(() => {
+      const cached = queryClient.getQueryData<WorkoutSession>(
+        workoutSessionQueryKeys.detail('session-1'),
+      );
+      expect(cached?.sets).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'warmup-set-1', section: 'warmup', seconds: 300 }),
+          expect.objectContaining({
+            id: 'optimistic-session-1-supplemental-peloton-bike-1',
+            section: 'supplemental',
+          }),
+        ]),
+      );
+      expect(cached?.exercises?.[0]?.sets).toEqual([warmupSet]);
+      expect(cached?.exercises?.[1]?.sets).toHaveLength(1);
+    });
+
+    await act(async () => {
+      deferred.resolve({
+        ...sessionSetResponse,
+        id: 'supplemental-set-1',
+        exerciseId: 'peloton-bike',
+        section: 'supplemental',
+        reps: null,
+        seconds: 500,
+      });
+      await deferred.promise;
+    });
+
+    await waitFor(() => {
+      const cached = queryClient.getQueryData<WorkoutSession>(
+        workoutSessionQueryKeys.detail('session-1'),
+      );
+      expect(cached?.sets).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'warmup-set-1', section: 'warmup', seconds: 300 }),
+          expect.objectContaining({
+            id: 'supplemental-set-1',
+            section: 'supplemental',
+            seconds: 500,
+          }),
+        ]),
+      );
+    });
   });
 
   it('optimistically updates a set and reconciles the server result', async () => {
@@ -292,5 +395,122 @@ describe('use-session-sets hooks', () => {
       queryClient.getQueryData<typeof sessionResponse>(workoutSessionQueryKeys.detail('session-1'))
         ?.sets[0],
     ).not.toHaveProperty('rir');
+  });
+
+  it('rolls back only the failed occurrence when repeated exercise sets share a set number', async () => {
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const warmupSet: SessionSet = {
+      ...sessionSetResponse,
+      id: 'bike-warmup-set',
+      exerciseId: 'peloton-bike',
+      section: 'warmup',
+      reps: null,
+      seconds: 300,
+    };
+    const supplementalSet: SessionSet = {
+      ...sessionSetResponse,
+      id: 'bike-supplemental-set',
+      exerciseId: 'peloton-bike',
+      section: 'supplemental',
+      reps: null,
+      seconds: null,
+    };
+    const session: WorkoutSession = {
+      ...sessionResponse,
+      sectionDurations: { warmup: 0, main: 0, supplemental: 0, cooldown: 0 },
+      exercises: undefined,
+      sets: [warmupSet, supplementalSet],
+    };
+    queryClient.setQueryData(workoutSessionQueryKeys.detail('session-1'), session);
+    const deferred = createDeferredPromise<never>();
+    mockFetch.mockImplementationOnce(() => deferred.promise);
+    const { result } = renderHook(() => useUpdateSet('session-1'), { wrapper });
+
+    act(() => {
+      result.current.mutate({
+        setId: 'bike-supplemental-set',
+        update: { seconds: 500, completed: true },
+      });
+    });
+    await waitFor(() => {
+      const cached = queryClient.getQueryData<WorkoutSession>(
+        workoutSessionQueryKeys.detail('session-1'),
+      );
+      expect(cached?.sets).toEqual([
+        expect.objectContaining({ id: 'bike-warmup-set', seconds: 300, completed: false }),
+        expect.objectContaining({ id: 'bike-supplemental-set', seconds: 500, completed: true }),
+      ]);
+    });
+
+    await act(async () => {
+      deferred.reject(new Error('offline'));
+      await expect(deferred.promise).rejects.toThrow('offline');
+    });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(
+      queryClient.getQueryData<WorkoutSession>(workoutSessionQueryKeys.detail('session-1'))?.sets,
+    ).toEqual([
+      expect.objectContaining({ id: 'bike-warmup-set', seconds: 300, completed: false }),
+      expect.objectContaining({ id: 'bike-supplemental-set', seconds: null, completed: false }),
+    ]);
+  });
+
+  it('rolls back only the failed occurrence note', async () => {
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const warmupSet: SessionSet = {
+      ...sessionSetResponse,
+      id: 'bike-warmup-set',
+      exerciseId: 'peloton-bike',
+      section: 'warmup',
+      notes: 'Warmup cadence note',
+    };
+    const supplementalSet: SessionSet = {
+      ...sessionSetResponse,
+      id: 'bike-supplemental-set',
+      exerciseId: 'peloton-bike',
+      section: 'supplemental',
+      notes: 'Original supplemental note',
+    };
+    queryClient.setQueryData(workoutSessionQueryKeys.detail('session-1'), {
+      ...sessionResponse,
+      exercises: undefined,
+      sets: [warmupSet, supplementalSet],
+    });
+    const deferred = createDeferredPromise<never>();
+    mockFetch.mockImplementationOnce(() => deferred.promise);
+    const { result } = renderHook(() => useUpdateSet('session-1'), { wrapper });
+
+    act(() => {
+      result.current.mutate({
+        setId: 'bike-supplemental-set',
+        update: { notes: 'Updated supplemental note' },
+      });
+    });
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryData<WorkoutSession>(workoutSessionQueryKeys.detail('session-1'))?.sets,
+      ).toEqual([
+        expect.objectContaining({ id: 'bike-warmup-set', notes: 'Warmup cadence note' }),
+        expect.objectContaining({
+          id: 'bike-supplemental-set',
+          notes: 'Updated supplemental note',
+        }),
+      ]);
+    });
+
+    await act(async () => {
+      deferred.reject(new Error('offline'));
+      await expect(deferred.promise).rejects.toThrow('offline');
+    });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(
+      queryClient.getQueryData<WorkoutSession>(workoutSessionQueryKeys.detail('session-1'))?.sets,
+    ).toEqual([
+      expect.objectContaining({ id: 'bike-warmup-set', notes: 'Warmup cadence note' }),
+      expect.objectContaining({
+        id: 'bike-supplemental-set',
+        notes: 'Original supplemental note',
+      }),
+    ]);
   });
 });

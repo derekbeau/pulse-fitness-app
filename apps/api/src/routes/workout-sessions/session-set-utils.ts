@@ -193,12 +193,14 @@ export const applyExerciseNotesToSets = ({
   });
 
   return sets.map((set, index) => {
-    const nextExerciseNote = exerciseNotes[set.exerciseId];
     const exerciseSectionKey = toExerciseSectionKey(set.exerciseId, set.section);
+    const hasSectionNote = Object.hasOwn(exerciseNotes, exerciseSectionKey);
+    const noteKey = hasSectionNote ? exerciseSectionKey : set.exerciseId;
+    const nextExerciseNote = exerciseNotes[noteKey];
 
     if (
       firstSetIndexByExerciseSectionKey.get(exerciseSectionKey) !== index ||
-      !Object.hasOwn(exerciseNotes, set.exerciseId) ||
+      !Object.hasOwn(exerciseNotes, noteKey) ||
       nextExerciseNote === null
     ) {
       return set;

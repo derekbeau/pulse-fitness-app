@@ -1561,6 +1561,27 @@ describe('adaptive weekly review store', () => {
     expect(lifecycle.findCheckInDetail('user-1', learning.id)).toEqual(learning);
   });
 
+  it('turns a same-window weekly review into a deterministic non-actionable hold', () => {
+    const lifecycle = seedEligibleProgram();
+    const manual = lifecycle.previewCheckIn('user-1', { kind: 'manual', includeToday: false });
+    lifecycle.acceptCheckIn('user-1', manual.id, { replaceSameDateTarget: false });
+    const store = createAdaptiveWeeklyReviewStore({ db, sqlite, now: () => new Date(nowMs) });
+
+    const review = store.preview('user-1', { kind: 'weekly' });
+    const repeated = store.preview('user-1', { kind: 'weekly' });
+    const checkIn = lifecycle.findCheckInDetail('user-1', review.checkInId);
+
+    expect(repeated.id).toBe(review.id);
+    expect(checkIn).toMatchObject({
+      status: 'held',
+      calculationState: 'holding',
+      proposedTargets: null,
+      proposedTdeeKcal: null,
+    });
+    expect(checkIn?.reasonCodes).toContain('NO_NEW_EVIDENCE');
+    expect(review.effectiveProposal).toBeNull();
+  });
+
   it.each(['null_tdee', 'missing_targets', 'missing_update', 'ineligible'] as const)(
     'rejects a malformed updating fixture with %s without fabricating learning',
     (fault) => {

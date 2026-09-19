@@ -32,6 +32,7 @@ export type ActiveWorkoutTemplateExercise = {
     instructions?: string | null;
   } | null;
   exerciseId: string;
+  occurrenceId?: string;
   exerciseName?: string;
   formCues: string[];
   programmingNotes?: string | null;
@@ -194,6 +195,7 @@ export type ActiveWorkoutFormCueDetails = {
 export type ActiveWorkoutExercise = ActiveWorkoutExerciseMetadata & {
   completedSets: number;
   id: string;
+  occurrenceId: string;
   notes: string;
   sets: ActiveWorkoutSet[];
   targetSets: number;

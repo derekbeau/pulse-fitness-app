@@ -44,6 +44,7 @@ export const adaptiveReasonCodeSchema = z.enum([
   'GOAL_REACHED',
   'TODAY_INCLUDED',
   'EXCLUDED_INCOMPLETE_DAYS',
+  'NO_NEW_EVIDENCE',
   'SAME_DATE_TARGET_EXISTS',
 ]);
 

@@ -155,7 +155,7 @@ describe('adaptive TDEE schemas', () => {
       'updating',
     ]);
     expect(adaptiveConfidenceLabelSchema.options).toEqual(['Developing', 'Moderate', 'High']);
-    expect(adaptiveReasonCodeSchema.options).toHaveLength(18);
+    expect(adaptiveReasonCodeSchema.options).toHaveLength(19);
   });
 
   it('accepts a complete equation-based program and rejects unknown fields', () => {

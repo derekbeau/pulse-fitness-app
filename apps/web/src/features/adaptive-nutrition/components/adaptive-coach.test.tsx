@@ -1104,6 +1104,40 @@ describe('AdaptiveCoach', () => {
     await waitFor(() => expect(mocks.decline).toHaveBeenCalledWith(detail.id));
   });
 
+  it('explains and disables a consumed evidence window until today is complete', () => {
+    const eligibility = createState('updating').eligibility;
+    if (!eligibility) throw new Error('Expected eligibility fixture');
+    mocks.useState.mockReturnValue({
+      data: createState('updating', {
+        latestAcceptedCheckIn: {
+          ...detail,
+          status: 'accepted',
+          analysisEnd: '2026-08-12',
+          acceptedNutritionTargetId: target.id,
+          resolvedAt: 2,
+        },
+        eligibility: {
+          ...eligibility,
+          analysisEndDate: '2026-08-12',
+          pendingCutoffDate: '2026-08-13',
+        },
+        nextCheckInDate: '2026-08-20',
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(<AdaptiveCoach />);
+
+    expect(screen.getByText('This completed evidence window is already accepted.')).toBeVisible();
+    expect(screen.getByText(/next automatic evidence window opens Aug 14, 2026/i)).toBeVisible();
+    const checkInButton = screen.getByRole('button', { name: 'Check in now' });
+    expect(checkInButton).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox', { name: /include today/i }));
+    expect(checkInButton).toBeEnabled();
+  });
+
   it.each([
     {
       label: 'loading',

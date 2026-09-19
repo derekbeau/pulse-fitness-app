@@ -49,7 +49,11 @@ async function patchSessionSet(sessionId: string, setId: string, input: UpdateSe
   return payload.data;
 }
 
+const sectionRank = (section: SessionSet['section']) =>
+  ['warmup', 'main', 'supplemental', 'cooldown'].indexOf(section ?? 'main');
+
 const compareSessionSets = (left: SessionSet, right: SessionSet) =>
+  sectionRank(left.section) - sectionRank(right.section) ||
   (left.exerciseId ?? '').localeCompare(right.exerciseId ?? '') ||
   left.setNumber - right.setNumber ||
   left.createdAt - right.createdAt ||
@@ -59,7 +63,9 @@ const upsertSessionSet = (sets: SessionSet[], nextSet: SessionSet) => {
   const existingIndex = sets.findIndex(
     (set) =>
       set.id === nextSet.id ||
-      (set.exerciseId === nextSet.exerciseId && set.setNumber === nextSet.setNumber),
+      (set.exerciseId === nextSet.exerciseId &&
+        set.section === nextSet.section &&
+        set.setNumber === nextSet.setNumber),
   );
 
   if (existingIndex === -1) {
@@ -97,7 +103,7 @@ const applySessionSet = (session: WorkoutSession | undefined, nextSet: SessionSe
   return {
     ...session,
     exercises: session.exercises?.map((exercise) =>
-      exercise.exerciseId === nextSet.exerciseId
+      exercise.exerciseId === nextSet.exerciseId && exercise.section === nextSet.section
         ? {
             ...exercise,
             sets: upsertSessionSet(exercise.sets, nextSet),
@@ -167,11 +173,13 @@ export function useLogSet(sessionId: string | null | undefined) {
     },
     getMeta: (variables) => ({
       optimisticSet: {
-        id: `optimistic-${normalizedSessionId}-${variables.exerciseId}-${variables.setNumber}`,
+        id: `optimistic-${normalizedSessionId}-${variables.section ?? 'main'}-${variables.exerciseId}-${variables.setNumber}`,
         exerciseId: variables.exerciseId,
         setNumber: variables.setNumber,
         weight: variables.weight ?? null,
         reps: variables.reps ?? null,
+        seconds: variables.seconds ?? null,
+        distance: variables.distance ?? null,
         ...(variables.rpe !== undefined ? { rpe: variables.rpe } : {}),
         ...(variables.rir !== undefined ? { rir: variables.rir } : {}),
         ...(variables.zone !== undefined ? { zone: variables.zone } : {}),
@@ -225,6 +233,10 @@ export function useUpdateSet(sessionId: string | null | undefined) {
             ? {}
             : { completed: variables.update.completed }),
           ...(variables.update.reps === undefined ? {} : { reps: variables.update.reps }),
+          ...(variables.update.seconds === undefined ? {} : { seconds: variables.update.seconds }),
+          ...(variables.update.distance === undefined
+            ? {}
+            : { distance: variables.update.distance }),
           ...(variables.update.rpe === undefined ? {} : { rpe: variables.update.rpe }),
           ...(variables.update.rir === undefined ? {} : { rir: variables.update.rir }),
           ...(variables.update.notes === undefined

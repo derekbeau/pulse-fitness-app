@@ -130,6 +130,11 @@ export const adaptiveReasonCopy: Record<AdaptiveReasonCode, { action: string; la
     label: 'Incomplete days excluded',
     action: 'Unknown and partial days did not affect the calculation.',
   },
+  NO_NEW_EVIDENCE: {
+    label: 'No new completed-day evidence',
+    action:
+      'This evidence window was already accepted. Check in after another local day closes, or include today once it is marked Complete.',
+  },
   SAME_DATE_TARGET_EXISTS: {
     label: 'A target already exists for this date',
     action: 'Acceptance requires confirmation before replacing that dated target.',

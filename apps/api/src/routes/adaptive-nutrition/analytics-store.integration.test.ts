@@ -686,7 +686,7 @@ describe('adaptive energy balance analytics store', () => {
     });
   });
 
-  it('keeps accepted history immutable while authoritative corrections get a new fingerprint', () => {
+  it('keeps accepted history immutable while same-window corrections stay non-actionable', () => {
     const lifecycle = acceptBaseline('user-1');
     for (let offset = -14; offset <= -1; offset += 1) {
       seedNutrition('user-1', datePlus('2026-08-18', offset), 'complete', 2520);
@@ -749,14 +749,14 @@ describe('adaptive energy balance analytics store', () => {
     expect(historicalAfter).toEqual(correctedHistorical);
     const current = store.getAnalytics('user-1', { range: '1w', aggregation: 'daily' });
     expect(current.current).toMatchObject({
-      state: 'review_needed',
+      state: 'holding',
       adaptiveTdeeKcal: acceptedUpdate.proposedTdeeKcal,
     });
     expect(current.current.expenditureSourceCheckInId).toBe(acceptedUpdate.id);
     expect(current.current.expenditureSourceInputFingerprint).toBe(acceptedBefore.dataFingerprint);
     expect(current.current.stateSourceCheckInId).toBe(corrected.id);
     expect(current.points.at(-1)).toMatchObject({
-      state: 'review_needed',
+      state: 'holding',
       expenditureKcal: acceptedUpdate.proposedTdeeKcal,
       expenditureSourceCheckInId: acceptedUpdate.id,
       stateSourceCheckInId: corrected.id,

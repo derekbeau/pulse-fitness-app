@@ -249,10 +249,12 @@ const seedSessionSet = (values: {
   targetWeightMax?: number | null;
   targetSeconds?: number | null;
   targetDistance?: number | null;
+  seconds?: number | null;
+  sourceScheduledSetId?: string | null;
   completed?: boolean;
   skipped?: boolean;
   supersetGroup?: string | null;
-  section?: 'warmup' | 'main' | 'cooldown';
+  section?: 'warmup' | 'main' | 'cooldown' | 'supplemental';
   notes?: string | null;
 }) =>
   context.db
@@ -265,6 +267,7 @@ const seedSessionSet = (values: {
       setNumber: values.setNumber,
       weight: values.weight ?? null,
       reps: values.reps ?? null,
+      seconds: values.seconds ?? null,
       rpe: values.rpe ?? null,
       rir: values.rir ?? null,
       zone: values.zone ?? null,
@@ -273,6 +276,7 @@ const seedSessionSet = (values: {
       targetWeightMax: values.targetWeightMax ?? null,
       targetSeconds: values.targetSeconds ?? null,
       targetDistance: values.targetDistance ?? null,
+      sourceScheduledSetId: values.sourceScheduledSetId ?? null,
       completed: values.completed ?? false,
       skipped: values.skipped ?? false,
       supersetGroup: values.supersetGroup ?? null,
@@ -7937,6 +7941,394 @@ describe('workout session routes', () => {
     );
   });
 
+  it('updates repeated duration occurrences independently and rejects an ambiguous sectionless update', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedExercise({
+      id: 'user-1-peloton',
+      userId: 'user-1',
+      name: 'Peloton Bike',
+      category: 'cardio',
+      trackingType: 'seconds_only',
+    });
+    seedWorkoutSession({
+      id: 'session-repeated-bike',
+      userId: 'user-1',
+      name: 'Repeated Bike Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-repeated-bike-warmup',
+      sessionId: 'session-repeated-bike',
+      exerciseId: 'user-1-peloton',
+      setNumber: 1,
+      section: 'warmup',
+      targetSeconds: 300,
+      sourceScheduledSetId: 'scheduled-bike-warmup-set',
+    });
+    seedSessionSet({
+      id: 'session-repeated-bike-supplemental',
+      sessionId: 'session-repeated-bike',
+      exerciseId: 'user-1-peloton',
+      setNumber: 1,
+      section: 'supplemental',
+      targetSeconds: 900,
+      sourceScheduledSetId: 'scheduled-bike-supplemental-set',
+    });
+
+    const warmupResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-repeated-bike',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [
+          {
+            exerciseId: 'user-1-peloton',
+            setNumber: 1,
+            section: 'warmup',
+            seconds: 300,
+            completed: true,
+          },
+        ],
+      },
+    });
+
+    expect(warmupResponse.statusCode).toBe(200);
+    expect(
+      (warmupResponse.json() as { data: { sets: Array<Record<string, unknown>> } }).data.sets,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'session-repeated-bike-warmup',
+          section: 'warmup',
+          targetSeconds: 300,
+          seconds: 300,
+          completed: true,
+        }),
+        expect.objectContaining({
+          id: 'session-repeated-bike-supplemental',
+          section: 'supplemental',
+          targetSeconds: 900,
+          completed: false,
+        }),
+      ]),
+    );
+
+    const supplementalResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-repeated-bike',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [
+          {
+            exerciseId: 'user-1-peloton',
+            setNumber: 1,
+            section: 'supplemental',
+            seconds: 500,
+            completed: true,
+          },
+        ],
+      },
+    });
+    expect(supplementalResponse.statusCode).toBe(200);
+    expect(
+      (supplementalResponse.json() as { data: { sets: Array<Record<string, unknown>> } }).data.sets,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ section: 'warmup', seconds: 300, completed: true }),
+        expect.objectContaining({
+          section: 'supplemental',
+          targetSeconds: 900,
+          seconds: 500,
+          completed: true,
+        }),
+      ]),
+    );
+
+    const ambiguousResponse = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-repeated-bike',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        sets: [{ exerciseId: 'user-1-peloton', setNumber: 1, seconds: 600 }],
+      },
+    });
+    expect(ambiguousResponse.statusCode).toBe(400);
+    expect(ambiguousResponse.json()).toEqual({
+      error: {
+        code: 'AMBIGUOUS_EXERCISE_OCCURRENCE',
+        message: 'section is required when the same exercise and set number occur more than once',
+      },
+    });
+  });
+
+  it('rejects same-section duplicate occurrences instead of silently merging them', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        name: 'Ambiguous duplicate session',
+        date: '2026-03-12',
+        startedAt: Date.now() - 60_000,
+        sets: [
+          { exerciseId: 'global-bench-press', setNumber: 1, section: 'main' },
+          { exerciseId: 'global-bench-press', setNumber: 1, section: 'main' },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'AMBIGUOUS_EXERCISE_OCCURRENCE',
+        message:
+          'The same exercise cannot appear twice in one section without a persisted occurrence id',
+      },
+    });
+  });
+
+  it('materializes cross-section duplicate occurrences from a template start', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedTemplateExercise({
+      id: 'template-bike-warmup',
+      templateId: 'template-1',
+      exerciseId: 'user-1-plank',
+      orderIndex: 0,
+      section: 'warmup',
+    });
+    seedTemplateExercise({
+      id: 'template-bike-supplemental',
+      templateId: 'template-1',
+      exerciseId: 'user-1-plank',
+      orderIndex: 0,
+      section: 'supplemental',
+    });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateId: 'template-1',
+        date: '2026-03-12',
+        startedAt: Date.now() - 60_000,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(
+      (response.json() as { data: { sets: Array<Record<string, unknown>> } }).data.sets,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'user-1-plank',
+          section: 'warmup',
+          setNumber: 1,
+        }),
+        expect.objectContaining({
+          exerciseId: 'user-1-plank',
+          section: 'supplemental',
+          setNumber: 1,
+        }),
+      ]),
+    );
+  });
+
+  it('rejects same-section duplicate occurrences from a template start', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedTemplateExercise({
+      id: 'template-ambiguous-bike-a',
+      templateId: 'template-1',
+      exerciseId: 'user-1-plank',
+      orderIndex: 0,
+      section: 'warmup',
+    });
+    seedTemplateExercise({
+      id: 'template-ambiguous-bike-b',
+      templateId: 'template-1',
+      exerciseId: 'user-1-plank',
+      orderIndex: 1,
+      section: 'warmup',
+    });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateId: 'template-1',
+        date: '2026-03-12',
+        startedAt: Date.now() - 60_000,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'AMBIGUOUS_EXERCISE_OCCURRENCE',
+        message:
+          'The same exercise cannot appear twice in one section without a persisted occurrence id',
+      },
+    });
+  });
+
+  it('preserves source occurrence and set provenance for a scheduled duplicate start', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedScheduledWorkout({
+      id: 'scheduled-repeated-bike',
+      userId: 'user-1',
+      date: '2026-03-12',
+    });
+    seedScheduledWorkoutExercise({
+      id: 'scheduled-bike-warmup',
+      scheduledWorkoutId: 'scheduled-repeated-bike',
+      exerciseId: 'user-1-plank',
+      section: 'warmup',
+      orderIndex: 0,
+    });
+    seedScheduledWorkoutExercise({
+      id: 'scheduled-bike-supplemental',
+      scheduledWorkoutId: 'scheduled-repeated-bike',
+      exerciseId: 'user-1-plank',
+      section: 'supplemental',
+      orderIndex: 0,
+    });
+    seedScheduledWorkoutExerciseSet({
+      id: 'scheduled-bike-warmup-set',
+      scheduledWorkoutExerciseId: 'scheduled-bike-warmup',
+      setNumber: 1,
+      targetSeconds: 300,
+    });
+    seedScheduledWorkoutExerciseSet({
+      id: 'scheduled-bike-supplemental-set',
+      scheduledWorkoutExerciseId: 'scheduled-bike-supplemental',
+      setNumber: 1,
+      targetSeconds: 900,
+    });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        scheduledWorkoutId: 'scheduled-repeated-bike',
+        date: '2026-03-12',
+        startedAt: Date.now() - 60_000,
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    const session = (
+      response.json() as {
+        data: {
+          exercises: Array<Record<string, unknown>>;
+          sets: Array<Record<string, unknown>>;
+        };
+      }
+    ).data;
+    expect(session.exercises).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exerciseId: 'user-1-plank',
+          sourceScheduledExerciseId: 'scheduled-bike-warmup',
+          section: 'warmup',
+        }),
+        expect.objectContaining({
+          exerciseId: 'user-1-plank',
+          sourceScheduledExerciseId: 'scheduled-bike-supplemental',
+          section: 'supplemental',
+        }),
+      ]),
+    );
+    expect(session.sets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceScheduledSetId: 'scheduled-bike-warmup-set',
+          section: 'warmup',
+          targetSeconds: 300,
+        }),
+        expect.objectContaining({
+          sourceScheduledSetId: 'scheduled-bike-supplemental-set',
+          section: 'supplemental',
+          targetSeconds: 900,
+        }),
+      ]),
+    );
+  });
+
+  it('rejects same-section duplicate occurrences from a scheduled start', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedScheduledWorkout({
+      id: 'scheduled-ambiguous-bike',
+      userId: 'user-1',
+      date: '2026-03-12',
+    });
+    for (const occurrence of ['a', 'b']) {
+      seedScheduledWorkoutExercise({
+        id: `scheduled-ambiguous-bike-${occurrence}`,
+        scheduledWorkoutId: 'scheduled-ambiguous-bike',
+        exerciseId: 'user-1-plank',
+        section: 'main',
+        orderIndex: occurrence === 'a' ? 0 : 1,
+      });
+      seedScheduledWorkoutExerciseSet({
+        id: `scheduled-ambiguous-bike-${occurrence}-set`,
+        scheduledWorkoutExerciseId: `scheduled-ambiguous-bike-${occurrence}`,
+        setNumber: 1,
+        targetSeconds: 300,
+      });
+    }
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        scheduledWorkoutId: 'scheduled-ambiguous-bike',
+        date: '2026-03-12',
+        startedAt: Date.now() - 60_000,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'AMBIGUOUS_EXERCISE_OCCURRENCE',
+        message:
+          'The same exercise cannot appear twice in one section without a persisted occurrence id',
+      },
+    });
+    expect(
+      context.db
+        .select()
+        .from(workoutSessions)
+        .where(eq(workoutSessions.scheduledWorkoutId, 'scheduled-ambiguous-bike'))
+        .all(),
+    ).toHaveLength(0);
+  });
+
   it('removes exercises by exerciseId and section tuple', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
@@ -8231,6 +8623,56 @@ describe('workout session routes', () => {
         ]),
       }),
     });
+  });
+
+  it('updates superset grouping only for the selected exercise occurrence', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedWorkoutSession({
+      id: 'session-occurrence-superset',
+      userId: 'user-1',
+      name: 'Occurrence Superset Session',
+      date: '2026-03-12',
+      startedAt: Date.now() - 60_000,
+      status: 'in-progress',
+    });
+    seedSessionSet({
+      id: 'session-occurrence-superset-warmup',
+      sessionId: 'session-occurrence-superset',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'warmup',
+    });
+    seedSessionSet({
+      id: 'session-occurrence-superset-main',
+      sessionId: 'session-occurrence-superset',
+      exerciseId: 'global-bench-press',
+      setNumber: 1,
+      section: 'main',
+    });
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/workout-sessions/session-occurrence-superset',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        exercises: [
+          { exerciseId: 'global-bench-press', section: 'warmup', supersetGroup: 'warmup-a' },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const exercises = (response.json() as { data: { exercises: Array<Record<string, unknown>> } })
+      .data.exercises;
+    expect(exercises).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ section: 'warmup', supersetGroup: 'warmup-a' }),
+        expect.objectContaining({ section: 'main', supersetGroup: null }),
+      ]),
+    );
   });
 
   it('treats omitted supersetGroup in exercise updates as no-op', async () => {

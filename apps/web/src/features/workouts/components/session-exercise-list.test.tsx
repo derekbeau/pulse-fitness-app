@@ -56,7 +56,10 @@ function getExercisePanelToggle(exerciseName: string, exerciseId: string) {
 
   const toggle = within(card as HTMLElement)
     .getAllByRole('button')
-    .find((button) => button.getAttribute('aria-controls') === `exercise-panel-${exerciseId}`);
+    .find((button) => {
+      const controls = button.getAttribute('aria-controls');
+      return controls === `exercise-panel-${exerciseId}` || controls?.endsWith(`::${exerciseId}`);
+    });
 
   if (!toggle) {
     throw new Error(`Expected ${exerciseName} toggle button.`);
@@ -129,11 +132,11 @@ describe('SessionExerciseList', () => {
       createInitialWorkoutSetDrafts(
         activeTemplate,
         new Set([
-          createWorkoutSetId('row-erg', 1),
-          createWorkoutSetId('banded-shoulder-external-rotation', 1),
-          createWorkoutSetId('banded-shoulder-external-rotation', 2),
-          createWorkoutSetId('incline-dumbbell-press', 1),
-          createWorkoutSetId('incline-dumbbell-press', 2),
+          createWorkoutSetId('warmup::row-erg', 1),
+          createWorkoutSetId('warmup::banded-shoulder-external-rotation', 1),
+          createWorkoutSetId('warmup::banded-shoulder-external-rotation', 2),
+          createWorkoutSetId('main::incline-dumbbell-press', 1),
+          createWorkoutSetId('main::incline-dumbbell-press', 2),
         ]),
       ),
       {
@@ -229,12 +232,12 @@ describe('SessionExerciseList', () => {
       createInitialWorkoutSetDrafts(
         activeTemplate,
         new Set([
-          createWorkoutSetId('row-erg', 1),
-          createWorkoutSetId('banded-shoulder-external-rotation', 1),
-          createWorkoutSetId('banded-shoulder-external-rotation', 2),
-          createWorkoutSetId('rope-triceps-pushdown', 1),
-          createWorkoutSetId('rope-triceps-pushdown', 2),
-          createWorkoutSetId('rope-triceps-pushdown', 3),
+          createWorkoutSetId('warmup::row-erg', 1),
+          createWorkoutSetId('warmup::banded-shoulder-external-rotation', 1),
+          createWorkoutSetId('warmup::banded-shoulder-external-rotation', 2),
+          createWorkoutSetId('main::rope-triceps-pushdown', 1),
+          createWorkoutSetId('main::rope-triceps-pushdown', 2),
+          createWorkoutSetId('main::rope-triceps-pushdown', 3),
         ]),
       ),
     );
@@ -309,7 +312,7 @@ describe('SessionExerciseList', () => {
         await vi.advanceTimersByTimeAsync(500);
       });
 
-      expect(onExerciseNotesChange).toHaveBeenCalledWith('row-erg', 'Keep elbows stacked.');
+      expect(onExerciseNotesChange).toHaveBeenCalledWith('warmup::row-erg', 'Keep elbows stacked.');
       expect(onExerciseNotesChange).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
@@ -357,7 +360,7 @@ describe('SessionExerciseList', () => {
     fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
 
     expect(
-      within(rowErgCard as HTMLElement).getByTestId('exercise-programming-notes-row-erg'),
+      within(rowErgCard as HTMLElement).getByTestId('exercise-programming-notes-warmup::row-erg'),
     ).toHaveTextContent('Hardstyle, hips snap');
 
     fireEvent.click(within(rowErgCard as HTMLElement).getByText('Session notes'));
@@ -369,7 +372,7 @@ describe('SessionExerciseList', () => {
     fireEvent.change(notesInput, { target: { value: 'Lower drag factor to 120.' } });
     expect(notesInput).toHaveValue('Lower drag factor to 120.');
     expect(
-      within(rowErgCard as HTMLElement).getByTestId('exercise-programming-notes-row-erg'),
+      within(rowErgCard as HTMLElement).getByTestId('exercise-programming-notes-warmup::row-erg'),
     ).toHaveTextContent('Hardstyle, hips snap');
   });
 
@@ -420,10 +423,10 @@ describe('SessionExerciseList', () => {
     fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
 
     expect(
-      within(rowErgCard as HTMLElement).getByTestId('exercise-programming-notes-row-erg'),
+      within(rowErgCard as HTMLElement).getByTestId('exercise-programming-notes-warmup::row-erg'),
     ).toHaveTextContent('Hardstyle, hips snap');
     expect(
-      within(rowErgCard as HTMLElement).getByTestId('exercise-agent-notes-row-erg'),
+      within(rowErgCard as HTMLElement).getByTestId('exercise-agent-notes-warmup::row-erg'),
     ).toHaveTextContent('Last session was smooth. Increase to 62 lb if set one feels easy.');
     expect(within(rowErgCard as HTMLElement).getByText(/generated Mar 16/i)).toBeInTheDocument();
     expect(
@@ -461,7 +464,9 @@ describe('SessionExerciseList', () => {
     );
 
     fireEvent.click(getExercisePanelToggle('Row Erg', 'row-erg'));
-    expect(screen.queryByTestId('exercise-programming-notes-row-erg')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('exercise-programming-notes-warmup::row-erg'),
+    ).not.toBeInTheDocument();
   });
 
   it('flushes pending exercise notes update on blur', () => {
@@ -506,7 +511,10 @@ describe('SessionExerciseList', () => {
 
       fireEvent.blur(notesInput);
 
-      expect(onExerciseNotesChange).toHaveBeenCalledWith('row-erg', 'Slight pause at extension.');
+      expect(onExerciseNotesChange).toHaveBeenCalledWith(
+        'warmup::row-erg',
+        'Slight pause at extension.',
+      );
       expect(onExerciseNotesChange).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
@@ -546,7 +554,7 @@ describe('SessionExerciseList', () => {
     const rowErgCardElement = rowErgCard as HTMLElement;
     const addSetItem = within(rowErgCardElement).getAllByRole('button', { name: 'Add Set' })[0];
     fireEvent.click(addSetItem);
-    expect(onAddSet).toHaveBeenCalledWith('row-erg');
+    expect(onAddSet).toHaveBeenCalledWith('warmup::row-erg');
 
     expect(
       within(rowErgCardElement).getByRole('button', { name: 'Remove Last Set' }),
@@ -588,7 +596,7 @@ describe('SessionExerciseList', () => {
       within(rowErgCard as HTMLElement).getAllByRole('button', { name: 'Remove exercise' })[0],
     );
 
-    expect(onRemoveExercise).toHaveBeenCalledWith('row-erg', expect.any(String));
+    expect(onRemoveExercise).toHaveBeenCalledWith('warmup::row-erg', 'row-erg', expect.any(String));
   });
 
   it('opens rename dialog from the exercise actions menu', async () => {
@@ -943,8 +951,8 @@ describe('SessionExerciseList', () => {
     fireEvent.click(within(rowErgCard as HTMLElement).getByRole('button', { name: 'Move down' }));
 
     expect(onReorderExercises).toHaveBeenCalledWith('warmup', [
-      'banded-shoulder-external-rotation',
-      'row-erg',
+      'warmup::banded-shoulder-external-rotation',
+      'warmup::row-erg',
     ]);
   });
 
@@ -1036,20 +1044,22 @@ describe('SessionExerciseList', () => {
     fireEvent.click(getExercisePanelToggle('Rope Triceps Pushdown', 'rope-triceps-pushdown'));
 
     // Both should now be expanded
-    expect(document.getElementById('exercise-panel-cable-lateral-raise')).not.toHaveAttribute(
+    expect(document.getElementById('exercise-panel-main::cable-lateral-raise')).not.toHaveAttribute(
       'hidden',
     );
-    expect(document.getElementById('exercise-panel-rope-triceps-pushdown')).not.toHaveAttribute(
-      'hidden',
-    );
+    expect(
+      document.getElementById('exercise-panel-main::rope-triceps-pushdown'),
+    ).not.toHaveAttribute('hidden');
 
     // Collapse cable-lateral-raise independently
     fireEvent.click(getExercisePanelToggle('Cable Lateral Raise', 'cable-lateral-raise'));
 
-    expect(document.getElementById('exercise-panel-cable-lateral-raise')).toHaveAttribute('hidden');
-    expect(document.getElementById('exercise-panel-rope-triceps-pushdown')).not.toHaveAttribute(
+    expect(document.getElementById('exercise-panel-main::cable-lateral-raise')).toHaveAttribute(
       'hidden',
     );
+    expect(
+      document.getElementById('exercise-panel-main::rope-triceps-pushdown'),
+    ).not.toHaveAttribute('hidden');
   });
 
   it('supports grouping and ungrouping supersets from workout sections', async () => {
@@ -1093,14 +1103,14 @@ describe('SessionExerciseList', () => {
 
     expect(onUpdateSupersetGroup).toHaveBeenCalledWith(
       'warmup',
-      ['row-erg', 'banded-shoulder-external-rotation'],
+      ['warmup::row-erg', 'warmup::banded-shoulder-external-rotation'],
       'superset-a',
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Ungroup' }));
     expect(onUpdateSupersetGroup).toHaveBeenCalledWith(
       'main',
-      ['cable-lateral-raise', 'rope-triceps-pushdown'],
+      ['main::cable-lateral-raise', 'main::rope-triceps-pushdown'],
       null,
     );
   });
@@ -1111,12 +1121,14 @@ describe('SessionExerciseList', () => {
     }
 
     const drafts = createInitialWorkoutSetDrafts(activeTemplate, new Set());
-    drafts['incline-dumbbell-press'] = drafts['incline-dumbbell-press'].map((set, index) => ({
-      ...set,
-      completed: true,
-      reps: 13 - index,
-      weight: 50 - index * 5,
-    }));
+    drafts['main::incline-dumbbell-press'] = drafts['main::incline-dumbbell-press'].map(
+      (set, index) => ({
+        ...set,
+        completed: true,
+        reps: 13 - index,
+        weight: 50 - index * 5,
+      }),
+    );
 
     const session = buildActiveWorkoutSession(activeTemplate, drafts, {
       sessionStartedAt: '2026-03-06T12:00:00Z',
@@ -1151,13 +1163,13 @@ describe('SessionExerciseList', () => {
     }
 
     const drafts = createInitialWorkoutSetDrafts(activeTemplate, new Set());
-    drafts['banded-shoulder-external-rotation'] = drafts['banded-shoulder-external-rotation'].map(
-      (set) => ({
-        ...set,
-        completed: true,
-        reps: 15,
-      }),
-    );
+    drafts['warmup::banded-shoulder-external-rotation'] = drafts[
+      'warmup::banded-shoulder-external-rotation'
+    ].map((set) => ({
+      ...set,
+      completed: true,
+      reps: 15,
+    }));
 
     const session = buildActiveWorkoutSession(activeTemplate, drafts, {
       sessionStartedAt: '2026-03-06T12:00:00Z',
@@ -1299,7 +1311,7 @@ describe('SessionExerciseList', () => {
       expect(storedSections).not.toBeNull();
       expect(storedExercises).not.toBeNull();
       expect(JSON.parse(storedSections ?? '{}')).toMatchObject({ warmup: false });
-      expect(JSON.parse(storedExercises ?? '{}')).toMatchObject({ 'row-erg': true });
+      expect(JSON.parse(storedExercises ?? '{}')).toMatchObject({ 'warmup::row-erg': true });
 
       renderWithQueryClient(
         <SessionExerciseList
@@ -1381,7 +1393,7 @@ describe('SessionExerciseList', () => {
     const { rerender } = render(
       <QueryClientProvider client={queryClient}>
         <SessionExerciseList
-          focusSetId={createWorkoutSetId('row-erg', 1)}
+          focusSetId={createWorkoutSetId('warmup::row-erg', 1)}
           onAddSet={vi.fn()}
           onExerciseNotesChange={vi.fn()}
           onFocusSetHandled={vi.fn()}
@@ -1426,7 +1438,7 @@ describe('SessionExerciseList', () => {
 
     const reopenedRowErgCardHeaderToggle = within(reopenedRowErgCard as HTMLElement)
       .getAllByRole('button')
-      .find((button) => button.getAttribute('aria-controls') === 'exercise-panel-row-erg');
+      .find((button) => button.getAttribute('aria-controls') === 'exercise-panel-warmup::row-erg');
 
     if (!reopenedRowErgCardHeaderToggle) {
       throw new Error('Expected Row Erg exercise header toggle.');
@@ -1460,6 +1472,7 @@ describe('SessionExerciseList', () => {
               completedSets: 0,
               formCues: [],
               id: 'tempo-squat',
+              occurrenceId: 'tempo-squat',
               injuryCues: [],
               lastPerformance: {
                 date: '2026-03-02',
@@ -1579,6 +1592,7 @@ describe('SessionExerciseList', () => {
               completedSets: 0,
               formCues: [],
               id: 'mcgill-curl-up',
+              occurrenceId: 'mcgill-curl-up',
               injuryCues: [],
               lastPerformance: null,
               name: 'McGill Curl Up',
@@ -1658,6 +1672,7 @@ describe('SessionExerciseList', () => {
               completedSets: 1,
               formCues: [],
               id: 'plank-hold',
+              occurrenceId: 'plank-hold',
               injuryCues: [],
               lastPerformance: {
                 date: '2026-03-02',
@@ -1731,6 +1746,7 @@ describe('SessionExerciseList', () => {
               completedSets: 0,
               formCues: [],
               id: 'pull-up',
+              occurrenceId: 'pull-up',
               injuryCues: [],
               lastPerformance: null,
               name: 'Pull-up',
@@ -1803,6 +1819,7 @@ describe('SessionExerciseList', () => {
               completedSets: 0,
               formCues: [],
               id: 'incline-dumbbell-press',
+              occurrenceId: 'incline-dumbbell-press',
               injuryCues: [],
               lastPerformance: {
                 date: '2026-03-13',
@@ -2302,7 +2319,7 @@ describe('SessionExerciseList', () => {
       expect(within(card).queryByText('Empty Related')).not.toBeInTheDocument();
       expect(within(card).queryByText('No completed sets yet.')).not.toBeInTheDocument();
       expect([...card.querySelectorAll('details')].map((details) => details.id)).toEqual([
-        'exercise-notes-row-erg',
+        'exercise-notes-warmup::row-erg',
       ]);
       expect(within(card).getAllByRole('button', { name: 'View all' })).toHaveLength(1);
       useLastPerformanceSpy.mockRestore();
@@ -2349,9 +2366,7 @@ describe('SessionExerciseList', () => {
         .getByRole('heading', { level: 3, name: 'Row Erg' })
         .closest('[data-slot="card"]') as HTMLElement;
       expect(within(card).getByText(/Mar 1 · 30s/)).toBeInTheDocument();
-      expect(within(card).getAllByRole('button', { name: /^View all$/ })).toHaveLength(
-        1,
-      );
+      expect(within(card).getAllByRole('button', { name: /^View all$/ })).toHaveLength(1);
       expect(within(card).queryByText('Related history')).not.toBeInTheDocument();
       expect(within(card).queryByText('No completed sets yet.')).not.toBeInTheDocument();
       spy.mockRestore();

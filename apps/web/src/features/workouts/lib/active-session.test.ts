@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ActiveWorkoutHistoricalSession } from '../types';
+import type { ActiveWorkoutHistoricalSession, ActiveWorkoutTemplate } from '../types';
 import { mockTemplates } from '@/test/fixtures/workouts';
 
 import {
@@ -13,6 +13,172 @@ import {
 const activeTemplate = mockTemplates.find((template) => template.id === 'upper-push');
 
 describe('active-session helpers', () => {
+  it('keeps repeated canonical exercises isolated by occurrence across sections', () => {
+    const repeatedTemplate: ActiveWorkoutTemplate = {
+      id: 'scheduled-bike-session',
+      name: 'Two rides',
+      description: '',
+      tags: [],
+      sections: [
+        {
+          type: 'warmup',
+          title: 'Warm-Up',
+          exercises: [
+            {
+              occurrenceId: 'scheduled-bike-warmup',
+              exerciseId: 'peloton-bike',
+              exerciseName: 'Peloton Bike',
+              sets: 1,
+              reps: '300 sec',
+              tempo: null,
+              restSeconds: 30,
+              formCues: [],
+              badges: ['cardio'],
+              trackingType: 'seconds_only',
+            },
+          ],
+        },
+        {
+          type: 'supplemental',
+          title: 'Supplemental',
+          exercises: [
+            {
+              occurrenceId: 'scheduled-bike-supplemental',
+              exerciseId: 'peloton-bike',
+              exerciseName: 'Peloton Bike',
+              sets: 1,
+              reps: '900 sec',
+              tempo: null,
+              restSeconds: 30,
+              formCues: [],
+              badges: ['cardio'],
+              trackingType: 'seconds_only',
+            },
+          ],
+        },
+      ],
+    };
+    const drafts = createInitialWorkoutSetDrafts(repeatedTemplate, new Set());
+    drafts['scheduled-bike-warmup'][0] = {
+      ...drafts['scheduled-bike-warmup'][0],
+      completed: true,
+      seconds: 300,
+      targetSeconds: 300,
+    };
+    drafts['scheduled-bike-supplemental'][0] = {
+      ...drafts['scheduled-bike-supplemental'][0],
+      completed: false,
+      seconds: null,
+      targetSeconds: 900,
+    };
+
+    const session = buildActiveWorkoutSession(repeatedTemplate, drafts, {
+      exerciseNotes: {
+        'scheduled-bike-warmup': 'Easy spin',
+        'scheduled-bike-supplemental': 'Hold zone two',
+      },
+    });
+    const [warmup, supplemental] = session.sections.flatMap((section) => section.exercises);
+
+    expect(warmup).toMatchObject({
+      id: 'peloton-bike',
+      occurrenceId: 'scheduled-bike-warmup',
+      notes: 'Easy spin',
+      completedSets: 1,
+      sets: [expect.objectContaining({ completed: true, seconds: 300, targetSeconds: 300 })],
+    });
+    expect(supplemental).toMatchObject({
+      id: 'peloton-bike',
+      occurrenceId: 'scheduled-bike-supplemental',
+      notes: 'Hold zone two',
+      completedSets: 0,
+      sets: [expect.objectContaining({ completed: false, seconds: null, targetSeconds: 900 })],
+    });
+    expect(warmup?.sets[0]?.id).not.toBe(supplemental?.sets[0]?.id);
+  });
+
+  it('does not read a bare legacy key when the canonical exercise is ambiguous', () => {
+    const repeatedTemplate: ActiveWorkoutTemplate = {
+      id: 'legacy-repeated-lift',
+      name: 'Repeated lift',
+      description: '',
+      tags: [],
+      sections: [
+        {
+          type: 'warmup',
+          title: 'Warm-Up',
+          exercises: [
+            {
+              exerciseId: 'goblet-squat',
+              exerciseName: 'Goblet Squat',
+              sets: 1,
+              reps: '8',
+              tempo: null,
+              restSeconds: 30,
+              formCues: [],
+              badges: [],
+              trackingType: 'weight_reps',
+            },
+          ],
+        },
+        {
+          type: 'main',
+          title: 'Main',
+          exercises: [
+            {
+              exerciseId: 'goblet-squat',
+              exerciseName: 'Goblet Squat',
+              sets: 1,
+              reps: '6',
+              tempo: null,
+              restSeconds: 60,
+              formCues: [],
+              badges: [],
+              trackingType: 'weight_reps',
+            },
+          ],
+        },
+      ],
+    };
+    const drafts = createInitialWorkoutSetDrafts(repeatedTemplate, new Set());
+    drafts['warmup::goblet-squat'][0] = {
+      ...drafts['warmup::goblet-squat'][0],
+      completed: true,
+      reps: 8,
+      rir: 4,
+      weight: 25,
+    };
+    drafts['main::goblet-squat'][0] = {
+      ...drafts['main::goblet-squat'][0],
+      completed: true,
+      reps: 6,
+      rir: 1,
+      weight: 50,
+    };
+    drafts['goblet-squat'] = [
+      {
+        ...drafts['main::goblet-squat'][0],
+        id: createWorkoutSetId('goblet-squat', 1),
+        reps: 99,
+        weight: 999,
+      },
+    ];
+
+    const session = buildActiveWorkoutSession(repeatedTemplate, drafts, {
+      exerciseNotes: {
+        'warmup::goblet-squat': 'Warmup note',
+        'main::goblet-squat': 'Working note',
+        'goblet-squat': 'Ambiguous legacy note',
+      },
+    });
+    const [warmup, main] = session.sections.flatMap((section) => section.exercises);
+
+    expect(warmup?.sets[0]).toMatchObject({ reps: 8, rir: 4, weight: 25 });
+    expect(main?.sets[0]).toMatchObject({ reps: 6, rir: 1, weight: 50 });
+    expect(warmup?.notes).toBe('Warmup note');
+    expect(main?.notes).toBe('Working note');
+  });
+
   it('includes form cues, notes, and the most recent prior performance for each exercise', () => {
     if (!activeTemplate) {
       throw new Error('Expected upper-push template in mock data.');
@@ -268,7 +434,7 @@ describe('active-session helpers', () => {
       unknownExerciseTemplate,
       createInitialWorkoutSetDrafts(
         unknownExerciseTemplate,
-        new Set([createWorkoutSetId('dead-hang', 1)]),
+        new Set([createWorkoutSetId('main::dead-hang', 1)]),
       ),
     );
     const firstMainExercise = session.sections.find((section) => section.type === 'main')
@@ -305,7 +471,7 @@ describe('active-session helpers', () => {
       unknownExerciseTemplate,
       createInitialWorkoutSetDrafts(
         unknownExerciseTemplate,
-        new Set([createWorkoutSetId('dead-bug', 1)]),
+        new Set([createWorkoutSetId('main::dead-bug', 1)]),
       ),
     );
     const firstMainExercise = session.sections.find((section) => section.type === 'main')

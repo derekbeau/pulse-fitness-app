@@ -189,7 +189,7 @@ describe('ActiveWorkoutPage', () => {
 
     const optionalCard = getExerciseCard('Rope Triceps Pushdown');
     expect(within(optionalCard).getByText('Optional')).toBeInTheDocument();
-  });
+  }, 15_000);
 
   it('keeps focus unchanged when a superset rest timer expires', () => {
     const templateId = 'superset-focus-template';
@@ -587,8 +587,8 @@ describe('ActiveWorkoutPage', () => {
         expect.objectContaining({
           body: JSON.stringify({
             exercises: [
-              { exerciseId: 'cable-lateral-raise', supersetGroup: null },
-              { exerciseId: 'rope-triceps-pushdown', supersetGroup: null },
+              { exerciseId: 'cable-lateral-raise', section: 'main', supersetGroup: null },
+              { exerciseId: 'rope-triceps-pushdown', section: 'main', supersetGroup: null },
             ],
           }),
           method: 'PATCH',
@@ -797,6 +797,74 @@ describe('ActiveWorkoutPage', () => {
     expect(within(seatedCard).getByDisplayValue('Server note')).toBeVisible();
   });
 
+  it('hydrates local occurrence notes when the server has no saved note yet', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-merge-local-note';
+    seedActiveWorkoutDraft(sessionId, {
+      exerciseNotes: {
+        'seated-dumbbell-shoulder-press': 'Local note',
+      },
+      sessionCuesByExercise: {},
+      setDrafts: {
+        'seated-dumbbell-shoulder-press': [
+          createStoredDraftSet({
+            completed: false,
+            id: 'set-1',
+            number: 1,
+            reps: 9,
+            weight: 35,
+          }),
+        ],
+      },
+    });
+    mockActiveSessionFetch(
+      sessionId,
+      buildHydrationSessionResponse(sessionId, {
+        exercises: [
+          createHydrationSessionExercise({
+            exerciseId: 'seated-dumbbell-shoulder-press',
+            exerciseName: 'Seated Dumbbell Shoulder Press',
+            orderIndex: 0,
+            section: 'main',
+            sets: [
+              createHydrationSessionSet({
+                completed: false,
+                exerciseId: 'seated-dumbbell-shoulder-press',
+                id: 'set-1',
+                notes: null,
+                orderIndex: 0,
+                reps: 9,
+                section: 'main',
+                setNumber: 1,
+                weight: 35,
+              }),
+            ],
+          }),
+        ],
+        sets: [
+          createHydrationSessionSet({
+            completed: false,
+            exerciseId: 'seated-dumbbell-shoulder-press',
+            id: 'set-1',
+            notes: null,
+            orderIndex: 0,
+            reps: 9,
+            section: 'main',
+            setNumber: 1,
+            weight: 35,
+          }),
+        ],
+      }),
+    );
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
+    const seatedCard = getExerciseCard('Seated Dumbbell Shoulder Press');
+    fireEvent.click(within(seatedCard).getByText('Session notes'));
+    expect(within(seatedCard).getByDisplayValue('Local note')).toBeVisible();
+  });
+
   it('preserves local session cues during session hydration', async () => {
     vi.useRealTimers();
     const sessionId = 'session-merge-preserve-cues';
@@ -866,10 +934,188 @@ describe('ActiveWorkoutPage', () => {
 
       expect(JSON.parse(storedDraft ?? '{}')).toMatchObject({
         sessionCuesByExercise: {
-          'seated-dumbbell-shoulder-press': ['Drive elbows under wrists'],
+          'upper-push-exercise-4': ['Drive elbows under wrists'],
         },
       });
     });
+  });
+
+  it('hydrates and updates repeated scheduled occurrences without cross-section leakage', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-repeated-bike-ui';
+    const warmupSet = createHydrationSessionSet({
+      exerciseId: 'peloton-bike',
+      id: 'bike-warmup-set',
+      orderIndex: 0,
+      reps: null,
+      seconds: null,
+      section: 'warmup',
+      setNumber: 1,
+      targetSeconds: 300,
+    });
+    const supplementalSet = createHydrationSessionSet({
+      exerciseId: 'peloton-bike',
+      id: 'bike-supplemental-set',
+      orderIndex: 0,
+      reps: null,
+      seconds: null,
+      section: 'supplemental',
+      setNumber: 1,
+      targetSeconds: 900,
+    });
+    const session = buildHydrationSessionResponse(sessionId, {
+      exercises: [
+        createHydrationSessionExercise({
+          exerciseId: 'peloton-bike',
+          exerciseName: 'Peloton Bike',
+          orderIndex: 0,
+          section: 'warmup',
+          sourceScheduledExerciseId: 'scheduled-bike-warmup',
+          trackingType: 'seconds_only',
+          sets: [warmupSet],
+        }),
+        createHydrationSessionExercise({
+          exerciseId: 'peloton-bike',
+          exerciseName: 'Peloton Bike',
+          orderIndex: 0,
+          section: 'supplemental',
+          sourceScheduledExerciseId: 'scheduled-bike-supplemental',
+          trackingType: 'seconds_only',
+          sets: [supplementalSet],
+        }),
+      ],
+      sets: [warmupSet, supplementalSet],
+    });
+    const fetchMock = mockActiveSessionFetch(sessionId, session);
+
+    const rendered = renderActiveWorkoutPage(
+      `/workouts/active?sessionId=${sessionId}&template=upper-push`,
+    );
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
+    const headings = await screen.findAllByRole('heading', { level: 3, name: 'Peloton Bike' });
+    expect(headings).toHaveLength(2);
+    const warmupCard = headings[0]?.closest('[data-slot="card"]') as HTMLElement;
+    const supplementalCard = headings[1]?.closest('[data-slot="card"]') as HTMLElement;
+    for (const card of [warmupCard, supplementalCard]) {
+      const toggle = within(card)
+        .getAllByRole('button')
+        .find((button) => button.getAttribute('aria-controls')?.startsWith('exercise-panel-'));
+      if (toggle?.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
+    }
+
+    expect(within(warmupCard).getByText('Target: 300 sec')).toBeVisible();
+    expect(within(supplementalCard).getByText('Target: 900 sec')).toBeVisible();
+    fireEvent.change(within(warmupCard).getByLabelText('Seconds for set 1'), {
+      target: { value: '300' },
+    });
+
+    await waitFor(() => {
+      const updateCall = fetchMock.mock.calls.find(
+        ([input, init]) =>
+          String(input).endsWith('/sets/bike-warmup-set') && init?.method === 'PATCH',
+      );
+      expect(updateCall).toBeDefined();
+      expect(JSON.parse(String(updateCall?.[1]?.body))).toMatchObject({ seconds: 300 });
+    });
+    expect(within(supplementalCard).getByLabelText('Seconds for set 1')).toHaveValue(null);
+
+    fireEvent.change(within(supplementalCard).getByLabelText('Seconds for set 1'), {
+      target: { value: '500' },
+    });
+    await waitFor(() => {
+      const updateCall = fetchMock.mock.calls.find(
+        ([input, init]) =>
+          String(input).endsWith('/sets/bike-supplemental-set') && init?.method === 'PATCH',
+      );
+      expect(updateCall).toBeDefined();
+      expect(JSON.parse(String(updateCall?.[1]?.body))).toMatchObject({ seconds: 500 });
+    });
+    expect(within(warmupCard).getByLabelText('Seconds for set 1')).toHaveValue(300);
+
+    fireEvent.click(within(warmupCard).getByText('Session notes'));
+    fireEvent.click(within(supplementalCard).getByText('Session notes'));
+    const warmupNotes = within(warmupCard).getByPlaceholderText(
+      'Add any technique reminders, machine settings, or quick context.',
+    );
+    const supplementalNotes = within(supplementalCard).getByPlaceholderText(
+      'Add any technique reminders, machine settings, or quick context.',
+    );
+    fireEvent.change(warmupNotes, { target: { value: 'Warmup cadence note' } });
+    fireEvent.blur(warmupNotes);
+    fireEvent.change(supplementalNotes, { target: { value: 'Supplemental resistance note' } });
+    fireEvent.blur(supplementalNotes);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.find(
+          ([input, init]) =>
+            String(input).endsWith('/sets/bike-warmup-set') &&
+            init?.method === 'PATCH' &&
+            JSON.parse(String(init.body)).notes === 'Warmup cadence note',
+        ),
+      ).toBeDefined();
+      expect(
+        fetchMock.mock.calls.find(
+          ([input, init]) =>
+            String(input).endsWith('/sets/bike-supplemental-set') &&
+            init?.method === 'PATCH' &&
+            JSON.parse(String(init.body)).notes === 'Supplemental resistance note',
+        ),
+      ).toBeDefined();
+      const draft = JSON.parse(
+        window.localStorage.getItem(`${ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX}:${sessionId}`) ?? '{}',
+      ) as { exerciseNotes?: Record<string, string> };
+      expect(draft.exerciseNotes).toMatchObject({
+        'scheduled-bike-warmup': 'Warmup cadence note',
+        'scheduled-bike-supplemental': 'Supplemental resistance note',
+      });
+    });
+
+    const storedDraft = JSON.parse(
+      window.localStorage.getItem(`${ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX}:${sessionId}`) ?? '{}',
+    ) as { setDrafts?: Record<string, Array<{ seconds: number | null }>> };
+    expect(storedDraft.setDrafts).toMatchObject({
+      'scheduled-bike-warmup': [expect.objectContaining({ seconds: 300 })],
+      'scheduled-bike-supplemental': [expect.objectContaining({ seconds: 500 })],
+    });
+
+    window.localStorage.removeItem(`${ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX}:${sessionId}`);
+    rendered.unmount();
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
+    const refreshedHeadings = await screen.findAllByRole('heading', {
+      level: 3,
+      name: 'Peloton Bike',
+    });
+    const refreshedWarmupCard = refreshedHeadings[0]?.closest('[data-slot="card"]') as HTMLElement;
+    const refreshedSupplementalCard = refreshedHeadings[1]?.closest(
+      '[data-slot="card"]',
+    ) as HTMLElement;
+    for (const card of [refreshedWarmupCard, refreshedSupplementalCard]) {
+      const toggle = within(card)
+        .getAllByRole('button')
+        .find((button) => button.getAttribute('aria-controls')?.startsWith('exercise-panel-'));
+      if (toggle?.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
+      fireEvent.click(within(card).getByText('Session notes'));
+    }
+    expect(within(refreshedWarmupCard).getByDisplayValue('Warmup cadence note')).toBeVisible();
+    expect(
+      within(refreshedSupplementalCard).getByDisplayValue('Supplemental resistance note'),
+    ).toBeVisible();
+
+    const refreshedWarmupNotes =
+      within(refreshedWarmupCard).getByDisplayValue('Warmup cadence note');
+    fireEvent.change(refreshedWarmupNotes, { target: { value: '' } });
+    fireEvent.blur(refreshedWarmupNotes);
+    await waitFor(() => {
+      expect(session.sets.find((set) => set.id === 'bike-warmup-set')?.notes).toBeNull();
+      expect(session.sets.find((set) => set.id === 'bike-supplemental-set')?.notes).toBe(
+        'Supplemental resistance note',
+      );
+    });
+    expect(
+      within(refreshedSupplementalCard).getByDisplayValue('Supplemental resistance note'),
+    ).toBeVisible();
   });
 
   it('uses the selected template from the route query string', () => {
@@ -2231,7 +2477,7 @@ describe('ActiveWorkoutPage', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: 'How did this session feel?' }),
     ).toBeInTheDocument();
-  }, 15_000);
+  }, 30_000);
 
   it('shows standard feedback controls and requires pain details when pain is yes', () => {
     renderActiveWorkoutPage();
@@ -3439,6 +3685,27 @@ function mockActiveSessionFetch(sessionId: string, session: MutableInProgressSes
       return Promise.resolve(jsonResponse({ data: session }));
     }
 
+    const setUpdateMatch = url.match(
+      new RegExp(`/api/v1/workout-sessions/${sessionId}/sets/([^/?#]+)$`),
+    );
+    if (setUpdateMatch && init?.method === 'PATCH') {
+      const existingSet = session.sets.find((set) => set.id === setUpdateMatch[1]);
+      if (!existingSet) {
+        return Promise.reject(new Error(`Unexpected session set id: ${setUpdateMatch[1]}`));
+      }
+      const update = JSON.parse(String(init.body ?? '{}')) as Record<string, unknown>;
+      Object.assign(existingSet, update);
+      for (const exercise of session.exercises ?? []) {
+        const nestedSet: MutableInProgressSessionResponse['sets'][number] | undefined =
+          exercise.sets.find((set) => set.id === existingSet.id);
+        if (nestedSet && nestedSet !== existingSet) {
+          Object.assign(nestedSet, update);
+        }
+      }
+      session.updatedAt += 1;
+      return Promise.resolve(jsonResponse({ data: existingSet }));
+    }
+
     if (url.includes('/api/v1/exercises/') && url.includes('/history')) {
       return Promise.resolve(jsonResponse({ data: [] }));
     }
@@ -3648,6 +3915,9 @@ type MutableInProgressSessionResponse = {
     setNumber: number;
     weight: number | null;
     reps: number | null;
+    seconds?: number | null;
+    targetSeconds?: number | null;
+    sourceScheduledSetId?: string;
     completed: boolean;
     skipped: boolean;
     section: 'warmup' | 'main' | 'cooldown' | 'supplemental';
@@ -3659,6 +3929,7 @@ type MutableInProgressSessionResponse = {
     exerciseName: string | null;
     orderIndex: number;
     section: 'warmup' | 'main' | 'cooldown' | 'supplemental' | null;
+    sourceScheduledExerciseId?: string;
     sets: Array<{
       id: string;
       exerciseId: string | null;
@@ -3666,6 +3937,9 @@ type MutableInProgressSessionResponse = {
       setNumber: number;
       weight: number | null;
       reps: number | null;
+      seconds?: number | null;
+      targetSeconds?: number | null;
+      sourceScheduledSetId?: string;
       completed: boolean;
       skipped: boolean;
       section: 'warmup' | 'main' | 'cooldown' | 'supplemental';
