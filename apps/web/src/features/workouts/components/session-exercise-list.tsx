@@ -116,6 +116,7 @@ type SessionExerciseListProps = {
     supersetGroup: string | null,
   ) => void | Promise<void>;
   onRemoveExercise?: (
+    occurrenceId: string,
     exerciseId: string,
     section: ActiveWorkoutSessionData['sections'][number]['type'],
   ) => void | Promise<void>;
@@ -168,6 +169,9 @@ const agentNotesGeneratedAtFormatter = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   month: 'short',
 });
+
+const getExerciseOccurrenceId = (exercise: ActiveWorkoutExercise) =>
+  exercise.occurrenceId || exercise.id;
 
 const supersetAccentStyles = [
   'border-l-sky-500',
@@ -253,7 +257,7 @@ export function SessionExerciseList({
   let exerciseCounter = 1;
   for (const section of session.sections) {
     for (const exercise of section.exercises) {
-      exerciseNumberMap.set(exercise.id, exerciseCounter++);
+      exerciseNumberMap.set(getExerciseOccurrenceId(exercise), exerciseCounter++);
     }
   }
 
@@ -289,7 +293,7 @@ export function SessionExerciseList({
         const isSectionCompleted = totalExercises > 0 && completedExercises === totalExercises;
         const isSectionInProgress = completedExercises > 0 && !isSectionCompleted;
         const exerciseIndexById = new Map(
-          section.exercises.map((exercise, index) => [exercise.id, index]),
+          section.exercises.map((exercise, index) => [getExerciseOccurrenceId(exercise), index]),
         );
         const sectionLabel = sectionLabels[section.type];
         const sectionEstimate = formatEstimateMinuteRange(estimateSectionTime(section));
@@ -314,7 +318,7 @@ export function SessionExerciseList({
           const reordered = arrayMove(section.exercises, currentIndex, nextIndex);
           void onReorderExercises(
             section.type,
-            reordered.map((exercise) => exercise.id),
+            reordered.map((exercise) => getExerciseOccurrenceId(exercise)),
           );
         };
 
@@ -415,17 +419,20 @@ export function SessionExerciseList({
                 sensors={sensors}
               >
                 <SortableContext
-                  items={section.exercises.map((exercise) => exercise.id)}
+                  items={section.exercises.map((exercise) => getExerciseOccurrenceId(exercise))}
                   strategy={verticalListSortingStrategy}
                 >
                   <div className="space-y-3">
                     {groupExercises(section.exercises).map((item) => {
                       if (item.type === 'single') {
-                        const exerciseIndex = exerciseIndexById.get(item.exercise.id) ?? -1;
+                        const exerciseIndex =
+                          exerciseIndexById.get(getExerciseOccurrenceId(item.exercise)) ?? -1;
                         return (
                           <ExerciseCardItem
                             exercise={item.exercise}
-                            exerciseNumber={exerciseNumberMap.get(item.exercise.id) ?? 0}
+                            exerciseNumber={
+                              exerciseNumberMap.get(getExerciseOccurrenceId(item.exercise)) ?? 0
+                            }
                             enableApiLastPerformance={enableApiLastPerformance}
                             expandedExercises={expandedExercises}
                             focusTargetExerciseId={focusTarget?.exerciseId ?? null}
@@ -437,7 +444,7 @@ export function SessionExerciseList({
                                 ? () =>
                                     setSupersetSectionTarget({
                                       sectionType: section.type,
-                                      initialExerciseId: item.exercise.id,
+                                      initialExerciseId: getExerciseOccurrenceId(item.exercise),
                                     })
                                 : undefined
                             }
@@ -479,10 +486,14 @@ export function SessionExerciseList({
                             repsInputRefs={repsInputRefs}
                             sessionCurrentExerciseId={session.currentExerciseId}
                             setExpandedExercises={setExpandedExercises}
-                            sessionCues={resolvedSessionCuesByExercise[item.exercise.id] ?? []}
+                            sessionCues={
+                              resolvedSessionCuesByExercise[
+                                getExerciseOccurrenceId(item.exercise)
+                              ] ?? []
+                            }
                             showDragHandle={showDragHandles}
                             weightUnit={weightUnit}
-                            key={item.exercise.id}
+                            key={getExerciseOccurrenceId(item.exercise)}
                           />
                         );
                       }
@@ -492,7 +503,8 @@ export function SessionExerciseList({
                         supersetAccentStyles,
                       );
                       const isGroupFocused = item.exercises.some(
-                        (exercise) => exercise.id === (focusTarget?.exerciseId ?? null),
+                        (exercise) =>
+                          getExerciseOccurrenceId(exercise) === (focusTarget?.exerciseId ?? null),
                       );
                       const sharedRestSeconds = Math.max(
                         ...item.exercises.map((exercise) => exercise.restSeconds ?? 0),
@@ -528,7 +540,9 @@ export function SessionExerciseList({
                                 onClick={() =>
                                   void onUpdateSupersetGroup(
                                     section.type,
-                                    item.exercises.map((exercise) => exercise.id),
+                                    item.exercises.map((exercise) =>
+                                      getExerciseOccurrenceId(exercise),
+                                    ),
                                     null,
                                   )
                                 }
@@ -544,13 +558,16 @@ export function SessionExerciseList({
 
                           <div className="space-y-3">
                             {item.exercises.map((exercise) => {
-                              const itemIndex = exerciseIndexById.get(exercise.id) ?? -1;
+                              const itemIndex =
+                                exerciseIndexById.get(getExerciseOccurrenceId(exercise)) ?? -1;
 
                               return (
                                 <ExerciseCardItem
-                                  key={exercise.id}
+                                  key={getExerciseOccurrenceId(exercise)}
                                   exercise={exercise}
-                                  exerciseNumber={exerciseNumberMap.get(exercise.id) ?? 0}
+                                  exerciseNumber={
+                                    exerciseNumberMap.get(getExerciseOccurrenceId(exercise)) ?? 0
+                                  }
                                   enableApiLastPerformance={enableApiLastPerformance}
                                   expandedExercises={expandedExercises}
                                   focusTargetExerciseId={focusTarget?.exerciseId ?? null}
@@ -562,7 +579,7 @@ export function SessionExerciseList({
                                       ? () =>
                                           setSupersetSectionTarget({
                                             sectionType: section.type,
-                                            initialExerciseId: exercise.id,
+                                            initialExerciseId: getExerciseOccurrenceId(exercise),
                                           })
                                       : undefined
                                   }
@@ -602,7 +619,11 @@ export function SessionExerciseList({
                                   repsInputRefs={repsInputRefs}
                                   sessionCurrentExerciseId={session.currentExerciseId}
                                   setExpandedExercises={setExpandedExercises}
-                                  sessionCues={resolvedSessionCuesByExercise[exercise.id] ?? []}
+                                  sessionCues={
+                                    resolvedSessionCuesByExercise[
+                                      getExerciseOccurrenceId(exercise)
+                                    ] ?? []
+                                  }
                                   embeddedInSuperset
                                   forceExpanded={isGroupFocused}
                                   showDragHandle={showDragHandles}
@@ -734,6 +755,7 @@ type ExerciseCardItemProps = {
   onOpenHistory: () => void;
   onOpenRelatedHistory: (relatedExercise: ActiveWorkoutRelatedLastPerformance) => void;
   onRemoveExercise?: (
+    occurrenceId: string,
     exerciseId: string,
     section: ActiveWorkoutSessionData['sections'][number]['type'],
   ) => void | Promise<void>;
@@ -785,13 +807,13 @@ function ExerciseCardItem({
   const resolvedExerciseNotes =
     localExerciseNotes === undefined ? exercise.notes : localExerciseNotes;
   const debouncedExerciseNotesChange = useDebouncedCallback(
-    (notes: string) => onExerciseNotesChange(exercise.id, notes),
+    (notes: string) => onExerciseNotesChange(getExerciseOccurrenceId(exercise), notes),
     500,
   );
-  const resolvedCollapseKey = collapseKey ?? exercise.id;
+  const resolvedCollapseKey = collapseKey ?? getExerciseOccurrenceId(exercise);
   const isExpanded =
     forceExpanded ||
-    focusTargetExerciseId === exercise.id ||
+    focusTargetExerciseId === getExerciseOccurrenceId(exercise) ||
     (expandedExercises[resolvedCollapseKey] ?? false);
 
   const historyEntriesQuery = useLastPerformance(exercise.id, {
@@ -815,6 +837,7 @@ function ExerciseCardItem({
         related: [],
       };
   const relatedHistory = selectRelatedHistory(historySummary.related);
+  const occurrenceId = getExerciseOccurrenceId(exercise);
   const state = getExerciseState(exercise, sessionCurrentExerciseId);
   const isExerciseComplete = state === 'completed';
   const isDurationExercise = exercise.trackingType === 'duration';
@@ -830,7 +853,7 @@ function ExerciseCardItem({
       ? 'border-l-4 border-l-primary'
       : 'border-l-4 border-dashed border-l-border';
   const canRemoveSet = !isDurationExercise && exercise.sets.length > 1;
-  const exercisePanelId = `exercise-panel-${exercise.id}`;
+  const exercisePanelId = `exercise-panel-${occurrenceId}`;
   const toggleExpanded = () => {
     setExpandedExercises((current) => ({
       ...current,
@@ -842,7 +865,7 @@ function ExerciseCardItem({
     action();
   };
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
-    id: exercise.id,
+    id: getExerciseOccurrenceId(exercise),
   });
 
   return (
@@ -949,13 +972,13 @@ function ExerciseCardItem({
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={isDurationExercise}
-              onClick={handleMenuAction(() => onAddSet(exercise.id))}
+              onClick={handleMenuAction(() => onAddSet(getExerciseOccurrenceId(exercise)))}
             >
               Add Set
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={!canRemoveSet}
-              onClick={handleMenuAction(() => onRemoveSet(exercise.id))}
+              onClick={handleMenuAction(() => onRemoveSet(getExerciseOccurrenceId(exercise)))}
             >
               Remove Last Set
             </DropdownMenuItem>
@@ -965,7 +988,7 @@ function ExerciseCardItem({
                 if (!onRemoveExercise) {
                   return;
                 }
-                void onRemoveExercise(exercise.id, sectionType);
+                void onRemoveExercise(getExerciseOccurrenceId(exercise), exercise.id, sectionType);
               })}
               variant="destructive"
             >
@@ -1024,7 +1047,7 @@ function ExerciseCardItem({
             {programmingNotes ? (
               <div
                 className="flex items-start gap-2 rounded-xl border-l-2 border-primary/35 bg-secondary/35 px-3 py-2"
-                data-testid={`exercise-programming-notes-${exercise.id}`}
+                data-testid={`exercise-programming-notes-${occurrenceId}`}
               >
                 <ClipboardList aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-muted" />
                 <div className="space-y-0.5">
@@ -1041,7 +1064,7 @@ function ExerciseCardItem({
             {agentNotes ? (
               <div
                 className="flex items-start gap-2 rounded-xl border-l-2 border-sky-500/35 bg-sky-500/10 px-3 py-2"
-                data-testid={`exercise-agent-notes-${exercise.id}`}
+                data-testid={`exercise-agent-notes-${occurrenceId}`}
               >
                 <Sparkles
                   aria-hidden="true"
@@ -1208,14 +1231,16 @@ function ExerciseCardItem({
           <div
             className="grid grid-cols-1 gap-2 sm:grid-cols-2"
             data-slot="set-grid"
-            data-testid={`set-grid-${exercise.id}`}
+            data-testid={`set-grid-${occurrenceId}`}
           >
             {exercise.sets.map((set) => (
               <Fragment key={set.id}>
                 <SetRow
                   completed={set.completed}
                   label={isDurationExercise ? 'Duration' : undefined}
-                  onUpdate={(update) => onSetUpdate(exercise.id, set.id, update)}
+                  onUpdate={(update) =>
+                    onSetUpdate(getExerciseOccurrenceId(exercise), set.id, update)
+                  }
                   ref={(element) => {
                     repsInputRefs.current[set.id] = element;
                   }}
@@ -1242,7 +1267,7 @@ function ExerciseCardItem({
             ))}
           </div>
 
-          <details className="group" id={`exercise-notes-${exercise.id}`}>
+          <details className="group" id={`exercise-notes-${occurrenceId}`}>
             <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold tracking-[0.18em] text-muted uppercase list-none">
               <ChevronDown
                 aria-hidden="true"
@@ -1252,7 +1277,7 @@ function ExerciseCardItem({
             </summary>
             <div className="mt-2">
               <Textarea
-                id={`exercise-note-${exercise.id}`}
+                id={`exercise-note-${occurrenceId}`}
                 onBlur={() => {
                   debouncedExerciseNotesChange.flush();
                   setLocalExerciseNotes(undefined);
@@ -1346,7 +1371,7 @@ function getExerciseState(
     return 'completed';
   }
 
-  if (exercise.id === currentExerciseId || exercise.completedSets > 0) {
+  if (getExerciseOccurrenceId(exercise) === currentExerciseId || exercise.completedSets > 0) {
     return 'in-progress';
   }
 
@@ -1374,7 +1399,7 @@ function findSetContext(session: ActiveWorkoutSessionData, setId: string) {
     for (const exercise of section.exercises) {
       if (exercise.sets.some((set) => set.id === setId)) {
         return {
-          exerciseId: exercise.id,
+          exerciseId: getExerciseOccurrenceId(exercise),
           sectionId: section.id,
         };
       }
@@ -1610,22 +1635,24 @@ function SessionSupersetManagerDialog({
                 {section.exercises.map((exercise, index) => (
                   <label
                     className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2"
-                    key={exercise.id}
+                    key={getExerciseOccurrenceId(exercise)}
                   >
                     <span className="flex items-center gap-2">
                       <Checkbox
-                        checked={selectedExerciseIds.includes(exercise.id)}
+                        checked={selectedExerciseIds.includes(getExerciseOccurrenceId(exercise))}
                         onCheckedChange={(checked) =>
                           setSelectedExerciseIds((current) => {
                             if (checked !== true) {
-                              return current.filter((value) => value !== exercise.id);
+                              return current.filter(
+                                (value) => value !== getExerciseOccurrenceId(exercise),
+                              );
                             }
 
-                            if (current.includes(exercise.id)) {
+                            if (current.includes(getExerciseOccurrenceId(exercise))) {
                               return current;
                             }
 
-                            return [...current, exercise.id];
+                            return [...current, getExerciseOccurrenceId(exercise)];
                           })
                         }
                       />

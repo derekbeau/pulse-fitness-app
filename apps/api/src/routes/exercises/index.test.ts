@@ -157,6 +157,8 @@ const seedSessionSet = (values: {
   notes?: string | null;
   completed?: boolean;
   skipped?: boolean;
+  section?: 'warmup' | 'main' | 'supplemental' | 'cooldown';
+  sourceScheduledSetId?: string | null;
 }) =>
   context.db
     .insert(sessionSets)
@@ -173,7 +175,8 @@ const seedSessionSet = (values: {
       rir: values.rir ?? null,
       completed: values.completed ?? false,
       skipped: values.skipped ?? false,
-      section: 'main',
+      section: values.section ?? 'main',
+      sourceScheduledSetId: values.sourceScheduledSetId ?? null,
       notes: values.notes ?? null,
     })
     .run();
@@ -517,6 +520,8 @@ describe('exercise routes', () => {
           date: '2026-03-10',
           sets: [
             {
+              id: 'set-newest-1',
+              section: 'main',
               setNumber: 1,
               weight: 110,
               reps: 6,
@@ -529,11 +534,15 @@ describe('exercise routes', () => {
           date: '2026-03-08',
           sets: [
             {
+              id: 'set-latest-1',
+              section: 'main',
               setNumber: 1,
               weight: 105,
               reps: 9,
             },
             {
+              id: 'set-latest-2',
+              section: 'main',
               setNumber: 2,
               weight: 100,
               reps: 8,
@@ -546,11 +555,15 @@ describe('exercise routes', () => {
           date: '2026-03-01',
           sets: [
             {
+              id: 'set-old-1',
+              section: 'main',
               setNumber: 1,
               weight: 100,
               reps: 8,
             },
             {
+              id: 'set-old-2',
+              section: 'main',
               setNumber: 2,
               weight: 100,
               reps: 7,
@@ -668,6 +681,8 @@ describe('exercise routes', () => {
           date: '2026-03-12',
           sets: [
             {
+              id: 'set-late',
+              section: 'main',
               setNumber: 1,
               weight: 235,
               reps: 4,
@@ -679,6 +694,8 @@ describe('exercise routes', () => {
           date: '2026-03-12',
           sets: [
             {
+              id: 'set-early',
+              section: 'main',
               setNumber: 1,
               weight: 225,
               reps: 5,
@@ -690,6 +707,8 @@ describe('exercise routes', () => {
           date: '2026-03-09',
           sets: [
             {
+              id: 'set-older',
+              section: 'main',
               setNumber: 1,
               weight: 215,
               reps: 6,
@@ -809,12 +828,16 @@ describe('exercise routes', () => {
           notes: 'Felt stronger than last week.',
           sets: [
             {
+              id: 'set-latest-1',
+              section: 'main',
               setNumber: 1,
               weight: 105,
               reps: 8,
               rir: 5,
             },
             {
+              id: 'set-latest-2',
+              section: 'main',
               setNumber: 2,
               weight: 100,
               reps: 8,
@@ -827,12 +850,90 @@ describe('exercise routes', () => {
           notes: null,
           sets: [
             {
+              id: 'set-old-1',
+              section: 'main',
               setNumber: 1,
               weight: 95,
               reps: 10,
             },
           ],
         },
+      ],
+    });
+  });
+
+  it('keeps repeated occurrence rows and provenance distinct in canonical history', async () => {
+    seedExercise({
+      id: 'global-peloton',
+      userId: null,
+      name: 'Peloton Bike',
+      muscleGroups: ['legs'],
+      equipment: 'bike',
+      category: 'cardio',
+      trackingType: 'seconds_only',
+    });
+    seedWorkoutSession({
+      id: 'session-repeated-history',
+      userId: 'user-1',
+      name: 'Two rides',
+      date: '2026-03-08',
+      status: 'completed',
+      startedAt: Date.parse('2026-03-08T10:00:00.000Z'),
+      completedAt: Date.parse('2026-03-08T10:30:00.000Z'),
+    });
+    seedSessionSet({
+      id: 'history-bike-warmup',
+      sessionId: 'session-repeated-history',
+      exerciseId: 'global-peloton',
+      section: 'warmup',
+      sourceScheduledSetId: 'scheduled-bike-warmup-set',
+      setNumber: 1,
+      seconds: 300,
+      completed: true,
+    });
+    seedSessionSet({
+      id: 'history-bike-supplemental',
+      sessionId: 'session-repeated-history',
+      exerciseId: 'global-peloton',
+      section: 'supplemental',
+      sourceScheduledSetId: 'scheduled-bike-supplemental-set',
+      setNumber: 1,
+      seconds: 500,
+      completed: true,
+    });
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/exercises/global-peloton/history?limit=1',
+      headers: createAuthorizationHeader(authToken),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      data: [
+        expect.objectContaining({
+          sessionId: 'session-repeated-history',
+          sets: expect.arrayContaining([
+            expect.objectContaining({
+              id: 'history-bike-warmup',
+              section: 'warmup',
+              sourceScheduledSetId: 'scheduled-bike-warmup-set',
+              setNumber: 1,
+              seconds: 300,
+            }),
+            expect.objectContaining({
+              id: 'history-bike-supplemental',
+              section: 'supplemental',
+              sourceScheduledSetId: 'scheduled-bike-supplemental-set',
+              setNumber: 1,
+              seconds: 500,
+            }),
+          ]),
+        }),
       ],
     });
   });
@@ -920,6 +1021,8 @@ describe('exercise routes', () => {
           notes: 'Keep the brace crisp.',
           sets: [
             {
+              id: 'set-may-18',
+              section: 'main',
               setNumber: 1,
               weight: null,
               reps: 5,
@@ -933,6 +1036,8 @@ describe('exercise routes', () => {
           notes: null,
           sets: [
             {
+              id: 'set-may-11',
+              section: 'main',
               setNumber: 1,
               weight: null,
               reps: 4,
@@ -1035,11 +1140,15 @@ describe('exercise routes', () => {
           date: '2026-03-10',
           sets: [
             {
+              id: 'set-flat-1',
+              section: 'main',
               setNumber: 1,
               weight: 205,
               reps: 5,
             },
             {
+              id: 'set-flat-2',
+              section: 'main',
               setNumber: 2,
               weight: 195,
               reps: 6,
@@ -1056,6 +1165,8 @@ describe('exercise routes', () => {
               date: '2026-03-11',
               sets: [
                 {
+                  id: 'set-incline-1',
+                  section: 'main',
                   setNumber: 1,
                   weight: 185,
                   reps: 6,

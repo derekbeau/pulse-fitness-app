@@ -487,6 +487,7 @@ const workoutSessionExerciseMutationInputSchema = z
 
 const workoutSessionExerciseUpdateInputSchema = z.object({
   exerciseId: requiredStringSchema,
+  section: workoutTemplateSectionTypeSchema.optional(),
   supersetGroup: nullableShortStringSchema.optional(),
 });
 

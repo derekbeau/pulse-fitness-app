@@ -160,6 +160,24 @@ export type SessionSetGroup = {
   sets: SessionSet[];
 };
 
+export type WorkoutOccurrenceCollision = {
+  sessionId: string;
+  exerciseId: string;
+  occurrences: Array<{
+    sourceScheduledExerciseId: string;
+    section: WorkoutTemplateSectionType;
+    sets: Array<{
+      id: string;
+      sourceScheduledSetId: string | null;
+      setNumber: number;
+      targetSeconds: number | null;
+      seconds: number | null;
+      completed: boolean;
+      skipped: boolean;
+    }>;
+  }>;
+};
+
 const workoutSessionSelection = {
   id: workoutSessions.id,
   userId: workoutSessions.userId,
@@ -264,6 +282,99 @@ export const sortSessionSets = (left: SessionSetRecord, right: SessionSetRecord)
   }
 
   return left.createdAt - right.createdAt;
+};
+
+/**
+ * Read-only owner-scoped inventory for scheduled occurrence collisions.
+ * This intentionally reports evidence without guessing which occurrence owns an ambiguous actual.
+ */
+export const listWorkoutOccurrenceCollisions = async (
+  userId: string,
+): Promise<WorkoutOccurrenceCollision[]> => {
+  const { db } = await import('../../db/index.js');
+  const ownedSessions = db
+    .select({
+      id: workoutSessions.id,
+      exercisePrescriptions: workoutSessions.exercisePrescriptions,
+    })
+    .from(workoutSessions)
+    .where(and(eq(workoutSessions.userId, userId), isNull(workoutSessions.deletedAt)))
+    .all();
+
+  if (ownedSessions.length === 0) {
+    return [];
+  }
+
+  const sets = db
+    .select({
+      id: sessionSets.id,
+      sessionId: sessionSets.sessionId,
+      exerciseId: sessionSets.exerciseId,
+      section: sessionSets.section,
+      sourceScheduledSetId: sessionSets.sourceScheduledSetId,
+      setNumber: sessionSets.setNumber,
+      targetSeconds: sessionSets.targetSeconds,
+      seconds: sessionSets.seconds,
+      completed: sessionSets.completed,
+      skipped: sessionSets.skipped,
+    })
+    .from(sessionSets)
+    .where(
+      inArray(
+        sessionSets.sessionId,
+        ownedSessions.map((session) => session.id),
+      ),
+    )
+    .all();
+  const setsBySession = new Map<string, typeof sets>();
+  for (const set of sets) {
+    const sessionSetsForId = setsBySession.get(set.sessionId) ?? [];
+    sessionSetsForId.push(set);
+    setsBySession.set(set.sessionId, sessionSetsForId);
+  }
+  const collisions: WorkoutOccurrenceCollision[] = [];
+
+  for (const session of ownedSessions) {
+    const prescriptionsByExercise = new Map<string, SessionExercisePrescription[]>();
+    for (const prescription of Object.values(session.exercisePrescriptions ?? {})) {
+      const exercisePrescriptions = prescriptionsByExercise.get(prescription.exerciseId) ?? [];
+      exercisePrescriptions.push(prescription);
+      prescriptionsByExercise.set(prescription.exerciseId, exercisePrescriptions);
+    }
+
+    for (const [exerciseId, prescriptions] of prescriptionsByExercise) {
+      const sourceIds = new Set(
+        prescriptions.map((prescription) => prescription.sourceScheduledExerciseId),
+      );
+      const sections = new Set(prescriptions.map((prescription) => prescription.section));
+      if (sourceIds.size < 2 && sections.size < 2) {
+        continue;
+      }
+
+      collisions.push({
+        sessionId: session.id,
+        exerciseId,
+        occurrences: prescriptions.map((prescription) => ({
+          sourceScheduledExerciseId: prescription.sourceScheduledExerciseId,
+          section: prescription.section,
+          sets: (setsBySession.get(session.id) ?? [])
+            .filter((set) => set.exerciseId === exerciseId && set.section === prescription.section)
+            .sort((left, right) => left.setNumber - right.setNumber)
+            .map((set) => ({
+              id: set.id,
+              sourceScheduledSetId: set.sourceScheduledSetId,
+              setNumber: set.setNumber,
+              targetSeconds: set.targetSeconds,
+              seconds: set.seconds,
+              completed: set.completed,
+              skipped: set.skipped,
+            })),
+        })),
+      });
+    }
+  }
+
+  return collisions;
 };
 
 const buildSessionSet = (set: SessionSetRecord): SessionSet => ({

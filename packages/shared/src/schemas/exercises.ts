@@ -169,6 +169,9 @@ export const exercisePerformanceHistoryQuerySchema = z.object({
 
 export const exerciseLastPerformanceSetSchema = z
   .object({
+    id: z.string().optional(),
+    section: z.enum(['warmup', 'main', 'supplemental', 'cooldown']).nullable().optional(),
+    sourceScheduledSetId: z.string().nullable().optional(),
     setNumber: z.number().int().min(1),
     weight: z.number().min(0).nullable(),
     reps: z.number().int().min(0).nullable(),

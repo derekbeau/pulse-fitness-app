@@ -9,6 +9,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkoutTemplateSectionType } from '@pulse/shared';
+import type { SessionExercisePrescription } from '../../db/schema/workout-sessions.js';
 
 import {
   agentTokens,
@@ -81,6 +82,7 @@ const seedWorkoutSession = (values: {
   id: string;
   userId: string;
   status: 'scheduled' | 'in-progress' | 'paused' | 'cancelled' | 'completed';
+  exercisePrescriptions?: Record<string, SessionExercisePrescription>;
 }) =>
   context.db
     .insert(workoutSessions)
@@ -100,6 +102,7 @@ const seedWorkoutSession = (values: {
       exerciseProgrammingNotes: null,
       exerciseAgentNotes: null,
       exerciseAgentNotesMeta: null,
+      exercisePrescriptions: values.exercisePrescriptions ?? null,
       notes: null,
     })
     .run();
@@ -111,6 +114,10 @@ const seedSessionSet = (values: {
   section?: WorkoutTemplateSectionType;
   orderIndex?: number;
   setNumber: number;
+  sourceScheduledSetId?: string | null;
+  targetSeconds?: number | null;
+  seconds?: number | null;
+  completed?: boolean;
 }) =>
   context.db
     .insert(sessionSets)
@@ -120,14 +127,16 @@ const seedSessionSet = (values: {
       exerciseId: values.exerciseId,
       orderIndex: values.orderIndex ?? 0,
       setNumber: values.setNumber,
+      sourceScheduledSetId: values.sourceScheduledSetId ?? null,
       weight: null,
       reps: null,
+      seconds: values.seconds ?? null,
       targetWeight: null,
       targetWeightMin: null,
       targetWeightMax: null,
-      targetSeconds: null,
+      targetSeconds: values.targetSeconds ?? null,
       targetDistance: null,
-      completed: false,
+      completed: values.completed ?? false,
       skipped: false,
       supersetGroup: null,
       section: values.section ?? 'main',
@@ -250,6 +259,104 @@ describe('workout session store deleteSessionSet', () => {
       null,
       unknownSection,
     ]);
+  });
+
+  it('lists repeated scheduled occurrences read-only and owner-scoped', async () => {
+    seedExercise({ id: 'global-peloton', name: 'Peloton Bike' });
+    const prescription = (
+      sourceScheduledExerciseId: string,
+      section: WorkoutTemplateSectionType,
+      orderIndex: number,
+    ): SessionExercisePrescription => ({
+      tempo: null,
+      restSeconds: 30,
+      sourceScheduledExerciseId,
+      sourceSetCount: 1,
+      exerciseId: 'global-peloton',
+      exerciseName: 'Peloton Bike',
+      trackingType: 'seconds_only',
+      section,
+      orderIndex,
+      supersetGroup: null,
+    });
+    seedWorkoutSession({
+      id: 'session-collision-owner',
+      userId: 'user-1',
+      status: 'completed',
+      exercisePrescriptions: {
+        'warmup::global-peloton': prescription('scheduled-warmup', 'warmup', 0),
+        'supplemental::global-peloton': prescription('scheduled-supplemental', 'supplemental', 0),
+      },
+    });
+    seedSessionSet({
+      id: 'set-collision-warmup',
+      sessionId: 'session-collision-owner',
+      exerciseId: 'global-peloton',
+      section: 'warmup',
+      setNumber: 1,
+      sourceScheduledSetId: 'scheduled-set-warmup',
+      targetSeconds: 300,
+      seconds: 300,
+      completed: true,
+    });
+    seedSessionSet({
+      id: 'set-collision-supplemental',
+      sessionId: 'session-collision-owner',
+      exerciseId: 'global-peloton',
+      section: 'supplemental',
+      setNumber: 1,
+      sourceScheduledSetId: 'scheduled-set-supplemental',
+      targetSeconds: 900,
+      seconds: 500,
+      completed: true,
+    });
+    seedWorkoutSession({
+      id: 'session-collision-other-user',
+      userId: 'user-2',
+      status: 'in-progress',
+      exercisePrescriptions: {
+        'warmup::global-peloton': prescription('other-warmup', 'warmup', 0),
+        'supplemental::global-peloton': prescription('other-supplemental', 'supplemental', 0),
+      },
+    });
+
+    const collisions = await context.store.listWorkoutOccurrenceCollisions('user-1');
+
+    expect(collisions).toEqual([
+      {
+        sessionId: 'session-collision-owner',
+        exerciseId: 'global-peloton',
+        occurrences: [
+          {
+            sourceScheduledExerciseId: 'scheduled-warmup',
+            section: 'warmup',
+            sets: [
+              expect.objectContaining({
+                id: 'set-collision-warmup',
+                sourceScheduledSetId: 'scheduled-set-warmup',
+                targetSeconds: 300,
+                seconds: 300,
+                completed: true,
+              }),
+            ],
+          },
+          {
+            sourceScheduledExerciseId: 'scheduled-supplemental',
+            section: 'supplemental',
+            sets: [
+              expect.objectContaining({
+                id: 'set-collision-supplemental',
+                sourceScheduledSetId: 'scheduled-set-supplemental',
+                targetSeconds: 900,
+                seconds: 500,
+                completed: true,
+              }),
+            ],
+          },
+        ],
+      },
+    ]);
+    expect(await context.store.listWorkoutOccurrenceCollisions('missing-user')).toEqual([]);
   });
 
   it('returns GET /workout-sessions/:id sets in warmup/main/supplemental/cooldown order', async () => {

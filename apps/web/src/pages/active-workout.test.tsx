@@ -587,8 +587,8 @@ describe('ActiveWorkoutPage', () => {
         expect.objectContaining({
           body: JSON.stringify({
             exercises: [
-              { exerciseId: 'cable-lateral-raise', supersetGroup: null },
-              { exerciseId: 'rope-triceps-pushdown', supersetGroup: null },
+              { exerciseId: 'cable-lateral-raise', section: 'main', supersetGroup: null },
+              { exerciseId: 'rope-triceps-pushdown', section: 'main', supersetGroup: null },
             ],
           }),
           method: 'PATCH',
@@ -866,9 +866,109 @@ describe('ActiveWorkoutPage', () => {
 
       expect(JSON.parse(storedDraft ?? '{}')).toMatchObject({
         sessionCuesByExercise: {
-          'seated-dumbbell-shoulder-press': ['Drive elbows under wrists'],
+          'upper-push-exercise-4': ['Drive elbows under wrists'],
         },
       });
+    });
+  });
+
+  it('hydrates and updates repeated scheduled occurrences without cross-section leakage', async () => {
+    vi.useRealTimers();
+    const sessionId = 'session-repeated-bike-ui';
+    const warmupSet = createHydrationSessionSet({
+      exerciseId: 'peloton-bike',
+      id: 'bike-warmup-set',
+      orderIndex: 0,
+      reps: null,
+      seconds: null,
+      section: 'warmup',
+      setNumber: 1,
+      targetSeconds: 300,
+    });
+    const supplementalSet = createHydrationSessionSet({
+      exerciseId: 'peloton-bike',
+      id: 'bike-supplemental-set',
+      orderIndex: 0,
+      reps: null,
+      seconds: null,
+      section: 'supplemental',
+      setNumber: 1,
+      targetSeconds: 900,
+    });
+    const session = buildHydrationSessionResponse(sessionId, {
+      exercises: [
+        createHydrationSessionExercise({
+          exerciseId: 'peloton-bike',
+          exerciseName: 'Peloton Bike',
+          orderIndex: 0,
+          section: 'warmup',
+          sourceScheduledExerciseId: 'scheduled-bike-warmup',
+          trackingType: 'seconds_only',
+          sets: [warmupSet],
+        }),
+        createHydrationSessionExercise({
+          exerciseId: 'peloton-bike',
+          exerciseName: 'Peloton Bike',
+          orderIndex: 0,
+          section: 'supplemental',
+          sourceScheduledExerciseId: 'scheduled-bike-supplemental',
+          trackingType: 'seconds_only',
+          sets: [supplementalSet],
+        }),
+      ],
+      sets: [warmupSet, supplementalSet],
+    });
+    const fetchMock = mockActiveSessionFetch(sessionId, session);
+
+    renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper Push' })).toBeVisible();
+    const headings = await screen.findAllByRole('heading', { level: 3, name: 'Peloton Bike' });
+    expect(headings).toHaveLength(2);
+    const warmupCard = headings[0]?.closest('[data-slot="card"]') as HTMLElement;
+    const supplementalCard = headings[1]?.closest('[data-slot="card"]') as HTMLElement;
+    for (const card of [warmupCard, supplementalCard]) {
+      const toggle = within(card)
+        .getAllByRole('button')
+        .find((button) => button.getAttribute('aria-controls')?.startsWith('exercise-panel-'));
+      if (toggle?.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
+    }
+
+    expect(within(warmupCard).getByText('Target: 300 sec')).toBeVisible();
+    expect(within(supplementalCard).getByText('Target: 900 sec')).toBeVisible();
+    fireEvent.change(within(warmupCard).getByLabelText('Seconds for set 1'), {
+      target: { value: '300' },
+    });
+
+    await waitFor(() => {
+      const updateCall = fetchMock.mock.calls.find(
+        ([input, init]) =>
+          String(input).endsWith('/sets/bike-warmup-set') && init?.method === 'PATCH',
+      );
+      expect(updateCall).toBeDefined();
+      expect(JSON.parse(String(updateCall?.[1]?.body))).toMatchObject({ seconds: 300 });
+    });
+    expect(within(supplementalCard).getByLabelText('Seconds for set 1')).toHaveValue(null);
+
+    fireEvent.change(within(supplementalCard).getByLabelText('Seconds for set 1'), {
+      target: { value: '500' },
+    });
+    await waitFor(() => {
+      const updateCall = fetchMock.mock.calls.find(
+        ([input, init]) =>
+          String(input).endsWith('/sets/bike-supplemental-set') && init?.method === 'PATCH',
+      );
+      expect(updateCall).toBeDefined();
+      expect(JSON.parse(String(updateCall?.[1]?.body))).toMatchObject({ seconds: 500 });
+    });
+    expect(within(warmupCard).getByLabelText('Seconds for set 1')).toHaveValue(300);
+
+    const storedDraft = JSON.parse(
+      window.localStorage.getItem(`${ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX}:${sessionId}`) ?? '{}',
+    ) as { setDrafts?: Record<string, Array<{ seconds: number | null }>> };
+    expect(storedDraft.setDrafts).toMatchObject({
+      'scheduled-bike-warmup': [expect.objectContaining({ seconds: 300 })],
+      'scheduled-bike-supplemental': [expect.objectContaining({ seconds: 500 })],
     });
   });
 
@@ -3439,6 +3539,18 @@ function mockActiveSessionFetch(sessionId: string, session: MutableInProgressSes
       return Promise.resolve(jsonResponse({ data: session }));
     }
 
+    const setUpdateMatch = url.match(
+      new RegExp(`/api/v1/workout-sessions/${sessionId}/sets/([^/?#]+)$`),
+    );
+    if (setUpdateMatch && init?.method === 'PATCH') {
+      const existingSet = session.sets.find((set) => set.id === setUpdateMatch[1]);
+      if (!existingSet) {
+        return Promise.reject(new Error(`Unexpected session set id: ${setUpdateMatch[1]}`));
+      }
+      const update = JSON.parse(String(init.body ?? '{}')) as Record<string, unknown>;
+      return Promise.resolve(jsonResponse({ data: { ...existingSet, ...update } }));
+    }
+
     if (url.includes('/api/v1/exercises/') && url.includes('/history')) {
       return Promise.resolve(jsonResponse({ data: [] }));
     }
@@ -3648,6 +3760,9 @@ type MutableInProgressSessionResponse = {
     setNumber: number;
     weight: number | null;
     reps: number | null;
+    seconds?: number | null;
+    targetSeconds?: number | null;
+    sourceScheduledSetId?: string;
     completed: boolean;
     skipped: boolean;
     section: 'warmup' | 'main' | 'cooldown' | 'supplemental';
@@ -3659,6 +3774,7 @@ type MutableInProgressSessionResponse = {
     exerciseName: string | null;
     orderIndex: number;
     section: 'warmup' | 'main' | 'cooldown' | 'supplemental' | null;
+    sourceScheduledExerciseId?: string;
     sets: Array<{
       id: string;
       exerciseId: string | null;
@@ -3666,6 +3782,9 @@ type MutableInProgressSessionResponse = {
       setNumber: number;
       weight: number | null;
       reps: number | null;
+      seconds?: number | null;
+      targetSeconds?: number | null;
+      sourceScheduledSetId?: string;
       completed: boolean;
       skipped: boolean;
       section: 'warmup' | 'main' | 'cooldown' | 'supplemental';

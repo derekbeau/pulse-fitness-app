@@ -33,8 +33,15 @@ const enhancedExerciseById = new Map<string, ActiveWorkoutEnhancedExercise>(
   workoutEnhancedExercises.map((exercise) => [exercise.exerciseId, exercise]),
 );
 
-export function createWorkoutSetId(exerciseId: string, setNumber: number) {
-  return `${exerciseId}:set-${setNumber}`;
+export function createWorkoutSetId(occurrenceId: string, setNumber: number) {
+  return `${occurrenceId}:set-${setNumber}`;
+}
+
+export function getWorkoutOccurrenceId(
+  templateExercise: ActiveWorkoutTemplateExercise,
+  section: ActiveWorkoutSection['type'],
+) {
+  return templateExercise.occurrenceId ?? `${section}::${templateExercise.exerciseId}`;
 }
 
 type BuildActiveWorkoutSessionOptions = {
@@ -70,12 +77,24 @@ export function buildActiveWorkoutSession(
     sessionStartedAt = new Date().toISOString(),
     sessions,
   } = options;
+  const exerciseOccurrenceCounts = new Map<string, number>();
+  for (const exercise of template.sections.flatMap((section) => section.exercises)) {
+    exerciseOccurrenceCounts.set(
+      exercise.exerciseId,
+      (exerciseOccurrenceCounts.get(exercise.exerciseId) ?? 0) + 1,
+    );
+  }
   const sections = template.sections.map((section): ActiveWorkoutSection => {
     const orderedTemplateExercises = sortTemplateExercisesByOrder(
       section.exercises,
       exerciseOrderBySection?.[section.type],
     );
     const exercises = orderedTemplateExercises.map((templateExercise): ActiveWorkoutExercise => {
+      const occurrenceId = getWorkoutOccurrenceId(templateExercise, section.type);
+      const legacyExerciseId =
+        exerciseOccurrenceCounts.get(templateExercise.exerciseId) === 1
+          ? templateExercise.exerciseId
+          : null;
       const templateExerciseWithMetadata = templateExercise as WorkoutTemplateExerciseWithMetadata;
       const enhancedExercise = enhancedExerciseById.get(templateExercise.exerciseId);
       const fallbackExerciseName =
@@ -87,12 +106,13 @@ export function buildActiveWorkoutSession(
         prescribedReps: templateExercise.reps,
         trackingType: templateExercise.trackingType,
       });
-      const sets = getWorkoutSets(templateExercise, setDrafts);
+      const sets = getWorkoutSets(occurrenceId, setDrafts, legacyExerciseId);
       const completedSets = sets.filter((set) => set.completed).length;
-      const hasSupersetOverride = Object.hasOwn(
-        exerciseSupersetOverrides,
-        templateExercise.exerciseId,
-      );
+      const overrideKey = Object.hasOwn(exerciseSupersetOverrides, occurrenceId)
+        ? occurrenceId
+        : legacyExerciseId && Object.hasOwn(exerciseSupersetOverrides, legacyExerciseId)
+          ? legacyExerciseId
+          : null;
 
       return {
         badges: templateExercise.badges,
@@ -105,13 +125,16 @@ export function buildActiveWorkoutSession(
           templateExerciseWithMetadata.exercise?.formCues ?? templateExercise.formCues ?? [],
         templateCues: templateExercise.templateCues ?? [],
         id: templateExercise.exerciseId,
+        occurrenceId,
         injuryCues: enhancedExercise?.injuryCues ?? [],
         instructions: templateExerciseWithMetadata.exercise?.instructions ?? null,
         lastPerformance: sessions
           ? getLastPerformance(templateExercise.exerciseId, sessionStartedAt, sessions)
           : (enhancedExercise?.lastPerformance ?? null),
         name: templateExercise.exerciseName ?? enhancedExercise?.name ?? fallbackExerciseName,
-        notes: exerciseNotes[templateExercise.exerciseId] ?? '',
+        notes:
+          exerciseNotes[occurrenceId] ??
+          (legacyExerciseId ? (exerciseNotes[legacyExerciseId] ?? '') : ''),
         phaseBadge: enhancedExercise?.phaseBadge ?? 'moderate',
         programmingNotes: templateExerciseWithMetadata.programmingNotes ?? null,
         prescribedReps: templateExercise.reps,
@@ -120,8 +143,8 @@ export function buildActiveWorkoutSession(
         restSeconds: templateExercise.restSeconds,
         reversePyramid: enhancedExercise?.reversePyramid ?? [],
         sets,
-        supersetGroup: hasSupersetOverride
-          ? exerciseSupersetOverrides[templateExercise.exerciseId]
+        supersetGroup: overrideKey
+          ? exerciseSupersetOverrides[overrideKey]
           : template.scheduledWorkoutId
             ? (templateExercise.supersetGroup ?? null)
             : (templateExercise.supersetGroup ?? enhancedExercise?.supersetGroup ?? null),
@@ -155,8 +178,8 @@ export function buildActiveWorkoutSession(
       currentExerciseIndex === -1 ? Math.max(flatExercises.length, 1) : currentExerciseIndex + 1,
     currentExerciseId:
       currentExerciseIndex === -1
-        ? (flatExercises.at(-1)?.id ?? null)
-        : (flatExercises[currentExerciseIndex]?.id ?? null),
+        ? (flatExercises.at(-1)?.occurrenceId ?? null)
+        : (flatExercises[currentExerciseIndex]?.occurrenceId ?? null),
     sections,
     totalExercises: flatExercises.length,
     totalSets,
@@ -177,8 +200,10 @@ function sortTemplateExercisesByOrder(
   );
 
   return [...exercises].sort((left, right) => {
-    const leftIndex = orderIndexByExerciseId.get(left.exerciseId) ?? Number.MAX_SAFE_INTEGER;
-    const rightIndex = orderIndexByExerciseId.get(right.exerciseId) ?? Number.MAX_SAFE_INTEGER;
+    const leftIndex =
+      orderIndexByExerciseId.get(left.occurrenceId ?? left.exerciseId) ?? Number.MAX_SAFE_INTEGER;
+    const rightIndex =
+      orderIndexByExerciseId.get(right.occurrenceId ?? right.exerciseId) ?? Number.MAX_SAFE_INTEGER;
 
     if (leftIndex !== rightIndex) {
       return leftIndex - rightIndex;
@@ -194,16 +219,20 @@ export function createInitialWorkoutSetDrafts(
 ): ActiveWorkoutSetDrafts {
   return Object.fromEntries(
     template.sections.flatMap((section) =>
-      section.exercises.map((templateExercise) => [
-        templateExercise.exerciseId,
-        Array.from({ length: templateExercise.sets }, (_, index) =>
-          createWorkoutSetDraft(
-            templateExercise,
-            index + 1,
-            completedSetIds.has(createWorkoutSetId(templateExercise.exerciseId, index + 1)),
+      section.exercises.map((templateExercise) => {
+        const occurrenceId = getWorkoutOccurrenceId(templateExercise, section.type);
+        return [
+          occurrenceId,
+          Array.from({ length: templateExercise.sets }, (_, index) =>
+            createWorkoutSetDraft(
+              templateExercise,
+              index + 1,
+              completedSetIds.has(createWorkoutSetId(occurrenceId, index + 1)),
+              occurrenceId,
+            ),
           ),
-        ),
-      ]),
+        ];
+      }),
     ),
   );
 }
@@ -212,6 +241,7 @@ export function createWorkoutSetDraft(
   templateExercise: ActiveWorkoutTemplateExercise,
   setNumber: number,
   completed = false,
+  occurrenceId = templateExercise.occurrenceId ?? templateExercise.exerciseId,
 ): ActiveWorkoutSet {
   const exerciseId = templateExercise.exerciseId;
   const enhancedExercise = enhancedExerciseById.get(exerciseId);
@@ -226,7 +256,7 @@ export function createWorkoutSetDraft(
   const initialValue = completed ? parsePrescribedRepsValue(templateExercise.reps) : null;
 
   return {
-    id: createWorkoutSetId(exerciseId, setNumber),
+    id: createWorkoutSetId(occurrenceId, setNumber),
     completed,
     distance: trackingType === 'distance' ? initialValue : null,
     number: setNumber,
@@ -245,12 +275,13 @@ export function createWorkoutSetDraft(
 }
 
 function getWorkoutSets(
-  templateExercise: ActiveWorkoutTemplateExercise,
+  occurrenceId: string,
   setDrafts: ActiveWorkoutSetDrafts,
+  legacyExerciseId: string | null,
 ) {
-  return [...(setDrafts[templateExercise.exerciseId] ?? [])].sort(
-    (left, right) => left.number - right.number,
-  );
+  return [
+    ...(setDrafts[occurrenceId] ?? (legacyExerciseId ? (setDrafts[legacyExerciseId] ?? []) : [])),
+  ].sort((left, right) => left.number - right.number);
 }
 
 function getLastPerformance(

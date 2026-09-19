@@ -249,6 +249,52 @@ describe('reorderSessionSetsByExercise', () => {
 });
 
 describe('applyExerciseNotesToSets', () => {
+  it('keeps scoped notes independent for the same canonical exercise in different sections', () => {
+    const sets = [
+      {
+        exerciseId: 'peloton-bike',
+        orderIndex: 0,
+        setNumber: 1,
+        weight: null,
+        reps: null,
+        seconds: 300,
+        distance: null,
+        completed: true,
+        skipped: false,
+        supersetGroup: null,
+        section: 'warmup',
+        notes: null,
+      },
+      {
+        exerciseId: 'peloton-bike',
+        orderIndex: 0,
+        setNumber: 1,
+        weight: null,
+        reps: null,
+        seconds: 500,
+        distance: null,
+        completed: true,
+        skipped: false,
+        supersetGroup: null,
+        section: 'supplemental',
+        notes: null,
+      },
+    ] satisfies SessionSetInput[];
+
+    const result = applyExerciseNotesToSets({
+      sets,
+      exerciseNotes: {
+        'peloton-bike::warmup': 'Easy spin',
+        'peloton-bike::supplemental': 'Zone two ride',
+      },
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({ section: 'warmup', seconds: 300, notes: 'Easy spin' }),
+      expect.objectContaining({ section: 'supplemental', seconds: 500, notes: 'Zone two ride' }),
+    ]);
+  });
+
   it('applies notes only to each exercise first set per section when note is not null', () => {
     const sets = [
       {

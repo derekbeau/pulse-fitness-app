@@ -906,7 +906,10 @@ export const findExerciseLastPerformance = async ({
   const sessionIds = recentSessions.map((session) => session.sessionId);
   const recentSets = await db
     .select({
+      id: sessionSets.id,
       sessionId: sessionSets.sessionId,
+      section: sessionSets.section,
+      sourceScheduledSetId: sessionSets.sourceScheduledSetId,
       setNumber: sessionSets.setNumber,
       weight: sessionSets.weight,
       reps: sessionSets.reps,
@@ -931,6 +934,11 @@ export const findExerciseLastPerformance = async ({
   for (const set of recentSets) {
     const currentSets = setsBySessionId.get(set.sessionId) ?? [];
     currentSets.push({
+      id: set.id,
+      section: set.section,
+      ...(set.sourceScheduledSetId !== null
+        ? { sourceScheduledSetId: set.sourceScheduledSetId }
+        : {}),
       setNumber: set.setNumber,
       weight: set.weight,
       reps: set.reps,
@@ -1012,7 +1020,10 @@ export const findExercisePerformanceHistory = async ({
   const sessionIds = sessions.map((session) => session.sessionId);
   const completedSets = await db
     .select({
+      id: sessionSets.id,
       sessionId: sessionSets.sessionId,
+      section: sessionSets.section,
+      sourceScheduledSetId: sessionSets.sourceScheduledSetId,
       setNumber: sessionSets.setNumber,
       weight: sessionSets.weight,
       reps: sessionSets.reps,
@@ -1037,6 +1048,9 @@ export const findExercisePerformanceHistory = async ({
   const setsBySessionId = new Map<
     string,
     Array<{
+      id?: string;
+      section?: 'warmup' | 'main' | 'supplemental' | 'cooldown' | null;
+      sourceScheduledSetId?: string | null;
       distance?: number | null;
       reps: number | null;
       seconds?: number | null;
@@ -1054,6 +1068,11 @@ export const findExercisePerformanceHistory = async ({
 
     const currentSets = setsBySessionId.get(set.sessionId) ?? [];
     currentSets.push({
+      id: set.id,
+      section: set.section,
+      ...(set.sourceScheduledSetId !== null
+        ? { sourceScheduledSetId: set.sourceScheduledSetId }
+        : {}),
       setNumber: set.setNumber,
       weight: set.weight,
       reps: set.reps,
@@ -1104,7 +1123,10 @@ const findRelatedExercisesLastPerformanceById = async ({
   // never mask an older performance. The same predicate drives the UI selector.
   const candidates = await db
     .select({
+      id: sessionSets.id,
       exerciseId: sessionSets.exerciseId,
+      section: sessionSets.section,
+      sourceScheduledSetId: sessionSets.sourceScheduledSetId,
       sessionId: workoutSessions.id,
       date: workoutSessions.date,
       sessionNotes: workoutSessions.notes,
@@ -1163,6 +1185,11 @@ const findRelatedExercisesLastPerformanceById = async ({
     if (history.sessionId !== set.sessionId) continue;
 
     history.sets.push({
+      id: set.id,
+      section: set.section,
+      ...(set.sourceScheduledSetId !== null
+        ? { sourceScheduledSetId: set.sourceScheduledSetId }
+        : {}),
       setNumber: set.setNumber,
       weight: set.weight,
       reps: set.reps,
