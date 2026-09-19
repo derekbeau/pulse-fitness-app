@@ -5,28 +5,35 @@
 - Current checkpoint: #176 canonical foundation
 - Branch: `feat/activity-journal-release`
 - Product base: `a2525a61347f7b62c9014fc47d1518e38f34d3ef`
-- Verified starting HEAD: `b86d2f3f99b8fd20da33b242eee6f899d3c67394`
+- Original checkpoint starting HEAD: `b86d2f3f99b8fd20da33b242eee6f899d3c67394`
+- Repair 1 starting HEAD: `c5114765866b9c347eda5c0db95b1e21f7a258c0`
 - Checkpoint commit: the commit containing this status file; report its exact resolved SHA in the independent-review handoff
 - Runtime claim: shared contract only; no new endpoint, database persistence, migration, UI, or deployment
 
 ## Requirements to executable evidence
 
-| Requirement                                             | Executable evidence                                                                                                 |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Actor versus subject ownership                          | `keeps the user subject distinct from the acting agent identity`                                                    |
-| Cross-user/link rejection shape                         | `rejects a cross-user entity link and uses a non-disclosing rejection shape`                                        |
-| Four provenance classes survive                         | `preserves all four provenance classes without collapsing their source`                                             |
-| Planned Tuesday / actual Thursday and timezone boundary | `preserves planned Tuesday separately from actual Thursday across a timezone boundary`; disagreement rejection test |
-| Duplicate retry versus changed-payload conflict         | `distinguishes a duplicate retry from a changed-payload idempotency conflict`; scope test                           |
-| Immutable prior revision and visible stale conflict     | `retains immutable correction history and exposes a visible stale conflict`                                         |
-| Recurrence preserves past assignment                    | `applies recurrence revisions prospectively while preserving past assignment identity`                              |
-| Meaningful proposal cannot be implicitly approved       | `cannot represent a meaningful proposal as approved without explicit bound approval`                                |
-| Approval binds exact proposal and target revisions      | `binds approval to both the exact proposal revision and target revision set`                                        |
-| Unknown differs from negative                           | `keeps unknown distinct from an answered negative`                                                                  |
-| Structured workout identity remains separate            | `keeps structured workout identity separate from activity identity`                                                 |
-| Concern state policy is executable                      | `uses explicit conservative concern transitions`                                                                    |
+| Requirement                                             | Executable evidence                                                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Actor versus subject ownership                          | `keeps the user subject distinct from the acting agent identity`                                                          |
+| Cross-user/link rejection shape                         | `rejects a cross-user entity link and uses a non-disclosing rejection shape`                                              |
+| Four provenance classes survive                         | `preserves all four provenance classes without collapsing their source`                                                   |
+| Planned Tuesday / actual Thursday and timezone boundary | `preserves planned Tuesday separately from actual Thursday across a timezone boundary`; disagreement rejection test       |
+| Duplicate retry versus changed-payload conflict         | `distinguishes a duplicate retry from a changed-payload idempotency conflict`; scope test                                 |
+| Immutable prior revision and visible stale conflict     | `retains immutable correction history and exposes a visible stale conflict`                                               |
+| Recurrence preserves past assignment                    | `applies recurrence revisions prospectively while preserving past assignment identity`                                    |
+| Meaningful proposal cannot be implicitly approved       | `cannot represent a meaningful proposal as approved without explicit bound approval`                                      |
+| Approval binds exact proposal and target revisions      | `binds approval to both the exact proposal revision and target revision set`                                              |
+| Unknown differs from negative                           | `keeps unknown distinct from an answered negative`                                                                        |
+| Structured workout identity remains separate            | `keeps structured workout identity separate from activity identity`                                                       |
+| Concern state policy is executable                      | `uses explicit conservative concern transitions`                                                                          |
+| Idempotency scope is bound to every write subject       | Repair suite parameterizes all 15 exported idempotent write schemas with matching and mismatched subjects                 |
+| Nested owned references stay within the subject         | Repair suite covers routine/correction/check-in/journal/proposal/approval writes and daily/session/weekly/calendar reads  |
+| Occurrence dates survive UTC and DST boundaries         | Repair suite exercises ordinary, spring-forward, and both fall-back instants for observation, flare, and calendar schemas |
+| Empty corrections are rejected                          | Repair suite accepts a changed field and rejects empty `correctedFields` on write and immutable revision schemas          |
 
 Fixtures are fictional and live in `packages/shared/src/schemas/activity-journal-contracts.fixtures.ts`. The test file is `packages/shared/src/schemas/activity-journal-contracts.test.ts`; the runner config is `packages/shared/vitest.config.ts`.
+
+Repair-specific regressions live in `packages/shared/src/schemas/activity-journal-contracts.repair.test.ts`. They retain the original fixtures and evidence while exercising the independently reported boundary failures with valid controls.
 
 ## Command results
 
@@ -48,6 +55,24 @@ Evidence directory: `/Users/meridian/Projects/qa-reports/pulse-activity-journal-
 | `09-root-build-forced.txt`                     | `pnpm exec turbo run build --force`                                      | Exit 0: API, shared, and web built; 0 cached. Vite retained its existing large-chunk warning.                                           |
 
 `git diff --check` also passed after formatting. The forced commands are used as final affected-consumer evidence because the public `@pulse/shared` export changed.
+
+### Repair 1 evidence
+
+Evidence directory: `/Users/meridian/Projects/qa-reports/pulse-activity-journal-release/checkpoint-176-repair-1`
+
+The repair receipts are captured separately from the original checkpoint evidence.
+
+| Evidence                        | Command                                                                         | Result                                                                                                |
+| ------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `00-before-state.txt`           | branch/HEAD/status and source evidence hashes                                   | Repair began clean at `c5114765866b9c347eda5c0db95b1e21f7a258c0`; original review artifacts retained. |
+| `01-shared-tests-final.txt`     | `pnpm --filter @pulse/shared test -- activity-journal-contracts.repair.test.ts` | Exit 0: 60 files and 853 tests passed, including 43 repair regressions.                               |
+| `02-shared-typecheck-final.txt` | `pnpm --filter @pulse/shared typecheck`                                         | Exit 0.                                                                                               |
+| `03-shared-lint-final.txt`      | `pnpm --filter @pulse/shared lint`                                              | Exit 0.                                                                                               |
+| `04-shared-build-final.txt`     | `pnpm --filter @pulse/shared build`                                             | Exit 0.                                                                                               |
+| `05-root-typecheck-forced.txt`  | `pnpm exec turbo run typecheck --force`                                         | Exit 0: API, shared, and web all ran in this worktree; 0 cached.                                      |
+| final git receipt               | `git diff --check`; post-push branch/HEAD/upstream/status verification          | Captured after commit and push.                                                                       |
+
+The repair changes contract refinements only; it does not add a runtime route, migration, persistence, UI, or deployment claim. The original forced root lint/build receipts remain applicable because the repair adds no consumer implementation or build configuration; shared lint/build and a forced all-consumer typecheck were rerun.
 
 ## Deferred runtime owners and real gaps
 

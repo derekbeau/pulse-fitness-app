@@ -7,6 +7,7 @@ Status: checkpoint #176 contract foundation. The exported `activity-journal-v1` 
 - `subjectUserId` is the owner whose health record is affected. It is never inferred from a linked record.
 - `actor` is the authenticated user, agent token, or system process that performed the write. An agent acting for a user remains an agent actor; provenance records what the user actually said or supplied.
 - Every cross-record reference carries its own `subjectUserId`. The backend must load both sides under the authenticated subject in one transaction. A missing or foreign side returns the same `OWNED_LINK_NOT_FOUND` shape, without disclosing the foreign id.
+- Shared write schemas reject an idempotency scope whose `subjectUserId` differs from the write subject, and reject nested owned references whose subject differs from their enclosing record. Shared daily, session, weekly-reflection, and calendar read models apply the same nested-subject invariant. These structural checks supplement rather than replace backend authentication and transactional user scoping; actor identity is not treated as the subject identity.
 - Activities, planned assignments, and actual executions are separate identities. A structured workout may be referenced, but it never becomes an Activity or shares its identity.
 - All captured facts retain exactly one provenance class: `clinician_authored`, `user_relayed_clinician`, `user_observation`, or `agent_suggestion`. Uncertainty and freshness remain independent fields.
 - `unknown`, `not_asked`, `denied`, and `affirmed` are distinct. Missing input must not be serialized as a negative finding.
@@ -27,14 +28,14 @@ A same-state write may add a revision but cannot erase history. `resolved` recor
 
 ### Dates, recurrence, and corrections
 
-- Calendar intent uses `YYYY-MM-DD` plus the recorded IANA timezone. Occurrences use an offset-bearing instant plus a derived local date and timezone; the contract rejects disagreement between them.
+- Calendar intent uses `YYYY-MM-DD` plus the recorded IANA timezone. Occurrences use an offset-bearing instant plus a derived local date and timezone; execution, health-observation, flare, and timestamped calendar contracts reject disagreement between them, including across DST boundaries. Date-only calendar items keep a null occurrence instant. Provenance capture/source timestamps are independent evidence metadata and are not used to derive the occurrence date.
 - Rescheduling creates a new assignment revision. Planned Tuesday and actual Thursday remain queryable as separate fields and records.
 - Recurrence revisions have an `effectiveFromLocalDate` and may affect only unmaterialized assignments on or after that date. The literal policy is `unassigned_on_or_after_effective_date`; existing assignments retain their original recurrence revision and date until explicitly rescheduled.
-- Corrections append an immutable revision with `priorRevisionId`. The prior revision is never updated in place. A mismatched expected revision returns `STALE_REVISION` with expected/current numbers and makes no write.
+- Corrections append an immutable revision with `priorRevisionId`. The prior revision is never updated in place. Empty `correctedFields` objects are rejected conservatively because they cannot represent a correction. A mismatched expected revision returns `STALE_REVISION` with expected/current numbers and makes no write.
 
 ### Idempotency and approval
 
-- Idempotency uniqueness is scoped by `(subjectUserId, route, operation, key)`. The stored request fingerprint is part of the receipt.
+- Idempotency uniqueness is scoped by `(subjectUserId, route, operation, key)`. Every exported idempotent write contract requires that scope subject to equal the write's declared subject. The stored request fingerprint is part of the receipt.
 - A retry with the same scope, key, and fingerprint replays the original result. Reusing a key with a different payload in the same scope returns `IDEMPOTENCY_KEY_REUSE`; a different declared scope is a distinct key namespace.
 - A direct routine instruction may execute once through `routinePlanInstructionSchema`, retaining its target revision and idempotency receipt.
 - A meaningful change starts as `proposed` and cannot be represented as approved without an explicit approval object. Approval binds to the exact `proposalRevisionId`, exact target revision fingerprint, and approving user actor.

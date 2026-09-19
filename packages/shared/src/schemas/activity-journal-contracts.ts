@@ -112,6 +112,54 @@ export const ownedEntityReferenceSchema = z
   })
   .strict();
 
+type OwnedEntityReferenceValue = z.infer<typeof ownedEntityReferenceSchema>;
+
+const validateOwnedReferenceSubject = (
+  subjectUserId: string,
+  reference: OwnedEntityReferenceValue,
+  context: z.RefinementCtx,
+  path: Array<string | number>,
+  message: string,
+) => {
+  if (reference.subjectUserId !== subjectUserId) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: [...path, 'subjectUserId'],
+      message,
+    });
+  }
+};
+
+const validateOwnedReferenceSubjects = (
+  subjectUserId: string,
+  references: readonly OwnedEntityReferenceValue[],
+  context: z.RefinementCtx,
+  path: Array<string | number>,
+  message: string,
+) => {
+  references.forEach((reference, index) =>
+    validateOwnedReferenceSubject(subjectUserId, reference, context, [...path, index], message),
+  );
+};
+
+const validateSubjectScopedItems = (
+  subjectUserId: string,
+  items: ReadonlyArray<{ subjectUserId: string }>,
+  context: z.RefinementCtx,
+  path: Array<string | number>,
+  message: string,
+) => {
+  items.forEach((item, index) => {
+    if (item.subjectUserId !== subjectUserId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [...path, index, 'subjectUserId'],
+        message,
+      });
+    }
+  });
+};
+
 export const ownedEntityLinkSchema = z
   .object({
     id: idSchema,
@@ -134,20 +182,20 @@ export const ownedEntityLinkSchema = z
   })
   .strict()
   .superRefine((link, context) => {
-    if (link.source.subjectUserId !== link.subjectUserId) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['source', 'subjectUserId'],
-        message: 'Source ownership must match the link subject.',
-      });
-    }
-    if (link.target.subjectUserId !== link.subjectUserId) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['target', 'subjectUserId'],
-        message: 'Target ownership must match the link subject.',
-      });
-    }
+    validateOwnedReferenceSubject(
+      link.subjectUserId,
+      link.source,
+      context,
+      ['source'],
+      'Source ownership must match the link subject.',
+    );
+    validateOwnedReferenceSubject(
+      link.subjectUserId,
+      link.target,
+      context,
+      ['target'],
+      'Target ownership must match the link subject.',
+    );
   });
 
 export const activityGoalKindSchema = z.enum([
@@ -265,15 +313,37 @@ export const activityAssignmentSchema = z
   })
   .strict();
 
-const localDateForInstant = (instant: string, timeZone: string) => {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date(instant));
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
+const localDateForInstant = (instant: string, timeZone: string): string | null => {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date(instant));
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    if (!values.year || !values.month || !values.day) return null;
+    return `${values.year}-${values.month}-${values.day}`;
+  } catch {
+    return null;
+  }
+};
+
+const validateOccurrenceLocalDate = (
+  occurrence: { instant: string | null; localDate: string; timeZone: string },
+  context: z.RefinementCtx,
+  path: string,
+  message: string,
+) => {
+  if (occurrence.instant === null) return;
+  const resolvedLocalDate = localDateForInstant(occurrence.instant, occurrence.timeZone);
+  if (resolvedLocalDate !== null && resolvedLocalDate !== occurrence.localDate) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: [path],
+      message,
+    });
+  }
 };
 
 export const activityExecutionSchema = z
@@ -293,16 +363,16 @@ export const activityExecutionSchema = z
   })
   .strict()
   .superRefine((execution, context) => {
-    if (
-      localDateForInstant(execution.actualOccurredAt, execution.timeZone) !==
-      execution.actualLocalDate
-    ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['actualLocalDate'],
-        message: 'Actual local date must match the occurrence instant in the recorded time zone.',
-      });
-    }
+    validateOccurrenceLocalDate(
+      {
+        instant: execution.actualOccurredAt,
+        localDate: execution.actualLocalDate,
+        timeZone: execution.timeZone,
+      },
+      context,
+      'actualLocalDate',
+      'Actual local date must match the occurrence instant in the recorded time zone.',
+    );
   });
 
 export const concernSymptomStateSchema = findingStateSchema;
@@ -392,7 +462,19 @@ export const healthObservationSchema = z
     workoutSessionIds: z.array(idSchema).max(20),
     currentRevisionId: idSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((observation, context) => {
+    validateOccurrenceLocalDate(
+      {
+        instant: observation.occurredAt,
+        localDate: observation.localDate,
+        timeZone: observation.timeZone,
+      },
+      context,
+      'localDate',
+      'Observation local date must match the occurrence instant in the recorded time zone.',
+    );
+  });
 
 export const journalObservationSchema = z
   .object({
@@ -410,18 +492,16 @@ export const journalObservationSchema = z
   })
   .strict()
   .superRefine((entry, context) => {
-    entry.sourceReferences.forEach((reference, index) => {
-      if (reference.subjectUserId !== entry.subjectUserId) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['sourceReferences', index, 'subjectUserId'],
-          message: 'Journal source ownership must match the journal subject.',
-        });
-      }
-    });
+    validateOwnedReferenceSubjects(
+      entry.subjectUserId,
+      entry.sourceReferences,
+      context,
+      ['sourceReferences'],
+      'Journal source ownership must match the journal subject.',
+    );
   });
 
-export const checkInQuestionRevisionSchema = z
+const checkInQuestionRevisionObjectSchema = z
   .object({
     id: idSchema,
     questionId: idSchema,
@@ -435,6 +515,18 @@ export const checkInQuestionRevisionSchema = z
     createdAt: instantSchema,
   })
   .strict();
+
+export const checkInQuestionRevisionSchema = checkInQuestionRevisionObjectSchema.superRefine(
+  (question, context) => {
+    validateOwnedReferenceSubjects(
+      question.subjectUserId,
+      question.sourceReferences,
+      context,
+      ['sourceReferences'],
+      'Check-in question source ownership must match the question subject.',
+    );
+  },
+);
 
 export const checkInAnswerRevisionSchema = z
   .object({
@@ -468,13 +560,20 @@ export const checkInAnswerRevisionSchema = z
     }
   });
 
+const correctedFieldsSchema = z
+  .record(z.string(), z.unknown())
+  .refine(
+    (fields) => Object.keys(fields).length > 0,
+    'A correction must change at least one field.',
+  );
+
 export const immutableCorrectionRevisionSchema = z
   .object({
     id: idSchema,
     record: ownedEntityReferenceSchema,
     revision: z.number().int().positive(),
     priorRevisionId: idSchema.nullable(),
-    correctedFields: z.record(z.string(), z.unknown()),
+    correctedFields: correctedFieldsSchema,
     reason: longTextSchema,
     actor: activityJournalActorSchema,
     createdAt: instantSchema,
@@ -514,6 +613,19 @@ export const idempotencyAttemptSchema = z
   .strict();
 
 export type IdempotencyAttempt = z.infer<typeof idempotencyAttemptSchema>;
+
+const validateIdempotencySubject = (
+  input: { subjectUserId: string; idempotency: IdempotencyAttempt },
+  context: z.RefinementCtx,
+) => {
+  if (input.idempotency.scope.subjectUserId !== input.subjectUserId) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['idempotency', 'scope', 'subjectUserId'],
+      message: 'Idempotency scope subject must match the write subject.',
+    });
+  }
+};
 
 export const classifyIdempotencyAttempt = (
   stored: IdempotencyAttempt | null,
@@ -577,6 +689,15 @@ export const meaningfulChangeProposalSchema = z
     proposalBaseSchema.extend({ state: z.literal('approved'), approval: proposalApprovalSchema }),
   ])
   .superRefine((proposal, context) => {
+    proposal.targets.forEach((target, index) =>
+      validateOwnedReferenceSubject(
+        proposal.subjectUserId,
+        target.reference,
+        context,
+        ['targets', index, 'reference'],
+        'Proposal target ownership must match the proposal subject.',
+      ),
+    );
     if (proposal.state !== 'approved') return;
     if (proposal.approval.proposalRevisionId !== proposal.proposalRevisionId) {
       context.addIssue({
@@ -604,7 +725,17 @@ export const routinePlanInstructionSchema = z
     actor: activityJournalActorSchema,
     executedAt: instantSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((instruction, context) => {
+    validateIdempotencySubject(instruction, context);
+    validateOwnedReferenceSubject(
+      instruction.subjectUserId,
+      instruction.target.reference,
+      context,
+      ['target', 'reference'],
+      'Routine instruction target ownership must match the instruction subject.',
+    );
+  });
 
 export const createActivityInputSchema = z
   .object({
@@ -616,7 +747,8 @@ export const createActivityInputSchema = z
     actor: activityJournalActorSchema,
     idempotency: idempotencyAttemptSchema,
   })
-  .strict();
+  .strict()
+  .superRefine(validateIdempotencySubject);
 
 export const createActivityAssignmentInputSchema = z
   .object({
@@ -628,7 +760,8 @@ export const createActivityAssignmentInputSchema = z
     actor: activityJournalActorSchema,
     idempotency: idempotencyAttemptSchema,
   })
-  .strict();
+  .strict()
+  .superRefine(validateIdempotencySubject);
 
 export const rescheduleActivityAssignmentInputSchema = z
   .object({
@@ -641,7 +774,8 @@ export const rescheduleActivityAssignmentInputSchema = z
     actor: activityJournalActorSchema,
     idempotency: idempotencyAttemptSchema,
   })
-  .strict();
+  .strict()
+  .superRefine(validateIdempotencySubject);
 
 export const recordActivityExecutionInputSchema = z
   .object({
@@ -660,16 +794,17 @@ export const recordActivityExecutionInputSchema = z
   })
   .strict()
   .superRefine((execution, context) => {
-    if (
-      localDateForInstant(execution.actualOccurredAt, execution.timeZone) !==
-      execution.actualLocalDate
-    ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['actualLocalDate'],
-        message: 'Actual local date must match the occurrence instant in the recorded time zone.',
-      });
-    }
+    validateIdempotencySubject(execution, context);
+    validateOccurrenceLocalDate(
+      {
+        instant: execution.actualOccurredAt,
+        localDate: execution.actualLocalDate,
+        timeZone: execution.timeZone,
+      },
+      context,
+      'actualLocalDate',
+      'Actual local date must match the occurrence instant in the recorded time zone.',
+    );
   });
 
 export const createActivityRecurrenceRevisionInputSchema = z
@@ -687,24 +822,36 @@ export const createActivityRecurrenceRevisionInputSchema = z
     actor: activityJournalActorSchema,
     idempotency: idempotencyAttemptSchema,
   })
-  .strict();
+  .strict()
+  .superRefine(validateIdempotencySubject);
 
 export const correctOwnedRecordInputSchema = z
   .object({
     subjectUserId: idSchema,
     record: ownedEntityReferenceSchema,
     expectedRevision: z.number().int().positive(),
-    correctedFields: z.record(z.string(), z.unknown()),
+    correctedFields: correctedFieldsSchema,
     reason: longTextSchema,
     actor: activityJournalActorSchema,
     idempotency: idempotencyAttemptSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((correction, context) => {
+    validateIdempotencySubject(correction, context);
+    validateOwnedReferenceSubject(
+      correction.subjectUserId,
+      correction.record,
+      context,
+      ['record'],
+      'Correction record ownership must match the correction subject.',
+    );
+  });
 
 export const recordConcernInputSchema = bodyConcernSchema
   .omit({ id: true, currentRevisionId: true, createdAt: true, updatedAt: true })
   .extend({ actor: activityJournalActorSchema, idempotency: idempotencyAttemptSchema })
-  .strict();
+  .strict()
+  .superRefine(validateIdempotencySubject);
 
 export const transitionConcernInputSchema = z
   .object({
@@ -722,7 +869,8 @@ export const transitionConcernInputSchema = z
   .refine((input) => isConcernManagementTransitionAllowed(input.from, input.to), {
     message: 'Concern management transition is not allowed.',
     path: ['to'],
-  });
+  })
+  .superRefine(validateIdempotencySubject);
 
 export const recordGuidanceInputSchema = z
   .object({
@@ -738,7 +886,8 @@ export const recordGuidanceInputSchema = z
   .refine((value) => value.concernId !== null || value.capabilityId !== null, {
     message: 'Guidance must link to a concern or capability.',
     path: ['concernId'],
-  });
+  })
+  .superRefine(validateIdempotencySubject);
 
 export const recordFlareInputSchema = z
   .object({
@@ -754,9 +903,22 @@ export const recordFlareInputSchema = z
     actor: activityJournalActorSchema,
     idempotency: idempotencyAttemptSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((flare, context) => {
+    validateIdempotencySubject(flare, context);
+    validateOccurrenceLocalDate(
+      {
+        instant: flare.occurredAt,
+        localDate: flare.localDate,
+        timeZone: flare.timeZone,
+      },
+      context,
+      'localDate',
+      'Flare local date must match the occurrence instant in the recorded time zone.',
+    );
+  });
 
-export const createCheckInQuestionInputSchema = checkInQuestionRevisionSchema
+export const createCheckInQuestionInputSchema = checkInQuestionRevisionObjectSchema
   .omit({
     id: true,
     questionId: true,
@@ -766,7 +928,17 @@ export const createCheckInQuestionInputSchema = checkInQuestionRevisionSchema
     createdAt: true,
   })
   .extend({ actor: activityJournalActorSchema, idempotency: idempotencyAttemptSchema })
-  .strict();
+  .strict()
+  .superRefine((question, context) => {
+    validateIdempotencySubject(question, context);
+    validateOwnedReferenceSubjects(
+      question.subjectUserId,
+      question.sourceReferences,
+      context,
+      ['sourceReferences'],
+      'Check-in question source ownership must match the question subject.',
+    );
+  });
 
 export const answerCheckInQuestionInputSchema = z
   .object({
@@ -783,6 +955,7 @@ export const answerCheckInQuestionInputSchema = z
   })
   .strict()
   .superRefine((answer, context) => {
+    validateIdempotencySubject(answer, context);
     if (answer.state === 'answered' && answer.value === undefined) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -814,15 +987,14 @@ export const createJournalObservationInputSchema = z
   })
   .strict()
   .superRefine((entry, context) => {
-    entry.sourceReferences.forEach((reference, index) => {
-      if (reference.subjectUserId !== entry.subjectUserId) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['sourceReferences', index, 'subjectUserId'],
-          message: 'Journal source ownership must match the journal subject.',
-        });
-      }
-    });
+    validateIdempotencySubject(entry, context);
+    validateOwnedReferenceSubjects(
+      entry.subjectUserId,
+      entry.sourceReferences,
+      context,
+      ['sourceReferences'],
+      'Journal source ownership must match the journal subject.',
+    );
   });
 
 export const approveMeaningfulProposalInputSchema = z
@@ -835,7 +1007,19 @@ export const approveMeaningfulProposalInputSchema = z
     approvedBy: userApprovalActorSchema,
     idempotency: idempotencyAttemptSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((approval, context) => {
+    validateIdempotencySubject(approval, context);
+    approval.targetExpectedRevisions.forEach((target, index) =>
+      validateOwnedReferenceSubject(
+        approval.subjectUserId,
+        target.reference,
+        context,
+        ['targetExpectedRevisions', index, 'reference'],
+        'Approval target ownership must match the approval subject.',
+      ),
+    );
+  });
 
 const ownedLinkNotFoundErrorSchema = z
   .object({
@@ -928,7 +1112,28 @@ export const dailyContextReadModelSchema = z
     nutritionLocalDate: dateSchema,
     generatedAt: instantSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((dailyContext, context) => {
+    const collections = [
+      ['pendingQuestions', dailyContext.pendingQuestions],
+      ['currentAnswers', dailyContext.currentAnswers],
+      ['observations', dailyContext.observations],
+      ['assignments', dailyContext.assignments],
+      ['executions', dailyContext.executions],
+      ['concerns', dailyContext.concerns],
+      ['capabilities', dailyContext.capabilities],
+      ['guidance', dailyContext.guidance],
+    ] as const;
+    collections.forEach(([path, items]) =>
+      validateSubjectScopedItems(
+        dailyContext.subjectUserId,
+        items,
+        context,
+        [path],
+        'Daily context item ownership must match the read-model subject.',
+      ),
+    );
+  });
 
 export const calendarReadItemSchema = z
   .object({
@@ -942,7 +1147,22 @@ export const calendarReadItemSchema = z
     state: z.enum(['planned', 'completed', 'observed', 'summary']),
     title: shortTextSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((item, context) => {
+    validateOwnedReferenceSubject(
+      item.subjectUserId,
+      item.record,
+      context,
+      ['record'],
+      'Calendar record ownership must match the calendar item subject.',
+    );
+    validateOccurrenceLocalDate(
+      { instant: item.occurrenceAt, localDate: item.localDate, timeZone: item.timeZone },
+      context,
+      'localDate',
+      'Calendar local date must match the occurrence instant in the recorded time zone.',
+    );
+  });
 
 export const sessionContextReadModelSchema = z
   .object({
@@ -956,7 +1176,24 @@ export const sessionContextReadModelSchema = z
     recentObservations: z.array(healthObservationSchema).max(20),
     missingInputs: z.array(shortTextSchema).max(20),
   })
-  .strict();
+  .strict()
+  .superRefine((sessionContext, context) => {
+    const collections = [
+      ['positiveFocus', sessionContext.positiveFocus],
+      ['relevantConcerns', sessionContext.relevantConcerns],
+      ['applicableGuidance', sessionContext.applicableGuidance],
+      ['recentObservations', sessionContext.recentObservations],
+    ] as const;
+    collections.forEach(([path, items]) =>
+      validateSubjectScopedItems(
+        sessionContext.subjectUserId,
+        items,
+        context,
+        [path],
+        'Session context item ownership must match the read-model subject.',
+      ),
+    );
+  });
 
 export const weeklyReflectionFactSchema = z
   .object({
@@ -978,7 +1215,18 @@ export const weeklyReflectionReadModelSchema = z
     gaps: z.array(shortTextSchema).max(50),
     generatedAt: instantSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((reflection, context) => {
+    reflection.facts.forEach((fact, factIndex) =>
+      validateOwnedReferenceSubjects(
+        reflection.subjectUserId,
+        fact.sourceReferences,
+        context,
+        ['facts', factIndex, 'sourceReferences'],
+        'Weekly reflection source ownership must match the read-model subject.',
+      ),
+    );
+  });
 
 export const calendarReadModelSchema = z
   .object({
@@ -989,7 +1237,16 @@ export const calendarReadModelSchema = z
     timeZone: ianaTimeZoneSchema,
     items: z.array(calendarReadItemSchema).max(10_000),
   })
-  .strict();
+  .strict()
+  .superRefine((calendar, context) => {
+    validateSubjectScopedItems(
+      calendar.subjectUserId,
+      calendar.items,
+      context,
+      ['items'],
+      'Calendar item ownership must match the read-model subject.',
+    );
+  });
 
 export type ActivityJournalActor = z.infer<typeof activityJournalActorSchema>;
 export type ActivityJournalOwnership = z.infer<typeof activityJournalOwnershipSchema>;
