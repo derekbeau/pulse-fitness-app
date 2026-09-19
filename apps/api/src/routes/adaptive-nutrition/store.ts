@@ -2017,6 +2017,14 @@ export const createAdaptiveNutritionStore = (options: {
       if (rebuilt.recommendation.inputFingerprint !== checkIn.dataFingerprint) {
         throw new AdaptiveCheckInStaleError();
       }
+      if (
+        ['weekly', 'manual'].includes(checkIn.kind) &&
+        (rebuilt.recommendation.state !== 'updating' ||
+          rebuilt.recommendation.adaptiveUpdate?.proposedTdeeKcal !== checkIn.proposedTdeeKcal ||
+          rebuilt.recommendation.macros === null)
+      ) {
+        throw new AdaptiveCheckInNotAcceptableError();
+      }
       const proposal = acceptedProposalOverride ?? checkIn.proposedTargets;
       if (!proposal) throw new AdaptiveCheckInNotAcceptableError();
       if (

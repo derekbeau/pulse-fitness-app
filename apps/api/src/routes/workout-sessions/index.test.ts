@@ -8147,6 +8147,47 @@ describe('workout session routes', () => {
     );
   });
 
+  it('rejects same-section duplicate occurrences from a template start', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedTemplateExercise({
+      id: 'template-ambiguous-bike-a',
+      templateId: 'template-1',
+      exerciseId: 'user-1-plank',
+      orderIndex: 0,
+      section: 'warmup',
+    });
+    seedTemplateExercise({
+      id: 'template-ambiguous-bike-b',
+      templateId: 'template-1',
+      exerciseId: 'user-1-plank',
+      orderIndex: 1,
+      section: 'warmup',
+    });
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        templateId: 'template-1',
+        date: '2026-03-12',
+        startedAt: Date.now() - 60_000,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'AMBIGUOUS_EXERCISE_OCCURRENCE',
+        message:
+          'The same exercise cannot appear twice in one section without a persisted occurrence id',
+      },
+    });
+  });
+
   it('preserves source occurrence and set provenance for a scheduled duplicate start', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
@@ -8232,6 +8273,60 @@ describe('workout session routes', () => {
         }),
       ]),
     );
+  });
+
+  it('rejects same-section duplicate occurrences from a scheduled start', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedScheduledWorkout({
+      id: 'scheduled-ambiguous-bike',
+      userId: 'user-1',
+      date: '2026-03-12',
+    });
+    for (const occurrence of ['a', 'b']) {
+      seedScheduledWorkoutExercise({
+        id: `scheduled-ambiguous-bike-${occurrence}`,
+        scheduledWorkoutId: 'scheduled-ambiguous-bike',
+        exerciseId: 'user-1-plank',
+        section: 'main',
+        orderIndex: occurrence === 'a' ? 0 : 1,
+      });
+      seedScheduledWorkoutExerciseSet({
+        id: `scheduled-ambiguous-bike-${occurrence}-set`,
+        scheduledWorkoutExerciseId: `scheduled-ambiguous-bike-${occurrence}`,
+        setNumber: 1,
+        targetSeconds: 300,
+      });
+    }
+
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/workout-sessions',
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        scheduledWorkoutId: 'scheduled-ambiguous-bike',
+        date: '2026-03-12',
+        startedAt: Date.now() - 60_000,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'AMBIGUOUS_EXERCISE_OCCURRENCE',
+        message:
+          'The same exercise cannot appear twice in one section without a persisted occurrence id',
+      },
+    });
+    expect(
+      context.db
+        .select()
+        .from(workoutSessions)
+        .where(eq(workoutSessions.scheduledWorkoutId, 'scheduled-ambiguous-bike'))
+        .all(),
+    ).toHaveLength(0);
   });
 
   it('removes exercises by exerciseId and section tuple', async () => {

@@ -53,7 +53,7 @@ export function SessionDetailExerciseCard({
   currentSession: WorkoutSession;
   exercise: SessionDetailExerciseCardExercise;
   isEditing: boolean;
-  onOpenDetails: (exerciseId: string | null) => void;
+  onOpenDetails: () => void;
   onUpdateSetDraft: (set: SessionSet, key: SessionSetDraftKey, value: string) => void;
   previousSession: WorkoutSession | null;
   setDrafts: Record<string, SessionSetDraft>;
@@ -134,7 +134,7 @@ export function SessionDetailExerciseCard({
           aria-label={`Open ${exercise.cardExercise.name} history`}
           className="h-9 self-start px-3 text-xs"
           disabled={!exercise.exerciseId || exercise.archived}
-          onClick={() => onOpenDetails(exercise.exerciseId)}
+          onClick={onOpenDetails}
           type="button"
           variant="outline"
         >
@@ -143,11 +143,7 @@ export function SessionDetailExerciseCard({
         </Button>
       }
       mode="readonly-completed"
-      onOpenDetails={
-        exercise.exerciseId && !exercise.archived
-          ? () => onOpenDetails(exercise.exerciseId)
-          : undefined
-      }
+      onOpenDetails={exercise.exerciseId && !exercise.archived ? onOpenDetails : undefined}
       showLastPerformance={Boolean(exercise.exerciseId) && !exercise.archived}
       showSetList={!isEditing}
       weightUnit={weightUnit}

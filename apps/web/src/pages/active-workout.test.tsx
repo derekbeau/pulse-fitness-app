@@ -1047,6 +1047,22 @@ describe('ActiveWorkoutPage', () => {
     fireEvent.blur(supplementalNotes);
 
     await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.find(
+          ([input, init]) =>
+            String(input).endsWith('/sets/bike-warmup-set') &&
+            init?.method === 'PATCH' &&
+            JSON.parse(String(init.body)).notes === 'Warmup cadence note',
+        ),
+      ).toBeDefined();
+      expect(
+        fetchMock.mock.calls.find(
+          ([input, init]) =>
+            String(input).endsWith('/sets/bike-supplemental-set') &&
+            init?.method === 'PATCH' &&
+            JSON.parse(String(init.body)).notes === 'Supplemental resistance note',
+        ),
+      ).toBeDefined();
       const draft = JSON.parse(
         window.localStorage.getItem(`${ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX}:${sessionId}`) ?? '{}',
       ) as { exerciseNotes?: Record<string, string> };
@@ -1064,6 +1080,7 @@ describe('ActiveWorkoutPage', () => {
       'scheduled-bike-supplemental': [expect.objectContaining({ seconds: 500 })],
     });
 
+    window.localStorage.removeItem(`${ACTIVE_WORKOUT_DRAFT_STORAGE_PREFIX}:${sessionId}`);
     rendered.unmount();
     renderActiveWorkoutPage(`/workouts/active?sessionId=${sessionId}&template=upper-push`);
     const refreshedHeadings = await screen.findAllByRole('heading', {
@@ -1082,6 +1099,20 @@ describe('ActiveWorkoutPage', () => {
       fireEvent.click(within(card).getByText('Session notes'));
     }
     expect(within(refreshedWarmupCard).getByDisplayValue('Warmup cadence note')).toBeVisible();
+    expect(
+      within(refreshedSupplementalCard).getByDisplayValue('Supplemental resistance note'),
+    ).toBeVisible();
+
+    const refreshedWarmupNotes =
+      within(refreshedWarmupCard).getByDisplayValue('Warmup cadence note');
+    fireEvent.change(refreshedWarmupNotes, { target: { value: '' } });
+    fireEvent.blur(refreshedWarmupNotes);
+    await waitFor(() => {
+      expect(session.sets.find((set) => set.id === 'bike-warmup-set')?.notes).toBeNull();
+      expect(session.sets.find((set) => set.id === 'bike-supplemental-set')?.notes).toBe(
+        'Supplemental resistance note',
+      );
+    });
     expect(
       within(refreshedSupplementalCard).getByDisplayValue('Supplemental resistance note'),
     ).toBeVisible();
@@ -3663,7 +3694,16 @@ function mockActiveSessionFetch(sessionId: string, session: MutableInProgressSes
         return Promise.reject(new Error(`Unexpected session set id: ${setUpdateMatch[1]}`));
       }
       const update = JSON.parse(String(init.body ?? '{}')) as Record<string, unknown>;
-      return Promise.resolve(jsonResponse({ data: { ...existingSet, ...update } }));
+      Object.assign(existingSet, update);
+      for (const exercise of session.exercises ?? []) {
+        const nestedSet: MutableInProgressSessionResponse['sets'][number] | undefined =
+          exercise.sets.find((set) => set.id === existingSet.id);
+        if (nestedSet && nestedSet !== existingSet) {
+          Object.assign(nestedSet, update);
+        }
+      }
+      session.updatedAt += 1;
+      return Promise.resolve(jsonResponse({ data: existingSet }));
     }
 
     if (url.includes('/api/v1/exercises/') && url.includes('/history')) {

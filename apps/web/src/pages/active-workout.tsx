@@ -856,12 +856,7 @@ export function ActiveWorkoutPage() {
             enableApiLastPerformance={enableApiLastPerformance}
             focusSetId={focusSetId}
             onAddSet={handleAddSet}
-            onExerciseNotesChange={(occurrenceId, notes) =>
-              setExerciseNotes((current) => ({
-                ...current,
-                [occurrenceId]: notes,
-              }))
-            }
+            onExerciseNotesChange={handleExerciseNotesChange}
             onFocusSetHandled={() => setFocusSetId(null)}
             onReorderExercises={handleReorderExercises}
             onRemoveExercise={handleRemoveExercise}
@@ -1644,6 +1639,55 @@ export function ActiveWorkoutPage() {
       token: restTimerTokenRef.current,
     });
     setFocusSetId(null);
+  }
+
+  function handleExerciseNotesChange(occurrenceId: string, notes: string) {
+    const previousNote = exerciseNotes[occurrenceId];
+    setExerciseNotes((current) => ({
+      ...current,
+      [occurrenceId]: notes,
+    }));
+
+    if (!activeSessionId) {
+      return;
+    }
+
+    const firstSet = [...(setDrafts[occurrenceId] ?? [])].sort(
+      (left, right) => left.number - right.number,
+    )[0];
+    if (!firstSet) {
+      return;
+    }
+
+    setSessionError(null);
+    updateSetMutation.mutate(
+      {
+        setId: firstSet.id,
+        update: { notes: notes.trim() || null },
+      },
+      {
+        onError: (error) => {
+          setExerciseNotes((current) => {
+            if (current[occurrenceId] !== notes) {
+              return current;
+            }
+
+            const next = { ...current };
+            if (previousNote === undefined) {
+              Reflect.deleteProperty(next, occurrenceId);
+            } else {
+              next[occurrenceId] = previousNote;
+            }
+            return next;
+          });
+          if (isSessionNotActiveError(error)) {
+            redirectToCompletedSessionNotice();
+            return;
+          }
+          setSessionError('Unable to save session notes. Try again.');
+        },
+      },
+    );
   }
 
   function startSetSectionTimerIfNeeded(section: WorkoutTemplateSectionType) {

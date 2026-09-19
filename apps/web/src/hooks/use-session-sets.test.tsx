@@ -454,4 +454,63 @@ describe('use-session-sets hooks', () => {
       expect.objectContaining({ id: 'bike-supplemental-set', seconds: null, completed: false }),
     ]);
   });
+
+  it('rolls back only the failed occurrence note', async () => {
+    const { queryClient, wrapper } = createQueryClientWrapper();
+    const warmupSet: SessionSet = {
+      ...sessionSetResponse,
+      id: 'bike-warmup-set',
+      exerciseId: 'peloton-bike',
+      section: 'warmup',
+      notes: 'Warmup cadence note',
+    };
+    const supplementalSet: SessionSet = {
+      ...sessionSetResponse,
+      id: 'bike-supplemental-set',
+      exerciseId: 'peloton-bike',
+      section: 'supplemental',
+      notes: 'Original supplemental note',
+    };
+    queryClient.setQueryData(workoutSessionQueryKeys.detail('session-1'), {
+      ...sessionResponse,
+      exercises: undefined,
+      sets: [warmupSet, supplementalSet],
+    });
+    const deferred = createDeferredPromise<never>();
+    mockFetch.mockImplementationOnce(() => deferred.promise);
+    const { result } = renderHook(() => useUpdateSet('session-1'), { wrapper });
+
+    act(() => {
+      result.current.mutate({
+        setId: 'bike-supplemental-set',
+        update: { notes: 'Updated supplemental note' },
+      });
+    });
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryData<WorkoutSession>(workoutSessionQueryKeys.detail('session-1'))?.sets,
+      ).toEqual([
+        expect.objectContaining({ id: 'bike-warmup-set', notes: 'Warmup cadence note' }),
+        expect.objectContaining({
+          id: 'bike-supplemental-set',
+          notes: 'Updated supplemental note',
+        }),
+      ]);
+    });
+
+    await act(async () => {
+      deferred.reject(new Error('offline'));
+      await expect(deferred.promise).rejects.toThrow('offline');
+    });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(
+      queryClient.getQueryData<WorkoutSession>(workoutSessionQueryKeys.detail('session-1'))?.sets,
+    ).toEqual([
+      expect.objectContaining({ id: 'bike-warmup-set', notes: 'Warmup cadence note' }),
+      expect.objectContaining({
+        id: 'bike-supplemental-set',
+        notes: 'Original supplemental note',
+      }),
+    ]);
+  });
 });

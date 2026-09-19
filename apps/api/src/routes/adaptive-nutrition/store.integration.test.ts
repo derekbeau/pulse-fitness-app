@@ -768,6 +768,62 @@ describe('adaptive nutrition lifecycle store', () => {
     expect(accepted.checkIn.localDate).toBe('2026-06-22');
   });
 
+  it('keeps one actionable proposal across manual and weekly previews', () => {
+    acceptBaselineAndAdvance();
+    seedEligibleHistory('user-1');
+
+    const manual = storeA.previewCheckIn('user-1', { kind: 'manual', includeToday: false });
+    const weekly = storeA.previewCheckIn('user-1', { kind: 'weekly', includeToday: false });
+
+    expect(weekly.id).toBe(manual.id);
+    expect(
+      dbA
+        .select()
+        .from(adaptiveNutritionCheckIns)
+        .where(
+          and(
+            eq(adaptiveNutritionCheckIns.userId, 'user-1'),
+            eq(adaptiveNutritionCheckIns.status, 'pending'),
+          ),
+        )
+        .all(),
+    ).toEqual([expect.objectContaining({ id: manual.id, kind: 'manual' })]);
+  });
+
+  it('supersedes a changed-evidence proposal and cannot accept the old one with replacement', () => {
+    acceptBaselineAndAdvance();
+    seedEligibleHistory('user-1');
+    const first = storeA.previewCheckIn('user-1', { kind: 'manual', includeToday: false });
+
+    dbA
+      .update(mealItems)
+      .set({ calories: 2500 })
+      .where(eq(mealItems.id, 'user-1-item-2026-06-12'))
+      .run();
+    const second = storeA.previewCheckIn('user-1', { kind: 'weekly', includeToday: false });
+
+    expect(second.id).not.toBe(first.id);
+    expect(storeA.findCheckInDetail('user-1', first.id)?.status).toBe('superseded');
+    expect(() => storeA.acceptCheckIn('user-1', first.id, { replaceSameDateTarget: true })).toThrow(
+      AdaptiveCheckInNotAcceptableError,
+    );
+    expect(
+      dbA.select().from(nutritionTargets).where(eq(nutritionTargets.userId, 'user-1')).all(),
+    ).toHaveLength(1);
+
+    const accepted = storeA.acceptCheckIn('user-1', second.id, {
+      replaceSameDateTarget: false,
+    });
+    expect(accepted.checkIn.id).toBe(second.id);
+    expect(
+      dbA
+        .select()
+        .from(nutritionTargetEvents)
+        .where(eq(nutritionTargetEvents.adaptiveCheckInId, second.id))
+        .all(),
+    ).toHaveLength(1);
+  });
+
   it('requires explicit same-date replacement and preserves target identity and provenance', () => {
     acceptBaselineAndAdvance();
     seedEligibleHistory('user-1');
