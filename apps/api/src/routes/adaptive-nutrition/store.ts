@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type Database from 'better-sqlite3';
-import { and, asc, count, desc, eq, gte, isNotNull, lte, max, ne, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, lte, max, ne, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 import {
@@ -602,6 +602,35 @@ export const createAdaptiveNutritionStore = (options: {
     return value ? parseCheckInSummary(value) : null;
   };
 
+  const findLatestAcceptedEvidenceCheckIn = (
+    userId: string,
+    programId: string,
+    excludeCheckInId?: string,
+  ): AdaptiveCheckInSummary | null => {
+    const value = db
+      .select(checkInSummarySelection)
+      .from(adaptiveNutritionCheckIns)
+      .where(
+        and(
+          eq(adaptiveNutritionCheckIns.userId, userId),
+          eq(adaptiveNutritionCheckIns.programId, programId),
+          eq(adaptiveNutritionCheckIns.status, 'accepted'),
+          inArray(adaptiveNutritionCheckIns.kind, ['weekly', 'manual']),
+          isNotNull(adaptiveNutritionCheckIns.analysisEnd),
+          excludeCheckInId ? ne(adaptiveNutritionCheckIns.id, excludeCheckInId) : undefined,
+        ),
+      )
+      .orderBy(
+        desc(adaptiveNutritionCheckIns.analysisEnd),
+        desc(adaptiveNutritionCheckIns.resolvedAt),
+        desc(adaptiveNutritionCheckIns.createdAt),
+        desc(adaptiveNutritionCheckIns.id),
+      )
+      .limit(1)
+      .get();
+    return value ? parseCheckInSummary(value) : null;
+  };
+
   const findPending = (userId: string, programId: string): AdaptiveCheckInSummary | null => {
     const value = db
       .select(checkInSummarySelection)
@@ -739,6 +768,28 @@ export const createAdaptiveNutritionStore = (options: {
       ...recommendation,
       inputFingerprint: createAdaptiveInputFingerprint(inputSnapshot),
     };
+    const consumedEvidence =
+      input.kind === 'weekly' || input.kind === 'manual'
+        ? findLatestAcceptedEvidenceCheckIn(userId, program.id, input.excludeAcceptedCheckInId)
+        : null;
+    const consumedAnalysisEnd = consumedEvidence?.analysisEnd ?? null;
+    const hasNewCompletedNutritionEvidence =
+      consumedAnalysisEnd !== null &&
+      nutritionDays.some((day) => day.status === 'complete' && day.date > consumedAnalysisEnd);
+    if (
+      consumedAnalysisEnd !== null &&
+      (boundaries.analysisEnd <= consumedAnalysisEnd || !hasNewCompletedNutritionEvidence)
+    ) {
+      recommendation = adaptiveRecommendationSchema.parse({
+        ...recommendation,
+        state: 'holding',
+        reasonCodes: dedupeReasons([...recommendation.reasonCodes, 'NO_NEW_EVIDENCE']),
+        confidence: null,
+        adaptiveUpdate: null,
+        goal: null,
+        macros: null,
+      });
+    }
     if (findTargetForDate(userId, input.localDate)) {
       recommendation = {
         ...recommendation,

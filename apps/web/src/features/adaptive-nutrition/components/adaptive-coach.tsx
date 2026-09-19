@@ -34,6 +34,13 @@ import {
   WeeklyReviewLoading,
 } from './weekly-decision-review';
 import { WeeklyReviewHistory } from './weekly-review-history';
+import { formatAdaptiveDate } from '../lib/format-adaptive-nutrition';
+
+const addDateDays = (date: string, days: number) => {
+  const value = new Date(`${date}T12:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+};
 
 export function AdaptiveCoach({ dateAuthorityLocked = false }: { dateAuthorityLocked?: boolean }) {
   const stateQuery = useAdaptiveNutritionState();
@@ -86,6 +93,19 @@ export function AdaptiveCoach({ dateAuthorityLocked = false }: { dateAuthorityLo
   }
 
   const state = stateQuery.data;
+  const latestEvidenceCheckIn = ['manual', 'weekly'].includes(
+    state.latestAcceptedCheckIn?.kind ?? '',
+  )
+    ? state.latestAcceptedCheckIn
+    : null;
+  const evidenceWindowConsumed = Boolean(
+    latestEvidenceCheckIn?.analysisEnd &&
+    state.eligibility?.analysisEndDate &&
+    state.eligibility.analysisEndDate <= latestEvidenceCheckIn.analysisEnd,
+  );
+  const nextEvidenceDate = evidenceWindowConsumed
+    ? addDateDays(state.eligibility?.pendingCutoffDate ?? state.localDate ?? '', 1)
+    : null;
   const weeklyReviewResolvedEmpty =
     !reviewQuery.isLoading && !reviewQuery.isError && reviewQuery.data?.review === null;
 
@@ -336,10 +356,13 @@ export function AdaptiveCoach({ dateAuthorityLocked = false }: { dateAuthorityLo
               <CheckInActions
                 actionError={actionError}
                 checkInDue={state.checkInDue}
+                evidenceWindowConsumed={evidenceWindowConsumed}
                 includeToday={includeToday}
                 isPending={previewMutation.isPending || reviewPreviewMutation.isPending}
+                nextEvidenceDate={nextEvidenceDate}
                 onIncludeTodayChange={setIncludeToday}
                 onPreview={requestPreview}
+                scheduledDate={state.nextCheckInDate}
               />
             ) : null}
 
@@ -403,18 +426,25 @@ export function AdaptiveCoach({ dateAuthorityLocked = false }: { dateAuthorityLo
 function CheckInActions({
   actionError,
   checkInDue,
+  evidenceWindowConsumed,
   includeToday,
   isPending,
+  nextEvidenceDate,
   onIncludeTodayChange,
   onPreview,
+  scheduledDate,
 }: {
   actionError: string | null;
   checkInDue: boolean;
+  evidenceWindowConsumed: boolean;
   includeToday: boolean;
   isPending: boolean;
+  nextEvidenceDate: string | null;
   onIncludeTodayChange: (checked: boolean) => void;
   onPreview: (kind: 'manual' | 'weekly') => Promise<void>;
+  scheduledDate: string | null;
 }) {
+  const manualUnavailable = evidenceWindowConsumed && !includeToday;
   return (
     <Card className="gap-4 py-5">
       <CardHeader className="gap-2 px-5 sm:px-6">
@@ -445,15 +475,36 @@ function CheckInActions({
           </span>
         </label>
 
+        {evidenceWindowConsumed && nextEvidenceDate ? (
+          <div
+            className="rounded-xl border border-primary/25 bg-primary/5 p-3 text-sm"
+            role="status"
+          >
+            <p className="font-medium">This completed evidence window is already accepted.</p>
+            <p className="mt-1 text-muted-foreground">
+              The next automatic evidence window opens {formatAdaptiveDate(nextEvidenceDate)}, after
+              the current local day closes. If today is fully logged, mark it Complete and select
+              Include today to check sooner.
+              {scheduledDate
+                ? ` Your next weekly check-in is ${formatAdaptiveDate(scheduledDate)}.`
+                : ''}
+            </p>
+          </div>
+        ) : null}
+
         <div className="flex flex-col gap-2 sm:flex-row">
           {checkInDue ? (
-            <Button disabled={isPending} onClick={() => void onPreview('weekly')} type="button">
+            <Button
+              disabled={isPending || evidenceWindowConsumed}
+              onClick={() => void onPreview('weekly')}
+              type="button"
+            >
               <CalendarCheck2 aria-hidden="true" />
               {isPending ? 'Checking in…' : 'Start weekly check-in'}
             </Button>
           ) : null}
           <Button
-            disabled={isPending}
+            disabled={isPending || manualUnavailable}
             onClick={() => void onPreview('manual')}
             type="button"
             variant={checkInDue ? 'outline' : 'default'}

@@ -9,7 +9,11 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { calculateAdaptiveSetupProjection, type AdaptiveProgramMutation } from '@pulse/shared';
+import {
+  calculateAdaptiveSetupProjection,
+  calculateAdaptiveTdee,
+  type AdaptiveProgramMutation,
+} from '@pulse/shared';
 
 import * as schema from '../../db/schema/index.js';
 import {
@@ -845,6 +849,109 @@ describe('adaptive nutrition lifecycle store', () => {
     ]);
   });
 
+  it('blocks the exact 2410 to 2450 to 2480 same-window ratchet until analysisEnd advances', () => {
+    storeA.upsertProgram('user-1', programInput({ manualBaselineTdeeKcal: 2410 }));
+    const baseline = requireValue(storeA.getState('user-1').pendingCheckIn, 'Expected baseline');
+    storeA.acceptCheckIn('user-1', baseline.id, { replaceSameDateTarget: false });
+    nowMs = Date.parse('2026-06-22T16:00:00.000Z');
+    seedEligibleHistory('user-1');
+    for (let offset = 0; offset < 21; offset += 1) {
+      dbA
+        .update(mealItems)
+        .set({ calories: 2544.638 })
+        .where(eq(mealItems.id, `user-1-item-${datePlus('2026-06-01', offset)}`))
+        .run();
+    }
+    for (const date of ['2026-06-01', '2026-06-08', '2026-06-15', '2026-06-21']) {
+      seedWeight('user-1', date, 82);
+    }
+
+    const first = storeA.previewCheckIn('user-1', { kind: 'manual', includeToday: false });
+    expect(first).toMatchObject({
+      analysisEnd: '2026-06-21',
+      priorTdeeKcal: 2410,
+      proposedTdeeKcal: 2450,
+      status: 'pending',
+    });
+    expect(first.observedTdeeKcal).toBeCloseTo(2544.638, 6);
+    const confidence = requireValue(
+      first.calculationSnapshot.confidence,
+      'Expected recommendation confidence',
+    );
+    expect(
+      calculateAdaptiveTdee({
+        priorTdeeKcal: 2450,
+        observedTdeeKcal: 2544.638,
+        confidence: confidence.score,
+      }).proposedTdeeKcal,
+    ).toBe(2480);
+
+    const accepted = storeA.acceptCheckIn('user-1', first.id, {
+      replaceSameDateTarget: false,
+    });
+    const targetEventsBeforeRepeat = dbA
+      .select()
+      .from(nutritionTargetEvents)
+      .where(eq(nutritionTargetEvents.targetId, accepted.target.id))
+      .all();
+    const repeated = storeA.previewCheckIn('user-1', { kind: 'manual', includeToday: false });
+    const repeatedAgain = storeA.previewCheckIn('user-1', {
+      kind: 'manual',
+      includeToday: false,
+    });
+    const weekly = storeA.previewCheckIn('user-1', { kind: 'weekly', includeToday: false });
+
+    expect(repeated).toMatchObject({
+      analysisEnd: first.analysisEnd,
+      status: 'held',
+      calculationState: 'holding',
+      proposedTdeeKcal: null,
+      proposedTargets: null,
+    });
+    expect(repeated.reasonCodes).toContain('NO_NEW_EVIDENCE');
+    expect(repeatedAgain.id).toBe(repeated.id);
+    expect(weekly).toMatchObject({ status: 'held', proposedTdeeKcal: null });
+    expect(weekly.reasonCodes).toContain('NO_NEW_EVIDENCE');
+    expect(() =>
+      storeA.acceptCheckIn('user-1', repeated.id, { replaceSameDateTarget: true }),
+    ).toThrow(AdaptiveCheckInNotAcceptableError);
+    expect(
+      dbA
+        .select()
+        .from(nutritionTargetEvents)
+        .where(eq(nutritionTargetEvents.targetId, accepted.target.id))
+        .all(),
+    ).toEqual(targetEventsBeforeRepeat);
+
+    seedNutritionDay('user-1', '2026-06-22', 'partial', { calories: 2544.638 });
+    const incompleteToday = storeA.previewCheckIn('user-1', {
+      kind: 'manual',
+      includeToday: true,
+    });
+    expect(incompleteToday).toMatchObject({
+      analysisEnd: '2026-06-22',
+      status: 'held',
+      calculationState: 'holding',
+      proposedTdeeKcal: null,
+    });
+    expect(incompleteToday.reasonCodes).toContain('NO_NEW_EVIDENCE');
+
+    nowMs = Date.parse('2026-06-23T16:00:00.000Z');
+    dbA
+      .update(nutritionLogs)
+      .set({ status: 'complete', statusUpdatedAt: nowMs, updatedAt: nowMs })
+      .where(eq(nutritionLogs.id, 'user-1-log-2026-06-22'))
+      .run();
+    seedWeight('user-1', '2026-06-22', 82);
+    const advanced = storeA.previewCheckIn('user-1', { kind: 'manual', includeToday: false });
+    expect(advanced).toMatchObject({
+      analysisEnd: '2026-06-22',
+      status: 'pending',
+      calculationState: 'updating',
+    });
+    expect(advanced.reasonCodes).not.toContain('NO_NEW_EVIDENCE');
+  });
+
   it('replays the immutable accepted snapshot after a later same-id adaptive replacement', () => {
     acceptBaselineAndAdvance();
     seedEligibleHistory('user-1');
@@ -863,9 +970,12 @@ describe('adaptive nutrition lifecycle store', () => {
       acceptedOverride,
     );
 
+    seedNutritionDay('user-1', '2026-06-22', 'complete');
+    seedWeight('user-1', '2026-06-22', 81.85);
+
     const replacement = storeA.previewCheckIn('user-1', {
       kind: 'manual',
-      includeToday: false,
+      includeToday: true,
     });
     const replacementProposal = requireValue(
       replacement.proposedTargets,
@@ -1496,6 +1606,9 @@ describe('adaptive nutrition lifecycle store', () => {
     seedEligibleHistory('user-1');
     const firstUpdate = storeA.previewCheckIn('user-1', { kind: 'weekly', includeToday: false });
     storeA.acceptCheckIn('user-1', firstUpdate.id, { replaceSameDateTarget: false });
+    nowMs = Date.parse('2026-06-23T16:00:00.000Z');
+    seedNutritionDay('user-1', '2026-06-22');
+    seedWeight('user-1', '2026-06-22', 81.8);
     dbA
       .update(mealItems)
       .set({ calories: 2500 })
@@ -1504,7 +1617,7 @@ describe('adaptive nutrition lifecycle store', () => {
     const actionable = storeA.previewCheckIn('user-1', { kind: 'weekly', includeToday: false });
     expect(actionable.status).toBe('pending');
 
-    for (let day = 1; day <= 10; day += 1) {
+    for (let day = 1; day <= 11; day += 1) {
       const date = `2026-06-${String(day).padStart(2, '0')}`;
       dbA
         .update(nutritionLogs)
