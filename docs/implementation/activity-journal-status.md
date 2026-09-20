@@ -21,31 +21,56 @@
 
 ## Requirements to executable evidence
 
-| Requirement                                       | Executable evidence                                                                                                |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Fresh and populated additive migration            | `activity-runtime-migration.test.ts` runs the production migration runner on both databases                        |
-| Legacy data is byte-for-byte preserved            | populated predecessor test snapshots the exact legacy row before and after 0069                                    |
-| Rerun and atomic failure                          | production runner no-op assertion and intentionally broken copied 0069 rollback rehearsal                          |
-| Agent-only capture and derived ownership          | API test rejects JWT mutation and reads derived agent actor/user subject from persisted response                   |
-| Five-minute PT readback                           | lifecycle test captures a source-labeled PT Activity and reads it back through the registered API                  |
-| Planned Tuesday / rescheduled and actual Thursday | lifecycle test retains all assignment revisions and the distinct execution occurrence                              |
-| Goals and owned links are usable                  | API creates/retrieves multiple goal links and rejects foreign goal/workout links atomically                        |
-| Durable retry and changed-payload conflict        | same result before and after Fastify restart; altered semantic request returns `IDEMPOTENCY_KEY_REUSE`             |
-| Subject isolation without disclosure              | foreign list/detail/correction/reschedule/execution/link probes return empty/404 and leave no partial receipt      |
-| Concurrent retry/stale writes                     | concurrent HTTP creates converge to one row; competing reschedules and corrections produce one 200 and one 409     |
-| Recurrence create/materialize/revise              | test retains old occurrence revision and assigns later dates to the effective revision                             |
-| UTC/local/DST safety                              | execution read schema rejects an instant/local-date disagreement across the Detroit fallback boundary              |
-| Account erasure                                   | deleting the fictional owner cascades Activity roots, revisions, assignments, and receipts with clean foreign keys |
-| OpenAPI exactness                                 | test verifies registered lifecycle routes, AgentToken mutation security, and absence of spoofable derived fields   |
+| Requirement                                       | Executable evidence                                                                                                                                                                                                                 |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fresh and populated additive migration            | `activity-runtime-migration.test.ts` runs the production migration runner on both databases                                                                                                                                         |
+| Legacy data is byte-for-byte preserved            | populated predecessor test snapshots the exact legacy row before and after 0069                                                                                                                                                     |
+| Rerun and atomic failure                          | production runner no-op assertion and intentionally broken copied 0069 rollback rehearsal                                                                                                                                           |
+| Agent-only capture and derived ownership          | API test rejects JWT mutation and reads derived agent actor/user subject from persisted response                                                                                                                                    |
+| Five-minute PT readback                           | lifecycle test captures a source-labeled PT Activity and reads it back through the registered API                                                                                                                                   |
+| Planned Tuesday / rescheduled and actual Thursday | lifecycle test retains all assignment revisions and the distinct execution occurrence                                                                                                                                               |
+| Goals and owned links are usable                  | API creates/retrieves multiple goal links and rejects foreign goal/workout links atomically                                                                                                                                         |
+| Durable retry and changed-payload conflict        | same result before and after Fastify restart; altered semantic request returns `IDEMPOTENCY_KEY_REUSE`                                                                                                                              |
+| Subject isolation without disclosure              | foreign list/detail/correction/reschedule/execution/link probes return empty/404 and leave no partial receipt                                                                                                                       |
+| Same-process retry/stale writes                   | one Fastify process converges duplicate creates and rejects one of each competing reschedule/correction pair                                                                                                                        |
+| Independent SQLite writers                        | two child API processes and distinct WAL handles cross a deterministic barrier, block behind a third writer, then prove one durable create/materialization receipt and one winner for each same-revision correction/reschedule race |
+| Recurrence create/materialize/revise              | test retains old occurrence revision and assigns later dates to the effective revision                                                                                                                                              |
+| UTC/local/DST safety                              | execution read schema rejects an instant/local-date disagreement across the Detroit fallback boundary                                                                                                                               |
+| Account erasure                                   | deleting the fictional owner cascades Activity roots, revisions, assignments, and receipts with clean foreign keys                                                                                                                  |
+| OpenAPI exactness                                 | test verifies registered lifecycle routes, AgentToken mutation security, and absence of spoofable derived fields                                                                                                                    |
 
 Focused tests:
 
 - `apps/api/src/db/activity-runtime-migration.test.ts`
 - `apps/api/src/routes/activities/api.integration.test.ts`
+- `apps/api/src/routes/activities/independent-writer.integration.test.ts`
 
 ## Evidence receipts
 
 Evidence directory: `/Users/meridian/Projects/qa-reports/pulse-activity-journal-release/checkpoint-177`
+
+Concurrency-repair evidence directory: `/Users/meridian/Projects/qa-reports/pulse-activity-journal-release/checkpoint-177-concurrency`
+
+The original API acceptance test's `Promise.all(app.inject(...))` coverage uses one
+Fastify process and one synchronous SQLite handle. The focused concurrency repair adds
+separate process IDs and connection identities, a shared private WAL database, a
+deterministic pre-handler release barrier, and a control-connection writer lock. Both
+API processes must cross the barrier and remain blocked before the lock is released;
+fresh read-only handles then verify receipts, roots, revisions, occurrences, foreign
+keys, and SQLite integrity. This upgrades evidence only; no runtime source changed.
+
+Concurrency-repair receipts:
+
+| Receipt                               | Result                                                                                             |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `00-scope-state.txt`                  | verified target worktree, branch, starting HEAD, upstream delta, and scoped files                  |
+| `01-independent-writer-first-run.txt` | preserved harness-first failure before product assertions; transaction method wrapping was invalid |
+| `02-focused-final.txt`                | first green focused Activity/migration/concurrency run: 3 files, 11 tests                          |
+| `03-api-typecheck.txt`                | API production and test TypeScript projects passed                                                 |
+| `04-harness-lint.txt`                 | preserved first lint failure: four test-only non-null assertions                                   |
+| `05-harness-lint-final.txt`           | repaired harness lint passed with no findings                                                      |
+| `06-api-typecheck-final.txt`          | post-repair API production and test TypeScript projects passed                                     |
+| `07-focused-post-lint-final.txt`      | definitive focused run passed: 3 files, 11 tests                                                   |
 
 | Receipt                       | Result                                                                                                                                   |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
