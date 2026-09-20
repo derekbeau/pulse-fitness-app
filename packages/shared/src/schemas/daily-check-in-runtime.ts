@@ -45,7 +45,7 @@ export const dailyCheckInSourceReferenceSchema = z
     revisionId: id,
   })
   .strict();
-const createDailyCheckInSourceReferenceSchema = dailyCheckInSourceReferenceSchema.omit({
+export const createDailyCheckInSourceReferenceSchema = dailyCheckInSourceReferenceSchema.omit({
   subjectUserId: true,
 });
 

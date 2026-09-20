@@ -14,8 +14,10 @@ import type {
 import {
   activityJournalActorSchema,
   checkInQuestionRevisionSchema,
+  createDailyCheckInSourceReferenceSchema,
   dailyCheckInAnswerAuditRevisionSchema,
   dailyCheckInDetailSchema,
+  dailyCheckInQuestionAuditRevisionSchema,
 } from '@pulse/shared';
 import type {
   AnswerDailyCheckInQuestionApiInput,
@@ -99,8 +101,10 @@ const question = (sqlite: Database.Database, userId: string, id: string) =>
     .get();
 const referenceIdentity = (reference: Reference) =>
   JSON.stringify([reference.kind, reference.id, reference.revisionId]);
-const referenceHashToken = (reference: Reference) =>
-  `${reference.kind}:${reference.id}:${reference.revisionId}`;
+const normalizeReferences = (refs: Reference[]): Reference[] =>
+  [...new Map(refs.map((reference) => [referenceIdentity(reference), reference])).values()].sort(
+    (left, right) => referenceIdentity(left).localeCompare(referenceIdentity(right)),
+  );
 const validateAndNormalizeReferences = (
   sqlite: Database.Database,
   userId: string,
@@ -112,14 +116,50 @@ const validateAndNormalizeReferences = (
       throw new CheckInOwnedLinkNotFoundError();
     return { ...ref, revisionId: currentRevisionId };
   });
-  return [
-    ...new Map(validated.map((reference) => [referenceIdentity(reference), reference])).values(),
-  ].sort(
-    (left, right) =>
-      referenceHashToken(left).localeCompare(referenceHashToken(right)) ||
-      referenceIdentity(left).localeCompare(referenceIdentity(right)),
+  return normalizeReferences(validated);
+};
+const normalizedTopic = (topic: string) => topic.trim().toLocaleLowerCase();
+const sameReferenceSet = (stored: unknown, expected: Reference[]) => {
+  const parsed = createDailyCheckInSourceReferenceSchema.array().min(1).max(50).safeParse(stored);
+  if (!parsed.success) return false;
+  const normalized = normalizeReferences(parsed.data);
+  return (
+    normalized.length === expected.length &&
+    normalized.every(
+      (reference, index) => referenceIdentity(reference) === referenceIdentity(expected[index]),
+    )
   );
 };
+const findCanonicalQuestion = (
+  sqlite: Database.Database,
+  userId: string,
+  input: CreateDailyCheckInQuestionApiInput,
+  timeZone: string,
+  references: Reference[],
+) =>
+  checkInDb(sqlite)
+    .select({
+      id: dailyCheckInQuestions.id,
+      semanticTopic: dailyCheckInQuestions.semanticTopic,
+      sourceReferences: dailyCheckInQuestions.sourceReferences,
+      followUpQuestionId: dailyCheckInQuestions.followUpQuestionId,
+    })
+    .from(dailyCheckInQuestions)
+    .where(
+      and(
+        eq(dailyCheckInQuestions.userId, userId),
+        eq(dailyCheckInQuestions.localDate, input.localDate),
+        eq(dailyCheckInQuestions.timeZone, timeZone),
+      ),
+    )
+    .orderBy(asc(dailyCheckInQuestions.createdAt), asc(dailyCheckInQuestions.id))
+    .all()
+    .find(
+      (candidate) =>
+        normalizedTopic(candidate.semanticTopic) === normalizedTopic(input.semanticTopic) &&
+        candidate.followUpQuestionId === input.followUpQuestionId &&
+        sameReferenceSet(candidate.sourceReferences, references),
+    );
 const questionRevision = (
   row: typeof dailyCheckInQuestions.$inferSelect,
   priorRevisionId: string | null = null,
@@ -144,6 +184,62 @@ const provenance = (
   source: Omit<Provenance, 'capturedAt' | 'capturedBy'>,
   actor: DailyCheckInActor,
 ): Provenance => ({ ...source, capturedAt: now(), capturedBy: actor });
+
+const storedReceiptDetailSchema = dailyCheckInDetailSchema.extend({
+  questionHistory: dailyCheckInQuestionAuditRevisionSchema
+    .partial({ recordedAt: true })
+    .array()
+    .min(1),
+});
+const rejectLegacyReceipt = (response: unknown): never => {
+  dailyCheckInDetailSchema.parse(response);
+  throw new Error('Invalid legacy daily check-in receipt.');
+};
+const readReceiptDetail = (
+  sqlite: Database.Database,
+  userId: string,
+  response: unknown,
+): DailyCheckInDetail => {
+  const current = dailyCheckInDetailSchema.safeParse(response);
+  if (current.success) return current.data;
+  const stored = storedReceiptDetailSchema.safeParse(response);
+  if (!stored.success) return rejectLegacyReceipt(response);
+  const ownedQuestion = question(sqlite, userId, stored.data.question.questionId);
+  const receiptQuestionRevision = stored.data.questionHistory.at(-1)?.revision;
+  if (
+    !ownedQuestion ||
+    !receiptQuestionRevision ||
+    hash(receiptQuestionRevision) !== hash(stored.data.question)
+  )
+    return rejectLegacyReceipt(response);
+  const questionHistory = stored.data.questionHistory.map((entry) => {
+    const revisionRow = checkInDb(sqlite)
+      .select({
+        snapshot: dailyCheckInQuestionRevisions.snapshot,
+        actor: dailyCheckInQuestionRevisions.actor,
+        recordedAt: dailyCheckInQuestionRevisions.createdAt,
+      })
+      .from(dailyCheckInQuestionRevisions)
+      .where(
+        and(
+          eq(dailyCheckInQuestionRevisions.id, entry.revision.id),
+          eq(dailyCheckInQuestionRevisions.questionId, stored.data.question.questionId),
+          eq(dailyCheckInQuestionRevisions.userId, userId),
+          eq(dailyCheckInQuestionRevisions.revision, entry.revision.revision),
+        ),
+      )
+      .get();
+    if (
+      !revisionRow ||
+      hash(checkInQuestionRevisionSchema.parse(revisionRow.snapshot)) !== hash(entry.revision) ||
+      hash(activityJournalActorSchema.parse(revisionRow.actor)) !== hash(entry.recordedBy) ||
+      (entry.recordedAt !== undefined && entry.recordedAt !== revisionRow.recordedAt)
+    )
+      return rejectLegacyReceipt(response);
+    return { ...entry, recordedAt: revisionRow.recordedAt };
+  });
+  return dailyCheckInDetailSchema.parse({ ...stored.data, questionHistory });
+};
 
 const idempotent = async (args: {
   userId: string;
@@ -179,7 +275,7 @@ const idempotent = async (args: {
         if (prior.requestFingerprint !== requestFingerprint)
           throw new CheckInIdempotencyConflictError();
         return {
-          data: dailyCheckInDetailSchema.parse(prior.response),
+          data: readReceiptDetail(sqlite, args.userId, prior.response),
           replayed: true,
           statusCode: prior.statusCode,
         };
@@ -239,20 +335,15 @@ export const createQuestion = async (
       const deduplicationKey = hash({
         localDate: input.localDate,
         timeZone: resolved.timeZone,
-        semanticTopic: input.semanticTopic.trim().toLocaleLowerCase(),
-        sourceReferences: references.map(referenceHashToken),
+        semanticTopic: normalizedTopic(input.semanticTopic),
+        sourceReferences: references.map((reference) => [
+          reference.kind,
+          reference.id,
+          reference.revisionId,
+        ]),
         followUpQuestionId: input.followUpQuestionId,
       });
-      const existing = checkInDb(sqlite)
-        .select({ id: dailyCheckInQuestions.id })
-        .from(dailyCheckInQuestions)
-        .where(
-          and(
-            eq(dailyCheckInQuestions.userId, userId),
-            eq(dailyCheckInQuestions.deduplicationKey, deduplicationKey),
-          ),
-        )
-        .get();
+      const existing = findCanonicalQuestion(sqlite, userId, input, resolved.timeZone, references);
       if (existing) return detail(sqlite, userId, existing.id);
       const id = randomUUID(),
         revisionId = randomUUID(),
