@@ -137,6 +137,7 @@ type CreateScheduledWorkoutRequest = CreateScheduledWorkoutInput;
 type UpdateScheduledWorkoutRequest = {
   id: string;
   date: string;
+  expectedUpdatedAt: number;
 };
 type DeleteScheduledWorkoutRequest = {
   id: string;
@@ -955,10 +956,13 @@ async function updateSessionSectionTimer(input: UpdateSessionSectionTimerRequest
     action: input.action,
     section: input.section,
   });
-  const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${input.sessionId}/section-timer`, {
-    body: JSON.stringify(parsedInput),
-    method: 'PATCH',
-  });
+  const data = await apiRequest<unknown>(
+    `/api/v1/workout-sessions/${input.sessionId}/section-timer`,
+    {
+      body: JSON.stringify(parsedInput),
+      method: 'PATCH',
+    },
+  );
   const payload = workoutSessionResponseSchema.parse({ data });
 
   return payload.data;
@@ -978,6 +982,7 @@ async function createScheduledWorkout(input: CreateScheduledWorkoutRequest) {
 async function updateScheduledWorkout(input: UpdateScheduledWorkoutRequest) {
   const parsedInput = updateScheduledWorkoutInputSchema.parse({
     date: input.date,
+    expectedUpdatedAt: input.expectedUpdatedAt,
   });
   const data = await apiRequest<unknown>(`/api/v1/scheduled-workouts/${input.id}`, {
     body: JSON.stringify(parsedInput),
@@ -1021,7 +1026,9 @@ async function updateScheduledWorkoutExercises(input: UpdateScheduledWorkoutExer
   return payload.data;
 }
 
-async function updateScheduledWorkoutExerciseSets(input: UpdateScheduledWorkoutExerciseSetsRequest) {
+async function updateScheduledWorkoutExerciseSets(
+  input: UpdateScheduledWorkoutExerciseSetsRequest,
+) {
   const parsedInput = updateScheduledWorkoutExerciseSetsInputSchema.parse(input.input);
   const data = await apiRequest<unknown>(`/api/v1/scheduled-workouts/${input.id}/exercise-sets`, {
     body: JSON.stringify(parsedInput),
@@ -1070,7 +1077,9 @@ export function useScheduledWorkouts(
   });
 }
 
-export type ScheduledWorkoutDetail = SharedScheduledWorkoutDetail & { template: WorkoutTemplate | null };
+export type ScheduledWorkoutDetail = SharedScheduledWorkoutDetail & {
+  template: WorkoutTemplate | null;
+};
 
 export function useScheduledWorkoutDetail(id: string, options?: { enabled?: boolean }) {
   return useQuery<ScheduledWorkoutDetail>({
@@ -1276,7 +1285,10 @@ export function useReorderScheduledWorkout() {
         return;
       }
 
-      queryClient.setQueryData(workoutQueryKeys.scheduledWorkout(variables.id), context.previousDetail);
+      queryClient.setQueryData(
+        workoutQueryKeys.scheduledWorkout(variables.id),
+        context.previousDetail,
+      );
     },
     onSuccess: async (_, variables) => {
       await Promise.all([
@@ -1319,7 +1331,10 @@ export function useUpdateScheduledWorkoutExercises() {
         return;
       }
 
-      queryClient.setQueryData(workoutQueryKeys.scheduledWorkout(variables.id), context.previousDetail);
+      queryClient.setQueryData(
+        workoutQueryKeys.scheduledWorkout(variables.id),
+        context.previousDetail,
+      );
     },
     onSuccess: async (_, variables) => {
       await Promise.all([
@@ -1339,7 +1354,11 @@ export function useUpdateScheduledWorkoutExercises() {
 export function useUpdateScheduledWorkoutExerciseSets() {
   const queryClient = useQueryClient();
 
-  return useMutation<SharedScheduledWorkoutDetail, Error, UpdateScheduledWorkoutExerciseSetsRequest>({
+  return useMutation<
+    SharedScheduledWorkoutDetail,
+    Error,
+    UpdateScheduledWorkoutExerciseSetsRequest
+  >({
     mutationFn: updateScheduledWorkoutExerciseSets,
     onSuccess: async (_, variables) => {
       await Promise.all([
@@ -1709,11 +1728,7 @@ export function useUpdateSessionSectionTimer(sessionId: string | null | undefine
   const queryClient = useQueryClient();
   const normalizedSessionId = sessionId?.trim() ?? '';
 
-  return useMutation<
-    WorkoutSession,
-    Error,
-    Omit<UpdateSessionSectionTimerRequest, 'sessionId'>
-  >({
+  return useMutation<WorkoutSession, Error, Omit<UpdateSessionSectionTimerRequest, 'sessionId'>>({
     mutationFn: async (input) => {
       if (!normalizedSessionId) {
         throw new Error('Session id is required to update section timer');

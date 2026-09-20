@@ -549,6 +549,7 @@ function DayWorkoutItemCard({
     }
     await rescheduleWorkoutMutation.mutateAsync({
       date: requestedDate,
+      expectedUpdatedAt: workout.scheduledWorkout.updatedAt,
       id: workout.scheduledWorkout.id,
     });
   }

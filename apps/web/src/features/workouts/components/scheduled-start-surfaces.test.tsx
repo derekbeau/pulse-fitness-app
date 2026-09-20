@@ -40,6 +40,7 @@ for (const surface of ['list', 'calendar'] as const) {
         templateTrackingTypes: [],
         sessionId: null,
         createdAt: 1,
+        updatedAt: 1,
       };
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
         const path = new URL(String(input), 'https://pulse.test').pathname;

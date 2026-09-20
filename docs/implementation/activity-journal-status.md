@@ -4,6 +4,7 @@
 
 - Accepted predecessors: #176 canonical foundation and #177 Activity runtime through `265e6c7c9f31a4c807a2140dbae7a409c2f04bdd`
 - Current checkpoint: #178 body concerns, guidance, safe flare handling, and meaningful-change approval
+- Review state: changes required; the scheduled-workout date bypass is repaired in this follow-up, while approval-relay authority remains pending a user product decision
 - Branch: `feat/activity-journal-release`
 - Checkpoint starting HEAD: `265e6c7c9f31a4c807a2140dbae7a409c2f04bdd`
 - Checkpoint commit: the commit containing this status file; resolve its exact SHA in the independent-review handoff
@@ -19,25 +20,28 @@
 - Proposal effects are a closed union: `activity_assignment_reschedule` and `scheduled_workout_reschedule`. Target revisions, subject, eligibility, and semantic fingerprint are server-derived and rechecked before all effects execute in one immediate transaction.
 - Direct JWT approval records the authenticated user. Agent relay requires a separately persisted exact user statement and records `approvedBy` user plus `relayedBy` agent. Recording a statement alone does not execute.
 - Scheduled-workout execution uses a guarded domain primitive, rejects started/completed occurrences, preserves snapshots/programming notes, and applies the existing greater-than-two-day agent-note staleness policy. Activity execution appends the existing assignment revision shape, preserving planned and actual history.
+- The legacy generic scheduled-workout PATCH now uses that same guarded primitive for date changes. Callers provide `expectedUpdatedAt`; owner/revision/link eligibility, date mutation, agent-note staleness, and mixed feedback-question writes share one transaction. Same-date writes preserve a linked occurrence without changing its revision.
+- Independent finding #1 about AgentToken approval relay remains open for Derek's product decision. This repair does not redesign relay, add conversation-proof infrastructure, or claim #178 acceptance.
 
 ## Requirements to executable evidence
 
-| Requirement                                   | Executable evidence                                                                                                                                                         |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Strict provenance and source readback         | API acceptance captures all four provenance classes and verifies auth-derived capture identity                                                                              |
-| Immutable concern/capability/guidance history | API/store tests read current records with ordered revisions and stale compare-and-swap rejection                                                                            |
-| Explicit resolution authority                 | API rejects symptom-derived resolution and accepts an authenticated-user decision with audit history                                                                        |
-| Flare-first partial capture                   | API records a flare with a pending optional follow-up and no plan mutation; same-key replay returns the original result                                                     |
-| Local date / instant / timezone               | shared schema test covers Detroit DST and rejects a mismatched occurrence date                                                                                              |
-| Typed meaningful changes only                 | strict shared schema rejects additional diagnosis/clearance/arbitrary mutation keys                                                                                         |
-| Exact direct and relayed approval             | API verifies JWT approval and separately persisted AgentToken relay with distinct user/agent identities                                                                     |
-| Atomic multi-target execution                 | API moves an upcoming Activity assignment and scheduled workout together; a stale second target leaves the first and receipt untouched                                      |
-| Completed/stale target protection             | store rechecks planned/unstarted/current-or-future eligibility and exact target revisions before mutation                                                                   |
-| Routine instruction remains narrow            | existing #177 assignment-reschedule route remains the direct primitive with strict payload and immutable revision history                                                   |
-| Durable semantic idempotency                  | same scope/key/payload replays; altered payload conflicts; failed writes leave no receipt                                                                                   |
-| Genuine independent-process races             | two child API processes with distinct WAL handles cross a deterministic barrier for duplicate flare, stale correction, competing approval/execution, and stale-target proof |
-| Additive migration lifecycle                  | production migration runner covers fresh and populated exact predecessor, legacy preservation, rerun no-op, forced rollback, account erasure, FK and integrity checks       |
-| Registered OpenAPI                            | routes are registered through the typed Fastify provider with exact request/response/error schemas and auth policies                                                        |
+| Requirement                                   | Executable evidence                                                                                                                                                                                                                   |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Strict provenance and source readback         | API acceptance captures all four provenance classes and verifies auth-derived capture identity                                                                                                                                        |
+| Immutable concern/capability/guidance history | API/store tests read current records with ordered revisions and stale compare-and-swap rejection                                                                                                                                      |
+| Explicit resolution authority                 | API rejects symptom-derived resolution and accepts an authenticated-user decision with audit history                                                                                                                                  |
+| Flare-first partial capture                   | API records a flare with a pending optional follow-up and no plan mutation; same-key replay returns the original result                                                                                                               |
+| Local date / instant / timezone               | shared schema test covers Detroit DST and rejects a mismatched occurrence date                                                                                                                                                        |
+| Typed meaningful changes only                 | strict shared schema rejects additional diagnosis/clearance/arbitrary mutation keys                                                                                                                                                   |
+| Exact direct and relayed approval             | API verifies JWT approval and separately persisted AgentToken relay with distinct user/agent identities                                                                                                                               |
+| Atomic multi-target execution                 | API moves an upcoming Activity assignment and scheduled workout together; a stale second target leaves the first and receipt untouched                                                                                                |
+| Completed/stale target protection             | store rechecks planned/unstarted/current-or-future eligibility and exact target revisions before mutation                                                                                                                             |
+| Legacy scheduled-date bypass                  | registered API tests reject started/completed date changes without detaching `sessionId`, preserve same-date identity, move an unstarted target with CAS, reject stale/foreign writes, and roll mixed PATCH conflicts back atomically |
+| Routine instruction remains narrow            | existing #177 assignment-reschedule route remains the direct primitive with strict payload and immutable revision history                                                                                                             |
+| Durable semantic idempotency                  | same scope/key/payload replays; altered payload conflicts; failed writes leave no receipt                                                                                                                                             |
+| Genuine independent-process races             | two child API processes with distinct WAL handles cross a deterministic barrier for duplicate flare, stale correction, competing approval/execution, and stale-target proof                                                           |
+| Additive migration lifecycle                  | production migration runner covers fresh and populated exact predecessor, legacy preservation, rerun no-op, forced rollback, account erasure, FK and integrity checks                                                                 |
+| Registered OpenAPI                            | routes are registered through the typed Fastify provider with exact request/response/error schemas and auth policies                                                                                                                  |
 
 Focused tests:
 
@@ -46,6 +50,23 @@ Focused tests:
 - `apps/api/src/routes/body-context/api.integration.test.ts`
 - `apps/api/src/routes/body-context/independent-writer.integration.test.ts`
 - affected #177 Activity and scheduled-workout regression tests
+
+Repair evidence directory: `/Users/meridian/Projects/qa-reports/pulse-activity-journal-release/checkpoint-178-repair-1`
+
+| Repair receipt                 | Result                                                                               |
+| ------------------------------ | ------------------------------------------------------------------------------------ |
+| `first-failures.md`            | first shared/web fixture-contract failures preserved with definitive-rerun pointers  |
+| `shared-tests.txt`             | scheduled-workout and body-context shared contracts passed, 27 tests                 |
+| `api-tests.txt`                | registered scheduled-workout and affected proposal/Activity API regression, 81 tests |
+| `scheduled-api-final.txt`      | final registered scheduled-workout API boundary passed, 49 tests                     |
+| `independent-writer-tests.txt` | body-context and Activity independent-process concurrency passed, 6 tests            |
+| `web-tests.txt`                | all affected scheduled-workout callers and surfaces passed, 90 tests                 |
+| `lint.txt`                     | root lint passed with seven pre-existing web warnings and zero errors                |
+| `typecheck.txt`                | root API/shared/web typecheck passed                                                 |
+| `build.txt`                    | root API/shared/web build passed with the existing Vite chunk-size warning           |
+| `root-tests.txt`               | full repository run preserved three unrelated load timeouts; affected tests passed   |
+| `root-timeout-api-rerun.txt`   | the two timed-out API files passed alone with one worker, 21 tests                   |
+| `root-timeout-web-rerun.txt`   | the timed-out active-workout file passed alone with one worker, 41 tests             |
 
 ## Evidence receipts
 

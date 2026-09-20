@@ -338,6 +338,7 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
 
     await rescheduleWorkoutMutation.mutateAsync({
       date: requestedDate,
+      expectedUpdatedAt: scheduledWorkout.updatedAt,
       id: scheduledWorkout.id,
     });
   }

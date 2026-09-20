@@ -1523,6 +1523,7 @@ const executeActivityEffect = (
 const executeScheduledWorkoutEffect = (
   sqlite: Database.Database,
   userId: string,
+  today: string,
   effect: Extract<PlanChangeEffect, { kind: 'scheduled_workout_reschedule' }>,
 ) => {
   try {
@@ -1531,6 +1532,7 @@ const executeScheduledWorkoutEffect = (
       userId,
       scheduledWorkoutId: effect.scheduledWorkoutId,
       expectedUpdatedAt: effect.expectedUpdatedAt,
+      minimumLocalDate: today,
       plannedLocalDate: effect.plannedLocalDate,
     });
     return { kind: effect.kind, ...result };
@@ -1591,7 +1593,7 @@ export const approvePlanChangeProposal = async (
       const executionEffects = effects.map((effect) =>
         effect.kind === 'activity_assignment_reschedule'
           ? executeActivityEffect(sqlite, userId, actor, effect)
-          : executeScheduledWorkoutEffect(sqlite, userId, effect),
+          : executeScheduledWorkoutEffect(sqlite, userId, today, effect),
       );
       const approvedAt = instant();
       const approval = {

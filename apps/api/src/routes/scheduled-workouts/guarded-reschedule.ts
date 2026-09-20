@@ -14,30 +14,84 @@ const toUtcDay = (date: string): number => {
   );
 };
 
-export class ScheduledWorkoutGuardConflictError extends Error {}
+export type ScheduledWorkoutGuardConflictReason =
+  | 'stale_revision'
+  | 'linked_session'
+  | 'ineligible_date';
+
+export class ScheduledWorkoutGuardConflictError extends Error {
+  constructor(
+    readonly reason: ScheduledWorkoutGuardConflictReason,
+    readonly currentUpdatedAt?: number,
+  ) {
+    super(
+      reason === 'stale_revision'
+        ? 'Scheduled workout changed.'
+        : reason === 'linked_session'
+          ? 'Started or completed scheduled workouts cannot be rescheduled.'
+          : 'Scheduled workout date is no longer eligible for this change.',
+    );
+  }
+}
 
 export const rescheduleScheduledWorkoutGuarded = ({
   sqlite,
   userId,
   scheduledWorkoutId,
   expectedUpdatedAt,
+  minimumLocalDate,
   plannedLocalDate,
 }: {
   sqlite: Database.Database;
   userId: string;
   scheduledWorkoutId: string;
   expectedUpdatedAt: number;
+  minimumLocalDate?: string;
   plannedLocalDate: string;
 }) => {
+  const current = sqlite
+    .prepare(
+      `select date,session_id as sessionId,updated_at as updatedAt
+         from scheduled_workouts where id=? and user_id=?`,
+    )
+    .get(scheduledWorkoutId, userId) as
+    | { date: string; sessionId: string | null; updatedAt: number }
+    | undefined;
+  if (!current || current.updatedAt !== expectedUpdatedAt) {
+    throw new ScheduledWorkoutGuardConflictError('stale_revision', current?.updatedAt);
+  }
+  if (plannedLocalDate === current.date) {
+    return { changed: false, id: scheduledWorkoutId, updatedAt: current.updatedAt };
+  }
+  if (current.sessionId !== null) {
+    throw new ScheduledWorkoutGuardConflictError('linked_session', current.updatedAt);
+  }
+  if (
+    minimumLocalDate !== undefined &&
+    (current.date < minimumLocalDate || plannedLocalDate < minimumLocalDate)
+  ) {
+    throw new ScheduledWorkoutGuardConflictError('ineligible_date', current.updatedAt);
+  }
+
   const nextUpdatedAt = Math.max(getApplicationNow().getTime(), expectedUpdatedAt + 1);
   const result = sqlite
     .prepare(
       `update scheduled_workouts set date=?,updated_at=?
-        where id=? and user_id=? and updated_at=? and session_id is null`,
+        where id=? and user_id=? and date=? and updated_at=? and session_id is null`,
     )
-    .run(plannedLocalDate, nextUpdatedAt, scheduledWorkoutId, userId, expectedUpdatedAt);
+    .run(
+      plannedLocalDate,
+      nextUpdatedAt,
+      scheduledWorkoutId,
+      userId,
+      current.date,
+      expectedUpdatedAt,
+    );
   if (result.changes !== 1) {
-    throw new ScheduledWorkoutGuardConflictError('Scheduled workout changed.');
+    const latest = sqlite
+      .prepare('select updated_at as updatedAt from scheduled_workouts where id=? and user_id=?')
+      .get(scheduledWorkoutId, userId) as { updatedAt: number } | undefined;
+    throw new ScheduledWorkoutGuardConflictError('stale_revision', latest?.updatedAt);
   }
 
   const notes = sqlite
@@ -60,5 +114,5 @@ export const rescheduleScheduledWorkoutGuarded = ({
     }
     update.run(JSON.stringify({ ...metadata, stale: true }), nextUpdatedAt, note.id);
   }
-  return { id: scheduledWorkoutId, updatedAt: nextUpdatedAt };
+  return { changed: true, id: scheduledWorkoutId, updatedAt: nextUpdatedAt };
 };

@@ -126,7 +126,7 @@ pnpm format     # Format with Prettier
 - Sensitive auth-management routes, including agent token CRUD, remain JWT-only.
 - Meal summaries can be explicitly updated via meal PATCH routes (`PATCH /api/v1/meals/:id` and `PATCH /api/v1/nutrition/:date/meals/:mealId`) by sending `summary` as text or `null`.
 - `/api/v1/adaptive-nutrition` exposes program/check-in state, immutable agentic weekly decision reviews, current goal, goal history, and canonical trend-detail reads to JWT and AgentToken callers. Weekly review reads are identical for both auth modes; bounded context and questions are agent-compatible, while accept/edit/defer/decline, program, target, and goal lifecycle decisions are JWT-only. Previews and review reads never apply nutrition targets automatically.
-- `/api/v1/body-context/*` exposes canonical concerns, capabilities, sourced guidance, immutable corrections and management transitions, and durable flare/follow-up state. `/api/v1/plan-change-proposals/*` supports only typed prospective Activity-assignment and scheduled-workout reschedules; exact user approval is required before one atomic execution. Agent-relayed approval retains separate user and agent audit identities.
+- `/api/v1/body-context/*` exposes canonical concerns, capabilities, sourced guidance, immutable corrections and management transitions, and durable flare/follow-up state. `/api/v1/plan-change-proposals/*` supports only typed prospective Activity-assignment and scheduled-workout reschedules; exact user approval is required before one atomic execution. Agent-relayed approval retains separate user and agent audit identities, while its final trust policy remains pending the #178 product decision.
 
 ### Response Format
 

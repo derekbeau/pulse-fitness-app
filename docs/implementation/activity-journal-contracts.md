@@ -32,6 +32,7 @@ A same-state write may add a revision but cannot erase history. `resolved` recor
 - Rescheduling creates a new assignment revision. Planned Tuesday and actual Thursday remain queryable as separate fields and records.
 - Recurrence revisions have an `effectiveFromLocalDate` and may affect only unmaterialized assignments on or after that date. The literal policy is `unassigned_on_or_after_effective_date`; existing assignments retain their original recurrence revision and date until explicitly rescheduled.
 - Corrections append an immutable revision with `priorRevisionId`. The prior revision is never updated in place. Empty `correctedFields` objects are rejected conservatively because they cannot represent a correction. A mismatched expected revision returns `STALE_REVISION` with expected/current numbers and makes no write.
+- `PATCH /api/v1/scheduled-workouts/:id` date changes require `expectedUpdatedAt`. The owned row, revision, and unstarted eligibility are rechecked inside the same transaction as the date write and any feedback-question update. A changed date never detaches a linked started/completed session; an exact same-date request is a no-op that preserves identity. Snapshot rows and programming/agent-note channels remain intact, and the existing greater-than-two-day agent-note staleness rule commits atomically with an eligible move.
 
 ### Idempotency and approval
 
@@ -40,6 +41,7 @@ A same-state write may add a revision but cannot erase history. `resolved` recor
 - A direct routine instruction may execute once through `routinePlanInstructionSchema`, retaining its target revision and idempotency receipt.
 - A meaningful change starts as `proposed` and cannot be represented as approved without an explicit approval object. Approval binds to the exact `proposalRevisionId`, exact target revision fingerprint, and approving user actor.
 - An authenticated user may approve directly. An AgentToken may only execute approval by first persisting an exact user approval statement bound to that proposal revision and server-derived target fingerprint. The approval audit keeps `approvedBy` as the user and `relayedBy` as the agent; recording a statement alone never executes a proposal.
+- Independent review identified the trust boundary behind AgentToken-relayed approval as a pending product decision. The current relay implementation is preserved for that decision and is not an accepted #178 authority policy.
 - #178 supports only typed prospective `activity_assignment_reschedule` and `scheduled_workout_reschedule` effects. The server derives targets and their fingerprint, validates every target before any write, and commits all effects, approval, execution audit, and receipt together. Unsupported arbitrary JSON is rejected.
 - If the proposal has changed, return `STALE_PROPOSAL`. If any target revision has changed, return `STALE_TARGET`. Neither conflict silently reapplies, rebases, or partially approves the proposal.
 
