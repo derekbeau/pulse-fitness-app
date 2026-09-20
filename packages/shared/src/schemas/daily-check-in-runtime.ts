@@ -226,3 +226,4 @@ export type CorrectDailyCheckInAnswerApiInput = z.infer<
 export type DailyCheckInSourceKind = z.infer<typeof dailyCheckInSourceKindSchema>;
 export type DailyCheckInSourceReference = z.infer<typeof dailyCheckInSourceReferenceSchema>;
 export type DailyCheckInAnswerAuditRevision = z.infer<typeof dailyCheckInAnswerAuditRevisionSchema>;
+export type DailyCheckInDetail = z.infer<typeof dailyCheckInDetailSchema>;

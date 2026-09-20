@@ -216,7 +216,7 @@ describe('daily check-in lifecycle and date projections', () => {
         url: `/api/v1/check-in/questions/${id}`,
         headers: { authorization: 'AgentToken a-secret' },
       });
-      expect(response.statusCode).toBe(200);
+      expect(response.statusCode, response.body).toBe(200);
       return response.json().data;
     };
     expect(await read(parentId)).toMatchObject({

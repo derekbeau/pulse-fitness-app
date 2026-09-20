@@ -360,7 +360,7 @@ describe('daily check-in runtime API', () => {
       url: '/api/v1/daily-context?date=2026-09-20',
       headers: { authorization: 'AgentToken a-secret' },
     });
-    expect(context.statusCode).toBe(200);
+    expect(context.statusCode, context.body).toBe(200);
     expect(context.json().data).toMatchObject({
       localDate: '2026-09-20',
       pendingQuestions: [

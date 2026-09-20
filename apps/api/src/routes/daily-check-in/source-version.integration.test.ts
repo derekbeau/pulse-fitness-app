@@ -115,7 +115,7 @@ describe('daily check-in source version authority', () => {
         url: '/api/v1/daily-context?date=2026-09-20',
         headers: { authorization: 'AgentToken a-secret' },
       });
-      expect(response.statusCode).toBe(200);
+      expect(response.statusCode, response.body).toBe(200);
       return response.json().data.sourceReferences as Array<{
         kind: string;
         id: string;
@@ -288,7 +288,7 @@ describe('daily check-in source version authority', () => {
       url: '/api/v1/daily-context?date=2026-09-20',
       headers: { authorization: 'AgentToken a-secret' },
     });
-    expect(context.statusCode).toBe(200);
+    expect(context.statusCode, context.body).toBe(200);
     const references = context.json().data.sourceReferences as Array<{
       kind: string;
       id: string;
