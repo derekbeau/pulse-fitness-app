@@ -163,7 +163,7 @@ describe('daily check-in writes across independent API processes', () => {
         localDate: '2026-09-20',
         semanticTopic: 'shoulder state',
         prompt: 'How is the shoulder?',
-        sourceReferences: [{ kind: 'body_concern', id: 'concern' }],
+        sourceReferences: [{ kind: 'body_concern', id: 'concern', revisionId: 'concern-r1' }],
         followUpQuestionId: null,
         idempotencyKey: 'process-question',
       },
@@ -224,5 +224,34 @@ describe('daily check-in writes across independent API processes', () => {
     expect(
       control.prepare('select count(*) count from daily_check_in_answer_revisions').get(),
     ).toEqual({ count: 2 });
+    expect(
+      control
+        .prepare(
+          'select operation,count(*) count from daily_check_in_idempotency_receipts group by operation order by operation',
+        )
+        .all(),
+    ).toEqual([
+      { operation: 'answer', count: 1 },
+      { operation: 'correct', count: 1 },
+      { operation: 'create', count: 1 },
+    ]);
+    const revisions = control
+      .prepare(
+        'select revision,prior_revision_id,source_json,actor_json from daily_check_in_answer_revisions order by revision',
+      )
+      .all() as Array<{
+      revision: number;
+      prior_revision_id: string | null;
+      source_json: string;
+      actor_json: string;
+    }>;
+    expect(revisions.map((revision) => revision.revision)).toEqual([1, 2]);
+    expect(revisions[0]?.prior_revision_id).toBeNull();
+    expect(revisions[1]?.prior_revision_id).not.toBeNull();
+    expect(JSON.parse(revisions[0]?.source_json ?? '{}')).toMatchObject({
+      sourceId: 'daily-process-source',
+      capturedBy: { id: 'token' },
+    });
+    expect(JSON.parse(revisions[1]?.actor_json ?? '{}')).toMatchObject({ id: 'token' });
   });
 });

@@ -101,6 +101,8 @@ export const ownedEntityKindSchema = z.enum([
   'check_in_question',
   'check_in_answer',
   'proposal',
+  'nutrition_log',
+  'meal',
 ]);
 
 export const ownedEntityReferenceSchema = z
@@ -528,7 +530,7 @@ export const checkInQuestionRevisionSchema = checkInQuestionRevisionObjectSchema
   },
 );
 
-export const checkInAnswerRevisionSchema = z
+export const checkInAnswerRevisionObjectSchema = z
   .object({
     id: idSchema,
     answerId: idSchema,
@@ -542,8 +544,10 @@ export const checkInAnswerRevisionSchema = z
     source: provenanceSchema,
     answeredAt: instantSchema,
   })
-  .strict()
-  .superRefine((answer, context) => {
+  .strict();
+
+export const checkInAnswerRevisionSchema = checkInAnswerRevisionObjectSchema.superRefine(
+  (answer, context) => {
     if (answer.state === 'answered' && answer.value === undefined) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -558,7 +562,8 @@ export const checkInAnswerRevisionSchema = z
         message: 'Unknown and skipped answers cannot carry a value.',
       });
     }
-  });
+  },
+);
 
 const correctedFieldsSchema = z
   .record(z.string(), z.unknown())

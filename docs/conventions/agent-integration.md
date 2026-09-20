@@ -144,6 +144,41 @@ curl -sS "$PULSE_API_URL/api/v1/activities/<activity-id>" \
 
 Legacy date-only Activity rows appear on the same read surface with `recordType: "legacy_date_only"`. They intentionally contain no invented occurrence time, timezone, actor, or provenance.
 
+### Canonical daily context and check-ins
+
+`GET /api/v1/daily-context?date=YYYY-MM-DD` accepts a Pulse session JWT or AgentToken and returns bounded, owner-scoped Activity, workout, nutrition, body-context, and check-in state. Workout summaries distinguish `planned`, `in_progress`, `paused`, and `completed`, and preserve separate `plannedLocalDate` and `actualLocalDate`. `unknown` and unavailable values are not denial or zero.
+
+The write routes below are AgentToken-only; the server derives subject and actor:
+
+- `POST /api/v1/check-in/questions`
+- `POST /api/v1/check-in/questions/:id/answers`
+- `POST /api/v1/check-in/answers/:id/corrections`
+
+Question creation requires at least one current owned source reference. Copy `kind`, `id`, and the mandatory opaque `revisionId` from daily-context readback. Do not create or cache revision tokens yourself. A stale, missing, wrong-kind, foreign, or soft-deleted reference returns non-disclosing `404 OWNED_LINK_NOT_FOUND`. Current tokens are domain revision ids where the source has an immutable revision authority and deterministic `sha256:` semantic fingerprints for mutable goal, workout, nutrition, meal, and observation sources. Relevant child changes, such as a workout set or meal item, change the parent token.
+
+```bash
+curl -sS "$PULSE_API_URL/api/v1/daily-context?date=2026-09-20" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN"
+
+curl -sS -X POST "$PULSE_API_URL/api/v1/check-in/questions" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{"localDate":"2026-09-20","semanticTopic":"nutrition completeness","prompt":"Is anything missing from today’s nutrition log?","sourceReferences":[{"kind":"nutrition_log","id":"<id-from-daily-context>","revisionId":"<opaque-current-token>"}],"followUpQuestionId":null,"idempotencyKey":"nutrition-check-2026-09-20-v1"}'
+```
+
+Equivalent creation attempts for the same authenticated subject, local day, normalized semantic topic, current source versions, and parent resume one canonical question even when prompt wording, conversation, AgentToken, or idempotency key differs. A relevant source-version change produces a different canonical identity. A follow-up must reference an answered owned parent and retain the same source entities; unchanged follow-ups dedupe across threads.
+
+Answer and correction writes use compare-and-swap. Copy the current question revision id from `data.question.id`, send `expectedAnswerRevision: 0` for the first answer, and send the exact current answer revision for a correction. Use `state: "unknown"` or `state: "skipped"` without a `value`; these are explicit states, not negative answers.
+
+```bash
+curl -sS -X POST "$PULSE_API_URL/api/v1/check-in/questions/<question-id>/answers" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{"expectedQuestionRevisionId":"<current-question-revision-id>","expectedAnswerRevision":0,"state":"unknown","source":{"class":"user_observation","sourceId":"conversation-2026-09-20","sourceLabel":"User could not confirm","sourceOccurredAt":"2026-09-20T12:00:00-04:00","uncertainty":"known","freshness":{"state":"current","asOf":"2026-09-20T12:00:00-04:00","reasons":[]}},"idempotencyKey":"answer-2026-09-20-v1"}'
+```
+
+Replaying an identical mutation returns the original result with `Idempotent-Replay: true`. Reusing that route/operation/key with a changed payload returns `409 IDEMPOTENCY_KEY_REUSE`. Stale compare-and-swap inputs return `409` and do not persist partial revisions or receipts. `GET /api/v1/check-in/questions/:id` returns question revision audit, current answer, immutable answer history, correction reasons, provenance, actors, timestamps, and prior-revision links for restart/resume.
+
 ### Adaptive TDEE and goals
 
 AgentToken callers may read coaching state and create a reviewable preview, but all account, target, and goal

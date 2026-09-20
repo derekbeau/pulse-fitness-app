@@ -5,6 +5,9 @@ import type {
   ActivityJournalActor,
   CheckInAnswerRevision,
   CheckInQuestionRevision,
+  DailyCheckInAnswerAuditRevision,
+  DailyCheckInSourceKind,
+  DailyCheckInSourceReference,
   Provenance,
 } from '@pulse/shared';
 import type {
@@ -23,7 +26,7 @@ import {
 
 export type DailyCheckInActor = ActivityJournalActor;
 type Result<T> = { data: T; replayed: boolean; statusCode: number };
-type Reference = { kind: string; id: string; revisionId: string | null };
+type Reference = Omit<DailyCheckInSourceReference, 'subjectUserId'>;
 type SqlRow = Record<string, unknown>;
 const now = () => getApplicationNow().toISOString();
 const json = <T>(value: string) => JSON.parse(value) as T;
@@ -70,43 +73,10 @@ export class CheckInStaleQuestionError extends Error {
 export class CheckInIdempotencyConflictError extends Error {
   readonly code = 'IDEMPOTENCY_KEY_REUSE';
 }
+export class CheckInFollowUpParentStateError extends Error {
+  readonly code = 'FOLLOW_UP_PARENT_NOT_ANSWERED';
+}
 
-const ownedTables: Record<string, { table: string; revision?: string }> = {
-  activity: { table: 'canonical_activities', revision: 'current_revision_id' },
-  activity_assignment: { table: 'activity_assignments', revision: 'current_revision_id' },
-  activity_execution: { table: 'activity_executions', revision: 'current_revision_id' },
-  activity_goal: { table: 'activity_goals' },
-  activity_recurrence_revision: { table: 'activity_recurrence_revisions' },
-  workout_session: { table: 'workout_sessions' },
-  scheduled_workout: { table: 'scheduled_workouts' },
-  body_concern: { table: 'body_context_concerns', revision: 'current_revision_id' },
-  capability: { table: 'body_context_capabilities', revision: 'current_revision_id' },
-  guidance: { table: 'body_context_guidance', revision: 'current_revision_id' },
-  observation: { table: 'body_context_flares' },
-  proposal: { table: 'plan_change_proposals', revision: 'current_revision_id' },
-  check_in_question: { table: 'daily_check_in_questions', revision: 'current_revision_id' },
-  check_in_answer: { table: 'daily_check_in_answers', revision: 'current_revision_id' },
-};
-const validateReferences = (
-  sqlite: Database.Database,
-  userId: string,
-  refs: Reference[],
-): Reference[] => {
-  const hydrated: Reference[] = [];
-  for (const ref of refs) {
-    const entry = ownedTables[ref.kind];
-    if (!entry) throw new CheckInOwnedLinkNotFoundError();
-    const row = sqlite
-      .prepare(
-        `select id${entry.revision ? `, ${entry.revision} as revisionId` : ''} from ${entry.table} where id=? and user_id=?`,
-      )
-      .get(ref.id, userId) as { id: string; revisionId?: string } | undefined;
-    if (!row || (ref.revisionId !== null && entry.revision && row.revisionId !== ref.revisionId))
-      throw new CheckInOwnedLinkNotFoundError();
-    hydrated.push({ ...ref, revisionId: entry.revision ? (row.revisionId ?? null) : null });
-  }
-  return hydrated;
-};
 const question = (sqlite: Database.Database, userId: string, id: string) =>
   sqlite
     .prepare(`select * from daily_check_in_questions where id=? and user_id=?`)
@@ -120,6 +90,145 @@ const integer = (row: SqlRow, field: string) => {
   const value = row[field];
   if (typeof value !== 'number') throw new Error(`Invalid daily check-in row ${field}`);
   return value;
+};
+const sourceFingerprint = (kind: DailyCheckInSourceKind, value: unknown) =>
+  `sha256:${hash({ kind, value })}`;
+const directRevision = (
+  sqlite: Database.Database,
+  table: string,
+  userId: string,
+  id: string,
+): string | null => {
+  const row = sqlite
+    .prepare(`select current_revision_id from ${table} where id=? and user_id=?`)
+    .get(id, userId) as SqlRow | undefined;
+  return row ? string(row, 'current_revision_id') : null;
+};
+const fingerprintRows = (rows: SqlRow[]) => rows.map((row) => stable(row));
+const currentSourceRevision = (
+  sqlite: Database.Database,
+  userId: string,
+  kind: DailyCheckInSourceKind,
+  id: string,
+): string | null => {
+  if (kind === 'activity') return directRevision(sqlite, 'canonical_activities', userId, id);
+  if (kind === 'activity_assignment')
+    return directRevision(sqlite, 'activity_assignments', userId, id);
+  if (kind === 'activity_execution')
+    return directRevision(sqlite, 'activity_executions', userId, id);
+  if (kind === 'body_concern') return directRevision(sqlite, 'body_context_concerns', userId, id);
+  if (kind === 'capability') return directRevision(sqlite, 'body_context_capabilities', userId, id);
+  if (kind === 'guidance') return directRevision(sqlite, 'body_context_guidance', userId, id);
+  if (kind === 'proposal') return directRevision(sqlite, 'plan_change_proposals', userId, id);
+  if (kind === 'check_in_question')
+    return directRevision(sqlite, 'daily_check_in_questions', userId, id);
+  if (kind === 'check_in_answer')
+    return directRevision(sqlite, 'daily_check_in_answers', userId, id);
+  if (kind === 'activity_recurrence_revision') {
+    const row = sqlite
+      .prepare('select id from activity_recurrence_revisions where id=? and user_id=?')
+      .get(id, userId) as SqlRow | undefined;
+    return row ? string(row, 'id') : null;
+  }
+  if (kind === 'activity_goal') {
+    const row = sqlite
+      .prepare(
+        'select id,kind,label,state,revision,created_at,updated_at from activity_goals where id=? and user_id=?',
+      )
+      .get(id, userId) as SqlRow | undefined;
+    return row ? sourceFingerprint(kind, row) : null;
+  }
+  if (kind === 'observation') {
+    const row = sqlite
+      .prepare(
+        'select id,concern_id,observation,occurred_at,local_date,time_zone,source_json,created_at from body_context_flares where id=? and user_id=?',
+      )
+      .get(id, userId) as SqlRow | undefined;
+    return row ? sourceFingerprint(kind, row) : null;
+  }
+  if (kind === 'workout_session') {
+    const row = sqlite
+      .prepare('select * from workout_sessions where id=? and user_id=? and deleted_at is null')
+      .get(id, userId) as SqlRow | undefined;
+    if (!row) return null;
+    const sets = sqlite
+      .prepare(
+        'select * from session_sets where session_id=? order by order_index,section,set_number,id',
+      )
+      .all(id) as SqlRow[];
+    return sourceFingerprint(kind, { row: stable(row), sets: fingerprintRows(sets) });
+  }
+  if (kind === 'scheduled_workout') {
+    const row = sqlite
+      .prepare('select * from scheduled_workouts where id=? and user_id=?')
+      .get(id, userId) as SqlRow | undefined;
+    if (!row) return null;
+    const exercises = sqlite
+      .prepare(
+        'select * from scheduled_workout_exercises where scheduled_workout_id=? order by order_index,section,id',
+      )
+      .all(id) as SqlRow[];
+    const sets = sqlite
+      .prepare(
+        'select ss.* from scheduled_workout_exercise_sets ss join scheduled_workout_exercises se on se.id=ss.scheduled_workout_exercise_id where se.scheduled_workout_id=? order by se.order_index,ss.set_number,ss.id',
+      )
+      .all(id) as SqlRow[];
+    return sourceFingerprint(kind, {
+      row: stable(row),
+      exercises: fingerprintRows(exercises),
+      sets: fingerprintRows(sets),
+    });
+  }
+  if (kind === 'nutrition_log') {
+    const row = sqlite
+      .prepare('select * from nutrition_logs where id=? and user_id=?')
+      .get(id, userId) as SqlRow | undefined;
+    if (!row) return null;
+    const meals = sqlite
+      .prepare('select * from meals where nutrition_log_id=? order by created_at,id')
+      .all(id) as SqlRow[];
+    const items = sqlite
+      .prepare(
+        'select i.* from meal_items i join meals m on m.id=i.meal_id where m.nutrition_log_id=? order by m.created_at,i.created_at,i.id',
+      )
+      .all(id) as SqlRow[];
+    return sourceFingerprint(kind, {
+      row: stable(row),
+      meals: fingerprintRows(meals),
+      items: fingerprintRows(items),
+    });
+  }
+  const meal = sqlite
+    .prepare(
+      'select m.* from meals m join nutrition_logs n on n.id=m.nutrition_log_id where m.id=? and n.user_id=?',
+    )
+    .get(id, userId) as SqlRow | undefined;
+  if (!meal) return null;
+  const items = sqlite
+    .prepare('select * from meal_items where meal_id=? order by created_at,id')
+    .all(id) as SqlRow[];
+  return sourceFingerprint(kind, { row: stable(meal), items: fingerprintRows(items) });
+};
+const validateReferences = (
+  sqlite: Database.Database,
+  userId: string,
+  refs: Reference[],
+): Reference[] =>
+  refs.map((ref) => {
+    const currentRevisionId = currentSourceRevision(sqlite, userId, ref.kind, ref.id);
+    if (currentRevisionId === null || ref.revisionId !== currentRevisionId)
+      throw new CheckInOwnedLinkNotFoundError();
+    return { ...ref, revisionId: currentRevisionId };
+  });
+const sourceReference = (
+  sqlite: Database.Database,
+  userId: string,
+  kind: DailyCheckInSourceKind,
+  id: string,
+): DailyCheckInSourceReference => {
+  const revisionId = currentSourceRevision(sqlite, userId, kind, id);
+  if (revisionId === null) throw new CheckInOwnedLinkNotFoundError();
+  return { kind, id, subjectUserId: userId, revisionId };
 };
 const questionRevision = (
   row: SqlRow,
@@ -212,24 +321,17 @@ export const createQuestion = async (
     payload: input,
     statusCode: 201,
     write(sqlite) {
-      const references = validateReferences(
-        sqlite,
-        userId,
-        input.sourceReferences.map((reference) => ({
-          ...reference,
-          revisionId: reference.revisionId ?? null,
-        })),
-      );
+      const references = validateReferences(sqlite, userId, input.sourceReferences);
       const parent = input.followUpQuestionId
         ? question(sqlite, userId, input.followUpQuestionId)
         : null;
       if (input.followUpQuestionId && !parent) throw new CheckInOwnedLinkNotFoundError();
+      if (parent && string(parent, 'state') !== 'answered')
+        throw new CheckInFollowUpParentStateError();
       if (
         parent &&
         !json<Reference[]>(string(parent, 'source_references_json')).every((p) =>
-          references.some(
-            (r) => r.kind === p.kind && r.id === p.id && r.revisionId === p.revisionId,
-          ),
+          references.some((r) => r.kind === p.kind && r.id === p.id),
         )
       )
         throw new CheckInOwnedLinkNotFoundError();
@@ -290,7 +392,7 @@ export const createQuestion = async (
   });
 };
 
-const answerRevision = (row: SqlRow): CheckInAnswerRevision => ({
+const answerRevision = (row: SqlRow): DailyCheckInAnswerAuditRevision => ({
   id: string(row, 'id'),
   answerId: string(row, 'answer_id'),
   questionId: string(row, 'question_id'),
@@ -302,6 +404,8 @@ const answerRevision = (row: SqlRow): CheckInAnswerRevision => ({
   ...(nullable(row, 'value') === null ? {} : { value: string(row, 'value') }),
   source: json<Provenance>(string(row, 'source_json')),
   answeredAt: string(row, 'answered_at'),
+  correctionReason: nullable(row, 'reason'),
+  recordedBy: json<ActivityJournalActor>(string(row, 'actor_json')),
 });
 const nullable = (row: SqlRow, field: string): string | null => {
   const value = row[field];
@@ -323,11 +427,18 @@ const instantOrNull = (row: SqlRow, field: string): string | null => {
 const detail = (sqlite: Database.Database, userId: string, id: string) => {
   const q = question(sqlite, userId, id);
   if (!q) throw new CheckInNotFoundError();
-  const currentQuestionRevision = sqlite
-    .prepare('select prior_revision_id from daily_check_in_question_revisions where id=?')
-    .get(string(q, 'current_revision_id')) as SqlRow | undefined;
-  if (!currentQuestionRevision)
-    throw new Error('Current check-in question revision was unavailable.');
+  const questionHistory = (
+    sqlite
+      .prepare(
+        'select snapshot_json,actor_json from daily_check_in_question_revisions where question_id=? and user_id=? order by revision',
+      )
+      .all(id, userId) as SqlRow[]
+  ).map((row) => ({
+    revision: json<CheckInQuestionRevision>(string(row, 'snapshot_json')),
+    recordedBy: json<ActivityJournalActor>(string(row, 'actor_json')),
+  }));
+  const currentQuestion = questionHistory.at(-1)?.revision;
+  if (!currentQuestion) throw new Error('Current check-in question revision was unavailable.');
   const a = sqlite
     .prepare('select * from daily_check_in_answers where question_id=? and user_id=?')
     .get(id, userId) as SqlRow | undefined;
@@ -335,13 +446,14 @@ const detail = (sqlite: Database.Database, userId: string, id: string) => {
     ? (
         sqlite
           .prepare(
-            'select id,answer_id,question_id,question_revision_id,user_id,revision,prior_revision_id,state,value,source_json,answered_at from daily_check_in_answer_revisions where answer_id=? and user_id=? order by revision',
+            'select id,answer_id,question_id,question_revision_id,user_id,revision,prior_revision_id,state,value,source_json,answered_at,reason,actor_json from daily_check_in_answer_revisions where answer_id=? and user_id=? order by revision',
           )
           .all(string(a, 'id'), userId) as SqlRow[]
       ).map(answerRevision)
     : [];
   return {
-    question: questionRevision(q, nullable(currentQuestionRevision, 'prior_revision_id')),
+    question: currentQuestion,
+    questionHistory,
     currentAnswer: history.at(-1) ?? null,
     answerHistory: history,
     followUpQuestionId: nullable(q, 'follow_up_question_id'),
@@ -519,7 +631,7 @@ export const readDailyContext = async (userId: string, date?: string) => {
   const localDate = date ?? (await getUserLocalDate(userId));
   const qrows = sqlite
     .prepare(
-      'select * from daily_check_in_questions where user_id=? and local_date=? order by created_at',
+      'select * from daily_check_in_questions where user_id=? and local_date=? order by created_at limit 200',
     )
     .all(userId, localDate) as SqlRow[];
   const pending = qrows
@@ -527,11 +639,11 @@ export const readDailyContext = async (userId: string, date?: string) => {
     .map((q) => questionRevision(q));
   const answers = qrows
     .map((q) => detail(sqlite, userId, string(q, 'id')).currentAnswer)
-    .filter((answer): answer is CheckInAnswerRevision => answer !== null);
+    .filter((answer): answer is DailyCheckInAnswerAuditRevision => answer !== null);
   const assignments = (
     sqlite
       .prepare(
-        'select a.id,a.user_id,a.activity_id,a.planned_local_date,a.time_zone,a.recurrence_revision_id,a.state,a.created_at,a.updated_at,a.revision,ar.prior_revision_id from activity_assignments a join activity_assignment_revisions ar on ar.id=a.current_revision_id and ar.user_id=a.user_id where a.user_id=? and a.planned_local_date=?',
+        'select a.id,a.user_id,a.activity_id,a.planned_local_date,a.time_zone,a.recurrence_revision_id,a.state,a.created_at,a.updated_at,a.revision,a.current_revision_id,ar.prior_revision_id from activity_assignments a join activity_assignment_revisions ar on ar.id=a.current_revision_id and ar.user_id=a.user_id where a.user_id=? and a.planned_local_date=? order by a.created_at,a.id limit 200',
       )
       .all(userId, localDate) as SqlRow[]
   ).map((r) => ({
@@ -550,7 +662,7 @@ export const readDailyContext = async (userId: string, date?: string) => {
   const executions = (
     sqlite
       .prepare(
-        'select id,user_id,activity_id,assignment_id,actual_occurred_at,actual_local_date,time_zone,duration_minutes,outcome,structured_workout_session_id,source_json,created_at from activity_executions where user_id=? and actual_local_date=?',
+        'select id,user_id,activity_id,assignment_id,actual_occurred_at,actual_local_date,time_zone,duration_minutes,outcome,structured_workout_session_id,source_json,current_revision_id,created_at from activity_executions where user_id=? and actual_local_date=? order by created_at,id limit 200',
       )
       .all(userId, localDate) as SqlRow[]
   ).map((r) => ({
@@ -567,10 +679,53 @@ export const readDailyContext = async (userId: string, date?: string) => {
     source: json<Provenance>(string(r, 'source_json')),
     createdAt: string(r, 'created_at'),
   }));
+  const activities = (
+    sqlite
+      .prepare(
+        `select a.* from canonical_activities a
+         where a.user_id=? and a.id in (
+           select activity_id from activity_assignments where user_id=? and planned_local_date=?
+           union
+           select activity_id from activity_executions where user_id=? and actual_local_date=?
+         )
+         order by a.created_at,a.id limit 200`,
+      )
+      .all(userId, userId, localDate, userId, localDate) as SqlRow[]
+  ).map((row) => {
+    const activityId = string(row, 'id');
+    const goalIds = (
+      sqlite
+        .prepare(
+          'select goal_id from activity_goal_links where activity_id=? and user_id=? order by goal_id limit 20',
+        )
+        .all(activityId, userId) as SqlRow[]
+    ).map((goal) => string(goal, 'goal_id'));
+    return {
+      id: activityId,
+      subjectUserId: string(row, 'user_id'),
+      kind: string(row, 'kind'),
+      name: string(row, 'name'),
+      source: json<Provenance>(string(row, 'source_json')),
+      actor: json<ActivityJournalActor>(string(row, 'actor_json')),
+      revision: integer(row, 'revision'),
+      currentRevisionId: string(row, 'current_revision_id'),
+      goalIds,
+      assignmentIds: assignments
+        .filter((assignment) => assignment.activityId === activityId)
+        .map((assignment) => assignment.id),
+      executionIds: executions
+        .filter((execution) => execution.activityId === activityId)
+        .map((execution) => execution.id),
+      structuredWorkoutSessionId: nullable(row, 'structured_workout_session_id'),
+      createdAt: string(row, 'created_at'),
+      updatedAt: string(row, 'updated_at'),
+      sourceReference: sourceReference(sqlite, userId, 'activity', activityId),
+    };
+  });
   const concerns = (
     sqlite
       .prepare(
-        "select * from body_context_concerns where user_id=? and management_state!='archived'",
+        "select * from body_context_concerns where user_id=? and management_state!='archived' order by created_at,id limit 200",
       )
       .all(userId) as SqlRow[]
   ).map((r) => ({
@@ -592,7 +747,9 @@ export const readDailyContext = async (userId: string, date?: string) => {
   }));
   const capabilities = (
     sqlite
-      .prepare('select * from body_context_capabilities where user_id=?')
+      .prepare(
+        'select * from body_context_capabilities where user_id=? order by updated_at,id limit 200',
+      )
       .all(userId) as SqlRow[]
   ).map((r) => ({
     id: string(r, 'id'),
@@ -605,7 +762,9 @@ export const readDailyContext = async (userId: string, date?: string) => {
   }));
   const guidance = (
     sqlite
-      .prepare("select * from body_context_guidance where user_id=? and state='current'")
+      .prepare(
+        "select * from body_context_guidance where user_id=? and state='current' order by created_at,id limit 200",
+      )
       .all(userId) as SqlRow[]
   ).map((r) => ({
     id: string(r, 'id'),
@@ -621,7 +780,7 @@ export const readDailyContext = async (userId: string, date?: string) => {
   const observations = (
     sqlite
       .prepare(
-        'select f.*, c.current_revision_id from body_context_flares f join body_context_concerns c on c.id=f.concern_id and c.user_id=f.user_id where f.user_id=? and f.local_date=?',
+        'select f.*, c.current_revision_id from body_context_flares f join body_context_concerns c on c.id=f.concern_id and c.user_id=f.user_id where f.user_id=? and f.local_date=? order by f.occurred_at,f.id limit 200',
       )
       .all(userId, localDate) as SqlRow[]
   ).map((r) => ({
@@ -638,26 +797,37 @@ export const readDailyContext = async (userId: string, date?: string) => {
     capabilityIds: [],
     activityExecutionIds: [],
     workoutSessionIds: [],
-    currentRevisionId: string(r, 'current_revision_id'),
+    currentRevisionId: sourceReference(sqlite, userId, 'observation', string(r, 'id')).revisionId,
   }));
   const sessions = sqlite
     .prepare(
-      'select id,name,date,status,completed_at,started_at from workout_sessions where user_id=? and date=? and deleted_at is null',
+      `select * from workout_sessions ws
+       where ws.user_id=? and ws.deleted_at is null and ws.status!='cancelled' and (
+         ws.date=? or
+         ws.id in (select session_id from scheduled_workouts where user_id=? and date=? and session_id is not null) or
+         ws.scheduled_workout_id in (select id from scheduled_workouts where user_id=? and date=?)
+       )
+       order by ws.started_at,ws.id limit 200`,
     )
-    .all(userId, localDate) as SqlRow[];
+    .all(userId, localDate, userId, localDate, userId, localDate) as SqlRow[];
   const planned = sqlite
     .prepare(
-      'select s.id,s.date,t.name from scheduled_workouts s left join workout_templates t on t.id=s.template_id where s.user_id=? and s.date=?',
+      `select s.*,t.name from scheduled_workouts s
+       left join workout_templates t on t.id=s.template_id and t.user_id=s.user_id
+       where s.user_id=? and s.date=? and s.session_id is null
+         and not exists (
+           select 1 from workout_sessions ws
+           where ws.user_id=s.user_id and ws.scheduled_workout_id=s.id and ws.deleted_at is null
+         )
+       order by s.created_at,s.id limit 200`,
     )
     .all(userId, localDate) as SqlRow[];
   const nutritionRow = sqlite
-    .prepare('select id,status from nutrition_logs where user_id=? and date=?')
+    .prepare('select * from nutrition_logs where user_id=? and date=?')
     .get(userId, localDate) as SqlRow | undefined;
   const meals = nutritionRow
     ? (sqlite
-        .prepare(
-          'select id,name,summary,time from meals where nutrition_log_id=? order by created_at',
-        )
+        .prepare('select * from meals where nutrition_log_id=? order by created_at,id limit 200')
         .all(string(nutritionRow, 'id')) as SqlRow[])
     : [];
   const totals = nutritionRow
@@ -678,6 +848,7 @@ export const readDailyContext = async (userId: string, date?: string) => {
             name: string(m, 'name'),
             summary: nullable(m, 'summary'),
             time: nullable(m, 'time'),
+            sourceReference: sourceReference(sqlite, userId, 'meal', string(m, 'id')),
           })),
           totals: {
             calories: integer(totals, 'calories'),
@@ -685,8 +856,107 @@ export const readDailyContext = async (userId: string, date?: string) => {
             carbs: integer(totals, 'carbs'),
             fat: integer(totals, 'fat'),
           },
+          sourceReference: sourceReference(
+            sqlite,
+            userId,
+            'nutrition_log',
+            string(nutritionRow, 'id'),
+          ),
         }
       : null;
+  const sessionWorkouts = sessions.map((session) => {
+    const sessionId = string(session, 'id');
+    const scheduled = sqlite
+      .prepare(
+        `select * from scheduled_workouts
+         where user_id=? and (id=? or session_id=?)
+         order by case when id=? then 0 else 1 end,created_at limit 1`,
+      )
+      .get(
+        userId,
+        nullable(session, 'scheduled_workout_id'),
+        sessionId,
+        nullable(session, 'scheduled_workout_id'),
+      ) as SqlRow | undefined;
+    const status = string(session, 'status') as
+      | 'scheduled'
+      | 'in-progress'
+      | 'paused'
+      | 'completed';
+    const kind =
+      status === 'completed'
+        ? ('completed' as const)
+        : status === 'paused'
+          ? ('paused' as const)
+          : status === 'scheduled'
+            ? ('planned' as const)
+            : ('in_progress' as const);
+    return {
+      id: sessionId,
+      kind,
+      plannedLocalDate: scheduled ? string(scheduled, 'date') : null,
+      actualLocalDate: string(session, 'date'),
+      name: string(session, 'name'),
+      status,
+      scheduledWorkoutId: scheduled ? string(scheduled, 'id') : null,
+      workoutSessionId: sessionId,
+      sourceReference: sourceReference(sqlite, userId, 'workout_session', sessionId),
+      sourceTime: instantOrNull(session, 'completed_at') ?? instantOrNull(session, 'started_at'),
+    };
+  });
+  const plannedWorkouts = planned.map((scheduled) => ({
+    id: string(scheduled, 'id'),
+    kind: 'planned' as const,
+    plannedLocalDate: string(scheduled, 'date'),
+    actualLocalDate: null,
+    name: nullable(scheduled, 'name') ?? 'Scheduled workout',
+    status: 'scheduled' as const,
+    scheduledWorkoutId: string(scheduled, 'id'),
+    workoutSessionId: null,
+    sourceReference: sourceReference(sqlite, userId, 'scheduled_workout', string(scheduled, 'id')),
+    sourceTime: instantOrNull(scheduled, 'created_at'),
+  }));
+  const sourceReferences = [
+    ...pending.map((item) => sourceReference(sqlite, userId, 'check_in_question', item.questionId)),
+    ...answers.map((item) => sourceReference(sqlite, userId, 'check_in_answer', item.answerId)),
+    ...activities.map((item) => item.sourceReference),
+    ...activities.flatMap((item) =>
+      item.goalIds.map((goalId) => sourceReference(sqlite, userId, 'activity_goal', goalId)),
+    ),
+    ...assignments.map((item) => sourceReference(sqlite, userId, 'activity_assignment', item.id)),
+    ...assignments.flatMap((item) =>
+      item.recurrenceRevisionId
+        ? [
+            sourceReference(
+              sqlite,
+              userId,
+              'activity_recurrence_revision',
+              item.recurrenceRevisionId,
+            ),
+          ]
+        : [],
+    ),
+    ...executions.map((item) => sourceReference(sqlite, userId, 'activity_execution', item.id)),
+    ...concerns.map((item) => sourceReference(sqlite, userId, 'body_concern', item.id)),
+    ...capabilities.map((item) => sourceReference(sqlite, userId, 'capability', item.id)),
+    ...guidance.map((item) => sourceReference(sqlite, userId, 'guidance', item.id)),
+    ...observations.map((item) => sourceReference(sqlite, userId, 'observation', item.id)),
+    ...plannedWorkouts.map((item) => item.sourceReference),
+    ...sessionWorkouts.map((item) => item.sourceReference),
+    ...(nutrition
+      ? [nutrition.sourceReference, ...nutrition.meals.map((meal) => meal.sourceReference)]
+      : []),
+  ]
+    .filter(
+      (reference, index, all) =>
+        all.findIndex(
+          (candidate) =>
+            candidate.kind === reference.kind &&
+            candidate.id === reference.id &&
+            candidate.revisionId === reference.revisionId,
+        ) === index,
+    )
+    .slice(0, 1000);
   return dailyContextRuntimeResponseSchema.parse({
     contractVersion: 'activity-journal-v1',
     subjectUserId: userId,
@@ -697,32 +967,15 @@ export const readDailyContext = async (userId: string, date?: string) => {
     observations,
     assignments,
     executions,
+    activities,
     concerns,
     capabilities,
     guidance,
-    workoutSessionIds: sessions.map((s) => string(s, 'id')),
+    workoutSessionIds: sessionWorkouts.map((workout) => workout.workoutSessionId),
     nutritionLocalDate: localDate,
     generatedAt: now(),
     nutrition,
-    workouts: [
-      ...planned.map((s) => ({
-        id: string(s, 'id'),
-        kind: 'planned' as const,
-        localDate: string(s, 'date'),
-        name: nullable(s, 'name') ?? 'Scheduled workout',
-        status: 'planned',
-        sourceId: string(s, 'id'),
-        sourceTime: null,
-      })),
-      ...sessions.map((s) => ({
-        id: string(s, 'id'),
-        kind: 'completed' as const,
-        localDate: string(s, 'date'),
-        name: string(s, 'name'),
-        status: string(s, 'status'),
-        sourceId: string(s, 'id'),
-        sourceTime: instantOrNull(s, 'completed_at') ?? instantOrNull(s, 'started_at'),
-      })),
-    ],
+    workouts: [...plannedWorkouts, ...sessionWorkouts],
+    sourceReferences,
   });
 };

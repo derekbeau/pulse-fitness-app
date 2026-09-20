@@ -111,6 +111,23 @@ describe('daily check-in runtime API', () => {
     });
     expect(first.statusCode).toBe(201);
     const id = first.json().data.question.questionId as string;
+    const createReplay = await app.inject({
+      method: 'POST',
+      url: '/api/v1/check-in/questions',
+      headers: { authorization: 'AgentToken a-secret' },
+      payload,
+    });
+    expect(createReplay.statusCode).toBe(201);
+    expect(createReplay.headers['idempotent-replay']).toBe('true');
+    expect(createReplay.json()).toEqual(first.json());
+    const createConflict = await app.inject({
+      method: 'POST',
+      url: '/api/v1/check-in/questions',
+      headers: { authorization: 'AgentToken a-secret' },
+      payload: { ...payload, prompt: 'Changed payload under the same key.' },
+    });
+    expect(createConflict.statusCode).toBe(409);
+    expect(createConflict.json().error.code).toBe('IDEMPOTENCY_KEY_REUSE');
     const second = await app.inject({
       method: 'POST',
       url: '/api/v1/check-in/questions',
@@ -168,6 +185,23 @@ describe('daily check-in runtime API', () => {
     expect(answered.json().data.currentAnswer.questionRevisionId).toBe(
       answered.json().data.question.id,
     );
+    const answerReplay = await app.inject({
+      method: 'POST',
+      url: `/api/v1/check-in/questions/${id}/answers`,
+      headers: { authorization: 'AgentToken a-secret' },
+      payload: answer,
+    });
+    expect(answerReplay.statusCode).toBe(201);
+    expect(answerReplay.headers['idempotent-replay']).toBe('true');
+    expect(answerReplay.json()).toEqual(answered.json());
+    const answerConflict = await app.inject({
+      method: 'POST',
+      url: `/api/v1/check-in/questions/${id}/answers`,
+      headers: { authorization: 'AgentToken a-secret' },
+      payload: { ...answer, value: 'Changed payload under the same key.' },
+    });
+    expect(answerConflict.statusCode).toBe(409);
+    expect(answerConflict.json().error.code).toBe('IDEMPOTENCY_KEY_REUSE');
     const stale = await app.inject({
       method: 'POST',
       url: `/api/v1/check-in/questions/${id}/answers`,
@@ -191,6 +225,78 @@ describe('daily check-in runtime API', () => {
     });
     expect(corrected.statusCode).toBe(200);
     expect(corrected.json().data.answerHistory).toHaveLength(2);
+    expect(corrected.json().data).toMatchObject({
+      questionHistory: [
+        { revision: { revision: 1, state: 'pending' }, recordedBy: { id: 'agent-a' } },
+        { revision: { revision: 2, state: 'answered' }, recordedBy: { id: 'agent-a' } },
+      ],
+      answerHistory: [
+        { revision: 1, correctionReason: null, recordedBy: { id: 'agent-a' } },
+        {
+          revision: 2,
+          correctionReason: 'User clarified exact movement.',
+          recordedBy: { id: 'agent-b' },
+        },
+      ],
+    });
+    const correctionReplay = await app.inject({
+      method: 'POST',
+      url: `/api/v1/check-in/answers/${answerId}/corrections`,
+      headers: { authorization: 'AgentToken b-secret' },
+      payload: {
+        ...answer,
+        expectedQuestionRevisionId: answered.json().data.question.id,
+        expectedAnswerRevision: 1,
+        value: 'Sore during overhead reach.',
+        reason: 'User clarified exact movement.',
+        idempotencyKey: 'correct-b-179',
+      },
+    });
+    expect(correctionReplay.statusCode).toBe(200);
+    expect(correctionReplay.headers['idempotent-replay']).toBe('true');
+    const correctionConflict = await app.inject({
+      method: 'POST',
+      url: `/api/v1/check-in/answers/${answerId}/corrections`,
+      headers: { authorization: 'AgentToken b-secret' },
+      payload: {
+        ...answer,
+        expectedQuestionRevisionId: answered.json().data.question.id,
+        expectedAnswerRevision: 1,
+        value: 'Different correction under reused key.',
+        reason: 'Different reason.',
+        idempotencyKey: 'correct-b-179',
+      },
+    });
+    expect(correctionConflict.statusCode).toBe(409);
+    expect(correctionConflict.json().error.code).toBe('IDEMPOTENCY_KEY_REUSE');
+    const answeredCanonical = await app.inject({
+      method: 'POST',
+      url: '/api/v1/check-in/questions',
+      headers: { authorization: 'AgentToken b-secret' },
+      payload: {
+        ...payload,
+        prompt: 'Could you rephrase the fictional shoulder check?',
+        idempotencyKey: 'answered-canonical-fresh-key',
+      },
+    });
+    expect(answeredCanonical.statusCode).toBe(201);
+    expect(answeredCanonical.json().data).toMatchObject({
+      question: { questionId: id, state: 'answered' },
+      currentAnswer: { revision: 2, value: 'Sore during overhead reach.' },
+    });
+    const distinctTopic = await app.inject({
+      method: 'POST',
+      url: '/api/v1/check-in/questions',
+      headers: { authorization: 'AgentToken a-secret' },
+      payload: {
+        ...payload,
+        semanticTopic: 'shoulder recovery confidence',
+        prompt: 'How confident are you about the fictional recovery?',
+        idempotencyKey: 'distinct-topic-fresh-key',
+      },
+    });
+    expect(distinctTopic.statusCode).toBe(201);
+    expect(distinctTopic.json().data.question.questionId).not.toBe(id);
     database.sqlite
       .prepare(
         "insert into canonical_activities (id,user_id,kind,name,structured_workout_session_id,source_json,actor_json,revision,current_revision_id,created_at,updated_at) values ('activity','owner','walking','Fictional walk',null,?,?,1,'activity-r1','2026-09-20T00:00:00.000Z','2026-09-20T00:00:00.000Z')",
@@ -257,15 +363,32 @@ describe('daily check-in runtime API', () => {
     expect(context.statusCode).toBe(200);
     expect(context.json().data).toMatchObject({
       localDate: '2026-09-20',
-      pendingQuestions: [],
+      pendingQuestions: [
+        {
+          questionId: distinctTopic.json().data.question.questionId,
+          state: 'pending',
+          prompt: 'How confident are you about the fictional recovery?',
+        },
+      ],
       currentAnswers: [{ answerId, revision: 2, value: 'Sore during overhead reach.' }],
       assignments: [{ id: 'assignment', plannedLocalDate: '2026-09-20' }],
       executions: [{ id: 'execution', outcome: 'completed' }],
+      activities: [
+        {
+          id: 'activity',
+          name: 'Fictional walk',
+          kind: 'walking',
+          currentRevisionId: 'activity-r1',
+          assignmentIds: ['assignment'],
+          executionIds: ['execution'],
+          sourceReference: { revisionId: 'activity-r1' },
+        },
+      ],
       concerns: [{ id: 'concern', source: { sourceId: 'fictional-conversation-179' } }],
       nutrition: { status: 'partial', meals: [{ id: 'meal' }], totals: { calories: 400 } },
       workouts: [
-        { id: 'scheduled', kind: 'planned' },
-        { id: 'session', kind: 'completed' },
+        { id: 'scheduled', kind: 'planned', status: 'scheduled' },
+        { id: 'session', kind: 'completed', status: 'completed' },
       ],
     });
     const empty = await app.inject({
@@ -299,6 +422,18 @@ describe('daily check-in runtime API', () => {
       payload: { ...payload, idempotencyKey: 'jwt-rejected-179' },
     });
     expect(rejected.statusCode).toBe(403);
+    const openapi = (await app.inject({ method: 'GET', url: '/api/docs/json' })).json();
+    expect(openapi.paths).toMatchObject({
+      '/api/v1/daily-context': { get: expect.any(Object) },
+      '/api/v1/check-in/questions': { post: expect.any(Object) },
+      '/api/v1/check-in/questions/{id}': { get: expect.any(Object) },
+      '/api/v1/check-in/questions/{id}/answers': { post: expect.any(Object) },
+      '/api/v1/check-in/answers/{id}/corrections': { post: expect.any(Object) },
+    });
+    expect(
+      openapi.paths['/api/v1/check-in/questions'].post.requestBody.content['application/json']
+        .schema.additionalProperties,
+    ).toBe(false);
     await app.close();
   });
 
@@ -310,7 +445,7 @@ describe('daily check-in runtime API', () => {
       localDate: '2026-09-20',
       semanticTopic: 'shoulder status after activity',
       prompt: 'How is your shoulder after activity?',
-      sourceReferences: [{ kind: 'body_concern', id: 'concern' }],
+      sourceReferences: [{ kind: 'body_concern', id: 'concern', revisionId: 'concern-revision' }],
       followUpQuestionId: null,
     };
     const first = await app.inject({
@@ -329,7 +464,13 @@ describe('daily check-in runtime API', () => {
       method: 'POST',
       url: '/api/v1/check-in/questions',
       headers: { authorization: 'AgentToken b-secret' },
-      payload: { ...base, idempotencyKey: 'source-r2-179' },
+      payload: {
+        ...base,
+        sourceReferences: [
+          { kind: 'body_concern', id: 'concern', revisionId: 'concern-revision-2' },
+        ],
+        idempotencyKey: 'source-r2-179',
+      },
     });
     expect(second.statusCode).toBe(201);
     expect(second.json().data.question.questionId).not.toBe(first.json().data.question.questionId);
@@ -355,11 +496,37 @@ describe('daily check-in runtime API', () => {
       headers: { authorization: 'AgentToken a-secret' },
       payload: {
         ...base,
-        sourceReferences: [{ kind: 'journal_entry', id: 'reserved-for-180' }],
+        sourceReferences: [
+          { kind: 'journal_entry', id: 'reserved-for-180', revisionId: 'not-applicable' },
+        ],
         idempotencyKey: 'journal-source-179',
       },
     });
     expect(journal.statusCode).toBe(400);
+    const missingRevision = await app.inject({
+      method: 'POST',
+      url: '/api/v1/check-in/questions',
+      headers: { authorization: 'AgentToken a-secret' },
+      payload: {
+        ...base,
+        sourceReferences: [{ kind: 'body_concern', id: 'concern' }],
+        idempotencyKey: 'missing-source-revision-179',
+      },
+    });
+    expect(missingRevision.statusCode).toBe(400);
+    const spoofedIdentity = await app.inject({
+      method: 'POST',
+      url: '/api/v1/check-in/questions',
+      headers: { authorization: 'AgentToken a-secret' },
+      payload: {
+        ...base,
+        subjectUserId: 'foreign',
+        actor: { kind: 'agent_token', id: 'agent-foreign', label: 'foreign' },
+        sourceReferences: [{ kind: 'body_concern', id: 'concern', revisionId: 'concern-revision' }],
+        idempotencyKey: 'spoofed-identity-179',
+      },
+    });
+    expect(spoofedIdentity.statusCode).toBe(400);
     database.sqlite.prepare("update users set preferences='{}' where id='owner'").run();
     const missingZone = await app.inject({
       method: 'POST',
@@ -367,7 +534,7 @@ describe('daily check-in runtime API', () => {
       headers: { authorization: 'AgentToken a-secret' },
       payload: {
         ...base,
-        sourceReferences: [{ kind: 'body_concern', id: 'concern' }],
+        sourceReferences: [{ kind: 'body_concern', id: 'concern', revisionId: 'concern-revision' }],
         idempotencyKey: 'no-zone-179',
       },
     });

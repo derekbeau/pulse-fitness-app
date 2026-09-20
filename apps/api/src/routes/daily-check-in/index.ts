@@ -22,6 +22,7 @@ import {
 } from '../../openapi.js';
 import {
   answerQuestion,
+  CheckInFollowUpParentStateError,
   CheckInIdempotencyConflictError,
   CheckInNotFoundError,
   CheckInOwnedLinkNotFoundError,
@@ -80,6 +81,8 @@ const mutation = async <T>(
         e.code,
         'The idempotency key was already used with a different request.',
       );
+    if (e instanceof CheckInFollowUpParentStateError)
+      return sendError(reply, 409, e.code, 'A follow-up requires an answered parent question.');
     throw e;
   }
 };
