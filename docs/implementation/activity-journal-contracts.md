@@ -1,6 +1,6 @@
 # Activity / Journal canonical contracts
 
-Status: checkpoint #178 body-context runtime. The exported `activity-journal-v1` foundation remains in `packages/shared/src/schemas/activity-journal-contracts.ts`; strict external Activity and body-context request/read schemas are in `activity-runtime.ts` and `body-context-runtime.ts`. #176 and #177 are accepted predecessors. Routes assigned to #179–#183 remain planned and unimplemented.
+Status: checkpoint #179 daily check-in runtime. The exported `activity-journal-v1` foundation remains in `packages/shared/src/schemas/activity-journal-contracts.ts`; strict external Activity, body-context, and daily-check-in request/read schemas are in `activity-runtime.ts`, `body-context-runtime.ts`, and `daily-check-in-runtime.ts`. #176–#178 are accepted predecessors. #179 owns the registered daily context/check-in routes; #180–#183 remain unimplemented.
 
 ## Canonical ownership and records
 
@@ -68,47 +68,47 @@ The #176 foundation required no database migration. #177 and #178 add their owni
 
 All routes use existing `/api/v1` authentication conventions and user scoping. Agent-managed capture writes accept AgentToken authentication; user-facing reads accept JWT or AgentToken where the existing shared-auth policy allows it. Sensitive token/auth management remains JWT-only.
 
-| Exact planned route                                                     | Canonical shape / result                                            | Implementing child | Runtime status at #178       |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------ | ---------------------------- |
-| `GET /api/v1/activities`                                                | bounded canonical/legacy list with independent planned/actual dates | #177               | Implemented                  |
-| `POST /api/v1/activities`                                               | strict capture input -> canonical detail                            | #177               | Implemented, AgentToken-only |
-| `GET /api/v1/activities/:id`                                            | activity, goals, assignments, executions, histories, links          | #177               | Implemented                  |
-| `PATCH /api/v1/activities/:id`                                          | expected-revision correction -> immutable revision                  | #177               | Implemented, AgentToken-only |
-| `PUT /api/v1/activities/:id/goals`                                      | replace validated goal links with compare-and-swap                  | #177               | Implemented, AgentToken-only |
-| `POST /api/v1/activities/:id/assignments`                               | create a date/timezone assignment                                   | #177               | Implemented, AgentToken-only |
-| `PATCH /api/v1/activity-assignments/:id/reschedule`                     | reschedule with immutable history                                   | #177               | Implemented, AgentToken-only |
-| `POST /api/v1/activities/:id/executions`                                | record actual occurrence independently from plan                    | #177               | Implemented, AgentToken-only |
-| `POST /api/v1/activity-executions/:id/corrections`                      | correct execution with immutable history                            | #177               | Implemented, AgentToken-only |
-| `POST /api/v1/activities/:id/recurrences`                               | create recurrence root and first revision                           | #177               | Implemented, AgentToken-only |
-| `POST /api/v1/activity-recurrences/:id/revisions`                       | append prospective effective-dated revision                         | #177               | Implemented, AgentToken-only |
-| `POST /api/v1/activity-recurrences/:id/materialize`                     | bounded deterministic assignment materialization                    | #177               | Implemented, AgentToken-only |
-| `GET /api/v1/activity-goals`                                            | retrieve owner-scoped Activity goals                                | #177               | Implemented                  |
-| `POST /api/v1/activity-goals`                                           | create a usable goal                                                | #177               | Implemented, AgentToken-only |
-| `PATCH /api/v1/activity-goals/:id`                                      | update goal state/label with compare-and-swap                       | #177               | Implemented, AgentToken-only |
-| `POST /api/v1/activities/:id/links`                                     | create an ownership-checked canonical link                          | #177               | Implemented, AgentToken-only |
-| `GET/POST /api/v1/body-context/concerns`                                | bounded list / strict AgentToken capture                            | #178               | Implemented                  |
-| `GET/PATCH /api/v1/body-context/concerns/:id`                           | detail with history / AgentToken correction                         | #178               | Implemented                  |
-| `POST /api/v1/body-context/concerns/:id/transitions`                    | explicit management transition with decision audit                  | #178               | Implemented                  |
-| `POST /api/v1/body-context/concerns/:id/flares`                         | durable flare before optional pending follow-up                     | #178               | Implemented, AgentToken-only |
-| `GET/POST /api/v1/body-context/capabilities`                            | bounded list / strict AgentToken capture                            | #178               | Implemented                  |
-| `GET/PATCH /api/v1/body-context/capabilities/:id`                       | detail with history / AgentToken correction                         | #178               | Implemented                  |
-| `GET/POST /api/v1/body-context/guidance`                                | bounded sourced list / strict AgentToken capture                    | #178               | Implemented                  |
-| `GET/PATCH /api/v1/body-context/guidance/:id`                           | detail with history / AgentToken correction                         | #178               | Implemented                  |
-| `POST /api/v1/plan-change-proposals`                                    | server-scoped typed meaningful proposal                             | #178               | Implemented, AgentToken-only |
-| `GET/PATCH /api/v1/plan-change-proposals/:id`                           | exact detail / revision invalidating prior approval                 | #178               | Implemented                  |
-| `POST /api/v1/plan-change-proposals/:id/approval-statements`            | persist exact user statement relayed by AgentToken                  | #178               | Implemented, no execution    |
-| `POST /api/v1/plan-change-proposals/:id/approval`                       | atomically revalidate, approve, and execute exact typed effects     | #178               | Implemented                  |
-| `GET /api/v1/daily-context?date=YYYY-MM-DD`                             | `dailyContextReadModelSchema`                                       | #179               | Unimplemented                |
-| `POST /api/v1/check-in/questions`                                       | `createCheckInQuestionInputSchema`, canonical dedupe key            | #179               | Unimplemented                |
-| `POST /api/v1/check-in/questions/:id/answers`                           | `answerCheckInQuestionInputSchema`                                  | #179               | Unimplemented                |
-| `POST /api/v1/check-in/answers/:id/corrections`                         | immutable answer revision / stale failure                           | #179               | Unimplemented                |
-| `GET /api/v1/journal`                                                   | source-linked observation feed                                      | #180               | Unimplemented                |
-| `POST /api/v1/journal`                                                  | `createJournalObservationInputSchema`                               | #180               | Unimplemented                |
-| `GET /api/v1/journal/:id`                                               | entry plus current/history revisions and source refs                | #180               | Unimplemented                |
-| `POST /api/v1/journal/:id/corrections`                                  | immutable entry correction                                          | #180               | Unimplemented                |
-| `GET /api/v1/journal/weekly-reflection?start=YYYY-MM-DD&end=YYYY-MM-DD` | `weeklyReflectionReadModelSchema`                                   | #180               | Unimplemented                |
-| `GET /api/v1/workout-sessions/:id/session-context`                      | `sessionContextReadModelSchema`                                     | #181               | Unimplemented                |
-| `GET /api/v1/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD`                    | `calendarReadModelSchema`; cross-domain filters may repeat          | #182               | Unimplemented                |
+| Exact planned route                                                     | Canonical shape / result                                                                      | Implementing child | Runtime status at #178       |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------ | ---------------------------- |
+| `GET /api/v1/activities`                                                | bounded canonical/legacy list with independent planned/actual dates                           | #177               | Implemented                  |
+| `POST /api/v1/activities`                                               | strict capture input -> canonical detail                                                      | #177               | Implemented, AgentToken-only |
+| `GET /api/v1/activities/:id`                                            | activity, goals, assignments, executions, histories, links                                    | #177               | Implemented                  |
+| `PATCH /api/v1/activities/:id`                                          | expected-revision correction -> immutable revision                                            | #177               | Implemented, AgentToken-only |
+| `PUT /api/v1/activities/:id/goals`                                      | replace validated goal links with compare-and-swap                                            | #177               | Implemented, AgentToken-only |
+| `POST /api/v1/activities/:id/assignments`                               | create a date/timezone assignment                                                             | #177               | Implemented, AgentToken-only |
+| `PATCH /api/v1/activity-assignments/:id/reschedule`                     | reschedule with immutable history                                                             | #177               | Implemented, AgentToken-only |
+| `POST /api/v1/activities/:id/executions`                                | record actual occurrence independently from plan                                              | #177               | Implemented, AgentToken-only |
+| `POST /api/v1/activity-executions/:id/corrections`                      | correct execution with immutable history                                                      | #177               | Implemented, AgentToken-only |
+| `POST /api/v1/activities/:id/recurrences`                               | create recurrence root and first revision                                                     | #177               | Implemented, AgentToken-only |
+| `POST /api/v1/activity-recurrences/:id/revisions`                       | append prospective effective-dated revision                                                   | #177               | Implemented, AgentToken-only |
+| `POST /api/v1/activity-recurrences/:id/materialize`                     | bounded deterministic assignment materialization                                              | #177               | Implemented, AgentToken-only |
+| `GET /api/v1/activity-goals`                                            | retrieve owner-scoped Activity goals                                                          | #177               | Implemented                  |
+| `POST /api/v1/activity-goals`                                           | create a usable goal                                                                          | #177               | Implemented, AgentToken-only |
+| `PATCH /api/v1/activity-goals/:id`                                      | update goal state/label with compare-and-swap                                                 | #177               | Implemented, AgentToken-only |
+| `POST /api/v1/activities/:id/links`                                     | create an ownership-checked canonical link                                                    | #177               | Implemented, AgentToken-only |
+| `GET/POST /api/v1/body-context/concerns`                                | bounded list / strict AgentToken capture                                                      | #178               | Implemented                  |
+| `GET/PATCH /api/v1/body-context/concerns/:id`                           | detail with history / AgentToken correction                                                   | #178               | Implemented                  |
+| `POST /api/v1/body-context/concerns/:id/transitions`                    | explicit management transition with decision audit                                            | #178               | Implemented                  |
+| `POST /api/v1/body-context/concerns/:id/flares`                         | durable flare before optional pending follow-up                                               | #178               | Implemented, AgentToken-only |
+| `GET/POST /api/v1/body-context/capabilities`                            | bounded list / strict AgentToken capture                                                      | #178               | Implemented                  |
+| `GET/PATCH /api/v1/body-context/capabilities/:id`                       | detail with history / AgentToken correction                                                   | #178               | Implemented                  |
+| `GET/POST /api/v1/body-context/guidance`                                | bounded sourced list / strict AgentToken capture                                              | #178               | Implemented                  |
+| `GET/PATCH /api/v1/body-context/guidance/:id`                           | detail with history / AgentToken correction                                                   | #178               | Implemented                  |
+| `POST /api/v1/plan-change-proposals`                                    | server-scoped typed meaningful proposal                                                       | #178               | Implemented, AgentToken-only |
+| `GET/PATCH /api/v1/plan-change-proposals/:id`                           | exact detail / revision invalidating prior approval                                           | #178               | Implemented                  |
+| `POST /api/v1/plan-change-proposals/:id/approval-statements`            | persist exact user statement relayed by AgentToken                                            | #178               | Implemented, no execution    |
+| `POST /api/v1/plan-change-proposals/:id/approval`                       | atomically revalidate, approve, and execute exact typed effects                               | #178               | Implemented                  |
+| `GET /api/v1/daily-context?date=YYYY-MM-DD`                             | grounded #179 runtime read, extending the foundation with factual nutrition/workout summaries | #179               | Implemented                  |
+| `POST /api/v1/check-in/questions`                                       | auth-derived external input, canonical semantic/source/day identity                           | #179               | Implemented, AgentToken-only |
+| `POST /api/v1/check-in/questions/:id/answers`                           | auth-derived answer CAS / immutable answer history                                            | #179               | Implemented, AgentToken-only |
+| `POST /api/v1/check-in/answers/:id/corrections`                         | immutable answer revision / stale failure                                                     | #179               | Implemented, AgentToken-only |
+| `GET /api/v1/journal`                                                   | source-linked observation feed                                                                | #180               | Unimplemented                |
+| `POST /api/v1/journal`                                                  | `createJournalObservationInputSchema`                                                         | #180               | Unimplemented                |
+| `GET /api/v1/journal/:id`                                               | entry plus current/history revisions and source refs                                          | #180               | Unimplemented                |
+| `POST /api/v1/journal/:id/corrections`                                  | immutable entry correction                                                                    | #180               | Unimplemented                |
+| `GET /api/v1/journal/weekly-reflection?start=YYYY-MM-DD&end=YYYY-MM-DD` | `weeklyReflectionReadModelSchema`                                                             | #180               | Unimplemented                |
+| `GET /api/v1/workout-sessions/:id/session-context`                      | `sessionContextReadModelSchema`                                                               | #181               | Unimplemented                |
+| `GET /api/v1/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD`                    | `calendarReadModelSchema`; cross-domain filters may repeat                                    | #182               | Unimplemented                |
 
 #183 owns the final Activity/Journal/Context/Calendar UI, agent operating examples, and integrated acceptance. It does not become the fallback owner for missing runtime obligations above.
 

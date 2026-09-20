@@ -498,6 +498,13 @@
       "when": 1789948800000,
       "tag": "0070_body_context_runtime",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "6",
+      "when": 1790035200000,
+      "tag": "0071_daily_check_in_runtime",
+      "breakpoints": true
     }
   ]
 }
