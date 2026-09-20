@@ -120,6 +120,7 @@ const executeIdempotent = async <T>(options: {
   actor: BodyContextActor;
   idempotencyKey: string;
   operation: string;
+  replay?: (sqlite: Database.Database, stored: T) => T;
   route: string;
   semanticPayload: unknown;
   statusCode: number;
@@ -144,8 +145,9 @@ const executeIdempotent = async <T>(options: {
         if (prior.requestFingerprint !== requestFingerprint) {
           throw new BodyContextIdempotencyConflictError();
         }
+        const stored = parseJson<T>(prior.responseJson);
         return {
-          data: parseJson<T>(prior.responseJson),
+          data: options.replay ? options.replay(sqlite, stored) : stored,
           replayed: true,
           statusCode: prior.statusCode,
         };
@@ -1149,6 +1151,49 @@ const proposalRow = (sqlite: Database.Database, userId: string, id: string) =>
          from plan_change_proposals where id=? and user_id=?`,
     )
     .get(id, userId) as ProposalRow | undefined;
+
+type ProposalApprovalStatementRow = {
+  createdAt: string;
+  id: string;
+  proposalId: string;
+  proposalRevisionId: string;
+  recordedByJson: string;
+  sourceId: string;
+  sourceOccurredAt: string;
+  statement: string;
+  subjectUserId: string;
+  targetRevisionFingerprint: string;
+};
+const proposalApprovalStatementRow = (
+  sqlite: Database.Database,
+  userId: string,
+  proposalId: string,
+  id: string,
+) =>
+  sqlite
+    .prepare(
+      `select id,proposal_id as proposalId,user_id as subjectUserId,
+              proposal_revision_id as proposalRevisionId,
+              target_revision_fingerprint as targetRevisionFingerprint,statement,
+              source_id as sourceId,source_occurred_at as sourceOccurredAt,
+              recorded_by_json as recordedByJson,created_at as createdAt
+         from proposal_approval_statements where id=? and proposal_id=? and user_id=?`,
+    )
+    .get(id, proposalId, userId) as ProposalApprovalStatementRow | undefined;
+const proposalApprovalStatementModel = (row: ProposalApprovalStatementRow) =>
+  proposalApprovalStatementSchema.parse({
+    id: row.id,
+    subjectUserId: row.subjectUserId,
+    proposalId: row.proposalId,
+    proposalRevisionId: row.proposalRevisionId,
+    targetRevisionFingerprint: row.targetRevisionFingerprint,
+    statement: row.statement,
+    sourceId: row.sourceId,
+    sourceOccurredAt: row.sourceOccurredAt,
+    recordedBy: parseJson(row.recordedByJson),
+    createdAt: row.createdAt,
+  });
+
 const proposalModel = (sqlite: Database.Database, row: ProposalRow): PlanChangeProposal => {
   const revisions = sqlite
     .prepare(
@@ -1177,6 +1222,21 @@ const proposalModel = (sqlite: Database.Database, row: ProposalRow): PlanChangeP
         proposedAt: value.proposedAt,
       };
     });
+  type StoredApproval = Omit<NonNullable<PlanChangeProposal['approval']>, 'approvalStatement'>;
+  const storedApproval = row.approvalJson ? parseJson<StoredApproval>(row.approvalJson) : null;
+  const approvalStatement = storedApproval?.approvalStatementId
+    ? proposalApprovalStatementModel(
+        requiredValue(
+          proposalApprovalStatementRow(
+            sqlite,
+            row.userId,
+            row.id,
+            storedApproval.approvalStatementId,
+          ),
+          'Relayed approval statement could not be read back.',
+        ),
+      )
+    : null;
   return planChangeProposalSchema.parse({
     id: row.id,
     subjectUserId: row.userId,
@@ -1190,7 +1250,7 @@ const proposalModel = (sqlite: Database.Database, row: ProposalRow): PlanChangeP
     targetRevisionFingerprint: row.targetRevisionFingerprint,
     proposedBy: parseJson(row.proposedByJson),
     proposedAt: row.proposedAt,
-    approval: row.approvalJson ? parseJson(row.approvalJson) : null,
+    approval: storedApproval ? { ...storedApproval, approvalStatement } : null,
     execution: row.executionJson ? parseJson(row.executionJson) : null,
     revisions,
     createdAt: row.createdAt,
@@ -1555,6 +1615,14 @@ export const approvePlanChangeProposal = async (
     actor,
     idempotencyKey: input.idempotencyKey,
     operation: 'approve_proposal',
+    replay: (sqlite) =>
+      proposalModel(
+        sqlite,
+        requiredValue(
+          proposalRow(sqlite, userId, id),
+          'Approved proposal replay could not be read back.',
+        ),
+      ),
     route: '/api/v1/plan-change-proposals/:id/approval',
     semanticPayload: { id, ...withoutKey(input) },
     statusCode: 200,
@@ -1572,19 +1640,21 @@ export const approvePlanChangeProposal = async (
       let statementId: string | null = null;
       if (actor.kind === 'agent_token') {
         if (!input.relayApprovalStatementId) throw new BodyContextApprovalRequiredError();
-        const statement = sqlite
-          .prepare(
-            `select id from proposal_approval_statements where id=? and proposal_id=? and user_id=?
-              and proposal_revision_id=? and target_revision_fingerprint=?`,
-          )
-          .get(
-            input.relayApprovalStatementId,
-            id,
-            userId,
-            input.proposalRevisionId,
-            input.targetRevisionFingerprint,
-          ) as { id: string } | undefined;
-        if (!statement) throw new BodyContextApprovalRequiredError();
+        const statement = proposalApprovalStatementRow(
+          sqlite,
+          userId,
+          id,
+          input.relayApprovalStatementId,
+        );
+        if (
+          !statement ||
+          statement.proposalRevisionId !== input.proposalRevisionId ||
+          statement.targetRevisionFingerprint !== input.targetRevisionFingerprint
+        ) {
+          throw new BodyContextApprovalRequiredError();
+        }
+        const recordedBy = proposalApprovalStatementModel(statement).recordedBy;
+        if (recordedBy.id !== actor.id) throw new BodyContextApprovalRequiredError();
         statementId = statement.id;
       } else if (actor.kind !== 'user') {
         throw new BodyContextApprovalRequiredError();

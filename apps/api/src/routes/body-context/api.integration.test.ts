@@ -14,6 +14,7 @@ let tempDir = '';
 let dbModule: typeof import('../../db/index.js');
 
 const agentHeaders = { authorization: 'AgentToken body-context-secret' };
+const alternateAgentHeaders = { authorization: 'AgentToken body-context-alternate-secret' };
 const foreignAgentHeaders = { authorization: 'AgentToken body-context-foreign-secret' };
 const provenance = (
   kind:
@@ -75,6 +76,12 @@ describe('body-context runtime API acceptance', () => {
           userId: 'user-2',
           name: 'body-context-foreign-agent',
           tokenHash: createHash('sha256').update('body-context-foreign-secret').digest('hex'),
+        },
+        {
+          id: 'body-agent-3',
+          userId: 'user-1',
+          name: 'body-context-alternate-agent',
+          tokenHash: createHash('sha256').update('body-context-alternate-secret').digest('hex'),
         },
       ])
       .run();
@@ -355,7 +362,7 @@ describe('body-context runtime API acceptance', () => {
 
   it('executes exact approved Activity and workout changes atomically and once', async () => {
     const { buildServer } = await import('../../index.js');
-    const app = buildServer();
+    let app = buildServer();
     await app.ready();
     try {
       const jwt = app.jwt.sign(
@@ -523,7 +530,12 @@ describe('body-context runtime API acceptance', () => {
       expect(approved.statusCode).toBe(200);
       expect(approved.json().data).toMatchObject({
         state: 'approved',
-        approval: { approvedBy: { kind: 'user', id: 'user-1' }, relayedBy: null },
+        approval: {
+          approvedBy: { kind: 'user', id: 'user-1' },
+          relayedBy: null,
+          approvalStatementId: null,
+          approvalStatement: null,
+        },
       });
       expect(
         dbModule.sqlite
@@ -611,22 +623,114 @@ describe('body-context runtime API acceptance', () => {
         },
       });
       expect(statement.statusCode).toBe(201);
+      expect(statement.json().data).toMatchObject({
+        subjectUserId: 'user-1',
+        proposalId: relayId,
+        ...relayBinding,
+        statement: 'Yes, move that exact walk to September 24.',
+        sourceId: 'conversation-message-approval-178',
+        sourceOccurredAt: '2026-09-19T10:00:00.000-04:00',
+        recordedBy: { kind: 'agent_token', id: 'body-agent-1' },
+      });
+      const capturedOnly = await app.inject({
+        method: 'GET',
+        url: `/api/v1/plan-change-proposals/${relayId}`,
+        headers: jwtHeaders,
+      });
+      expect(capturedOnly.statusCode, capturedOnly.body).toBe(200);
+      expect(capturedOnly.json().data).toMatchObject({ state: 'proposed', approval: null });
+      expect(
+        dbModule.sqlite
+          .prepare('select planned_local_date,revision from activity_assignments where id=?')
+          .get(assignmentId),
+      ).toEqual({ planned_local_date: '2026-09-23', revision: 2 });
+      const relayedApprovalPayload = {
+        ...relayBinding,
+        relayApprovalStatementId: statement.json().data.id,
+        idempotencyKey: 'relay-approval-178',
+      };
+      const wrongRelay = await app.inject({
+        method: 'POST',
+        url: `/api/v1/plan-change-proposals/${relayId}/approval`,
+        headers: alternateAgentHeaders,
+        payload: { ...relayedApprovalPayload, idempotencyKey: 'wrong-relay-approval-178' },
+      });
+      expect(wrongRelay.statusCode).toBe(403);
+      expect(wrongRelay.json().error.code).toBe('EXPLICIT_USER_APPROVAL_REQUIRED');
+      expect(
+        dbModule.sqlite
+          .prepare('select planned_local_date,revision from activity_assignments where id=?')
+          .get(assignmentId),
+      ).toEqual({ planned_local_date: '2026-09-23', revision: 2 });
       const relayedApproval = await app.inject({
         method: 'POST',
         url: `/api/v1/plan-change-proposals/${relayId}/approval`,
         headers: agentHeaders,
-        payload: {
-          ...relayBinding,
-          relayApprovalStatementId: statement.json().data.id,
-          idempotencyKey: 'relay-approval-178',
-        },
+        payload: relayedApprovalPayload,
       });
       expect(relayedApproval.statusCode, relayedApproval.body).toBe(200);
       expect(relayedApproval.json().data.approval).toMatchObject({
         approvedBy: { kind: 'user', id: 'user-1' },
         relayedBy: { kind: 'agent_token', id: 'body-agent-1' },
         approvalStatementId: statement.json().data.id,
+        approvalStatement: {
+          id: statement.json().data.id,
+          subjectUserId: 'user-1',
+          proposalId: relayId,
+          ...relayBinding,
+          statement: 'Yes, move that exact walk to September 24.',
+          sourceId: 'conversation-message-approval-178',
+          sourceOccurredAt: '2026-09-19T10:00:00.000-04:00',
+          recordedBy: { kind: 'agent_token', id: 'body-agent-1' },
+        },
       });
+
+      const approvalReceipt = dbModule.sqlite
+        .prepare(
+          `select response_json as responseJson from body_context_idempotency_receipts
+            where idempotency_key='relay-approval-178'`,
+        )
+        .get() as { responseJson: string };
+      const legacyReceiptResponse = JSON.parse(approvalReceipt.responseJson) as {
+        approval: { approvalStatement?: unknown };
+      };
+      delete legacyReceiptResponse.approval.approvalStatement;
+      dbModule.sqlite
+        .prepare(
+          `update body_context_idempotency_receipts set response_json=?
+            where idempotency_key='relay-approval-178'`,
+        )
+        .run(JSON.stringify(legacyReceiptResponse));
+
+      await app.close();
+      app = buildServer();
+      await app.ready();
+      const relayedAfterRestart = await app.inject({
+        method: 'GET',
+        url: `/api/v1/plan-change-proposals/${relayId}`,
+        headers: jwtHeaders,
+      });
+      expect(relayedAfterRestart.statusCode, relayedAfterRestart.body).toBe(200);
+      expect(relayedAfterRestart.json().data.approval).toEqual(
+        relayedApproval.json().data.approval,
+      );
+      const relayedReplayAfterRestart = await app.inject({
+        method: 'POST',
+        url: `/api/v1/plan-change-proposals/${relayId}/approval`,
+        headers: agentHeaders,
+        payload: relayedApprovalPayload,
+      });
+      expect(relayedReplayAfterRestart.statusCode, relayedReplayAfterRestart.body).toBe(200);
+      expect(relayedReplayAfterRestart.headers['idempotent-replay']).toBe('true');
+      expect(relayedReplayAfterRestart.json().data.approval).toEqual(
+        relayedApproval.json().data.approval,
+      );
+      const foreignRelayRead = await app.inject({
+        method: 'GET',
+        url: `/api/v1/plan-change-proposals/${relayId}`,
+        headers: foreignAgentHeaders,
+      });
+      expect(foreignRelayRead.statusCode).toBe(404);
 
       const staleProposal = await app.inject({
         method: 'POST',

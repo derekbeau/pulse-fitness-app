@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createPlanChangeProposalApiInputSchema,
+  planChangeProposalSchema,
   recordBodyFlareApiInputSchema,
 } from './body-context-runtime.js';
 
@@ -16,6 +17,79 @@ const source = {
     asOf: '2026-11-01T01:30:00.000-04:00',
     reasons: [],
   },
+};
+
+const proposalFingerprint = 'a'.repeat(64);
+const proposalBase = {
+  id: 'proposal-1',
+  subjectUserId: 'user-1',
+  state: 'approved' as const,
+  currentRevisionId: 'proposal-revision-1',
+  revision: 1,
+  summary: 'Move one upcoming walk.',
+  targets: [
+    {
+      reference: {
+        kind: 'activity_assignment' as const,
+        id: 'assignment-1',
+        subjectUserId: 'user-1',
+        revisionId: 'assignment-revision-1',
+      },
+      expectedRevision: 1,
+    },
+  ],
+  effects: [
+    {
+      kind: 'activity_assignment_reschedule' as const,
+      assignmentId: 'assignment-1',
+      expectedRevision: 1,
+      plannedLocalDate: '2026-09-24',
+      timeZone: 'America/Detroit',
+      reason: 'Exact approved move',
+    },
+  ],
+  sourceReferences: [],
+  targetRevisionFingerprint: proposalFingerprint,
+  proposedBy: { kind: 'agent_token' as const, id: 'agent-1', label: 'Coach agent' },
+  proposedAt: '2026-09-19T13:55:00.000Z',
+  revisions: [
+    {
+      id: 'proposal-revision-1',
+      proposalId: 'proposal-1',
+      subjectUserId: 'user-1',
+      revision: 1,
+      priorRevisionId: null,
+      summary: 'Move one upcoming walk.',
+      targets: [
+        {
+          reference: {
+            kind: 'activity_assignment' as const,
+            id: 'assignment-1',
+            subjectUserId: 'user-1',
+            revisionId: 'assignment-revision-1',
+          },
+          expectedRevision: 1,
+        },
+      ],
+      effects: [
+        {
+          kind: 'activity_assignment_reschedule' as const,
+          assignmentId: 'assignment-1',
+          expectedRevision: 1,
+          plannedLocalDate: '2026-09-24',
+          timeZone: 'America/Detroit',
+          reason: 'Exact approved move',
+        },
+      ],
+      sourceReferences: [],
+      targetRevisionFingerprint: proposalFingerprint,
+      proposedBy: { kind: 'agent_token' as const, id: 'agent-1', label: 'Coach agent' },
+      proposedAt: '2026-09-19T13:55:00.000Z',
+    },
+  ],
+  execution: { executedAt: '2026-09-19T14:00:00.000Z', effects: [] },
+  createdAt: '2026-09-19T13:55:00.000Z',
+  updatedAt: '2026-09-19T14:00:00.000Z',
 };
 
 describe('body-context runtime contracts', () => {
@@ -73,5 +147,75 @@ describe('body-context runtime contracts', () => {
         ],
       }),
     ).toThrow();
+  });
+
+  it('distinguishes direct user approval from a trusted agent relay in the audit contract', () => {
+    const direct = planChangeProposalSchema.parse({
+      ...proposalBase,
+      approval: {
+        proposalRevisionId: 'proposal-revision-1',
+        targetRevisionFingerprint: proposalFingerprint,
+        approvedBy: { kind: 'user', id: 'user-1', label: null },
+        relayedBy: null,
+        approvalStatementId: null,
+        approvalStatement: null,
+        approvedAt: '2026-09-19T14:00:00.000Z',
+      },
+    });
+    expect(direct.approval?.relayedBy).toBeNull();
+
+    const relayActor = { kind: 'agent_token' as const, id: 'agent-1', label: 'Coach agent' };
+    const relayed = planChangeProposalSchema.parse({
+      ...proposalBase,
+      approval: {
+        proposalRevisionId: 'proposal-revision-1',
+        targetRevisionFingerprint: proposalFingerprint,
+        approvedBy: { kind: 'user', id: 'user-1', label: null },
+        relayedBy: relayActor,
+        approvalStatementId: 'statement-1',
+        approvalStatement: {
+          id: 'statement-1',
+          subjectUserId: 'user-1',
+          proposalId: 'proposal-1',
+          proposalRevisionId: 'proposal-revision-1',
+          targetRevisionFingerprint: proposalFingerprint,
+          statement: 'Yes, move that exact walk.',
+          sourceId: 'conversation-message-1',
+          sourceOccurredAt: '2026-09-19T09:58:00.000-04:00',
+          recordedBy: relayActor,
+          createdAt: '2026-09-19T14:00:00.000Z',
+        },
+        approvedAt: '2026-09-19T14:00:00.000Z',
+      },
+    });
+    expect(relayed.approval?.approvalStatement?.recordedBy).toEqual(relayActor);
+  });
+
+  it('rejects approval audits that blur the user subject and authenticated relay actor', () => {
+    expect(() =>
+      planChangeProposalSchema.parse({
+        ...proposalBase,
+        approval: {
+          proposalRevisionId: 'proposal-revision-1',
+          targetRevisionFingerprint: proposalFingerprint,
+          approvedBy: { kind: 'user', id: 'user-1', label: null },
+          relayedBy: { kind: 'agent_token', id: 'agent-1', label: 'Coach agent' },
+          approvalStatementId: 'statement-1',
+          approvalStatement: {
+            id: 'statement-1',
+            subjectUserId: 'user-1',
+            proposalId: 'proposal-1',
+            proposalRevisionId: 'proposal-revision-1',
+            targetRevisionFingerprint: proposalFingerprint,
+            statement: 'Yes, move that exact walk.',
+            sourceId: 'conversation-message-1',
+            sourceOccurredAt: '2026-09-19T09:58:00.000-04:00',
+            recordedBy: { kind: 'agent_token', id: 'different-agent', label: null },
+            createdAt: '2026-09-19T14:00:00.000Z',
+          },
+          approvedAt: '2026-09-19T14:00:00.000Z',
+        },
+      }),
+    ).toThrow('Relayed approval audit must match');
   });
 });

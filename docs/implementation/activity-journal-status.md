@@ -4,7 +4,7 @@
 
 - Accepted predecessors: #176 canonical foundation and #177 Activity runtime through `265e6c7c9f31a4c807a2140dbae7a409c2f04bdd`
 - Current checkpoint: #178 body concerns, guidance, safe flare handling, and meaningful-change approval
-- Review state: changes required; the scheduled-workout date bypass is repaired in this follow-up, while approval-relay authority remains pending a user product decision
+- Review state: targeted acceptance pending; the scheduled-workout date bypass is repaired and the user-selected trusted approval-relay policy is represented honestly
 - Branch: `feat/activity-journal-release`
 - Checkpoint starting HEAD: `265e6c7c9f31a4c807a2140dbae7a409c2f04bdd`
 - Checkpoint commit: the commit containing this status file; resolve its exact SHA in the independent-review handoff
@@ -18,10 +18,10 @@
 - Symptom state and management state remain separate. Maintenance and irrelevance never delete history. `resolved`/`archived` require an audited explicit user decision; a later flare appends history and reopens a resolved concern without diagnosing cause or healing.
 - Flare, source, and optional pending follow-ups commit before the response. Missing optional answers do not reject or erase the flare and do not mutate a plan.
 - Proposal effects are a closed union: `activity_assignment_reschedule` and `scheduled_workout_reschedule`. Target revisions, subject, eligibility, and semantic fingerprint are server-derived and rechecked before all effects execute in one immediate transaction.
-- Direct JWT approval records the authenticated user. Agent relay requires a separately persisted exact user statement and records `approvedBy` user plus `relayedBy` agent. Recording a statement alone does not execute.
+- Direct JWT approval records the authenticated user. Derek explicitly authorized trusted AgentToken relay for chat approval without a second in-app approval. Relay requires a separately persisted exact user statement bound to the proposal; `approvedBy` is the user whose decision is attested, `relayedBy` is the authenticated API caller, and readback retains the statement/source/time. Recording a statement alone does not execute.
 - Scheduled-workout execution uses a guarded domain primitive, rejects started/completed occurrences, preserves snapshots/programming notes, and applies the existing greater-than-two-day agent-note staleness policy. Activity execution appends the existing assignment revision shape, preserving planned and actual history.
 - The legacy generic scheduled-workout PATCH now uses that same guarded primitive for date changes. Callers provide `expectedUpdatedAt`; owner/revision/link eligibility, date mutation, agent-note staleness, and mixed feedback-question writes share one transaction. Same-date writes preserve a linked occurrence without changing its revision.
-- Independent finding #1 about AgentToken approval relay remains open for Derek's product decision. This repair does not redesign relay, add conversation-proof infrastructure, or claim #178 acceptance.
+- Independent finding #1 is resolved by Derek's product decision to trust honest agent relay. The backend authenticates the AgentToken and preserves its attestation audit; it does not verify the external conversation or classify arbitrary text as approval. This closeout adds no conversation-proof infrastructure and does not claim #178 acceptance before targeted review.
 
 ## Requirements to executable evidence
 
@@ -33,7 +33,7 @@
 | Flare-first partial capture                   | API records a flare with a pending optional follow-up and no plan mutation; same-key replay returns the original result                                                                                                               |
 | Local date / instant / timezone               | shared schema test covers Detroit DST and rejects a mismatched occurrence date                                                                                                                                                        |
 | Typed meaningful changes only                 | strict shared schema rejects additional diagnosis/clearance/arbitrary mutation keys                                                                                                                                                   |
-| Exact direct and relayed approval             | API verifies JWT approval and separately persisted AgentToken relay with distinct user/agent identities                                                                                                                               |
+| Exact direct and relayed approval             | API distinguishes direct JWT approval from trusted AgentToken relay, reads back exact statement/source/time after restart, and proves capture alone does not execute                                                                  |
 | Atomic multi-target execution                 | API moves an upcoming Activity assignment and scheduled workout together; a stale second target leaves the first and receipt untouched                                                                                                |
 | Completed/stale target protection             | store rechecks planned/unstarted/current-or-future eligibility and exact target revisions before mutation                                                                                                                             |
 | Legacy scheduled-date bypass                  | registered API tests reject started/completed date changes without detaching `sessionId`, preserve same-date identity, move an unstarted target with CAS, reject stale/foreign writes, and roll mixed PATCH conflicts back atomically |
@@ -96,6 +96,22 @@ The directory retains the verified starting state, exact excerpts for the earlie
 | `17-focused-api-final.txt`             | definitive regression including completed-session immutability, 58 tests         |
 | `18-final-source-hashes.txt`           | definitive implementation, tests, frozen authority, and status hashes            |
 | `19-migration-chain-compatibility.txt` | four affected older migration suites passed, 13 tests                            |
+
+Policy-closeout evidence directory: `/Users/meridian/Projects/qa-reports/pulse-activity-journal-release/checkpoint-178-policy`
+
+This focused closeout reuses the unchanged #178 product, migration, concurrency, and browser evidence above. It adds the executable proof required by Derek's selected trusted-relay policy without rerunning unaffected matrices or claiming acceptance.
+
+| Policy receipt                | Result                                                                                                           |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `shared-tests.txt`            | approval contract distinguishes direct and relayed audit shapes and rejects a mismatched relay actor, 4 tests    |
+| `api-tests.txt`               | direct/relay, capture-only, restart readback/replay, stale-target, and independent-writer guards passed, 3 tests |
+| `shared-lint.txt`             | affected shared package lint passed                                                                              |
+| `api-lint.txt`                | affected API package lint passed                                                                                 |
+| `shared-typecheck.txt`        | affected shared package typecheck passed                                                                         |
+| `api-typecheck.txt`           | affected API package production and test typechecks passed                                                       |
+| `precommit-failure-rerun.txt` | three unrelated load-sensitive hook failures passed together with one worker, 30 tests                           |
+| `source-hashes.txt`           | policy authority plus final implementation, test, contract, API guide, README, and status-file hashes            |
+| `final-state.txt`             | final commit, upstream equality, clean worktree, and explicit no-PR/no-merge/no-deployment boundary              |
 
 ## Deferred owners and explicit gaps
 

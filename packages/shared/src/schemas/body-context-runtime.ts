@@ -20,6 +20,9 @@ const shortTextSchema = z.string().trim().min(1).max(255);
 const longTextSchema = z.string().trim().min(1).max(10_000);
 const instantSchema = z.string().datetime({ offset: true });
 const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/u);
+const agentRelayActorSchema = activityJournalActorSchema
+  .extend({ kind: z.literal('agent_token') })
+  .strict();
 
 const localDateForInstant = (value: string, timeZone: string) => {
   try {
@@ -385,7 +388,7 @@ export const proposalApprovalStatementSchema = z
     statement: longTextSchema,
     sourceId: idSchema,
     sourceOccurredAt: instantSchema,
-    recordedBy: activityJournalActorSchema,
+    recordedBy: agentRelayActorSchema,
     createdAt: instantSchema,
   })
   .strict();
@@ -430,8 +433,9 @@ export const planChangeProposalSchema = z
           id: idSchema,
           label: z.string().nullable(),
         }),
-        relayedBy: activityJournalActorSchema.nullable(),
+        relayedBy: agentRelayActorSchema.nullable(),
         approvalStatementId: idSchema.nullable(),
+        approvalStatement: proposalApprovalStatementSchema.nullable(),
         approvedAt: instantSchema,
       })
       .strict()
@@ -447,7 +451,52 @@ export const planChangeProposalSchema = z
     createdAt: instantSchema,
     updatedAt: instantSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((proposal, context) => {
+    const approval = proposal.approval;
+    if (!approval) return;
+    if (approval.approvedBy.id !== proposal.subjectUserId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['approval', 'approvedBy', 'id'],
+        message: 'Approval subject must match the proposal subject.',
+      });
+    }
+    if (approval.relayedBy === null) {
+      if (approval.approvalStatementId !== null || approval.approvalStatement !== null) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['approval'],
+          message: 'Direct user approval cannot carry a relayed approval statement.',
+        });
+      }
+      return;
+    }
+    const statement = approval.approvalStatement;
+    if (approval.approvalStatementId === null || statement === null) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['approval'],
+        message: 'Agent-relayed approval requires its persisted approval statement.',
+      });
+      return;
+    }
+    if (
+      statement.id !== approval.approvalStatementId ||
+      statement.subjectUserId !== proposal.subjectUserId ||
+      statement.proposalId !== proposal.id ||
+      statement.proposalRevisionId !== approval.proposalRevisionId ||
+      statement.targetRevisionFingerprint !== approval.targetRevisionFingerprint ||
+      statement.recordedBy.id !== approval.relayedBy.id
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['approval', 'approvalStatement'],
+        message:
+          'Relayed approval audit must match its proposal, subject, revision, and relay actor.',
+      });
+    }
+  });
 
 export type BodyContextProvenanceInput = z.infer<typeof bodyContextProvenanceInputSchema>;
 export type CreateBodyConcernApiInput = z.infer<typeof createBodyConcernApiInputSchema>;
