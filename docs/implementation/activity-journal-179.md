@@ -1,0 +1,36 @@
+# #179 — canonical daily context and cross-thread check-in
+
+## Authority and trial
+
+Derek authorizes continuation on the existing isolated release lane from accepted #178 dfea3ae66e625d669d870bf61a64154a3402c891. Work ONLY in /Users/meridian/Projects/pulse-activity-journal-release on feat/activity-journal-release; verify shell cwd/branch/HEAD and writable root before edits. Preserve main and other worktrees. Draft PR #187 exists; ordinary feature-branch commits/pushes authorized, no merge, production, deployment, issue closure or #180. This checkpoint supersedes previous #178-only routing/stop clauses.
+
+Trial: Vector/Astra plans; Codex GPT-5.6 Terra medium Fast off implements; parent dispatches independent GPT-5.6 Sol medium Fast off review. No internal reviewers/subagents. Localized repairs stay with Terra; structural/spec mismatch escalates to Sol via parent. Stop for independent acceptance at this checkpoint. Do not change models yourself.
+
+Read AGENTS.md, issue #179, docs/planning/activity-journal-body-context.md, activity-journal-release.md and activity-journal-contracts.md; preserve their invariants. #176–178 independently accepted. Preserve explicit trusted agent-relayed approval policy and guarded workout dates.
+
+## Outcome and implementation boundaries
+
+Any conversational thread retrieves/resumes ONE canonical daily check-in for the authenticated subject/local day. Registered non-placeholder agent writes and shared-auth reads persist grounded questions, answers, immutable corrections, follow-up state and original provenance. No UI, recorder, LLM API, reminders/cron, broad diary, diagnosis, plan mutation or Journal dependency. #180 will consume this core, not initialize it.
+
+Implement planned routes GET /api/v1/daily-context?date=YYYY-MM-DD, POST /api/v1/check-in/questions, POST /api/v1/check-in/questions/:id/answers, POST /api/v1/check-in/answers/:id/corrections. Add bounded detail/history retrieval only as needed to expose durable audit/resume. External strict schemas derive subject/actor/idempotency scope from authentication, not caller identity. Reuse foundation question/answer/read-model semantics; distinguish internal canonical shapes from safe external payloads. Any additive runtime extension to the foundation must be documented and tested, not silently weaken it.
+
+Daily context must retrieve actual Activity assignments/executions, workouts (planned and completed), nutrition, concerns, capabilities, guidance, pending questions/current answers and observations with source identity/time/provenance. A nutrition date or workout id list alone is not a populated grounded readback: include factual source-linked summaries or bounded records. Reuse existing domain stores/date authority; preserve legacy GET /context compatibility. Unknown/unavailable is not denial or zero intake. Preserve independent planned/actual dates; no UTC slicing. Empty and legacy input must be represented honestly, not fabricated.
+
+Question wording may be supplied by the agent from grounded context; no backend LLM. Require owned current source references and a stable semantic topic/source/day identity. Canonical deduplication must not depend on thread id, punctuation, or client idempotency key. Different legitimate topics/sources must remain distinct; answered questions must not reappear as pending under a fresh key or paraphrase. Document the identity and changed-source/follow-up rules; tie each question to the validated source context and do not pretend arbitrary text is machine-verified meaning.
+
+Use atomic optimistic concurrency as the approved equivalent to claims (no lease subsystem needed). Creation/dedupe, answer and correction must be transactional and database-constrained across independent writers. First answer expects no prior answer; competing updates require exact expected question/answer revision. One writer wins; stale loser gets visible conflict and no partial record/receipt. Corrections append immutable revisions with prior source/time/actor intact. Unknown/skipped/answered and deferred follow-ups retain explicit states; no implicit negative. Follow-ups link to their parent/source and dedupe across threads. Authentication must distinguish API actor from human subject throughout.
+
+## Acceptance — preserve raw first-run evidence
+
+- Real registered API tests with two agent tokens/conversation threads: same grounded question with different request keys returns one canonical identity; equivalent retries replay; altered payload same key conflicts; distinct questions stay distinct; answered question never requeued implicitly.
+- Genuine competing API processes with separate SQLite WAL handles and deterministic barriers: duplicate question create, first answer race, simultaneous corrections. Assert one durable winner, visible stale loser, immutable prior provenance, no duplicate/partial receipts. Reuse #177/#178 worker harness.
+- Restart/readback exposes canonical state, answer history, corrections and follow-up state across threads. Test missing/wrong/stale/foreign links, spoofed subject/actor, malformed payload, JWT-write rejection and non-disclosing foreign ids.
+- Populated fixture retrieval spans Activities/workouts/nutrition/concerns/guidance and a no-data day; dates/timezones include UTC-day boundary and DST. Pending questions and source-linked observations are factual and owner-scoped. No plan is modified by context/answer capture.
+- Additive migration rehearsals: fresh, populated exact predecessor, rerun, transactional failure/rollback, legacy preservation, FK/integrity and account deletion. Never change old migration SQL.
+- Register OpenAPI request/response/errors, add source-linked agent usage examples and route inventory/status. Verify API tests actually execute via project CI/test commands; report absent CI test coverage honestly.
+
+Focused checks while editing; affected shared/API tests including migration and independent writers, affected typecheck/lint/build and relevant existing context/body/Activity regressions. Honor mandatory hooks; no bypass. No browser acceptance claim for this backend-only checkpoint. Existing workout browser gate and integrated release UI remain pending. Preserve failures and bound diagnostics; no retry-to-green or LLM polling. Reuse receipts only for unchanged relevant source/test/harness/environment.
+
+Evidence: /Users/meridian/Projects/qa-reports/pulse-activity-journal-release/checkpoint-179. Capture command, exit, wall time, source/test hashes, populated readbacks, failed attempts and final receipts. Record implementation start/end and self-repair rounds for comparison with prior Sol flow; do not claim a fair benchmark across unequal scope. Parent measures runtime token usage separately where available.
+
+Commit coherent changes, push only feature branch, verify remote equality and clean worktree. Return exact SHA, requirement-to-evidence map and any gaps. End 'Ready for independent Sol review: #179'. No #180 until parent acceptance and trial assessment.
