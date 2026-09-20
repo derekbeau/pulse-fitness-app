@@ -11,6 +11,7 @@ export * from './schemas/body-measurements.js';
 export * from './schemas/body-check-ins.js';
 export * from './schemas/body-progress-analytics.js';
 export * from './schemas/body-progress-photos.js';
+export * from './schemas/body-context-runtime.js';
 export * from './schemas/activities.js';
 export * from './schemas/activity-journal-contracts.js';
 export * from './schemas/activity-runtime.js';

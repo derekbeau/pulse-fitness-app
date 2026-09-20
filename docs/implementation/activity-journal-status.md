@@ -2,94 +2,86 @@
 
 ## Checkpoint
 
-- Accepted predecessor: #176 canonical foundation at `e32812100d73af2cd23be380ce275895c0459488`
-- Current checkpoint: #177 Activity persistence and API runtime
+- Accepted predecessors: #176 canonical foundation and #177 Activity runtime through `265e6c7c9f31a4c807a2140dbae7a409c2f04bdd`
+- Current checkpoint: #178 body concerns, guidance, safe flare handling, and meaningful-change approval
 - Branch: `feat/activity-journal-release`
-- Checkpoint starting HEAD: `459a032bc5fb420f338466e95c68663672f00004`
+- Checkpoint starting HEAD: `265e6c7c9f31a4c807a2140dbae7a409c2f04bdd`
 - Checkpoint commit: the commit containing this status file; resolve its exact SHA in the independent-review handoff
-- Runtime claim: additive Activity persistence and backend API only; no #178+, browser UI, production migration, PR, merge, or deployment
+- Runtime claim: additive shared/backend persistence and API only; no #179+, browser UI, production migration, PR, merge, or deployment
 
 ## Implemented boundary
 
-- `0069_activity_runtime.sql` adds canonical Activity goals, Activity roots/revisions, goal links, assignments and immutable reschedule revisions, actual executions and immutable corrections, recurrence roots/revisions, owned links, and durable idempotency receipts.
-- The legacy `activities` table and its rows are unchanged. Unified reads label those records `legacy_date_only` and explicitly disclose that time, timezone, actor, and provenance were never recorded.
-- External Activity inputs are strict. Authentication supplies `subjectUserId` and agent actor identity; the server supplies route, operation, and the canonical semantic-payload fingerprint.
-- All Activity mutations require AgentToken auth. List/detail/goal reads use the repository's shared JWT-or-AgentToken auth policy.
-- Activity detail exposes planned assignments, actual executions, immutable histories, recurrence revisions, goals, and source links separately.
-- Recurrence revisions apply prospectively to newly materialized dates. Existing assignments keep their original recurrence revision until an explicit reschedule.
-- Idempotency receipts and writes share one immediate SQLite transaction. Replays survive server restart, changed payloads conflict, and failed writes leave no receipt.
+- `0070_body_context_runtime.sql` adds canonical concerns, capabilities, guidance, immutable revision tables, durable flares and pending follow-ups, plan-change proposal revisions, relayed approval statements, and idempotency receipts.
+- Legacy `health_conditions` rows are unchanged. A concern may retain an explicit owner-checked `legacyHealthConditionId`; no legacy row is converted and no clinician provenance is fabricated.
+- AgentToken capture covers concerns, capabilities, guidance, corrections, flares, proposals, revisions, and approval-statement relay. Shared-auth reads remain owner-scoped. User identity and agent identity come only from authentication.
+- Symptom state and management state remain separate. Maintenance and irrelevance never delete history. `resolved`/`archived` require an audited explicit user decision; a later flare appends history and reopens a resolved concern without diagnosing cause or healing.
+- Flare, source, and optional pending follow-ups commit before the response. Missing optional answers do not reject or erase the flare and do not mutate a plan.
+- Proposal effects are a closed union: `activity_assignment_reschedule` and `scheduled_workout_reschedule`. Target revisions, subject, eligibility, and semantic fingerprint are server-derived and rechecked before all effects execute in one immediate transaction.
+- Direct JWT approval records the authenticated user. Agent relay requires a separately persisted exact user statement and records `approvedBy` user plus `relayedBy` agent. Recording a statement alone does not execute.
+- Scheduled-workout execution uses a guarded domain primitive, rejects started/completed occurrences, preserves snapshots/programming notes, and applies the existing greater-than-two-day agent-note staleness policy. Activity execution appends the existing assignment revision shape, preserving planned and actual history.
 
 ## Requirements to executable evidence
 
-| Requirement                                       | Executable evidence                                                                                                                                                                                                                 |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Fresh and populated additive migration            | `activity-runtime-migration.test.ts` runs the production migration runner on both databases                                                                                                                                         |
-| Legacy data is byte-for-byte preserved            | populated predecessor test snapshots the exact legacy row before and after 0069                                                                                                                                                     |
-| Rerun and atomic failure                          | production runner no-op assertion and intentionally broken copied 0069 rollback rehearsal                                                                                                                                           |
-| Agent-only capture and derived ownership          | API test rejects JWT mutation and reads derived agent actor/user subject from persisted response                                                                                                                                    |
-| Five-minute PT readback                           | lifecycle test captures a source-labeled PT Activity and reads it back through the registered API                                                                                                                                   |
-| Planned Tuesday / rescheduled and actual Thursday | lifecycle test retains all assignment revisions and the distinct execution occurrence                                                                                                                                               |
-| Goals and owned links are usable                  | API creates/retrieves multiple goal links and rejects foreign goal/workout links atomically                                                                                                                                         |
-| Durable retry and changed-payload conflict        | same result before and after Fastify restart; altered semantic request returns `IDEMPOTENCY_KEY_REUSE`                                                                                                                              |
-| Subject isolation without disclosure              | foreign list/detail/correction/reschedule/execution/link probes return empty/404 and leave no partial receipt                                                                                                                       |
-| Same-process retry/stale writes                   | one Fastify process converges duplicate creates and rejects one of each competing reschedule/correction pair                                                                                                                        |
-| Independent SQLite writers                        | two child API processes and distinct WAL handles cross a deterministic barrier, block behind a third writer, then prove one durable create/materialization receipt and one winner for each same-revision correction/reschedule race |
-| Recurrence create/materialize/revise              | test retains old occurrence revision and assigns later dates to the effective revision                                                                                                                                              |
-| UTC/local/DST safety                              | execution read schema rejects an instant/local-date disagreement across the Detroit fallback boundary                                                                                                                               |
-| Account erasure                                   | deleting the fictional owner cascades Activity roots, revisions, assignments, and receipts with clean foreign keys                                                                                                                  |
-| OpenAPI exactness                                 | test verifies registered lifecycle routes, AgentToken mutation security, and absence of spoofable derived fields                                                                                                                    |
+| Requirement                                   | Executable evidence                                                                                                                                                         |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Strict provenance and source readback         | API acceptance captures all four provenance classes and verifies auth-derived capture identity                                                                              |
+| Immutable concern/capability/guidance history | API/store tests read current records with ordered revisions and stale compare-and-swap rejection                                                                            |
+| Explicit resolution authority                 | API rejects symptom-derived resolution and accepts an authenticated-user decision with audit history                                                                        |
+| Flare-first partial capture                   | API records a flare with a pending optional follow-up and no plan mutation; same-key replay returns the original result                                                     |
+| Local date / instant / timezone               | shared schema test covers Detroit DST and rejects a mismatched occurrence date                                                                                              |
+| Typed meaningful changes only                 | strict shared schema rejects additional diagnosis/clearance/arbitrary mutation keys                                                                                         |
+| Exact direct and relayed approval             | API verifies JWT approval and separately persisted AgentToken relay with distinct user/agent identities                                                                     |
+| Atomic multi-target execution                 | API moves an upcoming Activity assignment and scheduled workout together; a stale second target leaves the first and receipt untouched                                      |
+| Completed/stale target protection             | store rechecks planned/unstarted/current-or-future eligibility and exact target revisions before mutation                                                                   |
+| Routine instruction remains narrow            | existing #177 assignment-reschedule route remains the direct primitive with strict payload and immutable revision history                                                   |
+| Durable semantic idempotency                  | same scope/key/payload replays; altered payload conflicts; failed writes leave no receipt                                                                                   |
+| Genuine independent-process races             | two child API processes with distinct WAL handles cross a deterministic barrier for duplicate flare, stale correction, competing approval/execution, and stale-target proof |
+| Additive migration lifecycle                  | production migration runner covers fresh and populated exact predecessor, legacy preservation, rerun no-op, forced rollback, account erasure, FK and integrity checks       |
+| Registered OpenAPI                            | routes are registered through the typed Fastify provider with exact request/response/error schemas and auth policies                                                        |
 
 Focused tests:
 
-- `apps/api/src/db/activity-runtime-migration.test.ts`
-- `apps/api/src/routes/activities/api.integration.test.ts`
-- `apps/api/src/routes/activities/independent-writer.integration.test.ts`
+- `packages/shared/src/schemas/body-context-runtime.test.ts`
+- `apps/api/src/db/body-context-migration.test.ts`
+- `apps/api/src/routes/body-context/api.integration.test.ts`
+- `apps/api/src/routes/body-context/independent-writer.integration.test.ts`
+- affected #177 Activity and scheduled-workout regression tests
 
 ## Evidence receipts
 
-Evidence directory: `/Users/meridian/Projects/qa-reports/pulse-activity-journal-release/checkpoint-177`
+Evidence directory: `/Users/meridian/Projects/qa-reports/pulse-activity-journal-release/checkpoint-178`
 
-Concurrency-repair evidence directory: `/Users/meridian/Projects/qa-reports/pulse-activity-journal-release/checkpoint-177-concurrency`
+The directory retains the verified starting state, exact excerpts for the earliest failures, and raw output for the lint failures and all definitive gates. The excerpts cover the initial guidance-schema composition failure, an initially over-broad API run, the first proposal serialization failure, and the first DST fixture mistake. The mandatory pre-commit suite later identified four older migration lifecycle files whose complete-chain counts needed to advance for additive 0070; those compatibility assertions were repaired and rerun together. Later receipts identify the superseding focused and consolidated checks rather than erasing failures.
 
-The original API acceptance test's `Promise.all(app.inject(...))` coverage uses one
-Fastify process and one synchronous SQLite handle. The focused concurrency repair adds
-separate process IDs and connection identities, a shared private WAL database, a
-deterministic pre-handler release barrier, and a control-connection writer lock. Both
-API processes must cross the barrier and remain blocked before the lock is released;
-fresh read-only handles then verify receipts, roots, revisions, occurrences, foreign
-keys, and SQLite integrity. This upgrades evidence only; no runtime source changed.
-
-Concurrency-repair receipts:
-
-| Receipt                               | Result                                                                                             |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `00-scope-state.txt`                  | verified target worktree, branch, starting HEAD, upstream delta, and scoped files                  |
-| `01-independent-writer-first-run.txt` | preserved harness-first failure before product assertions; transaction method wrapping was invalid |
-| `02-focused-final.txt`                | first green focused Activity/migration/concurrency run: 3 files, 11 tests                          |
-| `03-api-typecheck.txt`                | API production and test TypeScript projects passed                                                 |
-| `04-harness-lint.txt`                 | preserved first lint failure: four test-only non-null assertions                                   |
-| `05-harness-lint-final.txt`           | repaired harness lint passed with no findings                                                      |
-| `06-api-typecheck-final.txt`          | post-repair API production and test TypeScript projects passed                                     |
-| `07-focused-post-lint-final.txt`      | definitive focused run passed: 3 files, 11 tests                                                   |
-
-| Receipt                       | Result                                                                                                                                   |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `00-before-state.txt`         | verified starting branch, HEAD, clean state, runtime identity, and frozen checkpoint hash                                                |
-| `01-focused-final.txt`        | 7 files / 43 Activity, migration, auth, and OpenAPI regression tests passed                                                              |
-| `02-root-test-final.txt`      | preserved exit 1: the new SQLite writer pragmas correctly exposed one exact bootstrap expectation that still listed only the old pragmas |
-| `03-root-test-repaired.txt`   | uncached exit 0: repo scripts 15/15, shared 853/853, API 1318/1318, web 1467/1467; 0 cached                                              |
-| `04-root-typecheck-final.txt` | uncached exit 0 across API, shared, and web; 0 cached                                                                                    |
-| `05-root-lint-final.txt`      | uncached exit 0; seven pre-existing web warnings, no errors; 0 cached                                                                    |
-| `06-root-build-final.txt`     | uncached exit 0 across API, shared, and web; existing Vite large-chunk warning; 0 cached                                                 |
-| `07-post-audit-delta.txt`     | exit 0 for final `includeLegacy=false` parsing delta: shared/API typecheck and build, affected lint, Activity tests, exact source hashes |
+| Receipt                                | Result                                                                           |
+| -------------------------------------- | -------------------------------------------------------------------------------- |
+| `00-before-state.txt`                  | exact worktree, branch, base HEAD, upstream, toolchain, and frozen-source hashes |
+| `01-preserved-first-run-failures.txt`  | chronological first-failure excerpts and supersession note                       |
+| `02-focused-api-final.txt`             | six affected API/migration/concurrency files passed, 58 tests                    |
+| `03-focused-shared-final.txt`          | body-context plus foundation contracts passed, 17 tests                          |
+| `04-root-typecheck-final.txt`          | root typecheck passed before final lint repair                                   |
+| `05-root-lint-final.txt`               | preserved first root lint failure: one unused shared import                      |
+| `06-root-lint-repaired.txt`            | preserved second root lint failure: store-only unused types/non-null assertions  |
+| `07-root-lint-final.txt`               | definitive lint passed; seven pre-existing web warnings, zero errors             |
+| `08-root-typecheck-post-lint.txt`      | definitive root typecheck passed                                                 |
+| `09-root-build-final.txt`              | uncached API/shared/web build passed; existing Vite chunk warning                |
+| `10-focused-api-post-lint.txt`         | post-repair affected API/migration/concurrency regression passed, 58 tests       |
+| `11-focused-api-definitive.txt`        | preserved teardown-fixture failure from a user-owned restrictive exercise link   |
+| `12-focused-api-definitive.txt`        | definitive affected regression with the shared exercise ownership fixture        |
+| `13-final-source-hashes.txt`           | pre-guarded-primitive source hash snapshot retained for provenance               |
+| `14-focused-api-guarded-final.txt`     | guarded scheduled-workout final regression passed, 58 tests                      |
+| `15-root-build-definitive.txt`         | post-guard API build passed; shared/web cache receipts replayed                  |
+| `16-final-source-hashes.txt`           | post-guard source hashes before completed-session fixture expansion              |
+| `17-focused-api-final.txt`             | definitive regression including completed-session immutability, 58 tests         |
+| `18-final-source-hashes.txt`           | definitive implementation, tests, frozen authority, and status hashes            |
+| `19-migration-chain-compatibility.txt` | four affected older migration suites passed, 13 tests                            |
 
 ## Deferred owners and explicit gaps
 
-- #178: body concerns, capabilities, guidance, flare transaction, and meaningful proposal/approval runtime.
 - #179: daily context, canonical check-in claims/answers, and cross-thread state.
 - #180: canonical Journal persistence, routes, corrections, and weekly reflection.
 - #181: session-specific context.
 - #182: shared Calendar aggregation.
 - #183: Activity/Journal/Context/Calendar UI and integrated release acceptance.
 
-No #177 evidence establishes production-data compatibility, production deployment, UI behavior, or any downstream checkpoint.
+No #178 evidence establishes production-data compatibility, production deployment, UI behavior, or any downstream checkpoint.

@@ -6,6 +6,7 @@ export * from './body-weight.js';
 export * from './body-measurements.js';
 export * from './body-check-ins.js';
 export * from './body-progress-photos.js';
+export * from './body-context-runtime.js';
 export * from './dashboard-config.js';
 export * from './entity-links.js';
 export * from './equipment.js';

@@ -1,6 +1,6 @@
 # Activity / Journal canonical contracts
 
-Status: checkpoint #177 Activity runtime. The exported `activity-journal-v1` foundation remains in `packages/shared/src/schemas/activity-journal-contracts.ts`; strict external Activity request/read schemas are in `packages/shared/src/schemas/activity-runtime.ts`. #177 implements only the Activity-owned routes identified below. Routes assigned to #178–#183 remain planned and unimplemented.
+Status: checkpoint #178 body-context runtime. The exported `activity-journal-v1` foundation remains in `packages/shared/src/schemas/activity-journal-contracts.ts`; strict external Activity and body-context request/read schemas are in `activity-runtime.ts` and `body-context-runtime.ts`. #176 and #177 are accepted predecessors. Routes assigned to #179–#183 remain planned and unimplemented.
 
 ## Canonical ownership and records
 
@@ -39,6 +39,8 @@ A same-state write may add a revision but cannot erase history. `resolved` recor
 - A retry with the same scope, key, and fingerprint replays the original result. Reusing a key with a different payload in the same scope returns `IDEMPOTENCY_KEY_REUSE`; a different declared scope is a distinct key namespace.
 - A direct routine instruction may execute once through `routinePlanInstructionSchema`, retaining its target revision and idempotency receipt.
 - A meaningful change starts as `proposed` and cannot be represented as approved without an explicit approval object. Approval binds to the exact `proposalRevisionId`, exact target revision fingerprint, and approving user actor.
+- An authenticated user may approve directly. An AgentToken may only execute approval by first persisting an exact user approval statement bound to that proposal revision and server-derived target fingerprint. The approval audit keeps `approvedBy` as the user and `relayedBy` as the agent; recording a statement alone never executes a proposal.
+- #178 supports only typed prospective `activity_assignment_reschedule` and `scheduled_workout_reschedule` effects. The server derives targets and their fingerprint, validates every target before any write, and commits all effects, approval, execution audit, and receipt together. Unsupported arbitrary JSON is rejected.
 - If the proposal has changed, return `STALE_PROPOSAL`. If any target revision has changed, return `STALE_TARGET`. Neither conflict silently reapplies, rebases, or partially approves the proposal.
 
 ## Existing runtime inventory
@@ -47,6 +49,7 @@ A same-state write may add a revision but cannot erase history. `resolved` recor
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Legacy Activity          | `apps/api/src/db/schema/activities.ts`; flat date/type/duration row                                                                                          | Preserved unchanged. Unified Activity reads return these rows as `legacy_date_only` with an explicit statement that occurrence time, timezone, actor, and provenance were never recorded. No conversion is attempted. |
 | Canonical Activity       | Additive `0069_activity_runtime.sql`, Activity store, and registered `/api/v1` routes                                                                        | #177 implements goals, immutable Activity revisions, assignments/reschedules, executions/corrections, recurrence revisions/materialization, owned links, and durable idempotency receipts.                            |
+| Canonical body context   | Additive `0070_body_context_runtime.sql`, body-context store, and registered `/api/v1` routes                                                                | #178 implements concerns, capabilities, guidance, immutable corrections/transitions, flares/follow-up state, typed proposals, bound approvals, and durable receipts. Legacy health-condition rows are unchanged.      |
 | Legacy Journal           | `apps/api/src/db/schema/journal.ts`; flat entry row                                                                                                          | Table exists, but no registered Journal route/store. It lacks immutable revisions and canonical source links. #180 owns runtime. Existing rows/migrations remain immutable.                                           |
 | Generic links            | `apps/api/src/db/schema/entity-links.ts` and shared `entity-links.ts`                                                                                        | User-scoped primitive exists but has a smaller type vocabulary and no revision-bearing target refs. Runtime slices may extend or replace it additively; never create cross-user links.                                |
 | Workout question/answers | `workout_feedback_question_lists`, immutable question-list revisions, answer revisions/current projection; routes embedded in workout template/session flows | Reuse the revision/current-projection pattern and visible `WORKOUT_FEEDBACK_REVISION_CONFLICT`; do not reuse workout-specific identity for daily check-in. #179 owns canonical check-in storage.                      |
@@ -57,13 +60,13 @@ A same-state write may add a revision but cannot erase history. `resolved` recor
 | Agent context            | `GET /api/v1/context` reads workouts, nutrition, weight, habits, scheduled workouts, and body progress                                                       | It does not include Activity, Journal, concerns/guidance, or shared check-in state. #179 replaces/extends with the daily-context read model.                                                                          |
 | Current web surfaces     | Activity and Journal import `mock-data.ts`; Session Context shows preview cards; Workouts owns its own calendar                                              | These are previews, not runtime proof. #181–#183 replace them only after owning APIs exist.                                                                                                                           |
 
-No #176 database migration is needed: this checkpoint defines executable shared contracts only. Runtime migrations belong to the owning child and must be rehearsed against fictional predecessor and fresh databases there.
+The #176 foundation required no database migration. #177 and #178 add their owning migrations and rehearse them against fictional exact predecessors and fresh databases.
 
 ## Planned route and read-model ownership
 
 All routes use existing `/api/v1` authentication conventions and user scoping. Agent-managed capture writes accept AgentToken authentication; user-facing reads accept JWT or AgentToken where the existing shared-auth policy allows it. Sensitive token/auth management remains JWT-only.
 
-| Exact planned route                                                     | Canonical shape / result                                            | Implementing child | Runtime status at #176       |
+| Exact planned route                                                     | Canonical shape / result                                            | Implementing child | Runtime status at #178       |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------ | ---------------------------- |
 | `GET /api/v1/activities`                                                | bounded canonical/legacy list with independent planned/actual dates | #177               | Implemented                  |
 | `POST /api/v1/activities`                                               | strict capture input -> canonical detail                            | #177               | Implemented, AgentToken-only |
@@ -81,14 +84,18 @@ All routes use existing `/api/v1` authentication conventions and user scoping. A
 | `POST /api/v1/activity-goals`                                           | create a usable goal                                                | #177               | Implemented, AgentToken-only |
 | `PATCH /api/v1/activity-goals/:id`                                      | update goal state/label with compare-and-swap                       | #177               | Implemented, AgentToken-only |
 | `POST /api/v1/activities/:id/links`                                     | create an ownership-checked canonical link                          | #177               | Implemented, AgentToken-only |
-| `GET /api/v1/body-context/concerns`                                     | concerns, current revisions, source/freshness                       | #178               | Unimplemented                |
-| `POST /api/v1/body-context/concerns`                                    | `recordConcernInputSchema`                                          | #178               | Unimplemented                |
-| `POST /api/v1/body-context/concerns/:id/transitions`                    | `transitionConcernInputSchema`                                      | #178               | Unimplemented                |
-| `POST /api/v1/body-context/concerns/:id/flares`                         | `recordFlareInputSchema`; record before follow-up                   | #178               | Unimplemented                |
-| `GET /api/v1/body-context/capabilities`                                 | capability revisions                                                | #178               | Unimplemented                |
-| `POST /api/v1/body-context/guidance`                                    | `recordGuidanceInputSchema`                                         | #178               | Unimplemented                |
-| `POST /api/v1/plan-change-proposals`                                    | meaningful proposal revision                                        | #178               | Unimplemented                |
-| `POST /api/v1/plan-change-proposals/:id/approval`                       | `approveMeaningfulProposalInputSchema`                              | #178               | Unimplemented                |
+| `GET/POST /api/v1/body-context/concerns`                                | bounded list / strict AgentToken capture                            | #178               | Implemented                  |
+| `GET/PATCH /api/v1/body-context/concerns/:id`                           | detail with history / AgentToken correction                         | #178               | Implemented                  |
+| `POST /api/v1/body-context/concerns/:id/transitions`                    | explicit management transition with decision audit                  | #178               | Implemented                  |
+| `POST /api/v1/body-context/concerns/:id/flares`                         | durable flare before optional pending follow-up                     | #178               | Implemented, AgentToken-only |
+| `GET/POST /api/v1/body-context/capabilities`                            | bounded list / strict AgentToken capture                            | #178               | Implemented                  |
+| `GET/PATCH /api/v1/body-context/capabilities/:id`                       | detail with history / AgentToken correction                         | #178               | Implemented                  |
+| `GET/POST /api/v1/body-context/guidance`                                | bounded sourced list / strict AgentToken capture                    | #178               | Implemented                  |
+| `GET/PATCH /api/v1/body-context/guidance/:id`                           | detail with history / AgentToken correction                         | #178               | Implemented                  |
+| `POST /api/v1/plan-change-proposals`                                    | server-scoped typed meaningful proposal                             | #178               | Implemented, AgentToken-only |
+| `GET/PATCH /api/v1/plan-change-proposals/:id`                           | exact detail / revision invalidating prior approval                 | #178               | Implemented                  |
+| `POST /api/v1/plan-change-proposals/:id/approval-statements`            | persist exact user statement relayed by AgentToken                  | #178               | Implemented, no execution    |
+| `POST /api/v1/plan-change-proposals/:id/approval`                       | atomically revalidate, approve, and execute exact typed effects     | #178               | Implemented                  |
 | `GET /api/v1/daily-context?date=YYYY-MM-DD`                             | `dailyContextReadModelSchema`                                       | #179               | Unimplemented                |
 | `POST /api/v1/check-in/questions`                                       | `createCheckInQuestionInputSchema`, canonical dedupe key            | #179               | Unimplemented                |
 | `POST /api/v1/check-in/questions/:id/answers`                           | `answerCheckInQuestionInputSchema`                                  | #179               | Unimplemented                |
@@ -105,4 +112,4 @@ All routes use existing `/api/v1` authentication conventions and user scoping. A
 
 ## Contract evidence boundary
 
-The #176 fixtures prove shared-schema semantics and pure retry/transition policy. #177 adds isolated fictional-database proof for the Activity persistence, authorization, concurrent HTTP retry/stale-write behavior, OpenAPI registration, legacy readback, migration lifecycle, and account erasure described above. It does not prove #178–#183 runtime, browser UI, production data compatibility, or deployment.
+The #176 fixtures prove shared-schema semantics and pure retry/transition policy. #177 adds fictional-database proof for Activity persistence. #178 adds registered body-context API, provenance/readback, immutable history, flare ordering, explicit approval, typed atomic execution, migration, account-erasure, and genuine two-process WAL race proof. It does not prove #179–#183 runtime, browser UI, production data compatibility, or deployment.
