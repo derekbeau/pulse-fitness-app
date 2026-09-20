@@ -437,6 +437,153 @@ describe('daily check-in runtime API', () => {
     await app.close();
   });
 
+  it('treats validated source references as a semantic set without weakening idempotency', async () => {
+    database.sqlite
+      .prepare(
+        "insert into body_context_concerns (id,user_id,label,body_region,symptom_state,management_state,source_json,revision,current_revision_id,created_at,updated_at) values ('concern-2','owner','Fictional elbow','elbow','unknown','monitoring',?,1,'concern-2-revision','2026-09-20T00:00:00.000Z','2026-09-20T00:00:00.000Z')",
+      )
+      .run(
+        JSON.stringify({
+          ...source,
+          sourceId: 'fictional-second-source-179',
+          capturedAt: '2026-09-20T00:00:00.000Z',
+          capturedBy: { kind: 'agent_token', id: 'agent-a', label: 'a' },
+        }),
+      );
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    const firstReference = {
+      kind: 'body_concern',
+      id: 'concern',
+      revisionId: 'concern-revision',
+    };
+    const secondReference = {
+      kind: 'body_concern',
+      id: 'concern-2',
+      revisionId: 'concern-2-revision',
+    };
+    const base = {
+      localDate: '2026-09-20',
+      semanticTopic: 'semantic source set',
+      prompt: 'What does the fictional source set say?',
+      followUpQuestionId: null,
+    };
+    const create = (
+      sourceReferences: Array<typeof firstReference>,
+      idempotencyKey: string,
+      token = 'a-secret',
+    ) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/v1/check-in/questions',
+        headers: { authorization: `AgentToken ${token}` },
+        payload: { ...base, sourceReferences, idempotencyKey },
+      });
+
+    const single = await create([firstReference], 'semantic-set-single');
+    expect(single.statusCode, single.body).toBe(201);
+    const singleId = single.json().data.question.questionId as string;
+    const duplicate = await create(
+      [firstReference, firstReference],
+      'semantic-set-duplicate-fresh-key',
+      'b-secret',
+    );
+    expect(duplicate.statusCode, duplicate.body).toBe(201);
+    expect(duplicate.json().data.question).toMatchObject({
+      questionId: singleId,
+      sourceReferences: [{ kind: 'body_concern', id: 'concern', revisionId: 'concern-revision' }],
+    });
+
+    const both = await create([secondReference, firstReference], 'semantic-set-both');
+    expect(both.statusCode, both.body).toBe(201);
+    const bothId = both.json().data.question.questionId as string;
+    expect(bothId).not.toBe(singleId);
+    const reordered = await create(
+      [firstReference, secondReference, firstReference],
+      'semantic-set-reordered-duplicate',
+      'b-secret',
+    );
+    expect(reordered.statusCode, reordered.body).toBe(201);
+    expect(reordered.json().data.question.questionId).toBe(bothId);
+    expect(reordered.json().data.question.sourceReferences).toEqual(
+      both.json().data.question.sourceReferences,
+    );
+    expect(reordered.json().data.question.sourceReferences).toHaveLength(2);
+
+    const distinct = await create([secondReference], 'semantic-set-distinct-source');
+    expect(distinct.statusCode, distinct.body).toBe(201);
+    expect(distinct.json().data.question.questionId).not.toBe(singleId);
+    expect(distinct.json().data.question.questionId).not.toBe(bothId);
+
+    const exactPayloadReceipt = await create(
+      [firstReference, secondReference],
+      'semantic-set-exact-payload-receipt',
+    );
+    expect(exactPayloadReceipt.statusCode, exactPayloadReceipt.body).toBe(201);
+    const changedPayloadSameKey = await create(
+      [secondReference, firstReference],
+      'semantic-set-exact-payload-receipt',
+    );
+    expect(changedPayloadSameKey.statusCode).toBe(409);
+    expect(changedPayloadSameKey.json().error.code).toBe('IDEMPOTENCY_KEY_REUSE');
+
+    const conflictingRevision = await create(
+      [firstReference, { ...firstReference, revisionId: 'stale-concern-revision' }],
+      'semantic-set-conflicting-revision',
+    );
+    expect(conflictingRevision.statusCode).toBe(404);
+    expect(conflictingRevision.json().error.code).toBe('OWNED_LINK_NOT_FOUND');
+    expect(
+      database.sqlite
+        .prepare(
+          "select count(*) as count from daily_check_in_idempotency_receipts where idempotency_key='semantic-set-conflicting-revision'",
+        )
+        .get(),
+    ).toEqual({ count: 0 });
+
+    const answered = await app.inject({
+      method: 'POST',
+      url: `/api/v1/check-in/questions/${bothId}/answers`,
+      headers: { authorization: 'AgentToken a-secret' },
+      payload: {
+        expectedQuestionRevisionId: both.json().data.question.id,
+        expectedAnswerRevision: 0,
+        state: 'answered',
+        value: 'Fictional source-set answer.',
+        source,
+        idempotencyKey: 'semantic-set-answer',
+      },
+    });
+    expect(answered.statusCode, answered.body).toBe(201);
+    const answeredCanonical = await create(
+      [secondReference, firstReference, secondReference],
+      'semantic-set-answered-fresh-key',
+      'b-secret',
+    );
+    expect(answeredCanonical.statusCode, answeredCanonical.body).toBe(201);
+    expect(answeredCanonical.json().data.question).toMatchObject({
+      questionId: bothId,
+      state: 'answered',
+    });
+    const context = await app.inject({
+      method: 'GET',
+      url: '/api/v1/daily-context?date=2026-09-20',
+      headers: { authorization: 'AgentToken a-secret' },
+    });
+    expect(context.statusCode, context.body).toBe(200);
+    expect(
+      context
+        .json()
+        .data.pendingQuestions.map((question: { questionId: string }) => question.questionId)
+        .sort(),
+    ).toEqual([singleId, distinct.json().data.question.questionId as string].sort());
+    expect(
+      database.sqlite.prepare('select count(*) as count from daily_check_in_questions').get(),
+    ).toEqual({ count: 3 });
+    await app.close();
+  });
+
   it('binds canonical question identity to the hydrated current source revision', async () => {
     const { buildServer } = await import('../../index.js');
     const app = buildServer();

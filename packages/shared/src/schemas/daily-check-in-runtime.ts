@@ -126,6 +126,7 @@ export const dailyCheckInQuestionAuditRevisionSchema = z
   .object({
     revision: checkInQuestionRevisionSchema,
     recordedBy: activityJournalActorSchema,
+    recordedAt: z.string().datetime({ offset: true }),
   })
   .strict();
 export const dailyCheckInDetailSchema = z

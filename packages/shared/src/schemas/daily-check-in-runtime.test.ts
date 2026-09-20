@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createDailyCheckInQuestionApiInputSchema,
   dailyCheckInAnswerAuditRevisionSchema,
+  dailyCheckInQuestionAuditRevisionSchema,
   dailyCheckInSourceReferenceSchema,
   dailyContextWorkoutSchema,
 } from './daily-check-in-runtime.js';
@@ -110,6 +111,39 @@ describe('daily check-in runtime contracts', () => {
     ).toBe(false);
     expect(
       dailyCheckInAnswerAuditRevisionSchema.safeParse({ ...revision, rawRow: true }).success,
+    ).toBe(false);
+  });
+
+  it('keeps root question creation distinct from the immutable audit recording time', () => {
+    const auditRevision = {
+      revision: {
+        id: 'question-revision-2',
+        questionId: 'question-1',
+        subjectUserId: 'owner',
+        revision: 2,
+        priorRevisionId: 'question-revision-1',
+        deduplicationKey: 'a'.repeat(64),
+        prompt: 'What fictional audit detail changed?',
+        state: 'answered' as const,
+        sourceReferences: [
+          {
+            kind: 'body_concern',
+            id: 'concern-1',
+            subjectUserId: 'owner',
+            revisionId: 'concern-revision-1',
+          },
+        ],
+        createdAt: '2026-09-20T16:00:00.000Z',
+      },
+      recordedBy: actor,
+      recordedAt: '2026-09-20T17:00:00.000Z',
+    };
+    expect(dailyCheckInQuestionAuditRevisionSchema.parse(auditRevision)).toEqual(auditRevision);
+    expect(
+      dailyCheckInQuestionAuditRevisionSchema.safeParse({
+        revision: auditRevision.revision,
+        recordedBy: actor,
+      }).success,
     ).toBe(false);
   });
 });

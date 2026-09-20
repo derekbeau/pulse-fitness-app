@@ -251,6 +251,103 @@ describe('daily check-in lifecycle and date projections', () => {
     await app.close();
   });
 
+  it('preserves root creation time while exposing immutable transition times after restart', async () => {
+    let { buildServer } = await import('../../index.js');
+    let app = buildServer();
+    await app.ready();
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/check-in/questions',
+      headers: { authorization: 'AgentToken a-secret' },
+      payload: {
+        localDate: '2026-09-20',
+        semanticTopic: 'question audit timing',
+        prompt: 'What fictional timing detail is available?',
+        sourceReferences: [{ kind: 'body_concern', id: 'concern', revisionId: 'concern-r1' }],
+        followUpQuestionId: null,
+        idempotencyKey: 'audit-time-question',
+      },
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const questionId = created.json().data.question.questionId as string;
+    expect(created.json().data).toMatchObject({
+      question: { createdAt: '2026-09-20T16:00:00.000Z' },
+      questionHistory: [
+        {
+          revision: { revision: 1, createdAt: '2026-09-20T16:00:00.000Z' },
+          recordedAt: '2026-09-20T16:00:00.000Z',
+        },
+      ],
+    });
+
+    process.env.PULSE_TEST_NOW = '2026-09-20T17:00:00.000Z';
+    const answered = await app.inject({
+      method: 'POST',
+      url: `/api/v1/check-in/questions/${questionId}/answers`,
+      headers: { authorization: 'AgentToken a-secret' },
+      payload: {
+        expectedQuestionRevisionId: created.json().data.question.id,
+        expectedAnswerRevision: 0,
+        state: 'answered',
+        value: 'Fictional answer at the second clock instant.',
+        source: inputSource,
+        idempotencyKey: 'audit-time-answer',
+      },
+    });
+    expect(answered.statusCode, answered.body).toBe(201);
+    const answerId = answered.json().data.currentAnswer.answerId as string;
+
+    process.env.PULSE_TEST_NOW = '2026-09-20T18:00:00.000Z';
+    const corrected = await app.inject({
+      method: 'POST',
+      url: `/api/v1/check-in/answers/${answerId}/corrections`,
+      headers: { authorization: 'AgentToken b-secret' },
+      payload: {
+        expectedQuestionRevisionId: answered.json().data.question.id,
+        expectedAnswerRevision: 1,
+        state: 'answered',
+        value: 'Fictional corrected answer at the third clock instant.',
+        reason: 'Fictional timing clarification.',
+        source: inputSource,
+        idempotencyKey: 'audit-time-correction',
+      },
+    });
+    expect(corrected.statusCode, corrected.body).toBe(200);
+    expect(corrected.json().data).toMatchObject({
+      question: { createdAt: '2026-09-20T16:00:00.000Z' },
+      questionHistory: [
+        {
+          revision: { revision: 1, createdAt: '2026-09-20T16:00:00.000Z' },
+          recordedAt: '2026-09-20T16:00:00.000Z',
+        },
+        {
+          revision: { revision: 2, createdAt: '2026-09-20T16:00:00.000Z' },
+          recordedAt: '2026-09-20T17:00:00.000Z',
+        },
+      ],
+      answerHistory: [
+        { revision: 1, answeredAt: '2026-09-20T17:00:00.000Z' },
+        { revision: 2, answeredAt: '2026-09-20T18:00:00.000Z' },
+      ],
+    });
+
+    await app.close();
+    database.sqlite.close();
+    vi.resetModules();
+    database = await import('../../db/index.js');
+    ({ buildServer } = await import('../../index.js'));
+    app = buildServer();
+    await app.ready();
+    const reopened = await app.inject({
+      method: 'GET',
+      url: `/api/v1/check-in/questions/${questionId}`,
+      headers: { authorization: 'AgentToken a-secret' },
+    });
+    expect(reopened.statusCode, reopened.body).toBe(200);
+    expect(reopened.json().data).toEqual(corrected.json().data);
+    await app.close();
+  });
+
   it('projects consumed, active, completed, paused, deleted, and cross-date workouts factually with DST observations', async () => {
     database.sqlite.exec(`
       insert into scheduled_workouts (id,user_id,template_id,template_version,date,session_id,created_at,updated_at) values

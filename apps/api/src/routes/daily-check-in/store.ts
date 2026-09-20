@@ -97,17 +97,29 @@ const question = (sqlite: Database.Database, userId: string, id: string) =>
     .from(dailyCheckInQuestions)
     .where(and(eq(dailyCheckInQuestions.id, id), eq(dailyCheckInQuestions.userId, userId)))
     .get();
-const validateReferences = (
+const referenceIdentity = (reference: Reference) =>
+  JSON.stringify([reference.kind, reference.id, reference.revisionId]);
+const referenceHashToken = (reference: Reference) =>
+  `${reference.kind}:${reference.id}:${reference.revisionId}`;
+const validateAndNormalizeReferences = (
   sqlite: Database.Database,
   userId: string,
   refs: Reference[],
-): Reference[] =>
-  refs.map((ref) => {
+): Reference[] => {
+  const validated = refs.map((ref) => {
     const currentRevisionId = readCurrentSourceRevision(sqlite, userId, ref.kind, ref.id);
     if (currentRevisionId === null || ref.revisionId !== currentRevisionId)
       throw new CheckInOwnedLinkNotFoundError();
     return { ...ref, revisionId: currentRevisionId };
   });
+  return [
+    ...new Map(validated.map((reference) => [referenceIdentity(reference), reference])).values(),
+  ].sort(
+    (left, right) =>
+      referenceHashToken(left).localeCompare(referenceHashToken(right)) ||
+      referenceIdentity(left).localeCompare(referenceIdentity(right)),
+  );
+};
 const questionRevision = (
   row: typeof dailyCheckInQuestions.$inferSelect,
   priorRevisionId: string | null = null,
@@ -211,7 +223,7 @@ export const createQuestion = async (
     payload: input,
     statusCode: 201,
     write(sqlite) {
-      const references = validateReferences(sqlite, userId, input.sourceReferences);
+      const references = validateAndNormalizeReferences(sqlite, userId, input.sourceReferences);
       const parent = input.followUpQuestionId
         ? question(sqlite, userId, input.followUpQuestionId)
         : null;
@@ -228,9 +240,7 @@ export const createQuestion = async (
         localDate: input.localDate,
         timeZone: resolved.timeZone,
         semanticTopic: input.semanticTopic.trim().toLocaleLowerCase(),
-        sourceReferences: [...references]
-          .map((x: Reference) => `${x.kind}:${x.id}:${x.revisionId ?? ''}`)
-          .sort(),
+        sourceReferences: references.map(referenceHashToken),
         followUpQuestionId: input.followUpQuestionId,
       });
       const existing = checkInDb(sqlite)
@@ -313,6 +323,7 @@ const detail = (sqlite: Database.Database, userId: string, id: string): DailyChe
     .select({
       revision: dailyCheckInQuestionRevisions.snapshot,
       recordedBy: dailyCheckInQuestionRevisions.actor,
+      recordedAt: dailyCheckInQuestionRevisions.createdAt,
     })
     .from(dailyCheckInQuestionRevisions)
     .where(
@@ -323,9 +334,10 @@ const detail = (sqlite: Database.Database, userId: string, id: string): DailyChe
     )
     .orderBy(asc(dailyCheckInQuestionRevisions.revision))
     .all()
-    .map(({ revision, recordedBy }) => ({
+    .map(({ revision, recordedBy, recordedAt }) => ({
       revision: checkInQuestionRevisionSchema.parse(revision),
       recordedBy: activityJournalActorSchema.parse(recordedBy),
+      recordedAt,
     }));
   const currentQuestion = questionHistory.at(-1)?.revision;
   if (!currentQuestion) throw new Error('Current check-in question revision was unavailable.');
