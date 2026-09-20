@@ -92,6 +92,12 @@ export class CheckInIdempotencyConflictError extends Error {
 export class CheckInFollowUpParentStateError extends Error {
   readonly code = 'FOLLOW_UP_PARENT_NOT_ANSWERED';
 }
+export class CheckInReceiptIntegrityError extends Error {
+  readonly code = 'CHECK_IN_RECEIPT_INVALID';
+  constructor() {
+    super('The stored check-in receipt could not be verified.');
+  }
+}
 
 const question = (sqlite: Database.Database, userId: string, id: string) =>
   checkInDb(sqlite)
@@ -185,34 +191,50 @@ const provenance = (
   actor: DailyCheckInActor,
 ): Provenance => ({ ...source, capturedAt: now(), capturedBy: actor });
 
+const answerRevisionData = (row: typeof dailyCheckInAnswerRevisions.$inferSelect) => ({
+  id: row.id,
+  answerId: row.answerId,
+  questionId: row.questionId,
+  questionRevisionId: row.questionRevisionId,
+  subjectUserId: row.userId,
+  revision: row.revision,
+  priorRevisionId: row.priorRevisionId,
+  state: row.state,
+  ...(row.value === null ? {} : { value: row.value }),
+  source: row.source,
+  answeredAt: row.answeredAt,
+  correctionReason: row.reason,
+  recordedBy: row.actor,
+});
+const answerRevision = (
+  row: typeof dailyCheckInAnswerRevisions.$inferSelect,
+): DailyCheckInAnswerAuditRevision =>
+  dailyCheckInAnswerAuditRevisionSchema.parse(answerRevisionData(row));
+
 const storedReceiptDetailSchema = dailyCheckInDetailSchema.extend({
   questionHistory: dailyCheckInQuestionAuditRevisionSchema
     .partial({ recordedAt: true })
     .array()
     .min(1),
 });
-const rejectLegacyReceipt = (response: unknown): never => {
-  dailyCheckInDetailSchema.parse(response);
-  throw new Error('Invalid legacy daily check-in receipt.');
+const rejectReceipt = (): never => {
+  throw new CheckInReceiptIntegrityError();
 };
 const readReceiptDetail = (
   sqlite: Database.Database,
   userId: string,
   response: unknown,
+  expectedAnswerRevision?: number,
 ): DailyCheckInDetail => {
-  const current = dailyCheckInDetailSchema.safeParse(response);
-  if (current.success) return current.data;
   const stored = storedReceiptDetailSchema.safeParse(response);
-  if (!stored.success) return rejectLegacyReceipt(response);
+  if (!stored.success) return rejectReceipt();
   const ownedQuestion = question(sqlite, userId, stored.data.question.questionId);
-  const receiptQuestionRevision = stored.data.questionHistory.at(-1)?.revision;
-  if (
-    !ownedQuestion ||
-    !receiptQuestionRevision ||
-    hash(receiptQuestionRevision) !== hash(stored.data.question)
-  )
-    return rejectLegacyReceipt(response);
-  const questionHistory = stored.data.questionHistory.map((entry) => {
+  if (!ownedQuestion || ownedQuestion.followUpQuestionId !== stored.data.followUpQuestionId)
+    return rejectReceipt();
+  const questionHistory = stored.data.questionHistory.map((entry, index) => {
+    const priorRevisionId = index === 0 ? null : stored.data.questionHistory[index - 1].revision.id;
+    if (entry.revision.revision !== index + 1 || entry.revision.priorRevisionId !== priorRevisionId)
+      return rejectReceipt();
     const revisionRow = checkInDb(sqlite)
       .select({
         snapshot: dailyCheckInQuestionRevisions.snapshot,
@@ -229,16 +251,66 @@ const readReceiptDetail = (
         ),
       )
       .get();
+    const storedSnapshot = checkInQuestionRevisionSchema.safeParse(revisionRow?.snapshot);
+    const storedActor = activityJournalActorSchema.safeParse(revisionRow?.actor);
     if (
       !revisionRow ||
-      hash(checkInQuestionRevisionSchema.parse(revisionRow.snapshot)) !== hash(entry.revision) ||
-      hash(activityJournalActorSchema.parse(revisionRow.actor)) !== hash(entry.recordedBy) ||
+      !storedSnapshot.success ||
+      !storedActor.success ||
+      hash(storedSnapshot.data) !== hash(entry.revision) ||
+      hash(storedActor.data) !== hash(entry.recordedBy) ||
       (entry.recordedAt !== undefined && entry.recordedAt !== revisionRow.recordedAt)
     )
-      return rejectLegacyReceipt(response);
+      return rejectReceipt();
     return { ...entry, recordedAt: revisionRow.recordedAt };
   });
-  return dailyCheckInDetailSchema.parse({ ...stored.data, questionHistory });
+  const receiptQuestionRevision = questionHistory.at(-1)?.revision;
+  if (!receiptQuestionRevision || hash(receiptQuestionRevision) !== hash(stored.data.question))
+    return rejectReceipt();
+
+  const questionRevisionIds = new Set(questionHistory.map((entry) => entry.revision.id));
+  const answerHistory = stored.data.answerHistory.map((entry, index) => {
+    const priorRevisionId = index === 0 ? null : stored.data.answerHistory[index - 1].id;
+    if (
+      entry.revision !== index + 1 ||
+      entry.priorRevisionId !== priorRevisionId ||
+      entry.questionId !== stored.data.question.questionId ||
+      entry.subjectUserId !== userId ||
+      !questionRevisionIds.has(entry.questionRevisionId)
+    )
+      return rejectReceipt();
+    const revisionRow = checkInDb(sqlite)
+      .select()
+      .from(dailyCheckInAnswerRevisions)
+      .where(
+        and(
+          eq(dailyCheckInAnswerRevisions.id, entry.id),
+          eq(dailyCheckInAnswerRevisions.answerId, entry.answerId),
+          eq(dailyCheckInAnswerRevisions.questionId, stored.data.question.questionId),
+          eq(dailyCheckInAnswerRevisions.questionRevisionId, entry.questionRevisionId),
+          eq(dailyCheckInAnswerRevisions.userId, userId),
+          eq(dailyCheckInAnswerRevisions.revision, entry.revision),
+        ),
+      )
+      .get();
+    const storedAnswer = dailyCheckInAnswerAuditRevisionSchema.safeParse(
+      revisionRow && answerRevisionData(revisionRow),
+    );
+    if (!storedAnswer.success || hash(storedAnswer.data) !== hash(entry)) return rejectReceipt();
+    return entry;
+  });
+  const lastAnswer = answerHistory.at(-1) ?? null;
+  if (
+    hash(stored.data.currentAnswer) !== hash(lastAnswer) ||
+    (expectedAnswerRevision !== undefined && lastAnswer?.revision !== expectedAnswerRevision)
+  )
+    return rejectReceipt();
+  const verified = dailyCheckInDetailSchema.safeParse({
+    ...stored.data,
+    questionHistory,
+    answerHistory,
+  });
+  return verified.success ? verified.data : rejectReceipt();
 };
 
 const idempotent = async (args: {
@@ -249,6 +321,7 @@ const idempotent = async (args: {
   key: string;
   payload: unknown;
   statusCode: number;
+  expectedAnswerRevision?: number;
   write: (sqlite: Database.Database) => DailyCheckInDetail;
 }): Promise<Result<DailyCheckInDetail>> => {
   const sqlite = await getSqlite();
@@ -275,7 +348,7 @@ const idempotent = async (args: {
         if (prior.requestFingerprint !== requestFingerprint)
           throw new CheckInIdempotencyConflictError();
         return {
-          data: readReceiptDetail(sqlite, args.userId, prior.response),
+          data: readReceiptDetail(sqlite, args.userId, prior.response, args.expectedAnswerRevision),
           replayed: true,
           statusCode: prior.statusCode,
         };
@@ -389,24 +462,6 @@ export const createQuestion = async (
   });
 };
 
-const answerRevision = (
-  row: typeof dailyCheckInAnswerRevisions.$inferSelect,
-): DailyCheckInAnswerAuditRevision =>
-  dailyCheckInAnswerAuditRevisionSchema.parse({
-    id: row.id,
-    answerId: row.answerId,
-    questionId: row.questionId,
-    questionRevisionId: row.questionRevisionId,
-    subjectUserId: row.userId,
-    revision: row.revision,
-    priorRevisionId: row.priorRevisionId,
-    state: row.state,
-    ...(row.value === null ? {} : { value: row.value }),
-    source: row.source,
-    answeredAt: row.answeredAt,
-    correctionReason: row.reason,
-    recordedBy: row.actor,
-  });
 const detail = (sqlite: Database.Database, userId: string, id: string): DailyCheckInDetail => {
   const q = question(sqlite, userId, id);
   if (!q) throw new CheckInNotFoundError();
@@ -593,6 +648,7 @@ export const answerQuestion = async (
     key: input.idempotencyKey,
     payload: input,
     statusCode: 201,
+    expectedAnswerRevision: 1,
     write: (s) => writeAnswer(s, userId, actor, id, input, false),
   });
 export const correctAnswer = async (
@@ -609,6 +665,7 @@ export const correctAnswer = async (
     key: input.idempotencyKey,
     payload: input,
     statusCode: 200,
+    expectedAnswerRevision: input.expectedAnswerRevision + 1,
     write(s) {
       const a = checkInDb(s)
         .select({ questionId: dailyCheckInAnswers.questionId })

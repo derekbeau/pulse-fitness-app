@@ -26,6 +26,7 @@ import {
   CheckInIdempotencyConflictError,
   CheckInNotFoundError,
   CheckInOwnedLinkNotFoundError,
+  CheckInReceiptIntegrityError,
   CheckInStaleError,
   CheckInStaleQuestionError,
   correctAnswer,
@@ -83,6 +84,8 @@ const mutation = async <T>(
       );
     if (e instanceof CheckInFollowUpParentStateError)
       return sendError(reply, 409, e.code, 'A follow-up requires an answered parent question.');
+    if (e instanceof CheckInReceiptIntegrityError)
+      return sendError(reply, 400, e.code, 'The stored check-in receipt could not be verified.');
     throw e;
   }
 };

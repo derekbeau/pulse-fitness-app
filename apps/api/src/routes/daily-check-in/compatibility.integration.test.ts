@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { DailyCheckInDetail } from '@pulse/shared';
 
 const migrationsFolder = fileURLToPath(new URL('../../../drizzle', import.meta.url));
 const originalUrl = process.env.DATABASE_URL;
@@ -42,20 +43,29 @@ const sha256 = (value: unknown) =>
     .digest('hex');
 
 type SourceReference = { kind: 'body_concern'; id: string; revisionId: string };
-type ReceiptDetail = {
-  question: { id: string; questionId: string; state: string };
-  questionHistory: Array<{
-    revision: { id: string; questionId: string; revision: number };
-    recordedAt?: string;
-  }>;
-  currentAnswer: { answerId: string; revision: number } | null;
-  answerHistory: Array<{ revision: number }>;
-  followUpQuestionId: string | null;
+type QuestionHistoryEntry = DailyCheckInDetail['questionHistory'][number];
+type ReceiptDetail = Omit<DailyCheckInDetail, 'questionHistory'> & {
+  questionHistory: Array<
+    Omit<QuestionHistoryEntry, 'recordedAt'> & { recordedAt?: QuestionHistoryEntry['recordedAt'] }
+  >;
 };
+type AnswerSnapshot = NonNullable<ReceiptDetail['currentAnswer']>;
 
 const withoutRecordedAt = (value: ReceiptDetail): ReceiptDetail => {
   const copy = structuredClone(value);
   for (const revision of copy.questionHistory) delete revision.recordedAt;
+  return copy;
+};
+const mutateCurrentAnswer = (
+  value: ReceiptDetail,
+  mutate: (answer: AnswerSnapshot) => void,
+): ReceiptDetail => {
+  const copy = structuredClone(value);
+  const current = copy.currentAnswer;
+  const historical = copy.answerHistory.at(-1);
+  if (!current || !historical) throw new Error('Expected a receipt with an answer.');
+  mutate(current);
+  mutate(historical);
   return copy;
 };
 
@@ -299,15 +309,15 @@ describe('daily check-in canonical and receipt compatibility', () => {
     expect(correction.statusCode, correction.body).toBe(200);
     const correctionOldShape = withoutRecordedAt(correction.json().data as ReceiptDetail);
 
-    const downgradeReceipt = (key: string, response: ReceiptDetail) =>
+    const writeReceipt = (key: string, response: ReceiptDetail) =>
       database.sqlite
         .prepare(
           'update daily_check_in_idempotency_receipts set response_json=? where idempotency_key=?',
         )
         .run(JSON.stringify(response), key);
-    downgradeReceipt(createPayload.idempotencyKey, createOldShape);
-    downgradeReceipt(answerPayload.idempotencyKey, answerOldShape);
-    downgradeReceipt(correctionPayload.idempotencyKey, correctionOldShape);
+    writeReceipt(createPayload.idempotencyKey, createOldShape);
+    writeReceipt(answerPayload.idempotencyKey, answerOldShape);
+    writeReceipt(correctionPayload.idempotencyKey, correctionOldShape);
 
     process.env.PULSE_TEST_NOW = '2026-09-20T19:00:00.000Z';
     const laterCorrection = await app.inject({
@@ -412,9 +422,120 @@ describe('daily check-in canonical and receipt compatibility', () => {
     expect(current.statusCode, current.body).toBe(200);
     expect(current.json().data.currentAnswer.revision).toBe(3);
 
-    const invalidReceipt = structuredClone(createOldShape);
-    invalidReceipt.questionHistory[0].revision.id = 'missing-owned-revision';
-    downgradeReceipt(createPayload.idempotencyKey, invalidReceipt);
+    const rejectAnswerReceipt = async (response: ReceiptDetail) => {
+      writeReceipt(answerPayload.idempotencyKey, response);
+      const rejected = await app.inject({
+        method: 'POST',
+        url: `/api/v1/check-in/questions/${questionId}/answers`,
+        headers: { authorization: 'AgentToken a-secret' },
+        payload: answerPayload,
+      });
+      expect(rejected.statusCode, rejected.body).toBe(400);
+      expect(rejected.json()).toEqual({
+        error: {
+          code: 'CHECK_IN_RECEIPT_INVALID',
+          message: 'The stored check-in receipt could not be verified.',
+        },
+      });
+    };
+    const answerCorruptions: Array<[string, (answer: AnswerSnapshot) => void]> = [
+      ['foreign subject', (answer) => (answer.subjectUserId = 'foreign-owner')],
+      ['foreign answer', (answer) => (answer.answerId = 'foreign-answer')],
+      ['foreign question', (answer) => (answer.questionId = 'foreign-question')],
+      ['foreign answer revision', (answer) => (answer.id = 'foreign-answer-revision')],
+      [
+        'wrong question revision association',
+        (answer) => (answer.questionRevisionId = createOldShape.question.id),
+      ],
+      ['forged value', (answer) => (answer.value = 'Schema-valid forged value.')],
+      [
+        'forged state',
+        (answer) => {
+          answer.state = 'unknown';
+          delete answer.value;
+        },
+      ],
+      ['forged source', (answer) => (answer.source.sourceId = 'forged-source')],
+      ['forged actor', (answer) => (answer.recordedBy.id = 'forged-actor')],
+      ['forged reason', (answer) => (answer.correctionReason = 'Forged reason.')],
+      ['forged time', (answer) => (answer.answeredAt = '2026-09-20T17:00:01.000Z')],
+    ];
+    for (const [, mutate] of answerCorruptions)
+      await rejectAnswerReceipt(mutateCurrentAnswer(answerOldShape, mutate));
+
+    const strictShapeCorruption = mutateCurrentAnswer(
+      answer.json().data as ReceiptDetail,
+      (snapshot) => (snapshot.value = 'Strict-shape forged value.'),
+    );
+    await rejectAnswerReceipt(strictShapeCorruption);
+
+    const reorderedQuestionHistory = structuredClone(answerOldShape);
+    reorderedQuestionHistory.questionHistory.reverse();
+    const reorderedCurrentQuestion = reorderedQuestionHistory.questionHistory.at(-1);
+    if (!reorderedCurrentQuestion) throw new Error('Expected question history.');
+    reorderedQuestionHistory.question = structuredClone(reorderedCurrentQuestion.revision);
+    await rejectAnswerReceipt(reorderedQuestionHistory);
+
+    const missingQuestionHistory = structuredClone(answerOldShape);
+    missingQuestionHistory.questionHistory = missingQuestionHistory.questionHistory.slice(1);
+    await rejectAnswerReceipt(missingQuestionHistory);
+
+    const duplicateQuestionHistory = structuredClone(answerOldShape);
+    duplicateQuestionHistory.questionHistory = [
+      duplicateQuestionHistory.questionHistory[0],
+      structuredClone(duplicateQuestionHistory.questionHistory[0]),
+    ];
+    duplicateQuestionHistory.question = structuredClone(
+      duplicateQuestionHistory.questionHistory[1].revision,
+    );
+    await rejectAnswerReceipt(duplicateQuestionHistory);
+
+    const rejectCorrectionReceipt = async (response: ReceiptDetail) => {
+      writeReceipt(correctionPayload.idempotencyKey, response);
+      const rejected = await app.inject({
+        method: 'POST',
+        url: `/api/v1/check-in/answers/${answerId}/corrections`,
+        headers: { authorization: 'AgentToken b-secret' },
+        payload: correctionPayload,
+      });
+      expect(rejected.statusCode, rejected.body).toBe(400);
+      expect(rejected.json().error.code).toBe('CHECK_IN_RECEIPT_INVALID');
+    };
+    const reorderedHistory = structuredClone(correctionOldShape);
+    reorderedHistory.answerHistory.reverse();
+    const reorderedCurrentAnswer = reorderedHistory.answerHistory.at(-1);
+    if (!reorderedCurrentAnswer) throw new Error('Expected answer history.');
+    reorderedHistory.currentAnswer = structuredClone(reorderedCurrentAnswer);
+    await rejectCorrectionReceipt(reorderedHistory);
+
+    const missingLeadingHistory = structuredClone(correctionOldShape);
+    missingLeadingHistory.answerHistory = missingLeadingHistory.answerHistory.slice(1);
+    await rejectCorrectionReceipt(missingLeadingHistory);
+
+    const missingLatestHistory = structuredClone(correctionOldShape);
+    missingLatestHistory.answerHistory = missingLatestHistory.answerHistory.slice(0, 1);
+    missingLatestHistory.currentAnswer = structuredClone(missingLatestHistory.answerHistory[0]);
+    await rejectCorrectionReceipt(missingLatestHistory);
+
+    const duplicateHistory = structuredClone(correctionOldShape);
+    duplicateHistory.answerHistory = [
+      duplicateHistory.answerHistory[0],
+      structuredClone(duplicateHistory.answerHistory[0]),
+    ];
+    duplicateHistory.currentAnswer = structuredClone(duplicateHistory.answerHistory[1]);
+    await rejectCorrectionReceipt(duplicateHistory);
+
+    const inconsistentCurrent = structuredClone(correctionOldShape);
+    inconsistentCurrent.currentAnswer = structuredClone(inconsistentCurrent.answerHistory[0]);
+    await rejectCorrectionReceipt(inconsistentCurrent);
+
+    const missingCurrent = structuredClone(correctionOldShape);
+    missingCurrent.currentAnswer = null;
+    await rejectCorrectionReceipt(missingCurrent);
+
+    const foreignQuestionRevision = structuredClone(createOldShape);
+    foreignQuestionRevision.questionHistory[0].revision.id = 'missing-owned-revision';
+    writeReceipt(createPayload.idempotencyKey, foreignQuestionRevision);
     const rejectedInvalidReceipt = await app.inject({
       method: 'POST',
       url: '/api/v1/check-in/questions',
@@ -422,7 +543,7 @@ describe('daily check-in canonical and receipt compatibility', () => {
       payload: createPayload,
     });
     expect(rejectedInvalidReceipt.statusCode).toBe(400);
-    expect(rejectedInvalidReceipt.json().error.code).toBe('VALIDATION_ERROR');
+    expect(rejectedInvalidReceipt.json().error.code).toBe('CHECK_IN_RECEIPT_INVALID');
     await app.close();
   });
 });
