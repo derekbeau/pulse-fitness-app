@@ -160,6 +160,14 @@ describe('daily check-in runtime API', () => {
     });
     expect(answered.statusCode).toBe(201);
     const answerId = answered.json().data.currentAnswer.answerId as string;
+    expect(answered.json().data.question).toMatchObject({
+      revision: 2,
+      priorRevisionId: first.json().data.question.id,
+      state: 'answered',
+    });
+    expect(answered.json().data.currentAnswer.questionRevisionId).toBe(
+      answered.json().data.question.id,
+    );
     const stale = await app.inject({
       method: 'POST',
       url: `/api/v1/check-in/questions/${id}/answers`,
@@ -167,13 +175,14 @@ describe('daily check-in runtime API', () => {
       payload: { ...answer, idempotencyKey: 'stale-answer-b-179' },
     });
     expect(stale.statusCode).toBe(409);
-    expect(stale.json().error.code).toBe('STALE_REVISION');
+    expect(stale.json().error.code).toBe('STALE_QUESTION_REVISION');
     const corrected = await app.inject({
       method: 'POST',
       url: `/api/v1/check-in/answers/${answerId}/corrections`,
       headers: { authorization: 'AgentToken b-secret' },
       payload: {
         ...answer,
+        expectedQuestionRevisionId: answered.json().data.question.id,
         expectedAnswerRevision: 1,
         value: 'Sore during overhead reach.',
         reason: 'User clarified exact movement.',
@@ -327,6 +336,43 @@ describe('daily check-in runtime API', () => {
     expect(second.json().data.question.sourceReferences).toMatchObject([
       { id: 'concern', revisionId: 'concern-revision-2' },
     ]);
+    await app.close();
+  });
+
+  it('rejects #180 journal sources at validation and returns a 400 when the server has no user time zone', async () => {
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    const base = {
+      localDate: '2026-09-20',
+      semanticTopic: 'shoulder status after activity',
+      prompt: 'How is your shoulder after activity?',
+      followUpQuestionId: null,
+    };
+    const journal = await app.inject({
+      method: 'POST',
+      url: '/api/v1/check-in/questions',
+      headers: { authorization: 'AgentToken a-secret' },
+      payload: {
+        ...base,
+        sourceReferences: [{ kind: 'journal_entry', id: 'reserved-for-180' }],
+        idempotencyKey: 'journal-source-179',
+      },
+    });
+    expect(journal.statusCode).toBe(400);
+    database.sqlite.prepare("update users set preferences='{}' where id='owner'").run();
+    const missingZone = await app.inject({
+      method: 'POST',
+      url: '/api/v1/check-in/questions',
+      headers: { authorization: 'AgentToken a-secret' },
+      payload: {
+        ...base,
+        sourceReferences: [{ kind: 'body_concern', id: 'concern' }],
+        idempotencyKey: 'no-zone-179',
+      },
+    });
+    expect(missingZone.statusCode).toBe(400);
+    expect(missingZone.json().error.code).toBe('TIME_ZONE_REQUIRED');
     await app.close();
   });
 });

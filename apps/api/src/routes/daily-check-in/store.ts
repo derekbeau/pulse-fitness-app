@@ -82,6 +82,7 @@ const ownedTables: Record<string, { table: string; revision?: string }> = {
   body_concern: { table: 'body_context_concerns', revision: 'current_revision_id' },
   capability: { table: 'body_context_capabilities', revision: 'current_revision_id' },
   guidance: { table: 'body_context_guidance', revision: 'current_revision_id' },
+  observation: { table: 'body_context_flares' },
   proposal: { table: 'plan_change_proposals', revision: 'current_revision_id' },
   check_in_question: { table: 'daily_check_in_questions', revision: 'current_revision_id' },
   check_in_answer: { table: 'daily_check_in_answers', revision: 'current_revision_id' },
@@ -120,12 +121,15 @@ const integer = (row: SqlRow, field: string) => {
   if (typeof value !== 'number') throw new Error(`Invalid daily check-in row ${field}`);
   return value;
 };
-const questionRevision = (row: SqlRow): CheckInQuestionRevision => ({
+const questionRevision = (
+  row: SqlRow,
+  priorRevisionId: string | null = null,
+): CheckInQuestionRevision => ({
   id: string(row, 'current_revision_id'),
   questionId: string(row, 'id'),
   subjectUserId: string(row, 'user_id'),
   revision: integer(row, 'revision'),
-  priorRevisionId: null,
+  priorRevisionId,
   deduplicationKey: string(row, 'deduplication_key'),
   prompt: string(row, 'prompt'),
   state: string(row, 'state') as CheckInQuestionRevision['state'],
@@ -319,6 +323,11 @@ const instantOrNull = (row: SqlRow, field: string): string | null => {
 const detail = (sqlite: Database.Database, userId: string, id: string) => {
   const q = question(sqlite, userId, id);
   if (!q) throw new CheckInNotFoundError();
+  const currentQuestionRevision = sqlite
+    .prepare('select prior_revision_id from daily_check_in_question_revisions where id=?')
+    .get(string(q, 'current_revision_id')) as SqlRow | undefined;
+  if (!currentQuestionRevision)
+    throw new Error('Current check-in question revision was unavailable.');
   const a = sqlite
     .prepare('select * from daily_check_in_answers where question_id=? and user_id=?')
     .get(id, userId) as SqlRow | undefined;
@@ -332,7 +341,7 @@ const detail = (sqlite: Database.Database, userId: string, id: string) => {
       ).map(answerRevision)
     : [];
   return {
-    question: questionRevision(q),
+    question: questionRevision(q, nullable(currentQuestionRevision, 'prior_revision_id')),
     currentAnswer: history.at(-1) ?? null,
     answerHistory: history,
     followUpQuestionId: nullable(q, 'follow_up_question_id'),
@@ -373,8 +382,39 @@ const writeAnswer = (
     source = provenance(input.source, actor),
     revisionId = randomUUID();
   let answerId: string;
+  let questionRevisionId = string(q, 'current_revision_id');
   if (!existing) {
     answerId = randomUUID();
+    const priorQuestionRevisionId = questionRevisionId;
+    questionRevisionId = randomUUID();
+    sqlite
+      .prepare(
+        "update daily_check_in_questions set state='answered',revision=?,current_revision_id=?,updated_at=? where id=? and user_id=? and revision=?",
+      )
+      .run(
+        integer(q, 'revision') + 1,
+        questionRevisionId,
+        at,
+        questionId,
+        userId,
+        integer(q, 'revision'),
+      );
+    const answeredQuestion = question(sqlite, userId, questionId);
+    if (!answeredQuestion) throw new Error('Answered check-in question was not readable.');
+    sqlite
+      .prepare(
+        'insert into daily_check_in_question_revisions (id,question_id,user_id,revision,prior_revision_id,snapshot_json,actor_json,created_at) values (?,?,?,?,?,?,?,?)',
+      )
+      .run(
+        questionRevisionId,
+        questionId,
+        userId,
+        integer(answeredQuestion, 'revision'),
+        priorQuestionRevisionId,
+        JSON.stringify(questionRevision(answeredQuestion, priorQuestionRevisionId)),
+        actorJson(actor),
+        at,
+      );
     sqlite
       .prepare(
         'insert into daily_check_in_answers (id,question_id,user_id,state,value,source_json,answered_at,revision,current_revision_id,created_at,updated_at) values (?,?,?,?,?,?,?,?,?,?,?)',
@@ -392,11 +432,6 @@ const writeAnswer = (
         at,
         at,
       );
-    sqlite
-      .prepare(
-        "update daily_check_in_questions set state='answered',updated_at=? where id=? and user_id=? and state='pending'",
-      )
-      .run(at, questionId, userId);
   } else {
     answerId = string(existing, 'id');
     sqlite
@@ -424,7 +459,7 @@ const writeAnswer = (
       revisionId,
       answerId,
       questionId,
-      string(q, 'current_revision_id'),
+      questionRevisionId,
       userId,
       current + 1,
       existing ? string(existing, 'current_revision_id') : null,
@@ -487,7 +522,9 @@ export const readDailyContext = async (userId: string, date?: string) => {
       'select * from daily_check_in_questions where user_id=? and local_date=? order by created_at',
     )
     .all(userId, localDate) as SqlRow[];
-  const pending = qrows.filter((q) => string(q, 'state') === 'pending').map(questionRevision);
+  const pending = qrows
+    .filter((q) => string(q, 'state') === 'pending')
+    .map((q) => questionRevision(q));
   const answers = qrows
     .map((q) => detail(sqlite, userId, string(q, 'id')).currentAnswer)
     .filter((answer): answer is CheckInAnswerRevision => answer !== null);

@@ -58,6 +58,7 @@ const mutation = async <T>(
       return sendError(reply, 400, 'VALIDATION_ERROR', 'Request validation failed', {
         issues: e.issues,
       });
+    if (e instanceof UserTimeZoneRequiredError) return sendError(reply, 400, e.code, e.message);
     if (e instanceof CheckInNotFoundError)
       return sendError(reply, 404, e.code, 'Check-in record not found');
     if (e instanceof CheckInOwnedLinkNotFoundError)

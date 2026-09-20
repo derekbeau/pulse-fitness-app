@@ -201,10 +201,13 @@ describe('daily check-in writes across independent API processes', () => {
       (raced.find((r) => r.status === 201)?.body?.data?.currentAnswer as Record<string, unknown>)
         .answerId,
     );
+    const answeredQuestionRevisionId = String(
+      (raced.find((r) => r.status === 201)?.body?.data?.question as Record<string, unknown>).id,
+    );
     const correction = {
       url: `/api/v1/check-in/answers/${answerId}/corrections`,
       payload: {
-        expectedQuestionRevisionId: revisionId,
+        expectedQuestionRevisionId: answeredQuestionRevisionId,
         expectedAnswerRevision: 1,
         state: 'answered',
         value: 'Corrected fictional answer',

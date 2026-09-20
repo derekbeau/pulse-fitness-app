@@ -10,7 +10,6 @@ import {
   checkInQuestionRevisionSchema,
   guidanceSchema,
   healthObservationSchema,
-  ownedEntityReferenceSchema,
   provenanceSchema,
 } from './activity-journal-contracts.js';
 import { dateSchema } from './common.js';
@@ -19,6 +18,28 @@ const id = z.string().trim().min(1).max(255);
 const text = z.string().trim().min(1).max(10_000);
 const shortText = z.string().trim().min(1).max(255);
 const key = z.string().trim().min(8).max(255);
+const dailyCheckInSourceReferenceSchema = z
+  .object({
+    kind: z.enum([
+      'activity',
+      'activity_assignment',
+      'activity_execution',
+      'activity_goal',
+      'activity_recurrence_revision',
+      'workout_session',
+      'scheduled_workout',
+      'body_concern',
+      'capability',
+      'guidance',
+      'observation',
+      'check_in_question',
+      'check_in_answer',
+      'proposal',
+    ]),
+    id,
+    revisionId: id.nullable().optional(),
+  })
+  .strict();
 
 /** API inputs deliberately omit subject and actor: both are derived from authentication. */
 export const dailyContextQuerySchema = z.object({ date: dateSchema.optional() }).strict();
@@ -27,14 +48,7 @@ export const createDailyCheckInQuestionApiInputSchema = z
     localDate: dateSchema,
     semanticTopic: shortText,
     prompt: text,
-    sourceReferences: z
-      .array(
-        ownedEntityReferenceSchema
-          .omit({ subjectUserId: true, revisionId: true })
-          .extend({ revisionId: id.nullable().optional() }),
-      )
-      .min(1)
-      .max(50),
+    sourceReferences: z.array(dailyCheckInSourceReferenceSchema).min(1).max(50),
     followUpQuestionId: id.nullable().default(null),
     idempotencyKey: key,
   })

@@ -70,13 +70,27 @@ describe('migration 0071 daily check-in runtime', () => {
       expect(sqlite.prepare('select count(*) count from __drizzle_migrations').get()).toEqual({
         count,
       });
-      sqlite
-        .prepare(
-          "insert into daily_check_in_questions (id,user_id,local_date,time_zone,deduplication_key,semantic_topic,prompt,state,source_references_json,follow_up_question_id,revision,current_revision_id,created_at,updated_at) values ('q','owner','2026-09-20','America/Detroit','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','topic','Prompt','pending','[]',null,1,'qr','2026-09-20T00:00:00.000Z','2026-09-20T00:00:00.000Z')",
-        )
-        .run();
+      sqlite.exec(`
+        insert into daily_check_in_questions (id,user_id,local_date,time_zone,deduplication_key,semantic_topic,prompt,state,source_references_json,follow_up_question_id,revision,current_revision_id,created_at,updated_at) values
+          ('q','owner','2026-09-20','America/Detroit','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','topic','Prompt','answered','[]',null,2,'qr2','2026-09-20T00:00:00.000Z','2026-09-20T00:00:00.000Z'),
+          ('follow-up','owner','2026-09-20','America/Detroit','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','follow up','Prompt','pending','[]','q',1,'qfr1','2026-09-20T00:00:00.000Z','2026-09-20T00:00:00.000Z');
+        insert into daily_check_in_question_revisions (id,question_id,user_id,revision,prior_revision_id,snapshot_json,actor_json,created_at) values
+          ('qr1','q','owner',1,null,'{}','{}','2026-09-20T00:00:00.000Z'),
+          ('qr2','q','owner',2,'qr1','{}','{}','2026-09-20T00:00:00.000Z'),
+          ('qfr1','follow-up','owner',1,null,'{}','{}','2026-09-20T00:00:00.000Z');
+        insert into daily_check_in_answers (id,question_id,user_id,state,value,source_json,answered_at,revision,current_revision_id,created_at,updated_at) values
+          ('answer','q','owner','answered','Fictional answer','{}','2026-09-20T00:00:00.000Z',2,'ar2','2026-09-20T00:00:00.000Z','2026-09-20T00:00:00.000Z');
+        insert into daily_check_in_answer_revisions (id,answer_id,question_id,question_revision_id,user_id,revision,prior_revision_id,state,value,source_json,answered_at,reason,actor_json,created_at) values
+          ('ar1','answer','q','qr1','owner',1,null,'answered','Fictional answer','{}','2026-09-20T00:00:00.000Z',null,'{}','2026-09-20T00:00:00.000Z'),
+          ('ar2','answer','q','qr2','owner',2,'ar1','answered','Fictional correction','{}','2026-09-20T00:00:00.000Z','Fictional reason','{}','2026-09-20T00:00:00.000Z');
+      `);
       sqlite.prepare("delete from users where id='owner'").run();
       expect(sqlite.prepare('select count(*) count from daily_check_in_questions').get()).toEqual({
+        count: 0,
+      });
+      expect(
+        sqlite.prepare('select count(*) count from daily_check_in_answer_revisions').get(),
+      ).toEqual({
         count: 0,
       });
       expect(sqlite.pragma('foreign_key_check')).toEqual([]);
