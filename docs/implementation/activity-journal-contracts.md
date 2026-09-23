@@ -1,6 +1,6 @@
 # Activity / Journal canonical contracts
 
-Status: checkpoint #180 Journal observation runtime. The exported `activity-journal-v1` foundation remains in `packages/shared/src/schemas/activity-journal-contracts.ts`; strict external Activity, body-context, and daily-check-in request/read schemas are in `activity-runtime.ts`, `body-context-runtime.ts`, and `daily-check-in-runtime.ts`. #176–#178 are accepted predecessors. #179 owns registered daily context/check-in routes; #180 adds Journal persistence, reads, immutable corrections, and derived weekly reflection. #181–#183 remain unimplemented.
+Status: checkpoint #182 Calendar read model and live Calendar UI. The exported `activity-journal-v1` foundation remains in `packages/shared/src/schemas/activity-journal-contracts.ts`; strict external Activity, body-context, and daily-check-in request/read schemas are in `activity-runtime.ts`, `body-context-runtime.ts`, and `daily-check-in-runtime.ts`. #176–#178 are accepted predecessors. #179 owns registered daily context/check-in routes; #180 adds Journal persistence, reads, immutable corrections, and derived weekly reflection. #181 is implemented; #182 is implemented on this review branch; #183 remains unimplemented.
 
 ## Canonical ownership and records
 
@@ -109,9 +109,9 @@ All routes use existing `/api/v1` authentication conventions and user scoping. A
 | `GET /api/v1/journal/weekly-reflection?start=YYYY-MM-DD&end=YYYY-MM-DD` | `weeklyReflectionReadModelSchema`, saved facts and explicit gaps                              | #180               | Implemented                  |
 | `GET /api/v1/workout-sessions/:id/session-context`                      | strict foundation projection plus `sessionContextRuntimeSchema`                               | #181               | Implemented                  |
 | `GET /api/v1/planning/what-matters?date=YYYY-MM-DD`                     | subject-local `sessionContextRuntimeSchema`                                                   | #181               | Implemented                  |
-| `GET /api/v1/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD`                    | `calendarReadModelSchema`; cross-domain filters may repeat                                    | #182               | Unimplemented                |
+| `GET /api/v1/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD`                    | strict `calendarRuntimeSchema` with foundation projection; cross-domain filters may repeat    | #182               | Implemented, review pending  |
 
-#183 owns the final Activity/Journal/Context/Calendar UI, agent operating examples, and integrated acceptance. It does not become the fallback owner for missing runtime obligations above.
+#183 owns remaining Activity/Journal/Session Context UI, broader agent operating examples, and integrated acceptance. #182 owns the live top-level Calendar UI and its read-only agent GET example. It does not become the fallback owner for missing runtime obligations above.
 
 ## Contract evidence boundary
 
@@ -124,3 +124,7 @@ The #176 fixtures prove shared-schema semantics and pure retry/transition policy
 ## #181 additive planning read boundary
 
 `sessionContextRuntimeSchema` adds target, local date/timezone, tracked irrelevant concerns, canonical Journal observations, source-linked workload identities, freshness attributions, co-occurrences, and explicit missing inputs. A workout-session response also validates the exact foundation-field projection through the unchanged strict `sessionContextReadModelSchema`. Activity and workout durations remain in native units; stored workout active duration or null is authoritative. A linked execution with a missing, ineligible, or date-mismatched workout contributes no fabricated load identity and exposes a missing-input code. Both registered GETs are owner-scoped read models and do not write to source domains. The React Session Context cards remain preview UI until #183.
+
+## #182 Calendar boundary (review pending)
+
+The registered Calendar GET projects owner-scoped materialized assignments, executions, workouts, Journal, flares, and nutrition days without persisting calendar rows. It reuses #179 source tokens only for persisted sources and the existing daily nutrition target authority. Target-only days use a stable date read identity with null actual intake and no source token; the foundation requires `record.kind: nutrition_log` even when no log exists, so that identifier is explicitly a read projection and must never be treated as a persisted log id. Explicit complete/partial empty days retain their status and zero logged total; an explicit unknown empty day keeps actual intake unknown. Workouts uses Calendar workout record ids for display while retaining its mutation APIs. Reverse-linked live sessions now block a changed scheduled date in the existing guarded primitive. No migration or Calendar write route is added.

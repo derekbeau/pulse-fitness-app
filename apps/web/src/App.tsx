@@ -116,6 +116,11 @@ const SettingsPage = lazy(async () => {
   return { default: module.SettingsPage };
 });
 
+const CalendarPage = lazy(async () => {
+  const module = await import('./pages/calendar');
+  return { default: module.CalendarPage };
+});
+
 const WorkoutsPage = lazy(async () => {
   const module = await import('./pages/workouts');
   return { default: module.WorkoutsPage };
@@ -187,6 +192,7 @@ function AppRoutes() {
         <Route element={renderWithPageFallback(<DataQualityPage />)} path="data-quality" />
         <Route element={renderWithPageFallback(<DesignSystemPage />)} path="design-system" />
         <Route element={renderWithPageFallback(<WorkoutsPage />)} path="workouts" />
+        <Route element={renderWithPageFallback(<CalendarPage />)} path="calendar" />
         <Route element={renderWithPageFallback(<ActiveWorkoutPage />)} path="workouts/active" />
         <Route
           element={renderWithPageFallback(<ScheduledWorkoutDetailPage />)}

@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>Pulse #182 fictional Calendar GET fixture</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font: 16px/1.45 system-ui;
+      background: #0d1719;
+      color: #edf6f3;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 1100px;
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 2.3rem;
+      letter-spacing: -0.04em;
+    }
+    p {
+      color: #9dbbb7;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+    button {
+      border: 1px solid #52766e;
+      border-radius: 100px;
+      background: #19302d;
+      color: #edf6f3;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+    }
+    button[aria-pressed='true'] {
+      background: #a6e2b6;
+      color: #10201b;
+    }
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      height: 12rem;
+      border: 1px solid #52766e;
+      border-radius: 12px;
+      background: #102220;
+      color: #edf6f3;
+      padding: 1rem;
+    }
+    section {
+      border-top: 1px solid #35504c;
+      padding: 1rem 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.7rem;
+    }
+    article {
+      background: #172d2b;
+      border: 1px solid #34534b;
+      border-radius: 12px;
+      padding: 1rem;
+    }
+    small {
+      color: #a4c6bd;
+    }
+    strong {
+      display: block;
+      margin: 0.25rem 0;
+    }
+    .note {
+      border-left: 3px solid #a6e2b6;
+      padding-left: 0.8rem;
+    }
+  </style>
+  <h1>Calendar / agenda</h1>
+  <p>
+    Fictional registered <code>GET /api/v1/calendar</code> payload. Paste a real response envelope
+    from an isolated fixture API and choose Render; this file performs no network requests.
+  </p>
+  <p class="note">
+    Tuesday’s assignment and Thursday’s execution keep separate identities. A target-only nutrition
+    day uses a date read identity, has no source token, and leaves actual intake unknown.
+  </p>
+  <label for="payload">Registered API JSON payload</label
+  ><textarea id="payload"></textarea>
+  <div class="toolbar">
+    <button id="render">Render payload</button><button id="sample">Restore fictional sample</button>
+  </div>
+  <div class="toolbar" aria-label="Domain filters" id="domains"></div>
+  <div class="toolbar" aria-label="State filters" id="states"></div>
+  <p id="summary" role="status"></p>
+  <main id="agenda"></main>
+  <script>
+    const sample = {
+      data: {
+        contractVersion: 'activity-journal-v1',
+        subjectUserId: 'fictional-owner',
+        from: '2026-03-08',
+        to: '2026-03-14',
+        timeZone: 'America/Detroit',
+        filters: { domain: [], state: [] },
+        items: [
+          {
+            id: 'flare-spring',
+            domain: 'body_context',
+            record: { kind: 'observation', id: 'flare-spring' },
+            localDate: '2026-03-08',
+            occurrenceAt: '2026-03-08T03:30:00-04:00',
+            state: 'observed',
+            title: 'Fictional shoulder flare',
+          },
+          {
+            id: 'plan-tue',
+            domain: 'activity',
+            record: { kind: 'activity_assignment', id: 'plan-tue' },
+            localDate: '2026-03-10',
+            occurrenceAt: null,
+            state: 'planned',
+            title: 'Fictional walk',
+            plannedLocalDate: '2026-03-10',
+          },
+          {
+            id: 'scheduled-tue',
+            domain: 'workout',
+            record: { kind: 'scheduled_workout', id: 'scheduled-tue' },
+            localDate: '2026-03-10',
+            occurrenceAt: null,
+            state: 'planned',
+            title: 'Fictional strength plan',
+          },
+          {
+            id: 'nutrition-day:2026-03-11',
+            domain: 'nutrition',
+            record: { kind: 'nutrition_log', id: 'nutrition-day:2026-03-11', revisionId: null },
+            localDate: '2026-03-11',
+            occurrenceAt: null,
+            state: 'summary',
+            title: 'Nutrition',
+            nutrition: {
+              status: null,
+              actual: null,
+              target: { calories: 2000, protein: 100, carbs: 250, fat: 60 },
+            },
+          },
+          {
+            id: 'actual-thu',
+            domain: 'activity',
+            record: { kind: 'activity_execution', id: 'actual-thu' },
+            localDate: '2026-03-12',
+            occurrenceAt: '2026-03-12T23:30:00-04:00',
+            state: 'completed',
+            title: 'Fictional walk',
+            actualLocalDate: '2026-03-12',
+          },
+          {
+            id: 'session-thu',
+            domain: 'workout',
+            record: { kind: 'workout_session', id: 'session-thu' },
+            localDate: '2026-03-12',
+            occurrenceAt: null,
+            state: 'completed',
+            title: 'Fictional strength session',
+          },
+          {
+            id: 'journal-thu',
+            domain: 'journal',
+            record: { kind: 'journal_entry', id: 'journal-thu' },
+            localDate: '2026-03-12',
+            occurrenceAt: null,
+            state: 'observed',
+            title: 'Fictional note',
+          },
+          {
+            id: 'nutrition-thu',
+            domain: 'nutrition',
+            record: { kind: 'nutrition_log', id: 'nutrition-thu' },
+            localDate: '2026-03-12',
+            occurrenceAt: null,
+            state: 'summary',
+            title: 'Nutrition',
+            nutrition: {
+              status: 'complete',
+              actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+              target: { calories: 2000, protein: 100, carbs: 250, fat: 60 },
+            },
+          },
+        ],
+      },
+    };
+    const $ = (id) => document.getElementById(id);
+    let payload = sample;
+    let domains = new Set(),
+      states = new Set();
+    const domainNames = ['activity', 'workout', 'journal', 'body_context', 'nutrition'],
+      stateNames = ['planned', 'completed', 'observed', 'summary'];
+    function buttons(id, options, selected) {
+      $(id).replaceChildren(
+        ...options.map((option) => {
+          const button = document.createElement('button');
+          button.textContent = option.replace('_', ' ');
+          button.setAttribute('aria-pressed', selected.has(option));
+          button.onclick = () => {
+            selected.has(option) ? selected.delete(option) : selected.add(option);
+            draw();
+          };
+          return button;
+        }),
+      );
+    }
+    function draw() {
+      buttons('domains', domainNames, domains);
+      buttons('states', stateNames, states);
+      const model = payload.data ?? payload;
+      const items = (model.items ?? []).filter(
+        (item) =>
+          (!domains.size || domains.has(item.domain)) && (!states.size || states.has(item.state)),
+      );
+      $('summary').textContent =
+        `${items.length} of ${model.items.length} records · ${model.timeZone} · ${model.from} to ${model.to}`;
+      const dates = [...new Set(items.map((item) => item.localDate))].sort();
+      $('agenda').replaceChildren(
+        ...dates.map((date) => {
+          const section = document.createElement('section');
+          const heading = document.createElement('h2');
+          heading.textContent = date;
+          section.append(heading);
+          const grid = document.createElement('div');
+          grid.className = 'grid';
+          for (const item of items.filter((entry) => entry.localDate === date)) {
+            const card = document.createElement('article');
+            const category = document.createElement('small');
+            category.textContent = `${item.domain} · ${item.state} · ${item.record.kind}:${item.record.id}`;
+            const title = document.createElement('strong');
+            title.textContent = item.title;
+            card.append(category, title);
+            if (item.nutrition) {
+              const detail = document.createElement('small');
+              detail.textContent = `Actual ${item.nutrition.actual ? item.nutrition.actual.calories + ' kcal' : 'unknown'} · target ${item.nutrition.target ? item.nutrition.target.calories + ' kcal' : 'none'}`;
+              card.append(detail);
+            }
+            grid.append(card);
+          }
+          section.append(grid);
+          return section;
+        }),
+      );
+    }
+    $('render').onclick = () => {
+      try {
+        payload = JSON.parse($('payload').value);
+        draw();
+      } catch (error) {
+        $('summary').textContent = String(error);
+      }
+    };
+    $('sample').onclick = () => {
+      $('payload').value = JSON.stringify(sample, null, 2);
+      payload = sample;
+      domains = new Set();
+      states = new Set();
+      draw();
+    };
+    $('sample').click();
+  </script>
+</html>

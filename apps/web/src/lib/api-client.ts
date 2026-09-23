@@ -316,9 +316,11 @@ async function performRequest<T>(path: string, init?: ApiRequestInit): Promise<T
 
     if (shouldRetryWithFreshDevSession) {
       clearStoredAuthState();
+      // If local development has no auto-session credentials, preserve the
+      // server's 401 instead of replacing it with a credential-setup error.
       const retryToken = await resolveSessionToken({
         allowDevAutoSession: true,
-      });
+      }).catch(() => null);
 
       if (retryToken) {
         const retryResponse = await fetch(buildUrl(path), createRequestInit(init, retryToken));

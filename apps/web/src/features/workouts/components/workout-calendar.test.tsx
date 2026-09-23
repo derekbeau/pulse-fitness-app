@@ -23,6 +23,24 @@ const dateAuthorityMocks = vi.hoisted(() => {
   };
 });
 
+vi.mock('@/features/calendar/api/calendar', () => ({
+  useCalendar: () => ({
+    refetch: vi.fn(),
+    data: {
+      items: [
+        'schedule-locked',
+        'schedule-1',
+        'schedule-2',
+        'schedule-3',
+        'schedule-target',
+        'session-in-progress',
+        'session-completed',
+        'session-1',
+      ].map((id) => ({ domain: 'workout', record: { id } })),
+    },
+  }),
+}));
+
 vi.mock('@/features/workouts/hooks/use-today-key', () => ({
   useTodayKey: () => dateAuthorityMocks.state,
 }));

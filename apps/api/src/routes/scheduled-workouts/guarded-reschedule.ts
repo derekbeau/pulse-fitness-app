@@ -63,7 +63,13 @@ export const rescheduleScheduledWorkoutGuarded = ({
   if (plannedLocalDate === current.date) {
     return { changed: false, id: scheduledWorkoutId, updatedAt: current.updatedAt };
   }
-  if (current.sessionId !== null) {
+  const reverseLinkedSession = sqlite
+    .prepare(
+      `select 1 from workout_sessions where user_id=? and scheduled_workout_id=?
+       and deleted_at is null and status != 'cancelled' limit 1`,
+    )
+    .get(userId, scheduledWorkoutId);
+  if (current.sessionId !== null || reverseLinkedSession) {
     throw new ScheduledWorkoutGuardConflictError('linked_session', current.updatedAt);
   }
   if (
@@ -77,7 +83,9 @@ export const rescheduleScheduledWorkoutGuarded = ({
   const result = sqlite
     .prepare(
       `update scheduled_workouts set date=?,updated_at=?
-        where id=? and user_id=? and date=? and updated_at=? and session_id is null`,
+        where id=? and user_id=? and date=? and updated_at=? and session_id is null
+          and not exists (select 1 from workout_sessions ws where ws.user_id=scheduled_workouts.user_id
+            and ws.scheduled_workout_id=scheduled_workouts.id and ws.deleted_at is null and ws.status != 'cancelled')`,
     )
     .run(
       plannedLocalDate,

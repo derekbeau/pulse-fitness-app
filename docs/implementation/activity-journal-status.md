@@ -1,3 +1,13 @@
+# #182 checkpoint status (ready for independent review)
+
+- Parent Astra approved the frozen #182 contract at `5aae3bd1bab11d6057c935a1b1f95629208cc458`. Worktree was clean and writable on `feat/activity-journal-release` at that SHA before edits.
+- The registered Calendar GET, strict runtime projection, top-level Calendar page, workout-only shared-record adapter, and fictional browser fixture are implemented on this branch. #183 preview surfaces remain unchanged.
+- Target-only nutrition has a stable date read identity, null actual, and no source token. This is a read projection required by the foundation `nutrition_log` kind, never a persisted log.
+- A reverse-linked completed workout exposed an existing scheduled-date guard gap; the guarded primitive now checks both session link directions. Focused API and populated browser gates passed. Final matrix receipts are in `/Users/meridian/Projects/qa-reports/pulse-activity-journal-release/checkpoint-182`; independent acceptance remains pending.
+- No new table, migration, Calendar write route, production action, merge, or issue closure.
+
+---
+
 # #181 checkpoint status (repair ready for independent review)
 
 - Parent Astra approved `activity-journal-181.md` at `de7c0d6ee1f49e4c2de2bd6fcf5ce36372681228`. The foundation projection, canonical active duration, and linked date/status mismatch clarifications were recorded before code changes.

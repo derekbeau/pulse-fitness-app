@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, TriangleAlert } from 'lucide-react';
 import type {
   ScheduledWorkoutListItem,
@@ -32,9 +32,10 @@ import {
 } from '../api/workouts';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 import { useTodayKey } from '../hooks/use-today-key';
-import { hasAvailableTemplate } from '../lib/workout-filters';
 import { buildScheduledStartPayload } from '../lib/scheduled-start';
 import { ApiError } from '@/lib/api-client';
+import { useCalendar } from '@/features/calendar/api/calendar';
+import { calendarWorkoutItems } from '@/features/calendar/lib/calendar-workout-filter';
 import { toast } from 'sonner';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
@@ -91,10 +92,11 @@ type DayDetails = {
 type DayLookupContext = {
   completedSessionsByDate: Map<string, WorkoutSessionListItem[]>;
   inProgressSessionsByDate: Map<string, WorkoutSessionListItem[]>;
-  sessionById: Map<string, WorkoutSessionListItem>;
   scheduledByDate: Map<string, ScheduledWorkoutListItem[]>;
 };
 
+// The displayed scheduled and session ids are canonical Calendar workout record ids;
+// mutation hooks remain the existing workout APIs. Never create a second schedule here.
 export function WorkoutCalendar({
   buildDayHref,
   buildSessionHref,
@@ -117,17 +119,32 @@ export function WorkoutCalendar({
     };
   }, [calendarDays, visibleMonth]);
 
+  const calendarQuery = useCalendar({
+    from: dateRange.from,
+    to: dateRange.to,
+    domain: ['workout'],
+    state: [],
+  });
+  const canonicalIds = useMemo(
+    () =>
+      new Set(calendarWorkoutItems(calendarQuery.data?.items ?? []).map((item) => item.record.id)),
+    [calendarQuery.data],
+  );
   const sessionsQuery = useWorkoutSessions({
-    status: ['completed', 'in-progress', 'paused'],
+    status: ['scheduled', 'completed', 'in-progress', 'paused'],
   });
   const scheduledQuery = useScheduledWorkouts({
     from: dateRange.from,
     to: dateRange.to,
   });
+  const refetchCalendar = calendarQuery.refetch;
+  useEffect(() => {
+    if (sessionsQuery.dataUpdatedAt || scheduledQuery.dataUpdatedAt) void refetchCalendar();
+  }, [sessionsQuery.dataUpdatedAt, scheduledQuery.dataUpdatedAt, refetchCalendar]);
 
   const activeSessions = useMemo(
-    () => (sessionsQuery.data ?? []).filter(hasAvailableTemplate),
-    [sessionsQuery.data],
+    () => (sessionsQuery.data ?? []).filter((session) => canonicalIds.has(session.id)),
+    [sessionsQuery.data, canonicalIds],
   );
   const activeCompletedSessions = useMemo(
     () =>
@@ -154,17 +171,22 @@ export function WorkoutCalendar({
   const scheduledByDate = useMemo(() => {
     const grouped = new Map<string, ScheduledWorkoutListItem[]>();
     for (const scheduledWorkout of scheduledQuery.data ?? []) {
+      if (!canonicalIds.has(scheduledWorkout.id)) continue;
       const scheduledOnDate = grouped.get(scheduledWorkout.date) ?? [];
       scheduledOnDate.push(scheduledWorkout);
       grouped.set(scheduledWorkout.date, scheduledOnDate);
     }
 
     return grouped;
-  }, [scheduledQuery.data]);
+  }, [scheduledQuery.data, canonicalIds]);
   const inProgressSessionsByDate = useMemo(() => {
     const grouped = new Map<string, WorkoutSessionListItem[]>();
     for (const session of activeSessions) {
-      if (session.status !== 'in-progress' && session.status !== 'paused') {
+      if (
+        session.status !== 'in-progress' &&
+        session.status !== 'paused' &&
+        session.status !== 'scheduled'
+      ) {
         continue;
       }
       const sessionsForDate = grouped.get(session.date) ?? [];
@@ -174,19 +196,14 @@ export function WorkoutCalendar({
 
     return grouped;
   }, [activeSessions]);
-  const sessionById = useMemo(
-    () => new Map(activeSessions.map((session) => [session.id, session])),
-    [activeSessions],
-  );
 
   const lookupContext = useMemo(
     () => ({
       completedSessionsByDate: completedSessionByDate,
       inProgressSessionsByDate,
-      sessionById,
       scheduledByDate,
     }),
-    [completedSessionByDate, inProgressSessionsByDate, scheduledByDate, sessionById],
+    [completedSessionByDate, inProgressSessionsByDate, scheduledByDate],
   );
 
   const [selectedDateKeyState, setSelectedDateKey] = useState<string | null>(null);
@@ -246,6 +263,16 @@ export function WorkoutCalendar({
       </CardHeader>
 
       <CardContent className="grid gap-3 px-3 py-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(18rem,1fr)] lg:gap-6 lg:px-6 lg:py-6">
+        {calendarQuery.isPending ? (
+          <p role="status" className="col-span-full text-sm text-muted-foreground">
+            Loading workout calendar…
+          </p>
+        ) : null}
+        {calendarQuery.isError ? (
+          <p role="alert" className="col-span-full text-sm text-destructive">
+            Workout calendar could not load. Try again later.
+          </p>
+        ) : null}
         <section aria-label="Monthly workout calendar" className="space-y-3">
           <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
             {DAY_LABELS.map((day) => (
@@ -583,7 +610,10 @@ function DayWorkoutItemCard({
   }
 
   return (
-    <div className="rounded-2xl border border-border/70 bg-secondary/40 p-2.5">
+    <div
+      className="rounded-2xl border border-border/70 bg-secondary/40 p-2.5"
+      data-record-id={workout.id}
+    >
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium text-foreground">
           {workout.status === 'scheduled' && workout.scheduledWorkout && !workout.isUnavailable ? (
@@ -807,7 +837,6 @@ function getDayDetails(dateKey: string, context: DayLookupContext): DayDetails {
     scheduledWorkouts,
     completedSessions,
     inProgressSessions,
-    sessionById: context.sessionById,
   });
   const completedSession =
     workouts.find((workout) => workout.status === 'completed')?.session ?? null;
@@ -842,55 +871,19 @@ function buildDayWorkouts({
   scheduledWorkouts,
   completedSessions,
   inProgressSessions,
-  sessionById,
 }: {
   scheduledWorkouts: ScheduledWorkoutListItem[];
   completedSessions: WorkoutSessionListItem[];
   inProgressSessions: WorkoutSessionListItem[];
-  sessionById: Map<string, WorkoutSessionListItem>;
 }) {
   const workouts: DayWorkout[] = [];
-  const consumedSessionIds = new Set<string>();
-
   for (const scheduledWorkout of scheduledWorkouts) {
-    const linkedSession = scheduledWorkout.sessionId
-      ? (sessionById.get(scheduledWorkout.sessionId) ?? null)
-      : null;
+    // Once any live session owns a schedule, only the session identity is displayed.
+    if (scheduledWorkout.sessionId) continue;
     const fallbackName = scheduledWorkout.templateName ?? 'Workout unavailable';
 
-    if (linkedSession && linkedSession.status === 'completed') {
-      workouts.push({
-        id: `scheduled-${scheduledWorkout.id}`,
-        isUnavailable: false,
-        name: linkedSession.templateName ?? linkedSession.name ?? fallbackName,
-        scheduledWorkout: scheduledWorkout,
-        session: linkedSession,
-        status: 'completed',
-        templateId: linkedSession.templateId ?? scheduledWorkout.templateId ?? null,
-      });
-      consumedSessionIds.add(linkedSession.id);
-      continue;
-    }
-
-    if (
-      linkedSession &&
-      (linkedSession.status === 'in-progress' || linkedSession.status === 'paused')
-    ) {
-      workouts.push({
-        id: `scheduled-${scheduledWorkout.id}`,
-        isUnavailable: false,
-        name: linkedSession.templateName ?? linkedSession.name ?? fallbackName,
-        scheduledWorkout: scheduledWorkout,
-        session: linkedSession,
-        status: 'in-progress',
-        templateId: linkedSession.templateId ?? scheduledWorkout.templateId ?? null,
-      });
-      consumedSessionIds.add(linkedSession.id);
-      continue;
-    }
-
     workouts.push({
-      id: `scheduled-${scheduledWorkout.id}`,
+      id: scheduledWorkout.id,
       isUnavailable: scheduledWorkout.templateId == null || scheduledWorkout.templateName == null,
       name: fallbackName,
       scheduledWorkout: scheduledWorkout,
@@ -901,11 +894,8 @@ function buildDayWorkouts({
   }
 
   for (const session of completedSessions) {
-    if (consumedSessionIds.has(session.id)) {
-      continue;
-    }
     workouts.push({
-      id: `completed-${session.id}`,
+      id: session.id,
       isUnavailable: false,
       name: session.templateName ?? session.name,
       scheduledWorkout: null,
@@ -916,16 +906,13 @@ function buildDayWorkouts({
   }
 
   for (const session of inProgressSessions) {
-    if (consumedSessionIds.has(session.id)) {
-      continue;
-    }
     workouts.push({
-      id: `in-progress-${session.id}`,
+      id: session.id,
       isUnavailable: false,
       name: session.templateName ?? session.name,
       scheduledWorkout: null,
       session,
-      status: 'in-progress',
+      status: session.status === 'scheduled' ? 'scheduled' : 'in-progress',
       templateId: session.templateId ?? null,
     });
   }

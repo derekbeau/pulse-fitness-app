@@ -10,6 +10,13 @@ import { WorkoutCalendar } from './workout-calendar';
 const state = vi.hoisted(() => ({
   date: '2026-09-06' as string | null,
   start: vi.fn(),
+  refetchCalendar: vi.fn(),
+}));
+vi.mock('@/features/calendar/api/calendar', () => ({
+  useCalendar: () => ({
+    data: { items: [{ domain: 'workout', record: { id: 'scheduled-1' } }] },
+    refetch: state.refetchCalendar,
+  }),
 }));
 vi.mock('../hooks/use-today-key', () => ({
   useTodayKey: () => ({
