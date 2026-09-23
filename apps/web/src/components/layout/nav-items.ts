@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
+  Calendar,
   ShieldCheck,
   Dumbbell,
   Ellipsis,
@@ -29,6 +30,11 @@ export const primaryNavItems: NavItem[] = [
     icon: Dumbbell,
     label: 'Workouts',
     to: '/workouts',
+  },
+  {
+    icon: Calendar,
+    label: 'Calendar',
+    to: '/calendar',
   },
   {
     icon: UtensilsCrossed,

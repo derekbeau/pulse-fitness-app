@@ -582,6 +582,7 @@ function createScheduledWorkout(
     templateName: 'Scheduled Workout',
     sessionId: null,
     createdAt: 1,
+    updatedAt: 1,
     ...overrides,
   };
 }

@@ -12,6 +12,12 @@ import {
 import { fileURLToPath } from 'node:url';
 
 import { authRoutes } from './routes/auth/index.js';
+import { activityRoutes } from './routes/activities/index.js';
+import { bodyContextRuntimeRoutes } from './routes/body-context/index.js';
+import { dailyCheckInRoutes } from './routes/daily-check-in/index.js';
+import { journalRoutes } from './routes/journal/index.js';
+import { planningRoutes } from './routes/planning/index.js';
+import { calendarRoutes } from './routes/calendar/index.js';
 import { adaptiveNutritionRoutes } from './routes/adaptive-nutrition/index.js';
 import { agentTokenRoutes } from './routes/agent-tokens/index.js';
 import { exerciseRoutes } from './routes/exercises/index.js';
@@ -305,6 +311,12 @@ export const buildServer = () => {
 
   app.get('/health', async () => ({ status: 'ok' }));
   app.register(authRoutes, { prefix: '/api/v1/auth' });
+  app.register(activityRoutes, { prefix: '/api/v1' });
+  app.register(bodyContextRuntimeRoutes, { prefix: '/api/v1' });
+  app.register(dailyCheckInRoutes, { prefix: '/api/v1' });
+  app.register(journalRoutes, { prefix: '/api/v1' });
+  app.register(planningRoutes, { prefix: '/api/v1' });
+  app.register(calendarRoutes, { prefix: '/api/v1' });
   app.register(dataQualityRoutes, { prefix: '/api/v1/data-quality' });
   app.register(adaptiveNutritionRoutes, { prefix: '/api/v1/adaptive-nutrition' });
   app.register(agentTokenRoutes, { prefix: '/api/v1/agent-tokens' });

@@ -400,6 +400,7 @@ function ScheduledWorkoutCard({
 
     await rescheduleWorkoutMutation.mutateAsync({
       date: requestedDate,
+      expectedUpdatedAt: scheduledWorkout.updatedAt,
       id: scheduledWorkout.id,
     });
   }

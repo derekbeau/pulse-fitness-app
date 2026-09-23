@@ -176,6 +176,7 @@ const scheduledWorkoutsResponse = [
     templateName: 'Upper Push',
     sessionId: null,
     createdAt: 1,
+    updatedAt: 1,
   },
 ];
 

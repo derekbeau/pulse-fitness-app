@@ -56,7 +56,7 @@ describe('db bootstrap', () => {
     vi.resetModules();
   });
 
-  it('enables foreign key enforcement on the sqlite connection', async () => {
+  it('enables foreign keys and bounded WAL writer waiting on the sqlite connection', async () => {
     process.env.DATABASE_URL = ':memory:';
     vi.resetModules();
 
@@ -67,6 +67,8 @@ describe('db bootstrap', () => {
       expect(pragmaCalls).toEqual([
         'journal_mode = WAL',
         'foreign_keys = ON',
+        'busy_timeout = 5000',
+        'synchronous = NORMAL',
         'foreign_keys',
       ]);
     } finally {

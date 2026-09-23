@@ -358,6 +358,21 @@ describe('api-client', () => {
     expect(window.localStorage.getItem(API_TOKEN_STORAGE_KEY)).toBe('fresh-dev-token');
   });
 
+  it('retains the server 401 when dev auto-session credentials are unavailable', async () => {
+    vi.stubEnv('DEV', true);
+    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, 'expired-token');
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'Session expired' } }),
+        { status: 401 },
+      ),
+    );
+    await expect(
+      apiRequest('/api/v1/calendar?from=2026-03-08&to=2026-03-08'),
+    ).rejects.toMatchObject({ status: 401, code: 'UNAUTHORIZED', message: 'Session expired' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('does not retry non-user NOT_FOUND responses', async () => {
     vi.stubEnv('DEV', true);
     vi.stubEnv('VITE_PULSE_DEV_USERNAME', 'pulse-dev');

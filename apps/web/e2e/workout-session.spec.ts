@@ -289,19 +289,12 @@ test.describe.serial('workout session flow', () => {
       .getByRole('button', { name: '8', exact: true })
       .click();
     await page
-      .getByRole('group', { name: 'Shoulder feel rating' })
-      .getByRole('button', { name: '4', exact: true })
-      .click();
-    await page
-      .getByRole('group', { name: 'Energy post workout options' })
-      .getByRole('button')
-      .nth(3)
-      .click();
-    await page
       .getByRole('group', { name: 'Any pain or discomfort? response' })
-      .getByRole('button')
-      .nth(1)
+      .getByRole('button', { name: 'No' })
       .click();
+    await page
+      .getByRole('textbox', { name: 'Anything that affected this session?' })
+      .fill('Fictional session completed as planned.');
 
     const finalizeButton = page.getByRole('button', { name: 'Finalize session' });
     await expect(finalizeButton).toBeEnabled({ timeout: 15_000 });
@@ -424,5 +417,166 @@ test.describe.serial('workout session flow', () => {
     await page.waitForTimeout(1_200);
     const countdownAfterTick = toRestTimerSeconds(await restTimer.innerText());
     expect(countdownAfterTick).toBeLessThan(countdownAfterInput);
+  });
+
+  test('keeps repeated exercise occurrences separate through completion and correction', async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    const api = await request.newContext({
+      baseURL: apiBaseURL,
+      extraHTTPHeaders: { Authorization: `Bearer ${authToken}` },
+    });
+    try {
+      const repeatedExerciseId = seededExerciseIds[1];
+      const repeatedName = seededExercises[1].name;
+      const create = await api.post('/api/v1/workout-templates', {
+        data: {
+          name: `Repeated bench ${seedSuffix}`,
+          sections: [
+            {
+              type: 'warmup',
+              exercises: [
+                { exerciseId: repeatedExerciseId, sets: 1, repsMin: 10, repsMax: 10, cues: [] },
+              ],
+            },
+            {
+              type: 'main',
+              exercises: [
+                { exerciseId: repeatedExerciseId, sets: 1, repsMin: 8, repsMax: 8, cues: [] },
+              ],
+            },
+          ],
+          tags: ['e2e'],
+        },
+      });
+      expect(create.ok(), await create.text()).toBeTruthy();
+      const template = (await create.json()).data as {
+        id: string;
+        sections: Array<{ exercises: Array<{ id: string }> }>;
+      };
+      const warmupOccurrence = template.sections[0].exercises[0].id;
+      const mainOccurrence = template.sections[1].exercises[0].id;
+      expect(warmupOccurrence).not.toBe(mainOccurrence);
+
+      await authenticatePage(page);
+      await page.goto(`/workouts/template/${template.id}`);
+      await page.getByRole('button', { name: 'Start Workout' }).click();
+      const sameDayDialog = page.getByRole('alertdialog', {
+        name: 'This day already has a workout',
+      });
+      await Promise.race([
+        sameDayDialog.waitFor({ state: 'visible' }),
+        page.waitForURL(/sessionId=/),
+      ]);
+      if (await sameDayDialog.isVisible()) {
+        await sameDayDialog.getByRole('button', { name: 'Create another anyway' }).click();
+      }
+      await expect(page).toHaveURL(/sessionId=/);
+      const warmupPanel = page.locator(`[id="exercise-panel-${warmupOccurrence}"]`);
+      const mainPanel = page.locator(`[id="exercise-panel-${mainOccurrence}"]`);
+      for (const id of [warmupOccurrence, mainOccurrence]) {
+        const toggle = page.locator(`[role="button"][aria-controls="exercise-panel-${id}"]`);
+        if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+      }
+      await expect(warmupPanel).toBeVisible();
+      await expect(mainPanel).toBeVisible();
+      for (const [panel, weight, reps] of [
+        [warmupPanel, '50', '10'],
+        [mainPanel, '70', '8'],
+      ] as const) {
+        await panel.getByLabel('Weight for set 1').fill(weight);
+        await panel.getByLabel('Reps for set 1').fill(reps);
+        await panel.getByLabel('Reps for set 1').blur();
+      }
+      await expect(page.getByText('2/2 sets completed')).toBeVisible();
+      await page.reload();
+      for (const id of [warmupOccurrence, mainOccurrence]) {
+        const toggle = page.locator(`[role="button"][aria-controls="exercise-panel-${id}"]`);
+        if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+      }
+      await expect(warmupPanel.getByLabel('Weight for set 1')).toHaveValue('50');
+      await expect(mainPanel.getByLabel('Weight for set 1')).toHaveValue('70');
+      await page.getByRole('button', { name: 'Complete Workout' }).click();
+      await page.getByRole('button', { name: 'Complete', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'How did this session feel?' })).toBeVisible();
+      await page
+        .getByRole('group', { name: 'Session RPE rating' })
+        .getByRole('button', { name: '8', exact: true })
+        .click();
+      await page
+        .getByRole('group', { name: 'Any pain or discomfort? response' })
+        .getByRole('button', { name: 'No' })
+        .click();
+      await page
+        .getByRole('textbox', { name: 'Anything that affected this session?' })
+        .fill('Fictional repeated exercise check.');
+      await page.getByRole('button', { name: 'Finalize session' }).click();
+      await expect(page.getByRole('heading', { name: 'Workout summary' })).toBeVisible();
+      const sessionId = new URL(page.url()).searchParams.get('sessionId');
+      expect(sessionId).toBeTruthy();
+      const beforeResponse = await api.get(`/api/v1/workout-sessions/${sessionId}`);
+      expect(beforeResponse.ok()).toBeTruthy();
+      const before = (await beforeResponse.json()).data as {
+        status: string;
+        sets: Array<{ id: string; exerciseId: string; weight: number; reps: number }>;
+      };
+      expect(before.status).toBe('completed');
+      expect(before.sets).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ exerciseId: repeatedExerciseId, weight: 50, reps: 10 }),
+          expect.objectContaining({ exerciseId: repeatedExerciseId, weight: 70, reps: 8 }),
+        ]),
+      );
+      expect(before.sets).toHaveLength(2);
+      const correctedSet = before.sets.find((set) => set.weight === 70);
+      if (!correctedSet) throw new Error('Main occurrence set was not persisted');
+
+      await page.goto(`/workouts/session/${sessionId}`);
+      for (const name of ['Warmup', 'Main']) {
+        const section = page
+          .getByRole('heading', { level: 3, name })
+          .locator('xpath=ancestor::details[1]');
+        if ((await section.getAttribute('open')) === null) {
+          await section.locator(':scope > summary').click();
+        }
+      }
+      const cards = page.getByTestId(`workout-exercise-card-${repeatedExerciseId}`);
+      await expect(cards).toHaveCount(2);
+      await expect(cards.first()).toContainText(`Set 1: 50 lbs × 10 reps`);
+      await expect(cards.nth(1)).toContainText(`Set 1: 70 lbs × 8 reps`);
+      await page.getByRole('button', { name: 'Edit', exact: true }).click();
+      await cards.nth(1).getByLabel('Weight for set 1').fill('72');
+      await expect(cards.first().getByLabel('Weight for set 1')).toHaveValue('50');
+      const correctionResponse = page.waitForResponse(
+        (response) =>
+          response.url().includes(`/api/v1/workout-sessions/${sessionId}/corrections`) &&
+          response.request().method() === 'PATCH',
+      );
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      const correction = await correctionResponse;
+      expect(correction.status()).toBe(200);
+      expect(correction.request().postDataJSON()).toEqual({
+        corrections: [{ setId: correctedSet.id, weight: 72 }],
+      });
+      await page.reload();
+      await expect(cards).toHaveCount(2);
+      await expect(cards.first()).toContainText('Set 1: 50 lbs × 10 reps');
+      await expect(cards.nth(1)).toContainText('Set 1: 72 lbs × 8 reps');
+      const afterResponse = await api.get(`/api/v1/workout-sessions/${sessionId}`);
+      expect(afterResponse.ok()).toBeTruthy();
+      const after = (await afterResponse.json()).data as typeof before;
+      expect(after.sets.find((set) => set.weight === 50)).toEqual(
+        before.sets.find((set) => set.weight === 50),
+      );
+      expect(after.sets.find((set) => set.id === correctedSet.id)?.weight).toBe(72);
+      await page.screenshot({
+        path: test.info().outputPath('repeated-occurrence-corrected.png'),
+        fullPage: true,
+      });
+      expect(await page.getByText(repeatedName).count()).toBeGreaterThanOrEqual(2);
+    } finally {
+      await api.dispose();
+    }
   });
 });

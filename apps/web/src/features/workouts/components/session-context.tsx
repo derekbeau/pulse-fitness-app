@@ -1,78 +1,31 @@
-import { useState, type ReactNode } from 'react';
-import {
-  AlertTriangle,
-  CalendarClock,
-  ChevronDown,
-  HeartPulse,
-  Layers3,
-  MoonStar,
-} from 'lucide-react';
-
-import { Badge } from '@/components/ui/badge';
-import { PreviewBanner } from '@/components/ui/preview-banner';
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-
-import type {
-  ActiveWorkoutPhaseBadge,
-  ActiveWorkoutSessionContext,
-  ActiveWorkoutSleepStatus,
-} from '../types';
-
-const recentSessionDateFormatter = new Intl.DateTimeFormat('en-US', {
-  day: 'numeric',
-  month: 'short',
-});
-
-const sleepStatusConfig: Record<
-  ActiveWorkoutSleepStatus,
-  { className: string; description: string; iconClassName: string; label: string }
-> = {
-  poor: {
-    className: 'border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-300',
-    description: 'Recovery is limited. Reduce load or volume if the session feels off.',
-    iconClassName: 'text-red-600 dark:text-red-300',
-    label: 'Poor sleep',
-  },
-  fair: {
-    className: 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-    description: 'Recovery is moderate. Keep intensity honest and adjust if needed.',
-    iconClassName: 'text-amber-600 dark:text-amber-300',
-    label: 'Fair sleep',
-  },
-  good: {
-    className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-    description: "Recovery looks stable for today's training.",
-    iconClassName: 'text-emerald-600 dark:text-emerald-300',
-    label: 'Good sleep',
-  },
-  great: {
-    className: 'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300',
-    description: 'Fully recovered. Good day to push the top end of the plan.',
-    iconClassName: 'text-sky-600 dark:text-sky-300',
-    label: 'Great sleep',
-  },
-};
-
-const phaseBadgeConfig: Record<ActiveWorkoutPhaseBadge, string> = {
-  moderate: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  rebuild: 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  recovery: 'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300',
-  test: 'border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300',
-};
+import { useSessionContext } from '../api/session-context';
+import { projectWhatMattersToday } from '../lib/session-context-migration';
+import {
+  BodySourceAudit,
+  RuntimeSourceLink,
+} from '@/features/journal/components/runtime-source-link';
 
 const XL_BREAKPOINT_QUERY = '(min-width: 1280px)';
-
-type SessionContextProps = {
+export function SessionContext({
+  className,
+  sessionId,
+}: {
   className?: string;
-  context: ActiveWorkoutSessionContext;
-};
-
-export function SessionContext({ className, context }: SessionContextProps) {
-  const [isExpanded, setIsExpanded] = useState(() => shouldStartExpanded());
-  const sleepStatus = sleepStatusConfig[context.sleepStatus];
-  const phaseBadge = inferPhaseBadge(context.trainingPhaseLabel);
-  const hasPreviewCards = true;
-
+  sessionId: string | null;
+}) {
+  const [expanded, setExpanded] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia(XL_BREAKPOINT_QUERY).matches,
+  );
+  const query = useSessionContext(sessionId ?? '');
+  const view = query.data ? projectWhatMattersToday(query.data) : null;
   return (
     <section
       aria-label="Session context"
@@ -83,227 +36,208 @@ export function SessionContext({ className, context }: SessionContextProps) {
     >
       <button
         aria-controls="session-context-panel"
-        aria-expanded={isExpanded}
-        className="flex w-full cursor-pointer items-center justify-between gap-4 px-5 py-5 text-left sm:px-6"
-        onClick={() => setIsExpanded((current) => !current)}
+        aria-expanded={expanded}
+        className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left sm:px-6 focus-visible:outline-2 focus-visible:outline-primary"
+        onClick={() => setExpanded((value) => !value)}
         type="button"
       >
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">Session Context</h2>
-          <p className="text-sm text-muted">Training context and readiness notes</p>
-        </div>
-        <ChevronDown
-          aria-hidden="true"
-          className={cn('size-4 text-muted transition-transform', isExpanded && 'rotate-180')}
-        />
+        <span>
+          <span className="block text-lg font-semibold">What matters today</span>
+          <span className="block text-sm text-muted-foreground">
+            Session-specific facts and gaps
+          </span>
+        </span>
+        <ChevronDown className={cn('size-4', expanded && 'rotate-180')} />
       </button>
-
       <div
-        className="space-y-4 border-t border-border px-5 py-5 sm:px-6"
-        hidden={!isExpanded}
         id="session-context-panel"
+        hidden={!expanded}
+        className="space-y-5 border-t border-border p-5 sm:p-6"
       >
-        {hasPreviewCards ? (
-          <PreviewBanner
-            message="Some cards are in preview — sample data is shown and won't be saved."
-            storageKey="pulse-preview-banner-dismissed:active-workout-session-context"
-          />
-        ) : null}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <ContextCard
-            className="w-full"
-            description="Last 3 sessions"
-            icon={CalendarClock}
-            title="Recent Training"
-          >
-            {context.recentSessions.length > 0 ? (
-              <ul className="space-y-2.5">
-                {context.recentSessions.slice(0, 3).map((session) => (
-                  <li className="flex items-start justify-between gap-3" key={session.id}>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">{session.name}</p>
-                      <p className="text-xs text-muted">
-                        {recentSessionDateFormatter.format(parseDateKey(session.date))}
-                      </p>
-                    </div>
-                    <p className="shrink-0 text-xs font-medium text-muted">
-                      {formatDaysSince(session.date)}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted">No recent completed sessions yet.</p>
-            )}
-          </ContextCard>
-
-          <ContextCard
-            className="w-full"
-            description="Sleep and readiness"
-            icon={HeartPulse}
-            preview
-            title="Recovery Status"
-          >
-            <div
-              className={cn(
-                'flex items-center gap-3 rounded-2xl border px-3 py-3',
-                sleepStatus.className,
-              )}
-            >
-              <MoonStar aria-hidden="true" className={cn('size-4', sleepStatus.iconClassName)} />
-              <div className="space-y-0.5">
-                <p className="text-sm font-semibold">{sleepStatus.label}</p>
-                <p className="text-xs text-muted">{sleepStatus.description}</p>
-              </div>
-            </div>
-          </ContextCard>
-
-          <ContextCard
-            className="w-full"
-            description="Conditions to respect today"
-            icon={AlertTriangle}
-            preview
-            title="Active Injuries"
-          >
-            <div className="space-y-3">
-              <Badge className="w-fit border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300">
-                {`${context.activeInjuries.length} active`}
-              </Badge>
-              {context.activeInjuries.length > 0 ? (
-                <ul className="space-y-2">
-                  {context.activeInjuries.map((injury) => (
-                    <li className="flex items-start gap-2" key={injury.id}>
-                      <AlertTriangle
-                        aria-hidden="true"
-                        className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-300"
-                      />
-                      <span className="text-sm text-foreground">{injury.label}</span>
+        {!sessionId && <p>Start a workout to load its context.</p>}
+        {query.isPending && sessionId && <p role="status">Loading session context…</p>}
+        {query.isError && (
+          <div role="alert">
+            <p>
+              {query.error instanceof ApiError
+                ? `${query.error.message} (${query.error.status}${query.error.code ? ` · ${query.error.code}` : ''})`
+                : query.error instanceof Error
+                  ? query.error.message
+                  : 'Session context could not load.'}
+            </p>
+            <Button onClick={() => void query.refetch()} variant="outline">
+              Try again
+            </Button>
+          </div>
+        )}
+        {view && (
+          <>
+            <p className="text-xs text-muted-foreground">
+              {view.localDate} · {query.data?.timeZone}
+            </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <section className="rounded-xl border p-4">
+                <h3 className="font-semibold">Positive focus</h3>
+                {view.focus.length ? (
+                  <ul>
+                    {view.focus.map((item) => (
+                      <li key={item.id} data-record-id={item.id}>
+                        {item.label} · {item.provenance.replaceAll('_', ' ')} ·{' '}
+                        {item.freshness.state}
+                        <p className="text-xs">
+                          {item.source.sourceLabel} ·{' '}
+                          {item.source.sourceOccurredAt ?? 'time unknown'}
+                        </p>
+                        <BodySourceAudit
+                          kind="capability"
+                          id={item.id}
+                          revisionId={item.currentRevisionId}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>Positive focus not recorded.</p>
+                )}
+              </section>
+              <section className="rounded-xl border p-4">
+                <h3 className="font-semibold">Relevant cautions</h3>
+                {view.cautions.length ? (
+                  <ul>
+                    {view.cautions.map((item) => (
+                      <li key={item.id} data-record-id={item.id}>
+                        {item.label} · symptoms {item.symptomState} · management{' '}
+                        {item.managementState} · {item.provenance.replaceAll('_', ' ')}
+                        <p className="text-xs">
+                          {item.source.sourceLabel} ·{' '}
+                          {item.source.sourceOccurredAt ?? 'time unknown'}
+                        </p>
+                        <BodySourceAudit
+                          kind="body_concern"
+                          id={item.id}
+                          revisionId={item.currentRevisionId}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>
+                    No relevant concern was identified from recorded evidence; this is not
+                    clearance.
+                  </p>
+                )}
+              </section>
+              <section className="rounded-xl border p-4">
+                <h3 className="font-semibold">Current guidance</h3>
+                {view.guidance.length ? (
+                  <ul>
+                    {view.guidance.map((item) => (
+                      <li key={item.id} data-record-id={item.id}>
+                        {item.text} · {item.provenance.replaceAll('_', ' ')} ·{' '}
+                        {item.freshness.state}
+                        <p className="text-xs">
+                          {item.source.sourceLabel} ·{' '}
+                          {item.source.sourceOccurredAt ?? 'time unknown'}
+                        </p>
+                        <BodySourceAudit
+                          kind="guidance"
+                          id={item.id}
+                          revisionId={item.currentRevisionId}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No applicable guidance recorded.</p>
+                )}
+              </section>
+              <section className="rounded-xl border p-4">
+                <h3 className="font-semibold">Tracked, not relevant to this session</h3>
+                {view.trackedIrrelevantConcerns.length ? (
+                  <ul>
+                    {view.trackedIrrelevantConcerns.map((item) => (
+                      <li key={item.id} data-record-id={item.id}>
+                        {item.label} · {item.symptomState} · {item.managementState}
+                        <BodySourceAudit
+                          kind="body_concern"
+                          id={item.id}
+                          revisionId={item.currentRevisionId}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No other tracked concerns in this read.</p>
+                )}
+              </section>
+              <section className="rounded-xl border p-4">
+                <h3 className="font-semibold">Uncertain relevance</h3>
+                {view.uncertainRelevanceConcerns.length ? (
+                  <ul>
+                    {view.uncertainRelevanceConcerns.map((item) => (
+                      <li key={item.id} data-record-id={item.id}>
+                        {item.label}
+                        <BodySourceAudit
+                          kind="body_concern"
+                          id={item.id}
+                          revisionId={item.currentRevisionId}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No uncertain relevance flagged.</p>
+                )}
+                {view.unknownSessionExerciseSetIds.length > 0 && (
+                  <p>
+                    Missing muscle identity for {view.unknownSessionExerciseSetIds.length} set(s).
+                  </p>
+                )}
+              </section>
+              <section className="rounded-xl border p-4">
+                <h3 className="font-semibold">Recorded workload</h3>
+                <ul>
+                  {view.workload.items.map((item) => (
+                    <li
+                      key={`${item.identityKind}:${item.identityId}`}
+                      data-record-id={item.identityId}
+                    >
+                      {item.localDate} · {item.identityKind.replaceAll('_', ' ')} ·{' '}
+                      {item.activityDurationMinutes === null
+                        ? item.workoutDurationSeconds === null
+                          ? 'duration unknown'
+                          : `${item.workoutDurationSeconds} seconds`
+                        : `${item.activityDurationMinutes} minutes`}
+                      <RuntimeSourceLink reference={item.sourceReference} />
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p className="text-sm text-muted">No active conditions</p>
-              )}
+                {view.workload.items.length === 0 && <p>No actual load recorded in this window.</p>}
+              </section>
             </div>
-          </ContextCard>
-
-          <ContextCard
-            className="w-full"
-            description="Current program block"
-            icon={Layers3}
-            preview
-            title="Training Phase"
-          >
-            <div className="space-y-3">
-              <Badge className={cn('w-fit border-transparent', phaseBadgeConfig[phaseBadge])}>
-                {formatPhaseBadgeLabel(phaseBadge)}
-              </Badge>
-              <p className="text-sm text-foreground">{context.trainingPhaseLabel}</p>
-            </div>
-          </ContextCard>
-        </div>
+            <section>
+              <h3 className="font-semibold">Missing inputs</h3>
+              <p>
+                {view.missingInputs.length
+                  ? view.missingInputs.join(', ')
+                  : 'None reported by this read.'}
+              </p>
+            </section>
+            <section>
+              <h3 className="font-semibold">Same-day co-occurrences</h3>
+              <ul>
+                {view.coOccurrences.map((item, index) => (
+                  <li key={`${item.observationId}:${item.loadId}:${index}`}>
+                    {item.localDate} · {item.observationKind} and {item.loadKind} · same local date
+                    only
+                  </li>
+                ))}
+              </ul>
+              {view.coOccurrences.length === 0 && <p>None recorded.</p>}
+            </section>
+          </>
+        )}
       </div>
     </section>
   );
-}
-
-function ContextCard({
-  className,
-  children,
-  description,
-  icon: Icon,
-  preview = false,
-  title,
-}: {
-  className?: string;
-  children: ReactNode;
-  description: string;
-  icon: typeof CalendarClock;
-  preview?: boolean;
-  title: string;
-}) {
-  return (
-    <div
-      className={cn(
-        'flex flex-col overflow-hidden rounded-xl border border-border/80 bg-background shadow-sm',
-        className,
-      )}
-    >
-      <div className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold leading-none">{title}</p>
-            {preview ? (
-              <Badge
-                className="border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[10px] leading-tight tracking-wide text-amber-700 uppercase dark:text-amber-300"
-                variant="outline"
-              >
-                Preview
-              </Badge>
-            ) : null}
-          </div>
-          <p className="text-xs text-muted">{description}</p>
-        </div>
-        <div className="rounded-full bg-secondary/80 p-1.5 text-muted">
-          <Icon aria-hidden="true" className="size-3.5" />
-        </div>
-      </div>
-      <div className="px-4 py-3">{children}</div>
-    </div>
-  );
-}
-
-function formatDaysSince(dateKey: string) {
-  const daysSince = Math.max(0, getDayDifference(parseDateKey(dateKey), new Date()));
-
-  if (daysSince === 0) {
-    return 'Today';
-  }
-
-  if (daysSince === 1) {
-    return '1 day ago';
-  }
-
-  return `${daysSince} days ago`;
-}
-
-function getDayDifference(from: Date, to: Date) {
-  const start = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate());
-  const end = Date.UTC(to.getFullYear(), to.getMonth(), to.getDate());
-
-  return Math.floor((end - start) / 86_400_000);
-}
-
-function parseDateKey(dateKey: string) {
-  return new Date(`${dateKey}T12:00:00`);
-}
-
-function inferPhaseBadge(trainingPhaseLabel: string): ActiveWorkoutPhaseBadge {
-  const label = trainingPhaseLabel.toLowerCase();
-
-  if (label.includes('rebuild')) {
-    return 'rebuild';
-  }
-
-  if (label.includes('recovery')) {
-    return 'recovery';
-  }
-
-  if (label.includes('test')) {
-    return 'test';
-  }
-
-  return 'moderate';
-}
-
-function formatPhaseBadgeLabel(phase: ActiveWorkoutPhaseBadge) {
-  return `${phase.charAt(0).toUpperCase()}${phase.slice(1)} Phase`;
-}
-
-function shouldStartExpanded() {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return false;
-  }
-
-  return window.matchMedia(XL_BREAKPOINT_QUERY).matches;
 }

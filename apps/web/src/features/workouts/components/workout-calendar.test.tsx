@@ -23,6 +23,24 @@ const dateAuthorityMocks = vi.hoisted(() => {
   };
 });
 
+vi.mock('@/features/calendar/api/calendar', () => ({
+  useCalendar: () => ({
+    refetch: vi.fn(),
+    data: {
+      items: [
+        'schedule-locked',
+        'schedule-1',
+        'schedule-2',
+        'schedule-3',
+        'schedule-target',
+        'session-in-progress',
+        'session-completed',
+        'session-1',
+      ].map((id) => ({ domain: 'workout', record: { id } })),
+    },
+  }),
+}));
+
 vi.mock('@/features/workouts/hooks/use-today-key', () => ({
   useTodayKey: () => dateAuthorityMocks.state,
 }));
@@ -88,6 +106,7 @@ describe('WorkoutCalendar', () => {
                 templateTrackingTypes: [],
                 sessionId: null,
                 createdAt: 1,
+                updatedAt: 1,
               },
             ],
           }),
@@ -131,6 +150,7 @@ describe('WorkoutCalendar', () => {
                 templateTrackingTypes: [],
                 sessionId: null,
                 createdAt: 1,
+                updatedAt: 1,
               },
             ],
           }),
@@ -183,6 +203,7 @@ describe('WorkoutCalendar', () => {
                 templateTrackingTypes: [],
                 sessionId: null,
                 createdAt: 1,
+                updatedAt: 1,
               },
             ],
           }),
@@ -261,6 +282,7 @@ describe('WorkoutCalendar', () => {
                 templateTrackingTypes: ['weight_reps', 'reps_seconds'],
                 sessionId: null,
                 createdAt: 1,
+                updatedAt: 1,
               },
               {
                 id: 'schedule-2',
@@ -269,6 +291,7 @@ describe('WorkoutCalendar', () => {
                 templateName: null,
                 sessionId: null,
                 createdAt: 2,
+                updatedAt: 2,
               },
               {
                 id: 'schedule-3',
@@ -277,6 +300,7 @@ describe('WorkoutCalendar', () => {
                 templateName: 'Morning Conditioning',
                 sessionId: 'session-in-progress',
                 createdAt: 3,
+                updatedAt: 3,
               },
             ],
           }),
@@ -377,6 +401,7 @@ describe('WorkoutCalendar', () => {
                 templateName: 'Upper Push',
                 sessionId: null,
                 createdAt: 3,
+                updatedAt: 3,
               },
             ],
           }),
@@ -472,6 +497,7 @@ describe('WorkoutCalendar', () => {
                 templateName: 'Leg Day',
                 sessionId: null,
                 createdAt: 1,
+                updatedAt: 1,
               },
             ],
           }),

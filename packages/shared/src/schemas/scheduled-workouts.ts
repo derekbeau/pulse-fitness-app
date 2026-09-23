@@ -44,6 +44,7 @@ export const scheduledWorkoutListItemSchema = z.object({
   templateTrackingTypes: z.array(exerciseTrackingTypeSchema).optional(),
   sessionId: z.string().nullable(),
   createdAt: z.number().int(),
+  updatedAt: z.number().int(),
 });
 
 export const createScheduledWorkoutInputSchema = z.object({
@@ -54,6 +55,7 @@ export const createScheduledWorkoutInputSchema = z.object({
 export const updateScheduledWorkoutInputSchema = z
   .object({
     date: dateSchema.optional(),
+    expectedUpdatedAt: z.number().int().nonnegative().optional(),
     feedbackQuestions: workoutFeedbackQuestionInputListSchema.optional(),
     feedbackQuestionsExpectedRevision: z.number().int().nonnegative().optional(),
   })
@@ -66,6 +68,20 @@ export const updateScheduledWorkoutInputSchema = z
         code: z.ZodIssueCode.custom,
         path: ['feedbackQuestionsExpectedRevision'],
         message: 'feedbackQuestionsExpectedRevision is required when feedbackQuestions is provided',
+      });
+    }
+    if (value.date !== undefined && value.expectedUpdatedAt === undefined) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['expectedUpdatedAt'],
+        message: 'expectedUpdatedAt is required when date is provided',
+      });
+    }
+    if (value.date === undefined && value.expectedUpdatedAt !== undefined) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['expectedUpdatedAt'],
+        message: 'expectedUpdatedAt is only valid when date is provided',
       });
     }
   })

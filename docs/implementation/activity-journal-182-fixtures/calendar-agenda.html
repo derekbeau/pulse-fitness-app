@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>Pulse #182 fictional Calendar GET fixture</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font: 16px/1.45 system-ui;
+      background: #0d1719;
+      color: #edf6f3;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 1100px;
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 2.3rem;
+      letter-spacing: -0.04em;
+    }
+    p {
+      color: #9dbbb7;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+    button {
+      border: 1px solid #52766e;
+      border-radius: 100px;
+      background: #19302d;
+      color: #edf6f3;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+    }
+    button[aria-pressed='true'] {
+      background: #a6e2b6;
+      color: #10201b;
+    }
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      height: 12rem;
+      border: 1px solid #52766e;
+      border-radius: 12px;
+      background: #102220;
+      color: #edf6f3;
+      padding: 1rem;
+    }
+    section {
+      border-top: 1px solid #35504c;
+      padding: 1rem 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.7rem;
+    }
+    article {
+      background: #172d2b;
+      border: 1px solid #34534b;
+      border-radius: 12px;
+      padding: 1rem;
+    }
+    small {
+      color: #a4c6bd;
+    }
+    strong {
+      display: block;
+      margin: 0.25rem 0;
+    }
+    .note {
+      border-left: 3px solid #a6e2b6;
+      padding-left: 0.8rem;
+    }
+  </style>
+  <h1>Calendar / agenda</h1>
+  <p>
+    Complete fictional response from a registered <code>GET /api/v1/calendar</code> on an isolated
+    fixture database. Paste another response envelope and choose Render; this file performs no
+    network requests. The embedded response was generated with a fixed 2026-03-14 16:00 UTC clock;
+    its exact fields are checked against the registered GET in the Calendar API integration test.
+  </p>
+  <p class="note">
+    Tuesday’s assignment and Thursday’s execution keep separate identities. A target-only nutrition
+    day uses a date read identity, has no source token, and leaves actual intake unknown.
+  </p>
+  <label for="payload">Registered API JSON payload</label
+  ><textarea id="payload"></textarea>
+  <div class="toolbar">
+    <button id="render">Render payload</button><button id="sample">Restore fictional sample</button>
+  </div>
+  <div class="toolbar" aria-label="Domain filters" id="domains"></div>
+  <div class="toolbar" aria-label="State filters" id="states"></div>
+  <p id="summary" role="status"></p>
+  <main id="agenda"></main>
+  <script id="registered-payload" type="application/json">
+    {
+      "data": {
+        "contractVersion": "activity-journal-v1",
+        "subjectUserId": "owner",
+        "from": "2026-03-08",
+        "to": "2026-03-14",
+        "timeZone": "America/Detroit",
+        "items": [
+          {
+            "id": "fixture-flare",
+            "subjectUserId": "owner",
+            "domain": "body_context",
+            "record": {
+              "kind": "observation",
+              "id": "fixture-flare",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:5ce6e8429fc23f737edf73db8c4119aa278b6931a01943b1ae06e4d86711671e"
+            },
+            "localDate": "2026-03-08",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": "2026-03-08T03:30:00.000-04:00",
+            "state": "observed",
+            "title": "Fictional flare",
+            "sourceReference": {
+              "kind": "observation",
+              "id": "fixture-flare",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:5ce6e8429fc23f737edf73db8c4119aa278b6931a01943b1ae06e4d86711671e"
+            }
+          },
+          {
+            "id": "nutrition-day:2026-03-08",
+            "subjectUserId": "owner",
+            "domain": "nutrition",
+            "record": {
+              "kind": "nutrition_log",
+              "id": "nutrition-day:2026-03-08",
+              "subjectUserId": "owner",
+              "revisionId": null
+            },
+            "localDate": "2026-03-08",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "summary",
+            "title": "Nutrition",
+            "nutrition": {
+              "status": null,
+              "actual": null,
+              "target": {
+                "calories": 2000,
+                "protein": 100,
+                "carbs": 250,
+                "fat": 60
+              }
+            }
+          },
+          {
+            "id": "nutrition-day:2026-03-09",
+            "subjectUserId": "owner",
+            "domain": "nutrition",
+            "record": {
+              "kind": "nutrition_log",
+              "id": "nutrition-day:2026-03-09",
+              "subjectUserId": "owner",
+              "revisionId": null
+            },
+            "localDate": "2026-03-09",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "summary",
+            "title": "Nutrition",
+            "nutrition": {
+              "status": null,
+              "actual": null,
+              "target": {
+                "calories": 2000,
+                "protein": 100,
+                "carbs": 250,
+                "fat": 60
+              }
+            }
+          },
+          {
+            "id": "plan",
+            "subjectUserId": "owner",
+            "domain": "activity",
+            "record": {
+              "kind": "activity_assignment",
+              "id": "plan",
+              "subjectUserId": "owner",
+              "revisionId": "plan-r1"
+            },
+            "localDate": "2026-03-10",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "planned",
+            "title": "Fictional walk",
+            "lifecycleStatus": "planned",
+            "plannedLocalDate": "2026-03-10",
+            "activityId": "walk",
+            "assignmentId": "plan",
+            "sourceReference": {
+              "kind": "activity_assignment",
+              "id": "plan",
+              "subjectUserId": "owner",
+              "revisionId": "plan-r1"
+            }
+          },
+          {
+            "id": "nutrition-day:2026-03-10",
+            "subjectUserId": "owner",
+            "domain": "nutrition",
+            "record": {
+              "kind": "nutrition_log",
+              "id": "nutrition-day:2026-03-10",
+              "subjectUserId": "owner",
+              "revisionId": null
+            },
+            "localDate": "2026-03-10",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "summary",
+            "title": "Nutrition",
+            "nutrition": {
+              "status": null,
+              "actual": null,
+              "target": {
+                "calories": 2000,
+                "protein": 100,
+                "carbs": 250,
+                "fat": 60
+              }
+            }
+          },
+          {
+            "id": "unstarted",
+            "subjectUserId": "owner",
+            "domain": "workout",
+            "record": {
+              "kind": "scheduled_workout",
+              "id": "unstarted",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:634f4d1a660c4264f09c803adcc096b375e49f6c6796a2a3f316416d44899507"
+            },
+            "localDate": "2026-03-10",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "planned",
+            "title": "Workout unavailable",
+            "lifecycleStatus": "scheduled",
+            "plannedLocalDate": "2026-03-10",
+            "scheduledWorkoutId": "unstarted",
+            "sourceReference": {
+              "kind": "scheduled_workout",
+              "id": "unstarted",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:634f4d1a660c4264f09c803adcc096b375e49f6c6796a2a3f316416d44899507"
+            }
+          },
+          {
+            "id": "nutrition-day:2026-03-11",
+            "subjectUserId": "owner",
+            "domain": "nutrition",
+            "record": {
+              "kind": "nutrition_log",
+              "id": "nutrition-day:2026-03-11",
+              "subjectUserId": "owner",
+              "revisionId": null
+            },
+            "localDate": "2026-03-11",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "summary",
+            "title": "Nutrition",
+            "nutrition": {
+              "status": null,
+              "actual": null,
+              "target": {
+                "calories": 2000,
+                "protein": 100,
+                "carbs": 250,
+                "fat": 60
+              }
+            }
+          },
+          {
+            "id": "actual",
+            "subjectUserId": "owner",
+            "domain": "activity",
+            "record": {
+              "kind": "activity_execution",
+              "id": "actual",
+              "subjectUserId": "owner",
+              "revisionId": "actual-r1"
+            },
+            "localDate": "2026-03-12",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": "2026-03-12T23:30:00.000-04:00",
+            "state": "completed",
+            "title": "Fictional walk",
+            "lifecycleStatus": "completed",
+            "actualLocalDate": "2026-03-12",
+            "workoutSessionId": "session",
+            "activityId": "walk",
+            "assignmentId": "plan",
+            "sourceReference": {
+              "kind": "activity_execution",
+              "id": "actual",
+              "subjectUserId": "owner",
+              "revisionId": "actual-r1"
+            }
+          },
+          {
+            "id": "legacy-journal",
+            "subjectUserId": "owner",
+            "domain": "journal",
+            "record": {
+              "kind": "journal_entry",
+              "id": "legacy-journal",
+              "subjectUserId": "owner",
+              "revisionId": null
+            },
+            "localDate": "2026-03-12",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "observed",
+            "title": "Fictional note",
+            "missingProvenance": true
+          },
+          {
+            "id": "zero-log",
+            "subjectUserId": "owner",
+            "domain": "nutrition",
+            "record": {
+              "kind": "nutrition_log",
+              "id": "zero-log",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:3c93b230f9a7d3b8655f83ff10d2acd02d5e882e21458102a15b48934dffa876"
+            },
+            "localDate": "2026-03-12",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "summary",
+            "title": "Nutrition",
+            "sourceReference": {
+              "kind": "nutrition_log",
+              "id": "zero-log",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:3c93b230f9a7d3b8655f83ff10d2acd02d5e882e21458102a15b48934dffa876"
+            },
+            "nutrition": {
+              "status": "complete",
+              "actual": {
+                "calories": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0
+              },
+              "target": {
+                "calories": 2000,
+                "protein": 100,
+                "carbs": 250,
+                "fat": 60
+              }
+            }
+          },
+          {
+            "id": "session",
+            "subjectUserId": "owner",
+            "domain": "workout",
+            "record": {
+              "kind": "workout_session",
+              "id": "session",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:5b6e086af817d1012615590df67d6fc9c5facaf62636885d22390a1389de4665"
+            },
+            "localDate": "2026-03-12",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "completed",
+            "title": "Fictional lift",
+            "lifecycleStatus": "completed",
+            "plannedLocalDate": "2026-03-10",
+            "actualLocalDate": "2026-03-12",
+            "scheduledWorkoutId": "started-plan",
+            "workoutSessionId": "session",
+            "linkedActivityExecutionIds": ["actual"],
+            "sourceReference": {
+              "kind": "workout_session",
+              "id": "session",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:5b6e086af817d1012615590df67d6fc9c5facaf62636885d22390a1389de4665"
+            }
+          },
+          {
+            "id": "nutrition-day:2026-03-13",
+            "subjectUserId": "owner",
+            "domain": "nutrition",
+            "record": {
+              "kind": "nutrition_log",
+              "id": "nutrition-day:2026-03-13",
+              "subjectUserId": "owner",
+              "revisionId": null
+            },
+            "localDate": "2026-03-13",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "summary",
+            "title": "Nutrition",
+            "nutrition": {
+              "status": null,
+              "actual": null,
+              "target": {
+                "calories": 2000,
+                "protein": 100,
+                "carbs": 250,
+                "fat": 60
+              }
+            }
+          },
+          {
+            "id": "fixture-meal-log",
+            "subjectUserId": "owner",
+            "domain": "nutrition",
+            "record": {
+              "kind": "nutrition_log",
+              "id": "fixture-meal-log",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:be027c8b8f0568b3573c6c764734cc8f368fcf8b0fc8a53b389effbb9be59e13"
+            },
+            "localDate": "2026-03-14",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "summary",
+            "title": "Nutrition",
+            "sourceReference": {
+              "kind": "nutrition_log",
+              "id": "fixture-meal-log",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:be027c8b8f0568b3573c6c764734cc8f368fcf8b0fc8a53b389effbb9be59e13"
+            },
+            "nutrition": {
+              "status": "partial",
+              "actual": {
+                "calories": 640,
+                "protein": 35,
+                "carbs": 65,
+                "fat": 24
+              },
+              "target": {
+                "calories": 2000,
+                "protein": 100,
+                "carbs": 250,
+                "fat": 60
+              }
+            }
+          }
+        ],
+        "filters": {
+          "domain": [],
+          "state": []
+        }
+      }
+    }
+  </script>
+  <script>
+    const sample = JSON.parse(document.getElementById('registered-payload').textContent);
+    const $ = (id) => document.getElementById(id);
+    let payload = sample;
+    let domains = new Set(),
+      states = new Set();
+    const domainNames = ['activity', 'workout', 'journal', 'body_context', 'nutrition'],
+      stateNames = ['planned', 'completed', 'observed', 'summary'];
+    function buttons(id, options, selected) {
+      $(id).replaceChildren(
+        ...options.map((option) => {
+          const button = document.createElement('button');
+          button.textContent = option.replace('_', ' ');
+          button.setAttribute('aria-pressed', selected.has(option));
+          button.onclick = () => {
+            selected.has(option) ? selected.delete(option) : selected.add(option);
+            draw();
+          };
+          return button;
+        }),
+      );
+    }
+    function draw() {
+      buttons('domains', domainNames, domains);
+      buttons('states', stateNames, states);
+      const model = payload.data ?? payload;
+      const items = (model.items ?? []).filter(
+        (item) =>
+          (!domains.size || domains.has(item.domain)) && (!states.size || states.has(item.state)),
+      );
+      $('summary').textContent =
+        `${items.length} of ${model.items.length} records · ${model.timeZone} · ${model.from} to ${model.to}`;
+      const dates = [...new Set(items.map((item) => item.localDate))].sort();
+      $('agenda').replaceChildren(
+        ...dates.map((date) => {
+          const section = document.createElement('section');
+          const heading = document.createElement('h2');
+          heading.textContent = date;
+          section.append(heading);
+          const grid = document.createElement('div');
+          grid.className = 'grid';
+          for (const item of items.filter((entry) => entry.localDate === date)) {
+            const card = document.createElement('article');
+            const category = document.createElement('small');
+            category.textContent = `${item.domain} · ${item.state} · ${item.record.kind}:${item.record.id}`;
+            const title = document.createElement('strong');
+            title.textContent = item.title;
+            card.append(category, title);
+            if (item.nutrition) {
+              const detail = document.createElement('small');
+              const macros = (value) =>
+                value
+                  ? `${value.calories} kcal · ${value.protein} g protein · ${value.carbs} g carbs · ${value.fat} g fat`
+                  : 'unknown';
+              detail.textContent = `Actual ${macros(item.nutrition.actual)} · target ${macros(item.nutrition.target)}`;
+              card.append(detail);
+            }
+            grid.append(card);
+          }
+          section.append(grid);
+          return section;
+        }),
+      );
+    }
+    $('render').onclick = () => {
+      try {
+        payload = JSON.parse($('payload').value);
+        draw();
+      } catch (error) {
+        $('summary').textContent = String(error);
+      }
+    };
+    $('sample').onclick = () => {
+      $('payload').value = JSON.stringify(sample, null, 2);
+      payload = sample;
+      domains = new Set();
+      states = new Set();
+      draw();
+    };
+    $('sample').click();
+  </script>
+</html>

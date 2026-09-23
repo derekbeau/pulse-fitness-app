@@ -109,6 +109,76 @@ Notes:
 
 ## Endpoint Reference
 
+### Activity capture and scheduling
+
+Activity mutations are AgentToken-only. Reads accept either normal session JWT or AgentToken auth. The server derives the subject, actor, route, operation, and request fingerprint; do not send those fields. Every mutation requires an `idempotencyKey`. Repeating the same semantic request returns the original `{ data }` result and the `Idempotent-Replay: true` header; changing the payload under the same route/operation/key returns `409 IDEMPOTENCY_KEY_REUSE`.
+
+Create a goal, then capture an Activity linked to it:
+
+```bash
+curl -sS -X POST "$PULSE_API_URL/api/v1/activity-goals" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"kind":"physical_therapy","label":"Restore shoulder motion","idempotencyKey":"goal-2026-09-19-01"}'
+
+curl -sS -X POST "$PULSE_API_URL/api/v1/activities" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"kind":"physical_therapy","name":"Five-minute PT","goalIds":["<goal-id>"],"structuredWorkoutSessionId":null,"source":{"class":"user_observation","sourceId":"conversation-2026-09-19","sourceLabel":"User described five-minute PT routine","sourceOccurredAt":"2026-09-18T21:15:00-04:00","capturedAt":"2026-09-19T14:00:00Z","uncertainty":"known","freshness":{"state":"current","asOf":"2026-09-18T21:15:00-04:00","reasons":[]}},"idempotencyKey":"activity-2026-09-19-01"}'
+```
+
+Create a planned day, record the actual occurrence, and read both facts and their histories:
+
+```bash
+curl -sS -X POST "$PULSE_API_URL/api/v1/activities/<activity-id>/assignments" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN" -H 'Content-Type: application/json' \
+  --data '{"plannedLocalDate":"2026-09-22","timeZone":"America/Detroit","recurrenceRevisionId":null,"idempotencyKey":"assignment-2026-09-22-01"}'
+
+curl -sS -X POST "$PULSE_API_URL/api/v1/activities/<activity-id>/executions" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN" -H 'Content-Type: application/json' \
+  --data '{"assignmentId":"<assignment-id>","actualOccurredAt":"2026-09-24T07:30:00-04:00","actualLocalDate":"2026-09-24","timeZone":"America/Detroit","durationMinutes":5,"outcome":"completed","structuredWorkoutSessionId":null,"source":{"class":"user_observation","sourceId":"conversation-2026-09-24","sourceLabel":"User reported completed PT","sourceOccurredAt":"2026-09-24T07:35:00-04:00","capturedAt":"2026-09-24T11:36:00Z","uncertainty":"known","freshness":{"state":"current","asOf":"2026-09-24T07:35:00-04:00","reasons":[]}},"idempotencyKey":"execution-2026-09-24-01"}'
+
+curl -sS "$PULSE_API_URL/api/v1/activities/<activity-id>" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN"
+```
+
+Legacy date-only Activity rows appear on the same read surface with `recordType: "legacy_date_only"`. They intentionally contain no invented occurrence time, timezone, actor, or provenance.
+
+### Canonical daily context and check-ins
+
+`GET /api/v1/daily-context?date=YYYY-MM-DD` accepts a Pulse session JWT or AgentToken and returns bounded, owner-scoped Activity, workout, nutrition, body-context, and check-in state. Workout summaries distinguish `planned`, `in_progress`, `paused`, and `completed`, and preserve separate `plannedLocalDate` and `actualLocalDate`. `unknown` and unavailable values are not denial or zero.
+
+The write routes below are AgentToken-only; the server derives subject and actor:
+
+- `POST /api/v1/check-in/questions`
+- `POST /api/v1/check-in/questions/:id/answers`
+- `POST /api/v1/check-in/answers/:id/corrections`
+
+Question creation requires at least one current owned source reference. Copy `kind`, `id`, and the mandatory opaque `revisionId` from daily-context readback. Do not create or cache revision tokens yourself. A stale, missing, wrong-kind, foreign, or soft-deleted reference returns non-disclosing `404 OWNED_LINK_NOT_FOUND`. Current tokens are domain revision ids where the source has an immutable revision authority and deterministic `sha256:` semantic fingerprints for mutable goal, workout, nutrition, meal, and observation sources. Relevant child changes, such as a workout set or meal item, change the parent token.
+
+```bash
+curl -sS "$PULSE_API_URL/api/v1/daily-context?date=2026-09-20" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN"
+
+curl -sS -X POST "$PULSE_API_URL/api/v1/check-in/questions" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{"localDate":"2026-09-20","semanticTopic":"nutrition completeness","prompt":"Is anything missing from today’s nutrition log?","sourceReferences":[{"kind":"nutrition_log","id":"<id-from-daily-context>","revisionId":"<opaque-current-token>"}],"followUpQuestionId":null,"idempotencyKey":"nutrition-check-2026-09-20-v1"}'
+```
+
+Equivalent creation attempts for the same authenticated subject, local day, normalized semantic topic, current source versions, and parent resume one canonical question even when prompt wording, conversation, AgentToken, or idempotency key differs. A relevant source-version change produces a different canonical identity. A follow-up must reference an answered owned parent and retain the same source entities; unchanged follow-ups dedupe across threads.
+
+Answer and correction writes use compare-and-swap. Copy the current question revision id from `data.question.id`, send `expectedAnswerRevision: 0` for the first answer, and send the exact current answer revision for a correction. Use `state: "unknown"` or `state: "skipped"` without a `value`; these are explicit states, not negative answers.
+
+```bash
+curl -sS -X POST "$PULSE_API_URL/api/v1/check-in/questions/<question-id>/answers" \
+  -H "Authorization: AgentToken $PULSE_AGENT_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{"expectedQuestionRevisionId":"<current-question-revision-id>","expectedAnswerRevision":0,"state":"unknown","source":{"class":"user_observation","sourceId":"conversation-2026-09-20","sourceLabel":"User could not confirm","sourceOccurredAt":"2026-09-20T12:00:00-04:00","uncertainty":"known","freshness":{"state":"current","asOf":"2026-09-20T12:00:00-04:00","reasons":[]}},"idempotencyKey":"answer-2026-09-20-v1"}'
+```
+
+Replaying an identical mutation returns the original result with `Idempotent-Replay: true`. Reusing that route/operation/key with a changed payload returns `409 IDEMPOTENCY_KEY_REUSE`. Stale compare-and-swap inputs return `409` and do not persist partial revisions or receipts. `GET /api/v1/check-in/questions/:id` returns question revision audit, current answer, immutable answer history, correction reasons, provenance, actors, timestamps, and prior-revision links for restart/resume.
+
 ### Adaptive TDEE and goals
 
 AgentToken callers may read coaching state and create a reviewable preview, but all account, target, and goal
@@ -603,3 +673,54 @@ Food definitions planned by AgentToken meal writes are created inside the same t
 the current meal/items and usage projection. Exact reuse is rechecked inside that transaction
 so concurrent current writes reuse the first committed definition; any persistence failure
 rolls back the new definition together with the meal. No history is relinked.
+
+## Journal observation capture (#180)
+
+Use `GET /api/v1/daily-context?date=YYYY-MM-DD` to copy a current owned source token. AgentToken writes omit subject, actor, timezone, and capture timestamp; Pulse derives those from authentication and the subject's timezone. A meaningful observation links to source facts without duplicating a routine log:
+
+```json
+{
+  "localDate": "2026-09-19",
+  "title": "Shoulder after walking",
+  "content": "The shoulder felt tighter for about half an hour after the walk.",
+  "category": "health",
+  "sourceReferences": [
+    {
+      "kind": "body_concern",
+      "id": "<owned concern id>",
+      "revisionId": "<current revision from readback>"
+    }
+  ],
+  "source": {
+    "class": "user_observation",
+    "sourceId": "conversation-180",
+    "sourceLabel": "User conversation",
+    "sourceOccurredAt": "2026-09-19T16:00:00.000Z",
+    "uncertainty": "uncertain",
+    "freshness": { "state": "current", "asOf": "2026-09-19T16:00:00.000Z", "reasons": [] }
+  },
+  "idempotencyKey": "journal-conversation-180-001"
+}
+```
+
+`POST /api/v1/journal` returns current/history. Corrections use `POST /api/v1/journal/:id/corrections` with `expectedRevisionId`, nonempty `correctedFields`, `reason`, and a fresh idempotency key. Reuse the original key only to replay the original request. `GET /api/v1/journal/weekly-reflection?start=2026-09-14&end=2026-09-20` derives facts and gaps without an LLM. Unknown/skipped answers remain gaps. Legacy date-only Journal rows are listed with their missing provenance stated, and cannot be corrected through the canonical route.
+
+## What matters today reads (#181)
+
+With either a Pulse session JWT or an AgentToken, read session-specific context before discussing a workout:
+
+```http
+GET /api/v1/workout-sessions/<owned-session-id>/session-context
+Authorization: AgentToken <token>
+```
+
+For a date without a chosen workout, read the subject-local planning view:
+
+```http
+GET /api/v1/planning/what-matters?date=2026-09-19
+Authorization: AgentToken <token>
+```
+
+The date query may be omitted to use the subject's current local date. Read `data.target`, `positiveFocus`, `relevantConcerns`, `trackedIrrelevantConcerns`, `applicableGuidance`, `workload.items`, and `missingInputs` together. `coOccurrences` means only that records share a local date. Durations retain their native units and may be null. A blank concern list is not clearance, and stale or missing information must be reported as such. These GETs do not change a plan or write observations.
+
+For the complete #183 conversation/voice, follow-up, routine reschedule, flare, approval, and weekly-grounding sequence, see [`activity-journal-183-agent-guide.md`](../implementation/activity-journal-183-agent-guide.md).

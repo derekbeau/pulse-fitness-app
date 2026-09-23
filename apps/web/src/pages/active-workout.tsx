@@ -34,7 +34,6 @@ import {
   createInitialWorkoutSetDrafts,
   createWorkoutSetDraft,
   workoutFeedbackFields,
-  workoutSessionContext,
   type ActiveWorkoutCustomFeedbackField,
   type ActiveWorkoutFeedbackDraft,
   type ActiveWorkoutSetDrafts,
@@ -160,10 +159,6 @@ export function ActiveWorkoutPage() {
     { status: ['in-progress', 'paused'] },
     { enabled: !requestedTemplateId },
   );
-  const completedSessionsQuery = useWorkoutSessions(
-    { status: ['completed'], limit: 3 },
-    { enabled: !requestedTemplateId },
-  );
   const activeSessions = activeSessionsQuery.data ?? [];
   const sessionId =
     requestedSessionId ??
@@ -255,6 +250,7 @@ export function ActiveWorkoutPage() {
   } | null>(null);
   const lastServerUpdateRef = useRef<number | null>(null);
   const lastSessionStructureRef = useRef<string | null>(null);
+  const lastTemplateOccurrenceSignatureRef = useRef<string | null>(null);
   const suppressStructureToastRef = useRef(false);
 
   const activeSessionId = activeSession?.id ?? null;
@@ -268,19 +264,6 @@ export function ActiveWorkoutPage() {
   const startTime =
     startTimeOverride ??
     (activeSession ? new Date(activeSession.startedAt).toISOString() : fallbackStartTime);
-  const sessionContext = useMemo(() => {
-    const recentSessions = (completedSessionsQuery.data ?? []).slice(0, 3).map((session) => ({
-      date: session.date,
-      id: session.id,
-      name: session.name,
-      volume: 0,
-    }));
-
-    return {
-      ...workoutSessionContext,
-      recentSessions,
-    };
-  }, [completedSessionsQuery.data]);
   const redirectToCompletedSessionNotice = useCallback(() => {
     clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
     if (activeSessionId) {
@@ -333,9 +316,22 @@ export function ActiveWorkoutPage() {
     );
     const serverExerciseOrder = buildExerciseOrderFromSessionSets(template, activeSession.sets);
     const sessionStructureSignature = buildSessionStructureSignature(activeSession);
+    const templateOccurrenceSignature = JSON.stringify(
+      template.sections.map((section) => [
+        section.type,
+        section.exercises.map((exercise) => [
+          getWorkoutOccurrenceId(exercise, section.type),
+          exercise.sets,
+        ]),
+      ]),
+    );
     const isSessionSwitch = hydratedSessionIdRef.current !== activeSession.id;
 
-    if (!isSessionSwitch && lastServerUpdateRef.current === activeSession.updatedAt) {
+    if (
+      !isSessionSwitch &&
+      lastServerUpdateRef.current === activeSession.updatedAt &&
+      lastTemplateOccurrenceSignatureRef.current === templateOccurrenceSignature
+    ) {
       return;
     }
 
@@ -416,6 +412,7 @@ export function ActiveWorkoutPage() {
 
     lastServerUpdateRef.current = activeSession.updatedAt;
     lastSessionStructureRef.current = sessionStructureSignature;
+    lastTemplateOccurrenceSignatureRef.current = templateOccurrenceSignature;
   }, [activeSession, template, templateExerciseById]);
 
   useEffect(() => {
@@ -450,6 +447,7 @@ export function ActiveWorkoutPage() {
     hydratedDraftKeyRef.current = activeWorkoutDraftId;
     lastServerUpdateRef.current = null;
     lastSessionStructureRef.current = null;
+    lastTemplateOccurrenceSignatureRef.current = null;
   }, [activeSession, activeWorkoutDraftId, requestedTemplateId, sessionId, template]);
 
   useEffect(() => {
@@ -850,7 +848,7 @@ export function ActiveWorkoutPage() {
             </div>
           ) : null}
 
-          <SessionContext context={sessionContext} />
+          <SessionContext sessionId={activeSessionId} />
 
           <SessionExerciseList
             enableApiLastPerformance={enableApiLastPerformance}
