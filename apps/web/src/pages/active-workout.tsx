@@ -269,6 +269,7 @@ export function ActiveWorkoutPage() {
     startTimeOverride ??
     (activeSession ? new Date(activeSession.startedAt).toISOString() : fallbackStartTime);
   const sessionContext = useMemo(() => {
+    // #183 will replace this mock-backed preview with the #181 session context read.
     const recentSessions = (completedSessionsQuery.data ?? []).slice(0, 3).map((session) => ({
       date: session.date,
       id: session.id,

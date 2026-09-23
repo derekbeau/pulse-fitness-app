@@ -28,6 +28,7 @@ import {
   workoutSessionQueryParamsSchema,
   workoutSessionSchema,
   workoutTemplateSchema,
+  sessionContextRuntimeSchema,
 } from '@pulse/shared';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
@@ -36,6 +37,9 @@ import { z } from 'zod';
 
 import { exercises, workoutSessions } from '../../db/schema/index.js';
 import { sendError } from '../../lib/reply.js';
+import { sqlite } from '../../db/index.js';
+import { buildSessionContext } from '../planning/session-context.js';
+import { sendSessionContextError } from '../planning/index.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 import {
   agentEnrichmentOnSend,
@@ -638,6 +642,38 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onSend', feedbackNoteProjection('session'));
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
+  typedApp.get(
+    '/:id/session-context',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(sessionContextRuntimeSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          422: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        security: authSecurity,
+        summary: 'Read source-linked context relevant to an owned workout session',
+      },
+    },
+    async (request, reply) => {
+      reply.header('Cache-Control', 'private, no-cache');
+      try {
+        return {
+          data: await buildSessionContext({
+            sqlite,
+            userId: request.userId,
+            sessionId: request.params.id,
+          }),
+        };
+      } catch (error) {
+        return sendSessionContextError(reply, error);
+      }
+    },
+  );
   typedApp.get(
     '/:id/feedback-audit',
     {

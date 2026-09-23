@@ -2,6 +2,12 @@
 
 Parent Astra owns final approval of this spec. Do not implement, launch, merge, deploy, or close issues until Astra accepts it. This file is the executable checkpoint once approved.
 
+Parent Astra approved this checkpoint at `de7c0d6ee1f49e4c2de2bd6fcf5ce36372681228` with these clarifications, recorded before implementation:
+
+- Keep the foundation schema strict. For a workout-session runtime response, parse a projection containing exactly the foundation fields with `sessionContextReadModelSchema`; parse the complete response with the additive strict runtime schema.
+- Use the stored canonical active `workout_sessions.duration` for workout load duration, or `null` when it is absent. Elapsed `startedAt` to `completedAt` time can include pauses and is never an active-duration fallback.
+- A linked Activity execution contributes to its workout identity only when the owned, non-deleted workout is an actual-work status and its local date matches the execution. A missing, foreign, deleted, scheduled, cancelled, or date-mismatched linked workout is not evidence of workout load. Exclude that inconsistent linked execution from load and expose `linked_load_mismatch:<executionId>` in `missingInputs`; do not reinterpret it as an unlinked execution or invent a workout item.
+
 ## Authority and trial
 
 Derek authorizes continuation on the existing isolated release lane after independent #180 acceptance at `fde6124bf5d6793f5b4db7d3116ed943bf90555a`. Work ONLY in `/Users/meridian/Projects/pulse-activity-journal-release` on `feat/activity-journal-release`. Verify shell cwd, branch, HEAD, and writable root before edits. Do not create a new worktree. Preserve `main` and other worktrees. Draft PR #187 exists; ordinary feature-branch commits/pushes are authorized. No merge, production, deployment, issue closure, or #182.
@@ -87,6 +93,8 @@ All other non-archived concerns, including `resolved` and `maintenance`, go in `
 
 Date target with no session: (1) cannot fire; relevance is (2)–(4) plus any concern with a flare on that local date.
 
+Implementation interpretation pending parent confirmation: on a workout target, a developing/stable capability link alone does not make its concern relevant to every workout. That concern needs the target's muscle, flare, or Journal evidence. A local-date target may use the current guidance/capability link as written. This preserves the required two-session relevance and focus difference; the literal global-link reading conflicts with those required cases.
+
 **Guidance:** `applicableGuidance` is `state: current` rows linked to a relevant concern or to a positive-focus capability. `superseded` / `retired` stay out. Provenance class is unchanged (`clinician_authored` vs `user_relayed_clinician` vs `user_observation` vs `agent_suggestion`).
 
 **Positive focus:** only `developing` or `stable` capabilities. Prefer current-guidance links to relevant concerns (`guidance_linked`). If none, at most the latest `updatedAt` developing/stable capability (`fallback_recent`). `limited` / `unknown` never appear as focus. Empty array plus `missingInputs` code `positive_focus`. Never invent “Rebuild”, sleep, or training-phase copy. Copy capability `label` only.
@@ -121,7 +129,7 @@ Identity key `${kind}:${id}`:
 - An unlinked execution is `activity_execution:<id>`.
 - A workout session in the window is `workout_session:<id>` (merge with any linked executions).
 
-Duration stays native: activities `durationMinutes`; workouts `duration` seconds from the stored session duration, else for `completed` sessions `floor((completedAt-startedAt)/1000)` when both timestamps exist. In-progress/paused do not use wall clock. Null duration does not become `0`.
+Duration stays native: activities `durationMinutes`; workouts use stored canonical active `duration` seconds or `null`. No status uses wall-clock subtraction. Null duration does not become `0`.
 
 ```
 workload: {
@@ -152,6 +160,8 @@ No summed cross-unit total. No volume/tonnage as load. Schema rejects a single s
 ### Limits
 
 Fetch `limit+1` per independent collection. Overflow is HTTP `422` `SESSION_CONTEXT_READ_LIMIT_EXCEEDED` with `details.scope` and `details.limit`, never a truncated success. Scopes: `relevant_concerns` 20, `tracked_irrelevant_concerns` 50, `positive_focus` 10, `applicable_guidance` 20, `recent_observations` 20, `journal_observations` 20, `workload_items` 200, `co_occurrences` 50. Owner-scoped only; foreign rows do not consume the allowance. Probe below / at / above each limit.
+
+The strict foundation also caps `missingInputs` at 20. If required gap codes exceed that bound, return the same 422 with `scope: missing_inputs` and `limit: 20`; never truncate gaps or return an unvalidated 500.
 
 ### Legacy Session Context migration (not UI completion)
 

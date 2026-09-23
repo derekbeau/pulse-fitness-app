@@ -1,4 +1,15 @@
-# #180 checkpoint status (current)
+# #181 checkpoint status (implementation in review)
+
+- Parent Astra approved `activity-journal-181.md` at `de7c0d6ee1f49e4c2de2bd6fcf5ce36372681228`. The foundation projection, canonical active duration, and linked date/status mismatch clarifications were recorded before code changes.
+- Starting worktree `/Users/meridian/Projects/pulse-activity-journal-release` was clean, writable, on `feat/activity-journal-release`, and at `de7c0d6ee1f49e4c2de2bd6fcf5ce36372681228`.
+- #181 adds strict additive shared runtime schema, two owner-scoped read routes with subject-local dates, workload identity/duration and missing-fact boundaries, a typed #183 migration adapter, and a self-contained fictional HTML fixture. The live Session Context cards remain preview UI.
+- No database migration, write route, #182, merge, deployment, production access, or issue closure is part of this checkpoint. Independent review remains required before acceptance.
+- A guidance/capability relevance clause in the frozen wording would apply the same guided concern to every workout. The implementation uses a session-specific interpretation for workout targets, recorded in the #181 spec, and flags that interpretation for independent review.
+- Focused shared/API/web evidence covers strict projection and fixture parse, registered JWT/AgentToken reads, owner-only limits, native load units, linked mismatches, DST windows, provenance, and a mock-free adapter. The root test gate passed 64 shared files/872 tests, 196 web files/1,470 tests, and 124 API files/1,372 tests. Typecheck, lint, and build passed across all three packages. Raw first-run failures and superseding runs are indexed in `/Users/meridian/Projects/qa-reports/pulse-activity-journal-release/checkpoint-181/README.md`.
+
+---
+
+# #180 checkpoint status (prior)
 
 - Parent Astra approved the complete frozen spec `docs/implementation/activity-journal-180.md` at `a7347934f2d2af766221dd5ec911f4e49cab7052`.
 - Worktree: `/Users/meridian/Projects/pulse-activity-journal-release`; branch `feat/activity-journal-release`; starting HEAD `a7347934f2d2af766221dd5ec911f4e49cab7052`; writable and clean before edits.

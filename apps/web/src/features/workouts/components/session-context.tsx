@@ -68,6 +68,7 @@ type SessionContextProps = {
 };
 
 export function SessionContext({ className, context }: SessionContextProps) {
+  // #183 replaces these preview cards with the #181 What matters today runtime projection.
   const [isExpanded, setIsExpanded] = useState(() => shouldStartExpanded());
   const sleepStatus = sleepStatusConfig[context.sleepStatus];
   const phaseBadge = inferPhaseBadge(context.trainingPhaseLabel);

@@ -29,6 +29,7 @@ export * from './schemas/habits.js';
 export * from './schemas/health-conditions.js';
 export * from './schemas/journal.js';
 export * from './schemas/journal-runtime.js';
+export * from './schemas/session-context-runtime.js';
 export * from './schemas/foods.js';
 export * from './schemas/food-analytics.js';
 export * from './schemas/goal-trajectory.js';

@@ -704,3 +704,21 @@ Use `GET /api/v1/daily-context?date=YYYY-MM-DD` to copy a current owned source t
 ```
 
 `POST /api/v1/journal` returns current/history. Corrections use `POST /api/v1/journal/:id/corrections` with `expectedRevisionId`, nonempty `correctedFields`, `reason`, and a fresh idempotency key. Reuse the original key only to replay the original request. `GET /api/v1/journal/weekly-reflection?start=2026-09-14&end=2026-09-20` derives facts and gaps without an LLM. Unknown/skipped answers remain gaps. Legacy date-only Journal rows are listed with their missing provenance stated, and cannot be corrected through the canonical route.
+
+## What matters today reads (#181)
+
+With either a Pulse session JWT or an AgentToken, read session-specific context before discussing a workout:
+
+```http
+GET /api/v1/workout-sessions/<owned-session-id>/session-context
+Authorization: AgentToken <token>
+```
+
+For a date without a chosen workout, read the subject-local planning view:
+
+```http
+GET /api/v1/planning/what-matters?date=2026-09-19
+Authorization: AgentToken <token>
+```
+
+The date query may be omitted to use the subject's current local date. Read `data.target`, `positiveFocus`, `relevantConcerns`, `trackedIrrelevantConcerns`, `applicableGuidance`, `workload.items`, and `missingInputs` together. `coOccurrences` means only that records share a local date. Durations retain their native units and may be null. A blank concern list is not clearance, and stale or missing information must be reported as such. These GETs do not change a plan or write observations.
