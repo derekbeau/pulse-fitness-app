@@ -59,6 +59,8 @@ export const sessionContextRuntimeSchema = foundation
       z.object({ kind: z.literal('local_date'), workoutSessionId: z.null() }).strict(),
     ]),
     trackedIrrelevantConcerns: z.array(bodyConcernSchema).max(50),
+    uncertainRelevanceConcerns: z.array(bodyConcernSchema).max(50),
+    unknownSessionExerciseSetIds: z.array(id).max(200),
     journalObservations: z.array(journalObservationSchema).max(20),
     positiveFocusAttributions: z
       .array(
@@ -128,6 +130,7 @@ export const sessionContextRuntimeSchema = foundation
       ...value.positiveFocus,
       ...value.relevantConcerns,
       ...value.trackedIrrelevantConcerns,
+      ...value.uncertainRelevanceConcerns,
       ...value.applicableGuidance,
       ...value.recentObservations,
       ...value.journalObservations,

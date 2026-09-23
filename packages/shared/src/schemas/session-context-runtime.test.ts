@@ -20,6 +20,8 @@ export const emptySessionContext = {
   applicableGuidance: [],
   recentObservations: [],
   trackedIrrelevantConcerns: [],
+  uncertainRelevanceConcerns: [],
+  unknownSessionExerciseSetIds: [],
   journalObservations: [],
   positiveFocusAttributions: [],
   guidanceFreshnessAttributions: [],

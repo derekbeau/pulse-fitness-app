@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -178,7 +178,7 @@ describe('registered planning and session context reads', () => {
       ['cancelled', 'cancelled', null],
     ] as const)
       run(
-        'insert into workout_sessions (id,user_id,name,date,status,started_at,completed_at,duration) values (?,?,?,?,?,?,?,?)',
+        'insert into workout_sessions (id,user_id,name,date,status,started_at,completed_at,duration,created_at,updated_at) values (?,?,?,?,?,?,?,?,?,?)',
         id,
         'owner',
         id,
@@ -187,6 +187,8 @@ describe('registered planning and session context reads', () => {
         Date.parse('2026-09-19T12:00:00Z'),
         status === 'completed' ? Date.parse('2026-09-19T13:00:00Z') : null,
         duration,
+        Date.parse('2026-09-19T12:00:00Z'),
+        Date.parse('2026-09-19T12:00:00Z'),
       );
     run(
       "insert into workout_sessions (id,user_id,name,date,status,started_at) values ('foreign-session','foreign','foreign','2026-09-19','paused',1789819200000)",
@@ -198,10 +200,10 @@ describe('registered planning and session context reads', () => {
       "insert into exercises (id,user_id,name,muscle_groups,equipment,category) values ('leg-ex','owner','Leg','[\"quads\"]','none','compound')",
     );
     run(
-      "insert into session_sets (id,session_id,exercise_id,set_number) values ('upper-set','upper','shoulder-ex',1)",
+      "insert into session_sets (id,session_id,exercise_id,set_number,created_at) values ('upper-set','upper','shoulder-ex',1,1789819200000)",
     );
     run(
-      "insert into session_sets (id,session_id,exercise_id,set_number) values ('lower-set','lower','leg-ex',1)",
+      "insert into session_sets (id,session_id,exercise_id,set_number,created_at) values ('lower-set','lower','leg-ex',1,1789819200000)",
     );
   });
   afterEach(() => {
@@ -238,6 +240,35 @@ describe('registered planning and session context reads', () => {
       expect(upper.headers['cache-control']).toBe('private, no-cache');
       const a = upper.json().data;
       const b = lower.json().data;
+      const capturePath = process.env.PULSE_181_CAPTURE_FILE;
+      if (capturePath) {
+        writeFileSync(
+          capturePath,
+          JSON.stringify(
+            {
+              upper: { statusCode: upper.statusCode, headers: upper.headers, body: upper.json() },
+              lower: { statusCode: lower.statusCode, headers: lower.headers, body: lower.json() },
+            },
+            null,
+            2,
+          ) + '\n',
+        );
+      } else {
+        const html = readFileSync(
+          new URL(
+            '../../../../../docs/implementation/activity-journal-181-fixtures/what-matters-two-sessions.html',
+            import.meta.url,
+          ),
+          'utf8',
+        );
+        const encoded = html.match(
+          /<script type="application\/json" id="fixtures">([\s\S]*?)<\/script>/u,
+        )?.[1];
+        if (!encoded) throw new Error('Registered API fixture JSON is missing');
+        const fixtures = JSON.parse(encoded) as Array<{ payload: unknown }>;
+        expect(fixtures[0]?.payload).toEqual(a);
+        expect(fixtures[1]?.payload).toEqual(b);
+      }
       expect(a.relevantConcerns.map((x: { id: string }) => x.id)).toEqual(['shoulder']);
       expect(b.relevantConcerns).toEqual([]);
       expect(a.trackedIrrelevantConcerns.map((x: { id: string }) => x.id)).toEqual(['knee']);
@@ -271,6 +302,86 @@ describe('registered planning and session context reads', () => {
         sessionContextReadModelSchema.safeParse(sessionContextFoundationProjection(a)).success,
       ).toBe(true);
       expect(domainSnapshot()).toBe(before);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('retains recorded muscle relevance after an owned exercise is soft-deleted', async () => {
+    run("update exercises set deleted_at='2026-09-20T00:00:00.000Z' where id='shoulder-ex'");
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/workout-sessions/upper/session-context',
+        headers: auth,
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().data.relevantConcerns.map((item: { id: string }) => item.id)).toEqual([
+        'shoulder',
+      ]);
+      expect(
+        response.json().data.applicableGuidance.map((item: { id: string }) => item.id),
+      ).toEqual(['guide']);
+      expect(response.json().data.unknownSessionExerciseSetIds).toEqual([]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('marks unmatched mapped concerns uncertain when the recorded muscle identity is unavailable', async () => {
+    run("update session_sets set exercise_id_snapshot='shoulder-ex' where id='upper-set'");
+    run("delete from exercises where id='shoulder-ex'");
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/workout-sessions/upper/session-context',
+        headers: auth,
+      });
+      expect(response.statusCode).toBe(200);
+      const data = response.json().data;
+      expect(data.relevantConcerns).toEqual([]);
+      expect(data.uncertainRelevanceConcerns.map((item: { id: string }) => item.id)).toEqual([
+        'shoulder',
+      ]);
+      expect(data.trackedIrrelevantConcerns.map((item: { id: string }) => item.id)).toEqual([
+        'knee',
+      ]);
+      expect(data.unknownSessionExerciseSetIds).toEqual(['upper-set']);
+      expect(data.missingInputs).toContain('session_muscle_groups');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('never reads foreign exercise muscle groups through a tampered fixture link', async () => {
+    run(
+      "insert into exercises (id,user_id,name,muscle_groups,equipment,category) values ('foreign-ex','foreign','Foreign shoulder','[\"shoulders\"]','none','compound')",
+    );
+    // Simulate a historical corrupt link; current writes are protected by this trigger.
+    run('drop trigger session_sets_exercise_scope_update');
+    run("update session_sets set exercise_id='foreign-ex' where id='upper-set'");
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/workout-sessions/upper/session-context',
+        headers: auth,
+      });
+      expect(response.statusCode).toBe(200);
+      const data = response.json().data;
+      expect(data.relevantConcerns).toEqual([]);
+      expect(data.uncertainRelevanceConcerns.map((item: { id: string }) => item.id)).toEqual([
+        'shoulder',
+      ]);
+      expect(data.unknownSessionExerciseSetIds).toEqual(['upper-set']);
     } finally {
       await app.close();
     }
@@ -342,6 +453,28 @@ describe('registered planning and session context reads', () => {
     }
   });
 
+  it('does not promote concern guidance through fallback focus alone', async () => {
+    run("delete from body_context_capabilities where id='leg'");
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/workout-sessions/lower/session-context',
+        headers: auth,
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().data.positiveFocus.map((row: { id: string }) => row.id)).toEqual([
+        'press',
+      ]);
+      expect(response.json().data.relevantConcerns).toEqual([]);
+      expect(response.json().data.applicableGuidance).toEqual([]);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('counts unlinked PT once, merges valid links, and reports inconsistent links without invented load', async () => {
     run(
       'insert into canonical_activities (id,user_id,kind,name,source_json,actor_json,current_revision_id,created_at,updated_at) values (?,?,?,?,?,?,?,?,?)',
@@ -384,6 +517,11 @@ describe('registered planning and session context reads', () => {
     addExecution('linked-upper', '2026-09-19', 'completed', 'upper', 45);
     addExecution('linked-scheduled', '2026-09-19', 'completed', 'scheduled', 30);
     addExecution('linked-wrong-date', '2026-09-18', 'completed', 'upper', 20);
+    run(
+      "insert into workout_sessions (id,user_id,name,date,status,started_at,completed_at,duration) values ('old-workout','owner','Old','2026-09-12','completed',1789214400000,1789214700000,180)",
+    );
+    addExecution('linked-outside-window', '2026-09-19', 'completed', 'old-workout', 25);
+    addExecution('outside-window-execution', '2026-09-12', 'completed', 'upper', 15);
     addExecution('skipped', '2026-09-19', 'skipped', null, 10);
     const { buildServer } = await import('../../index.js');
     const app = buildServer();
@@ -409,6 +547,8 @@ describe('registered planning and session context reads', () => {
       expect(data.workload.totals.activityExecutionCount).toBe(1);
       expect(data.missingInputs).toContain('linked_load_mismatch:linked-scheduled');
       expect(data.missingInputs).toContain('linked_load_mismatch:linked-wrong-date');
+      expect(data.missingInputs).toContain('linked_load_mismatch:linked-outside-window');
+      expect(data.missingInputs).not.toContain('linked_load_mismatch:outside-window-execution');
       expect(data.missingInputs).not.toContain('activity_load_duration:skipped');
       run("update workout_sessions set status='scheduled' where id='lower'");
       run("update workout_sessions set status='cancelled' where id='upper'");
@@ -484,6 +624,84 @@ describe('registered planning and session context reads', () => {
       const below = await read();
       expect(below.statusCode).toBe(200);
       expect(below.json().data.relevantConcerns).toHaveLength(19);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('bounds source scans before filtering and does not charge foreign rows', async () => {
+    const concernSql =
+      'insert into body_context_concerns (id,user_id,label,body_region,symptom_state,management_state,source_json,revision,current_revision_id,created_at,updated_at) values (?,?,?,?,?,?,?,?,?,?,?)';
+    for (let i = 0; i < 998; i++) {
+      const id = `archived-${i}`;
+      run(
+        concernSql,
+        id,
+        'owner',
+        id,
+        'other',
+        'unknown',
+        'archived',
+        JSON.stringify(source(id)),
+        1,
+        `${id}-r1`,
+        '2026-09-01T12:00:00.000Z',
+        '2026-09-01T12:00:00.000Z',
+      );
+    }
+    for (let i = 0; i < 2; i++) {
+      const id = `foreign-${i}`;
+      run(
+        concernSql,
+        id,
+        'foreign',
+        id,
+        'shoulder',
+        'unknown',
+        'active',
+        JSON.stringify(source(id)),
+        1,
+        `${id}-r1`,
+        '2026-09-01T12:00:00.000Z',
+        '2026-09-01T12:00:00.000Z',
+      );
+    }
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const read = () =>
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/workout-sessions/upper/session-context',
+          headers: auth,
+        });
+      const at = await read();
+      expect(at.statusCode).toBe(200);
+      expect(at.json().data.trackedIrrelevantConcerns.map((row: { id: string }) => row.id)).toEqual(
+        ['knee'],
+      );
+      const id = 'archived-over-cap';
+      run(
+        concernSql,
+        id,
+        'owner',
+        id,
+        'other',
+        'unknown',
+        'archived',
+        JSON.stringify(source(id)),
+        1,
+        `${id}-r1`,
+        '2026-09-01T12:00:00.000Z',
+        '2026-09-01T12:00:00.000Z',
+      );
+      const above = await read();
+      expect(above.statusCode).toBe(422);
+      expect(above.json().error).toMatchObject({
+        code: 'SESSION_CONTEXT_READ_LIMIT_EXCEEDED',
+        details: { scope: 'source_concerns', limit: 1000 },
+      });
     } finally {
       await app.close();
     }

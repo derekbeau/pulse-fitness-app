@@ -93,7 +93,7 @@ All other non-archived concerns, including `resolved` and `maintenance`, go in `
 
 Date target with no session: (1) cannot fire; relevance is (2)–(4) plus any concern with a flare on that local date.
 
-Implementation interpretation pending parent confirmation: on a workout target, a developing/stable capability link alone does not make its concern relevant to every workout. That concern needs the target's muscle, flare, or Journal evidence. A local-date target may use the current guidance/capability link as written. This preserves the required two-session relevance and focus difference; the literal global-link reading conflicts with those required cases.
+Parent resolution for #181: on a workout target, a developing/stable capability link alone does not make its concern relevant to every workout. That concern needs the target's muscle, flare, or Journal evidence. A local-date target may use the current guidance/capability link as written. If a recorded session set's exercise muscle groups cannot be read, alias-mappable unmatched concerns appear under `uncertainRelevanceConcerns`, and the set ID appears under `unknownSessionExerciseSetIds`; neither is silently declared irrelevant. Soft-deleted exercises retain their recorded muscle authority. Canonical flare rows do not carry session or execution links, so a flare is date context unless a Journal source reference explicitly links the target.
 
 **Guidance:** `applicableGuidance` is `state: current` rows linked to a relevant concern or to a positive-focus capability. `superseded` / `retired` stay out. Provenance class is unchanged (`clinician_authored` vs `user_relayed_clinician` vs `user_observation` vs `agent_suggestion`).
 
@@ -159,7 +159,7 @@ No summed cross-unit total. No volume/tonnage as load. Schema rejects a single s
 
 ### Limits
 
-Fetch `limit+1` per independent collection. Overflow is HTTP `422` `SESSION_CONTEXT_READ_LIMIT_EXCEEDED` with `details.scope` and `details.limit`, never a truncated success. Scopes: `relevant_concerns` 20, `tracked_irrelevant_concerns` 50, `positive_focus` 10, `applicable_guidance` 20, `recent_observations` 20, `journal_observations` 20, `workload_items` 200, `co_occurrences` 50. Owner-scoped only; foreign rows do not consume the allowance. Probe below / at / above each limit.
+Fetch `limit+1` per independent collection. Overflow is HTTP `422` `SESSION_CONTEXT_READ_LIMIT_EXCEEDED` with `details.scope` and `details.limit`, never a truncated success. Output scopes: `relevant_concerns` 20, `tracked_irrelevant_concerns` 50, `uncertain_relevance_concerns` 50, `positive_focus` 10, `applicable_guidance` 20, `recent_observations` 20, `journal_observations` 20, `workload_items` 200, `co_occurrences` 50, `unknown_session_exercise_sets` 200. Source scans are owner-scoped and capped before output filtering: `source_concerns`, `source_capabilities`, `source_guidance`, `source_workouts`, `source_executions`, `session_exercise_sets` each 1000. This finite source ceiling can reject large histories even when few rows would be shown; it prevents incomplete success and unbounded reads. Foreign rows do not consume the allowance. Probe below / at / above each limit.
 
 The strict foundation also caps `missingInputs` at 20. If required gap codes exceed that bound, return the same 422 with `scope: missing_inputs` and `limit: 20`; never truncate gaps or return an unvalidated 500.
 

@@ -24,6 +24,13 @@ export const projectWhatMattersToday = (context: SessionContextRuntime) => ({
     symptomState: concern.symptomState,
     managementState: concern.managementState,
   })),
+  uncertainRelevanceConcerns: context.uncertainRelevanceConcerns.map((concern) => ({
+    id: concern.id,
+    label: concern.label,
+    symptomState: concern.symptomState,
+    managementState: concern.managementState,
+  })),
+  unknownSessionExerciseSetIds: context.unknownSessionExerciseSetIds,
   guidance: context.applicableGuidance.map((item) => ({
     id: item.id,
     text: item.text,

@@ -19,6 +19,8 @@ const empty = {
   applicableGuidance: [],
   recentObservations: [],
   trackedIrrelevantConcerns: [],
+  uncertainRelevanceConcerns: [],
+  unknownSessionExerciseSetIds: [],
   journalObservations: [],
   positiveFocusAttributions: [],
   guidanceFreshnessAttributions: [],

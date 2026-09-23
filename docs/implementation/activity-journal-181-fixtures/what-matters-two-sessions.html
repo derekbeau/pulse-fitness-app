@@ -1,21 +1,14 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pulse #181 — What matters today fixtures</title><style>body{font:16px system-ui;background:#101827;color:#edf2f8;margin:0;padding:2rem}main{max-width:1100px;margin:auto}section{background:#1b2940;border:1px solid #426080;border-radius:12px;padding:1.3rem;margin:1.5rem 0}h1,h2{color:#a8d8ff}pre{overflow:auto;background:#0c1422;padding:1rem;border-radius:8px;white-space:pre-wrap}small{color:#b5c6d8}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1rem}.cell{background:#263750;padding:1rem;border-radius:8px}</style><main><h1>What matters today</h1><p>Fictional, browser-readable #181 session responses. Same owner and date; different session relevance. Co-occurrence is date context only.</p><div id="cards"></div><script type="application/json" id="fixtures">[
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pulse #181 — What matters today fixtures</title><style>body{font:16px system-ui;background:#101827;color:#edf2f8;margin:0;padding:2rem}main{max-width:1100px;margin:auto}section{background:#1b2940;border:1px solid #426080;border-radius:12px;padding:1.3rem;margin:1.5rem 0}h1,h2{color:#a8d8ff}pre{overflow:auto;background:#0c1422;padding:1rem;border-radius:8px;white-space:pre-wrap}small{color:#b5c6d8}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1rem}.cell{background:#263750;padding:1rem;border-radius:8px}</style><main><h1>What matters today</h1><p>Registered authenticated GET responses from a fictional test database with a fixed clock. Same owner and date; different session relevance. Co-occurrence is date context only.</p><div id="cards"></div><script type="application/json" id="fixtures">[
   {
-    "label": "Upper session \u2014 What matters today",
+    "label": "Upper session — What matters today",
     "payload": {
       "contractVersion": "activity-journal-v1",
-      "subjectUserId": "fictional-owner",
-      "workoutSessionId": "upper",
-      "generatedAt": "2026-09-19T16:00:00.000Z",
-      "localDate": "2026-09-19",
-      "timeZone": "America/Detroit",
-      "target": {
-        "kind": "workout_session",
-        "workoutSessionId": "upper"
-      },
+      "subjectUserId": "owner",
+      "generatedAt": "2026-09-20T04:30:00.000Z",
       "positiveFocus": [
         {
           "id": "press",
-          "subjectUserId": "fictional-owner",
+          "subjectUserId": "owner",
           "label": "Press capacity",
           "state": "developing",
           "source": {
@@ -26,8 +19,8 @@
             "capturedAt": "2026-09-01T12:00:00.000Z",
             "capturedBy": {
               "kind": "agent_token",
-              "id": "fictional-agent",
-              "label": "Fictional agent"
+              "id": "agent",
+              "label": "agent"
             },
             "uncertainty": "known",
             "freshness": {
@@ -37,15 +30,15 @@
             }
           },
           "currentRevisionId": "press-r1",
-          "updatedAt": "2026-09-19T16:00:00.000Z"
+          "updatedAt": "2026-09-18T12:00:00.000Z"
         }
       ],
       "relevantConcerns": [
         {
           "id": "shoulder",
-          "subjectUserId": "fictional-owner",
-          "label": "Shoulder limitation",
-          "bodyRegion": "left shoulder",
+          "subjectUserId": "owner",
+          "label": "shoulder",
+          "bodyRegion": "shoulder",
           "symptomState": "unknown",
           "managementState": "active",
           "source": {
@@ -56,8 +49,8 @@
             "capturedAt": "2026-09-01T12:00:00.000Z",
             "capturedBy": {
               "kind": "agent_token",
-              "id": "fictional-agent",
-              "label": "Fictional agent"
+              "id": "agent",
+              "label": "agent"
             },
             "uncertainty": "known",
             "freshness": {
@@ -74,10 +67,10 @@
       "applicableGuidance": [
         {
           "id": "guide",
-          "subjectUserId": "fictional-owner",
+          "subjectUserId": "owner",
           "concernId": "shoulder",
           "capabilityId": "press",
-          "text": "Use the recorded comfortable range.",
+          "text": "Use recorded range",
           "source": {
             "class": "user_observation",
             "sourceId": "guide",
@@ -86,8 +79,8 @@
             "capturedAt": "2026-09-01T12:00:00.000Z",
             "capturedBy": {
               "kind": "agent_token",
-              "id": "fictional-agent",
-              "label": "Fictional agent"
+              "id": "agent",
+              "label": "agent"
             },
             "uncertainty": "known",
             "freshness": {
@@ -101,53 +94,24 @@
           "createdAt": "2026-09-01T12:00:00.000Z"
         }
       ],
-      "recentObservations": [
-        {
-          "id": "flare",
-          "subjectUserId": "fictional-owner",
-          "category": "injury",
-          "text": "Fictional shoulder tightness",
-          "finding": "affirmed",
-          "occurredAt": "2026-09-19T16:00:00.000Z",
-          "localDate": "2026-09-19",
-          "timeZone": "America/Detroit",
-          "source": {
-            "class": "user_observation",
-            "sourceId": "press",
-            "sourceLabel": "press",
-            "sourceOccurredAt": "2026-09-01T12:00:00.000Z",
-            "capturedAt": "2026-09-01T12:00:00.000Z",
-            "capturedBy": {
-              "kind": "agent_token",
-              "id": "fictional-agent",
-              "label": "Fictional agent"
-            },
-            "uncertainty": "known",
-            "freshness": {
-              "state": "current",
-              "asOf": "2026-09-01T12:00:00.000Z",
-              "reasons": []
-            }
-          },
-          "concernIds": [
-            "shoulder"
-          ],
-          "capabilityIds": [],
-          "activityExecutionIds": [],
-          "workoutSessionIds": [],
-          "currentRevisionId": "flare-r1"
-        }
-      ],
+      "recentObservations": [],
       "missingInputs": [
         "sleep",
         "training_phase",
         "workout_load_duration:lower"
       ],
+      "workoutSessionId": "upper",
+      "localDate": "2026-09-19",
+      "timeZone": "America/Detroit",
+      "target": {
+        "kind": "workout_session",
+        "workoutSessionId": "upper"
+      },
       "trackedIrrelevantConcerns": [
         {
           "id": "knee",
-          "subjectUserId": "fictional-owner",
-          "label": "Knee maintenance",
+          "subjectUserId": "owner",
+          "label": "knee",
           "bodyRegion": "knee",
           "symptomState": "unknown",
           "managementState": "maintenance",
@@ -159,8 +123,8 @@
             "capturedAt": "2026-09-01T12:00:00.000Z",
             "capturedBy": {
               "kind": "agent_token",
-              "id": "fictional-agent",
-              "label": "Fictional agent"
+              "id": "agent",
+              "label": "agent"
             },
             "uncertainty": "known",
             "freshness": {
@@ -174,51 +138,9 @@
           "updatedAt": "2026-09-01T12:00:00.000Z"
         }
       ],
-      "journalObservations": [
-        {
-          "id": "journal",
-          "subjectUserId": "fictional-owner",
-          "localDate": "2026-09-19",
-          "timeZone": "America/Detroit",
-          "title": "Fictional movement response",
-          "content": "A brief change was recorded after movement.",
-          "category": "movement",
-          "sourceReferences": [
-            {
-              "kind": "body_concern",
-              "id": "shoulder",
-              "subjectUserId": "fictional-owner",
-              "revisionId": "shoulder-r1"
-            },
-            {
-              "kind": "workout_session",
-              "id": "upper",
-              "subjectUserId": "fictional-owner",
-              "revisionId": "upper-r1"
-            }
-          ],
-          "source": {
-            "class": "user_observation",
-            "sourceId": "press",
-            "sourceLabel": "press",
-            "sourceOccurredAt": "2026-09-01T12:00:00.000Z",
-            "capturedAt": "2026-09-01T12:00:00.000Z",
-            "capturedBy": {
-              "kind": "agent_token",
-              "id": "fictional-agent",
-              "label": "Fictional agent"
-            },
-            "uncertainty": "known",
-            "freshness": {
-              "state": "current",
-              "asOf": "2026-09-01T12:00:00.000Z",
-              "reasons": []
-            }
-          },
-          "currentRevisionId": "journal-r1",
-          "createdAt": "2026-09-19T16:00:00.000Z"
-        }
-      ],
+      "uncertainRelevanceConcerns": [],
+      "unknownSessionExerciseSetIds": [],
+      "journalObservations": [],
       "positiveFocusAttributions": [
         {
           "capabilityId": "press",
@@ -253,6 +175,21 @@
         "items": [
           {
             "identityKind": "workout_session",
+            "identityId": "lower",
+            "localDate": "2026-09-19",
+            "activityDurationMinutes": null,
+            "workoutDurationSeconds": null,
+            "outcomeOrStatus": "paused",
+            "sourceReference": {
+              "kind": "workout_session",
+              "id": "lower",
+              "revisionId": "sha256:a3f1cfab6858197c7b65e55d571bd173bdabe5a37daaea02f3035134a1c52322",
+              "subjectUserId": "owner"
+            },
+            "linkedActivityExecutionIds": []
+          },
+          {
+            "identityKind": "workout_session",
             "identityId": "upper",
             "localDate": "2026-09-19",
             "activityDurationMinutes": null,
@@ -261,23 +198,8 @@
             "sourceReference": {
               "kind": "workout_session",
               "id": "upper",
-              "subjectUserId": "fictional-owner",
-              "revisionId": "sha256:fictional-upper"
-            },
-            "linkedActivityExecutionIds": []
-          },
-          {
-            "identityKind": "workout_session",
-            "identityId": "lower",
-            "localDate": "2026-09-19",
-            "activityDurationMinutes": null,
-            "workoutDurationSeconds": null,
-            "outcomeOrStatus": "completed",
-            "sourceReference": {
-              "kind": "workout_session",
-              "id": "lower",
-              "subjectUserId": "fictional-owner",
-              "revisionId": "sha256:fictional-lower"
+              "revisionId": "sha256:531adfd5c82ddbdb457603ec310dda376252aafd521abd75983aee099ab0301e",
+              "subjectUserId": "owner"
             },
             "linkedActivityExecutionIds": []
           }
@@ -289,59 +211,19 @@
           "workoutDurationSeconds": null
         }
       },
-      "coOccurrences": [
-        {
-          "observationKind": "flare",
-          "observationId": "flare",
-          "loadKind": "workout_session",
-          "loadId": "upper",
-          "localDate": "2026-09-19",
-          "relationship": "same_local_date"
-        },
-        {
-          "observationKind": "flare",
-          "observationId": "flare",
-          "loadKind": "workout_session",
-          "loadId": "lower",
-          "localDate": "2026-09-19",
-          "relationship": "same_local_date"
-        },
-        {
-          "observationKind": "journal",
-          "observationId": "journal",
-          "loadKind": "workout_session",
-          "loadId": "upper",
-          "localDate": "2026-09-19",
-          "relationship": "same_local_date"
-        },
-        {
-          "observationKind": "journal",
-          "observationId": "journal",
-          "loadKind": "workout_session",
-          "loadId": "lower",
-          "localDate": "2026-09-19",
-          "relationship": "same_local_date"
-        }
-      ]
+      "coOccurrences": []
     }
   },
   {
-    "label": "Lower session \u2014 What matters today",
+    "label": "Lower session — What matters today",
     "payload": {
       "contractVersion": "activity-journal-v1",
-      "subjectUserId": "fictional-owner",
-      "workoutSessionId": "lower",
-      "generatedAt": "2026-09-19T16:00:00.000Z",
-      "localDate": "2026-09-19",
-      "timeZone": "America/Detroit",
-      "target": {
-        "kind": "workout_session",
-        "workoutSessionId": "lower"
-      },
+      "subjectUserId": "owner",
+      "generatedAt": "2026-09-20T04:30:00.000Z",
       "positiveFocus": [
         {
           "id": "leg",
-          "subjectUserId": "fictional-owner",
+          "subjectUserId": "owner",
           "label": "Leg capacity",
           "state": "developing",
           "source": {
@@ -352,8 +234,8 @@
             "capturedAt": "2026-09-01T12:00:00.000Z",
             "capturedBy": {
               "kind": "agent_token",
-              "id": "fictional-agent",
-              "label": "Fictional agent"
+              "id": "agent",
+              "label": "agent"
             },
             "uncertainty": "known",
             "freshness": {
@@ -363,7 +245,7 @@
             }
           },
           "currentRevisionId": "leg-r1",
-          "updatedAt": "2026-09-19T16:00:00.000Z"
+          "updatedAt": "2026-09-19T12:00:00.000Z"
         }
       ],
       "relevantConcerns": [],
@@ -374,40 +256,18 @@
         "training_phase",
         "workout_load_duration:lower"
       ],
+      "workoutSessionId": "lower",
+      "localDate": "2026-09-19",
+      "timeZone": "America/Detroit",
+      "target": {
+        "kind": "workout_session",
+        "workoutSessionId": "lower"
+      },
       "trackedIrrelevantConcerns": [
         {
-          "id": "shoulder",
-          "subjectUserId": "fictional-owner",
-          "label": "Shoulder limitation",
-          "bodyRegion": "left shoulder",
-          "symptomState": "unknown",
-          "managementState": "active",
-          "source": {
-            "class": "user_observation",
-            "sourceId": "shoulder",
-            "sourceLabel": "shoulder",
-            "sourceOccurredAt": "2026-09-01T12:00:00.000Z",
-            "capturedAt": "2026-09-01T12:00:00.000Z",
-            "capturedBy": {
-              "kind": "agent_token",
-              "id": "fictional-agent",
-              "label": "Fictional agent"
-            },
-            "uncertainty": "known",
-            "freshness": {
-              "state": "current",
-              "asOf": "2026-09-01T12:00:00.000Z",
-              "reasons": []
-            }
-          },
-          "currentRevisionId": "shoulder-r1",
-          "createdAt": "2026-09-01T12:00:00.000Z",
-          "updatedAt": "2026-09-01T12:00:00.000Z"
-        },
-        {
           "id": "knee",
-          "subjectUserId": "fictional-owner",
-          "label": "Knee maintenance",
+          "subjectUserId": "owner",
+          "label": "knee",
           "bodyRegion": "knee",
           "symptomState": "unknown",
           "managementState": "maintenance",
@@ -419,8 +279,8 @@
             "capturedAt": "2026-09-01T12:00:00.000Z",
             "capturedBy": {
               "kind": "agent_token",
-              "id": "fictional-agent",
-              "label": "Fictional agent"
+              "id": "agent",
+              "label": "agent"
             },
             "uncertainty": "known",
             "freshness": {
@@ -432,8 +292,39 @@
           "currentRevisionId": "knee-r1",
           "createdAt": "2026-09-01T12:00:00.000Z",
           "updatedAt": "2026-09-01T12:00:00.000Z"
+        },
+        {
+          "id": "shoulder",
+          "subjectUserId": "owner",
+          "label": "shoulder",
+          "bodyRegion": "shoulder",
+          "symptomState": "unknown",
+          "managementState": "active",
+          "source": {
+            "class": "user_observation",
+            "sourceId": "shoulder",
+            "sourceLabel": "shoulder",
+            "sourceOccurredAt": "2026-09-01T12:00:00.000Z",
+            "capturedAt": "2026-09-01T12:00:00.000Z",
+            "capturedBy": {
+              "kind": "agent_token",
+              "id": "agent",
+              "label": "agent"
+            },
+            "uncertainty": "known",
+            "freshness": {
+              "state": "current",
+              "asOf": "2026-09-01T12:00:00.000Z",
+              "reasons": []
+            }
+          },
+          "currentRevisionId": "shoulder-r1",
+          "createdAt": "2026-09-01T12:00:00.000Z",
+          "updatedAt": "2026-09-01T12:00:00.000Z"
         }
       ],
+      "uncertainRelevanceConcerns": [],
+      "unknownSessionExerciseSetIds": [],
       "journalObservations": [],
       "positiveFocusAttributions": [
         {
@@ -458,6 +349,21 @@
         "items": [
           {
             "identityKind": "workout_session",
+            "identityId": "lower",
+            "localDate": "2026-09-19",
+            "activityDurationMinutes": null,
+            "workoutDurationSeconds": null,
+            "outcomeOrStatus": "paused",
+            "sourceReference": {
+              "kind": "workout_session",
+              "id": "lower",
+              "revisionId": "sha256:a3f1cfab6858197c7b65e55d571bd173bdabe5a37daaea02f3035134a1c52322",
+              "subjectUserId": "owner"
+            },
+            "linkedActivityExecutionIds": []
+          },
+          {
+            "identityKind": "workout_session",
             "identityId": "upper",
             "localDate": "2026-09-19",
             "activityDurationMinutes": null,
@@ -466,23 +372,8 @@
             "sourceReference": {
               "kind": "workout_session",
               "id": "upper",
-              "subjectUserId": "fictional-owner",
-              "revisionId": "sha256:fictional-upper"
-            },
-            "linkedActivityExecutionIds": []
-          },
-          {
-            "identityKind": "workout_session",
-            "identityId": "lower",
-            "localDate": "2026-09-19",
-            "activityDurationMinutes": null,
-            "workoutDurationSeconds": null,
-            "outcomeOrStatus": "completed",
-            "sourceReference": {
-              "kind": "workout_session",
-              "id": "lower",
-              "subjectUserId": "fictional-owner",
-              "revisionId": "sha256:fictional-lower"
+              "revisionId": "sha256:531adfd5c82ddbdb457603ec310dda376252aafd521abd75983aee099ab0301e",
+              "subjectUserId": "owner"
             },
             "linkedActivityExecutionIds": []
           }
@@ -497,4 +388,4 @@
       "coOccurrences": []
     }
   }
-]</script><script>for(const {label,payload} of JSON.parse(document.getElementById('fixtures').textContent)){const s=document.createElement('section');const h=document.createElement('h2');h.textContent=label;s.append(h);const grid=document.createElement('div');grid.className='grid';for(const [title,value] of [['Positive focus',payload.positiveFocus.map(x=>x.label)],['Cautions',payload.relevantConcerns.map(x=>x.label)],['Guidance',payload.applicableGuidance.map(x=>x.text)],['Workload identities',payload.workload.items.map(x=>x.identityKind+':'+x.identityId)],['Missing',payload.missingInputs],['Tracked but irrelevant',payload.trackedIrrelevantConcerns.map(x=>x.label)],['Freshness',payload.positiveFocusAttributions.map(x=>x.derivedFreshness)],['Co-occurrence',payload.coOccurrences]]){const d=document.createElement('div');d.className='cell';const strong=document.createElement('strong');strong.textContent=title;const pre=document.createElement('pre');pre.textContent=JSON.stringify(value,null,2);d.append(strong,pre);grid.append(d)}s.append(grid);const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent='Complete JSON payload';const pre=document.createElement('pre');pre.textContent=JSON.stringify(payload,null,2);details.append(summary,pre);s.append(details);document.getElementById('cards').append(s)}</script></main></html>
+]</script><script>for(const {label,payload} of JSON.parse(document.getElementById('fixtures').textContent)){const s=document.createElement('section');const h=document.createElement('h2');h.textContent=label;s.append(h);const grid=document.createElement('div');grid.className='grid';for(const [title,value] of [['Positive focus',payload.positiveFocus.map(x=>x.label)],['Cautions',payload.relevantConcerns.map(x=>x.label)],['Guidance',payload.applicableGuidance.map(x=>x.text)],['Workload identities',payload.workload.items.map(x=>x.identityKind+':'+x.identityId)],['Missing',payload.missingInputs],['Tracked but irrelevant',payload.trackedIrrelevantConcerns.map(x=>x.label)],['Uncertain relevance',payload.uncertainRelevanceConcerns.map(x=>x.label)],['Unknown session exercise sets',payload.unknownSessionExerciseSetIds],['Freshness',payload.positiveFocusAttributions.map(x=>x.derivedFreshness)],['Co-occurrence',payload.coOccurrences]]){const d=document.createElement('div');d.className='cell';const strong=document.createElement('strong');strong.textContent=title;const pre=document.createElement('pre');pre.textContent=JSON.stringify(value,null,2);d.append(strong,pre);grid.append(d)}s.append(grid);const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent='Complete JSON payload';const pre=document.createElement('pre');pre.textContent=JSON.stringify(payload,null,2);details.append(summary,pre);s.append(details);document.getElementById('cards').append(s)}</script></main></html>

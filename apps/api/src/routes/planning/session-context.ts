@@ -12,7 +12,6 @@ import {
 
 import { getApplicationNow } from '../../lib/clock.js';
 import { getDateKeyInTimeZone, resolveUserTimeZoneForUser } from '../../lib/user-time-zone.js';
-import { listBodyCapabilities, listBodyConcerns, listBodyGuidance } from '../body-context/store.js';
 import { readSourceReference } from '../daily-check-in/source-authority.js';
 
 export class SessionContextNotFoundError extends Error {}
@@ -29,6 +28,7 @@ export class SessionContextReadLimitError extends Error {
 const limits = {
   relevant_concerns: 20,
   tracked_irrelevant_concerns: 50,
+  uncertain_relevance_concerns: 50,
   positive_focus: 10,
   applicable_guidance: 20,
   recent_observations: 20,
@@ -36,6 +36,13 @@ const limits = {
   workload_items: 200,
   co_occurrences: 50,
   missing_inputs: 20,
+  source_concerns: 1000,
+  source_capabilities: 1000,
+  source_guidance: 1000,
+  source_workouts: 1000,
+  source_executions: 1000,
+  session_exercise_sets: 1000,
+  unknown_session_exercise_sets: 200,
 } as const;
 const bounded = <T>(items: T[], scope: keyof typeof limits): T[] => {
   if (items.length > limits[scope]) throw new SessionContextReadLimitError(scope, limits[scope]);
@@ -96,17 +103,14 @@ const freshness = (
     };
   return stored;
 };
-const allPages = async <T>(
-  read: (page: number, limit: number) => Promise<{ data: T[]; total: number }>,
-): Promise<T[]> => {
-  const first = await read(1, 100);
-  const result = [...first.data];
-  for (let page = 2; result.length < first.total; page++)
-    result.push(...(await read(page, 100)).data);
-  return result;
-};
 const rows = <T>(sqlite: Database.Database, sql: string, args: unknown[]): T[] =>
   sqlite.prepare(sql).all(...args) as T[];
+const sourceRows = <T>(
+  sqlite: Database.Database,
+  sql: string,
+  args: unknown[],
+  scope: keyof typeof limits,
+): T[] => bounded(rows<T>(sqlite, `${sql} limit ?`, [...args, limits[scope] + 1]), scope);
 type Workout = { id: string; date: string; status: string; duration: number | null };
 type Execution = {
   id: string;
@@ -125,6 +129,38 @@ type Flare = {
   sourceJson: string;
 };
 type JournalRow = { snapshotJson: string };
+type ConcernRow = {
+  id: string;
+  userId: string;
+  label: string;
+  bodyRegion: string | null;
+  symptomState: string;
+  managementState: string;
+  sourceJson: string;
+  currentRevisionId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+type CapabilityRow = {
+  id: string;
+  userId: string;
+  label: string;
+  state: string;
+  sourceJson: string;
+  currentRevisionId: string;
+  updatedAt: string;
+};
+type GuidanceRow = {
+  id: string;
+  userId: string;
+  concernId: string | null;
+  capabilityId: string | null;
+  text: string;
+  state: string;
+  sourceJson: string;
+  currentRevisionId: string;
+  createdAt: string;
+};
 
 export async function buildSessionContext({
   sqlite,
@@ -150,15 +186,17 @@ export async function buildSessionContext({
   const localDate =
     target?.date ?? date ?? getDateKeyInTimeZone(getApplicationNow(), zone.timeZone);
   const startLocalDate = dateOffset(localDate, -6);
-  const workouts = rows<Workout>(
+  const workouts = sourceRows<Workout>(
     sqlite,
     "select id,date,status,duration from workout_sessions where user_id=? and deleted_at is null and date between ? and ? and status in ('in-progress','paused','completed') order by date,id",
     [userId, startLocalDate, localDate],
+    'source_workouts',
   );
-  const executions = rows<Execution>(
+  const executions = sourceRows<Execution>(
     sqlite,
     "select id,actual_local_date as actualLocalDate,duration_minutes as durationMinutes,outcome,structured_workout_session_id as structuredWorkoutSessionId from activity_executions where user_id=? and actual_local_date between ? and ? and outcome in ('completed','partial') order by actual_local_date,id",
     [userId, startLocalDate, localDate],
+    'source_executions',
   );
   const workoutById = new Map(workouts.map((workout) => [workout.id, workout]));
   const linked = new Map<string, string[]>();
@@ -231,82 +269,121 @@ export async function buildSessionContext({
     },
   };
   const muscleGroups = new Set<string>();
+  const unknownSessionExerciseSetIds: string[] = [];
   if (sessionId) {
-    for (const row of rows<{ muscleGroups: string }>(
+    const setRows = sourceRows<{ id: string; muscleGroups: string | null }>(
       sqlite,
-      'select e.muscle_groups as muscleGroups from session_sets s join exercises e on e.id=s.exercise_id where s.session_id=? and (e.user_id=? or e.user_id is null) and e.deleted_at is null',
-      [sessionId, userId],
-    )) {
-      for (const group of JSON.parse(row.muscleGroups) as string[]) muscleGroups.add(token(group));
+      'select s.id,e.muscle_groups as muscleGroups from session_sets s left join exercises e on e.id=coalesce(s.exercise_id,s.exercise_id_snapshot) and (e.user_id=? or e.user_id is null) where s.session_id=? order by s.id',
+      [userId, sessionId],
+      'session_exercise_sets',
+    );
+    for (const row of setRows) {
+      if (!row.muscleGroups) {
+        unknownSessionExerciseSetIds.push(row.id);
+        continue;
+      }
+      const groups: unknown = JSON.parse(row.muscleGroups);
+      if (!Array.isArray(groups) || groups.some((group) => typeof group !== 'string')) {
+        unknownSessionExerciseSetIds.push(row.id);
+        continue;
+      }
+      for (const group of groups as string[]) muscleGroups.add(token(group));
+    }
+    if (setRows.length === 0) {
+      const snapshot = rows<{ prescriptions: string | null }>(
+        sqlite,
+        'select exercise_prescriptions as prescriptions from workout_sessions where id=? and user_id=? limit 1',
+        [sessionId, userId],
+      )[0]?.prescriptions;
+      if (snapshot) {
+        const prescriptions = JSON.parse(snapshot) as Record<string, { exerciseId?: unknown }>;
+        const entries = Object.entries(prescriptions);
+        bounded(entries, 'session_exercise_sets');
+        for (const [key, prescription] of entries) {
+          const exerciseId = prescription?.exerciseId;
+          const exercise =
+            typeof exerciseId === 'string'
+              ? rows<{ muscleGroups: string }>(
+                  sqlite,
+                  'select muscle_groups as muscleGroups from exercises where id=? and (user_id=? or user_id is null) limit 1',
+                  [exerciseId, userId],
+                )[0]
+              : undefined;
+          if (!exercise) {
+            unknownSessionExerciseSetIds.push(`prescription:${key}`);
+            continue;
+          }
+          const groups: unknown = JSON.parse(exercise.muscleGroups);
+          if (!Array.isArray(groups) || groups.some((group) => typeof group !== 'string')) {
+            unknownSessionExerciseSetIds.push(`prescription:${key}`);
+            continue;
+          }
+          for (const group of groups as string[]) muscleGroups.add(token(group));
+        }
+      }
     }
   }
-  const concerns = (await allPages((page, limit) => listBodyConcerns(userId, page, limit)))
-    .map(
-      ({
-        id,
-        subjectUserId,
-        label,
-        bodyRegion,
-        symptomState,
-        managementState,
-        source,
-        currentRevisionId,
-        createdAt,
-        updatedAt,
-      }) =>
-        bodyConcernSchema.parse({
-          id,
-          subjectUserId,
-          label,
-          bodyRegion,
-          symptomState,
-          managementState,
-          source,
-          currentRevisionId,
-          createdAt,
-          updatedAt,
-        }),
-    )
-    .filter((row) => row.managementState !== 'archived');
-  const capabilities = (
-    await allPages((page, limit) => listBodyCapabilities(userId, page, limit))
-  ).map(({ id, subjectUserId, label, state, source, currentRevisionId, updatedAt }) =>
-    capabilitySchema.parse({
-      id,
-      subjectUserId,
-      label,
-      state,
-      source,
-      currentRevisionId,
-      updatedAt,
-    }),
-  );
-  const guidance = (await allPages((page, limit) => listBodyGuidance(userId, page, limit)))
-    .map(
-      ({
-        id,
-        subjectUserId,
-        concernId,
-        capabilityId,
-        text,
-        state,
-        source,
-        currentRevisionId,
-        createdAt,
-      }) =>
-        guidanceSchema.parse({
-          id,
-          subjectUserId,
-          concernId,
-          capabilityId,
-          text,
-          state,
-          source,
-          currentRevisionId,
-          createdAt,
-        }),
-    )
-    .filter((row) => row.state === 'current');
+  bounded(unknownSessionExerciseSetIds, 'unknown_session_exercise_sets');
+  if (unknownSessionExerciseSetIds.length) missingInputs.push('session_muscle_groups');
+  const concerns = sourceRows<ConcernRow>(
+    sqlite,
+    'select id,user_id as userId,label,body_region as bodyRegion,symptom_state as symptomState,management_state as managementState,source_json as sourceJson,current_revision_id as currentRevisionId,created_at as createdAt,updated_at as updatedAt from body_context_concerns where user_id=? order by updated_at desc,id',
+    [userId],
+    'source_concerns',
+  )
+    .filter((row) => row.managementState !== 'archived')
+    .map((row) =>
+      bodyConcernSchema.parse({
+        id: row.id,
+        subjectUserId: row.userId,
+        label: row.label,
+        bodyRegion: row.bodyRegion,
+        symptomState: row.symptomState,
+        managementState: row.managementState,
+        source: JSON.parse(row.sourceJson),
+        currentRevisionId: row.currentRevisionId,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      }),
+    );
+  const capabilities = sourceRows<CapabilityRow>(
+    sqlite,
+    'select id,user_id as userId,label,state,source_json as sourceJson,current_revision_id as currentRevisionId,updated_at as updatedAt from body_context_capabilities where user_id=? order by updated_at desc,id',
+    [userId],
+    'source_capabilities',
+  )
+    .filter((row) => row.state === 'developing' || row.state === 'stable')
+    .map((row) =>
+      capabilitySchema.parse({
+        id: row.id,
+        subjectUserId: row.userId,
+        label: row.label,
+        state: row.state,
+        source: JSON.parse(row.sourceJson),
+        currentRevisionId: row.currentRevisionId,
+        updatedAt: row.updatedAt,
+      }),
+    );
+  const guidance = sourceRows<GuidanceRow>(
+    sqlite,
+    'select id,user_id as userId,concern_id as concernId,capability_id as capabilityId,text,state,source_json as sourceJson,current_revision_id as currentRevisionId,created_at as createdAt from body_context_guidance where user_id=? order by updated_at desc,id',
+    [userId],
+    'source_guidance',
+  )
+    .filter((row) => row.state === 'current')
+    .map((row) =>
+      guidanceSchema.parse({
+        id: row.id,
+        subjectUserId: row.userId,
+        concernId: row.concernId,
+        capabilityId: row.capabilityId,
+        text: row.text,
+        state: row.state,
+        source: JSON.parse(row.sourceJson),
+        currentRevisionId: row.currentRevisionId,
+        createdAt: row.createdAt,
+      }),
+    );
   const flareRows = rows<Flare>(
     sqlite,
     'select id,concern_id as concernId,occurred_at as occurredAt,local_date as localDate,time_zone as timeZone,observation,source_json as sourceJson from body_context_flares where user_id=? and local_date between ? and ? order by occurred_at,id limit 21',
@@ -375,8 +452,19 @@ export async function buildSessionContext({
   });
   bounded(relevantConcerns, 'relevant_concerns');
   const relevantIds = new Set(relevantConcerns.map((row) => row.id));
+  const uncertainRelevanceConcerns = bounded(
+    concerns.filter(
+      (row) =>
+        !relevantIds.has(row.id) &&
+        !!row.bodyRegion &&
+        unknownSessionExerciseSetIds.length > 0 &&
+        (aliases[token(row.bodyRegion)] ?? []).length > 0,
+    ),
+    'uncertain_relevance_concerns',
+  );
+  const uncertainIds = new Set(uncertainRelevanceConcerns.map((row) => row.id));
   const trackedIrrelevantConcerns = bounded(
-    concerns.filter((row) => !relevantIds.has(row.id)),
+    concerns.filter((row) => !relevantIds.has(row.id) && !uncertainIds.has(row.id)),
     'tracked_irrelevant_concerns',
   );
   const focusCandidates = capabilities.filter(
@@ -406,10 +494,10 @@ export async function buildSessionContext({
   if (!positiveFocus.length) missingInputs.push('positive_focus');
   const focusIds = new Set(positiveFocus.map((row) => row.id));
   const applicableGuidance = bounded(
-    guidance.filter(
-      (row) =>
-        (!!row.concernId && relevantIds.has(row.concernId)) ||
-        (!!row.capabilityId && focusIds.has(row.capabilityId)),
+    guidance.filter((row) =>
+      row.concernId
+        ? relevantIds.has(row.concernId)
+        : !!row.capabilityId && focusIds.has(row.capabilityId),
     ),
     'applicable_guidance',
   );
@@ -454,6 +542,8 @@ export async function buildSessionContext({
     recentObservations,
     missingInputs,
     trackedIrrelevantConcerns,
+    uncertainRelevanceConcerns,
+    unknownSessionExerciseSetIds,
     journalObservations,
     positiveFocusAttributions,
     guidanceFreshnessAttributions,
