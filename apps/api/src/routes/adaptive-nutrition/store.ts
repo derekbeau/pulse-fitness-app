@@ -595,7 +595,7 @@ export const createAdaptiveNutritionStore = (options: {
       .orderBy(
         desc(adaptiveNutritionCheckIns.resolvedAt),
         desc(adaptiveNutritionCheckIns.createdAt),
-        desc(adaptiveNutritionCheckIns.id),
+        desc(sql<number>`adaptive_nutrition_checkins.rowid`),
       )
       .limit(1)
       .get();
@@ -624,7 +624,7 @@ export const createAdaptiveNutritionStore = (options: {
         desc(adaptiveNutritionCheckIns.analysisEnd),
         desc(adaptiveNutritionCheckIns.resolvedAt),
         desc(adaptiveNutritionCheckIns.createdAt),
-        desc(adaptiveNutritionCheckIns.id),
+        desc(sql<number>`adaptive_nutrition_checkins.rowid`),
       )
       .limit(1)
       .get();

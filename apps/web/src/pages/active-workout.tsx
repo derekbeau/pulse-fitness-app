@@ -250,6 +250,7 @@ export function ActiveWorkoutPage() {
   } | null>(null);
   const lastServerUpdateRef = useRef<number | null>(null);
   const lastSessionStructureRef = useRef<string | null>(null);
+  const lastTemplateOccurrenceSignatureRef = useRef<string | null>(null);
   const suppressStructureToastRef = useRef(false);
 
   const activeSessionId = activeSession?.id ?? null;
@@ -315,9 +316,22 @@ export function ActiveWorkoutPage() {
     );
     const serverExerciseOrder = buildExerciseOrderFromSessionSets(template, activeSession.sets);
     const sessionStructureSignature = buildSessionStructureSignature(activeSession);
+    const templateOccurrenceSignature = JSON.stringify(
+      template.sections.map((section) => [
+        section.type,
+        section.exercises.map((exercise) => [
+          getWorkoutOccurrenceId(exercise, section.type),
+          exercise.sets,
+        ]),
+      ]),
+    );
     const isSessionSwitch = hydratedSessionIdRef.current !== activeSession.id;
 
-    if (!isSessionSwitch && lastServerUpdateRef.current === activeSession.updatedAt) {
+    if (
+      !isSessionSwitch &&
+      lastServerUpdateRef.current === activeSession.updatedAt &&
+      lastTemplateOccurrenceSignatureRef.current === templateOccurrenceSignature
+    ) {
       return;
     }
 
@@ -398,6 +412,7 @@ export function ActiveWorkoutPage() {
 
     lastServerUpdateRef.current = activeSession.updatedAt;
     lastSessionStructureRef.current = sessionStructureSignature;
+    lastTemplateOccurrenceSignatureRef.current = templateOccurrenceSignature;
   }, [activeSession, template, templateExerciseById]);
 
   useEffect(() => {
@@ -432,6 +447,7 @@ export function ActiveWorkoutPage() {
     hydratedDraftKeyRef.current = activeWorkoutDraftId;
     lastServerUpdateRef.current = null;
     lastSessionStructureRef.current = null;
+    lastTemplateOccurrenceSignatureRef.current = null;
   }, [activeSession, activeWorkoutDraftId, requestedTemplateId, sessionId, template]);
 
   useEffect(() => {

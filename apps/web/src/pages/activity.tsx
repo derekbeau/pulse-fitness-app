@@ -26,7 +26,7 @@ function ErrorState({ error, retry }: { error: unknown; retry: () => void }) {
         : 'Activity could not load.';
   return (
     <div role="alert" className="rounded-xl border border-destructive p-5">
-      <p>{message}</p>
+      <p className="[overflow-wrap:anywhere]">{message}</p>
       <Button variant="outline" onClick={retry}>
         Try again
       </Button>

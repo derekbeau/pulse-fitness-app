@@ -1,4 +1,12 @@
-# #183 checkpoint status (consolidated repair candidate)
+# #183 checkpoint status (final browser repair candidate)
+
+## Final browser repair after independent audit
+
+- The final Chromium audit at base `bb867b21fa921775d9df5fcd23a077f2de432f49` found one Activity presentation defect and several unfinished browser paths. Its failed first runs remain in the external audit; the repair's own first runs and superseding evidence are indexed in `checkpoint-final-browser-repair`.
+- Activity's 101-statement 422 now wraps its full error code inside the card at 320, 375, and 390 pixels. The durable registered-browser test checks exact status/code, retry, pending plan, and element geometry after hard reload; backend overflow semantics remain unchanged.
+- The muscle analytics fixture was reanchored only in isolated audit SQLite to the actual server date. Its fifth Chromium flow now verifies live row values and source drilldown. Adaptive browser coverage verifies the consumed window disables another check-in and preserves the accepted target, while a separate legitimate held preview creates no target event. Equal-time accepted check-ins now resolve by append order instead of random UUID order.
+- Workout browser coverage now completes the current configured feedback, verifies persisted completed sets, and corrects one of two repeated exercise occurrences without changing the other. Active-workout hydration rechecks occurrence structure when template data arrives after session data; otherwise a hard reload could show 0/0 cards despite persisted sets. Browser readback after restarting only the owned isolated API preserves measurement, workout, and target identity.
+- This is a bounded final browser repair, with no claim of a fresh security, concurrency, advanced trend, or production recertification. Independent delta review and parent final audit remain pending. No merge, deployment, production mutation, or issue closure occurred.
 
 ## Final statement read bound
 

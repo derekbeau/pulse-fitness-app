@@ -405,6 +405,69 @@ test('registered Activity and Journal records survive Calendar deep links and re
     await expect(page.locator(`[data-occurrence-id="${pendingAssignment.id}"]`)).toContainText(
       '2026-09-26',
     );
+    // Fixture rows cross the read cap while the proposal and first claim come from registered APIs.
+    execFileSync('sqlite3', [
+      file,
+      `with recursive seq(n) as (
+      select 1 union all select n+1 from seq where n<100
+    ) insert into proposal_approval_statements
+      (id,proposal_id,user_id,proposal_revision_id,target_revision_fingerprint,statement,
+       source_id,source_occurred_at,recorded_by_json,created_at)
+      select 'browser-overflow-'||seq.n,s.proposal_id,s.user_id,s.proposal_revision_id,
+        s.target_revision_fingerprint,'Fictional audit overflow '||seq.n,
+        'browser-overflow-source-'||seq.n,s.source_occurred_at,s.recorded_by_json,s.created_at
+      from proposal_approval_statements s cross join seq where s.id='${capturedStatement.id}'`,
+    ]);
+    try {
+      const overflow = await owner.get(
+        `/api/v1/plan-change-proposals/${pending.id}/approval-statements`,
+      );
+      expect(overflow.status()).toBe(422);
+      expect((await overflow.json()).error.code).toBe(
+        'PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT_EXCEEDED',
+      );
+      for (const width of [320, 375, 390, 1280]) {
+        await page.setViewportSize({ width, height: width === 1280 ? 900 : 844 });
+        await page.reload({ waitUntil: 'networkidle' });
+        const proposal = page.locator(`[data-proposal-id="${pending.id}"]`);
+        await expect(proposal).toContainText('Approval pending; no plan effect executed.');
+        await expect(proposal).toContainText(
+          'Statement audit unavailable; no statement list was returned.',
+        );
+        const alert = proposal.getByRole('alert');
+        await expect(alert).toContainText('422');
+        await expect(alert).toContainText('PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT_EXCEEDED');
+        await expect(alert.getByRole('button', { name: 'Try again' })).toBeVisible();
+        const geometry = await alert.locator('p').evaluate((element) => {
+          const card = element.closest('[role="alert"]');
+          if (!card) throw new Error('Approval error card is missing');
+          return {
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+            right: element.getBoundingClientRect().right,
+            cardRight: card.getBoundingClientRect().right,
+          };
+        });
+        expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth + 1);
+        expect(geometry.right).toBeLessThan(geometry.cardRight);
+        await page.screenshot({
+          path: test.info().outputPath(`approval-statement-overflow-${width}.png`),
+          fullPage: true,
+        });
+      }
+      const expected422 =
+        'Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)';
+      expect(consoleErrors.length).toBeGreaterThanOrEqual(4);
+      expect(consoleErrors.every((message) => message === expected422)).toBe(true);
+      consoleErrors.length = 0;
+    } finally {
+      execFileSync('sqlite3', [
+        file,
+        "delete from proposal_approval_statements where id like 'browser-overflow-%'",
+      ]);
+    }
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(page.locator(`[data-statement-id="${capturedStatement.id}"]`)).toBeVisible();
     await page.goto('/calendar', { waitUntil: 'networkidle' });
     await page.getByRole('button', { name: 'Agenda' }).click();
     await expect(
