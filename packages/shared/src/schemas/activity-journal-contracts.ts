@@ -1205,7 +1205,7 @@ export const weeklyReflectionFactSchema = z
     id: idSchema,
     localDate: dateSchema,
     summary: longTextSchema,
-    sourceReferences: z.array(ownedEntityReferenceSchema).min(1).max(50),
+    sourceReferences: z.array(ownedEntityReferenceSchema).min(1).max(101),
   })
   .strict();
 
@@ -1216,8 +1216,8 @@ export const weeklyReflectionReadModelSchema = z
     startLocalDate: dateSchema,
     endLocalDate: dateSchema,
     timeZone: ianaTimeZoneSchema,
-    facts: z.array(weeklyReflectionFactSchema).max(100),
-    gaps: z.array(shortTextSchema).max(50),
+    facts: z.array(weeklyReflectionFactSchema).max(10_000),
+    gaps: z.array(shortTextSchema).max(10_000),
     generatedAt: instantSchema,
   })
   .strict()

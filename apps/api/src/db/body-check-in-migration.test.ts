@@ -83,7 +83,7 @@ describe('0066 body check-in migration lifecycle', () => {
   it('runs the complete fresh chain and is idempotent', () => {
     const sqlite = openDb(join(makeDir(), 'fresh.db'));
     try {
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 72 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 73 });
       for (const table of [
         'body_check_in_preferences',
         'body_check_ins',
@@ -119,7 +119,7 @@ describe('0066 body check-in migration lifecycle', () => {
       sqlite.close();
       sqlite = openDb(dbPath);
 
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 6 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 7 });
       expect(legacyBodyRows(sqlite)).toEqual(before);
       expect(sqlite.prepare('select count(*) from body_check_ins').pluck().get()).toBe(0);
       assertIntegrity(sqlite);

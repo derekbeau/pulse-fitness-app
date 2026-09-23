@@ -505,6 +505,13 @@
       "when": 1790035200000,
       "tag": "0071_daily_check_in_runtime",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "6",
+      "when": 1790121600000,
+      "tag": "0072_journal_runtime",
+      "breakpoints": true
     }
   ]
 }

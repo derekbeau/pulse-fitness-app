@@ -51,7 +51,7 @@ describe('migration 0065 lifecycle', () => {
   it('runs the fresh chain and enforces owner, date, unit, value, and uniqueness constraints', () => {
     const sqlite = openDb(join(makeDir(), 'fresh.db'));
     try {
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 72 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 73 });
       sqlite.exec(
         "insert into users (id, username, password_hash) values ('owner', 'owner', 'hash')",
       );
@@ -113,7 +113,7 @@ describe('migration 0065 lifecycle', () => {
       sqlite.close();
       sqlite = openDb(dbPath);
 
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 7 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 8 });
       expect(
         sqlite.prepare("select weight from body_weight where id = 'legacy-weight'").pluck().get(),
       ).toBe(180);

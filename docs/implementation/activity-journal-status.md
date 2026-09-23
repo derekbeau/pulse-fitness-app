@@ -1,3 +1,13 @@
+# #180 checkpoint status (current)
+
+- Parent Astra approved the complete frozen spec `docs/implementation/activity-journal-180.md` at `a7347934f2d2af766221dd5ec911f4e49cab7052`.
+- Worktree: `/Users/meridian/Projects/pulse-activity-journal-release`; branch `feat/activity-journal-release`; starting HEAD `a7347934f2d2af766221dd5ec911f4e49cab7052`; writable and clean before edits.
+- Scope: canonical Journal observations, immutable corrections, owner-scoped list/detail, additive daily-context field, derived weekly reflection, 0072 migration, registered OpenAPI. No UI, #181, merge, deployment, production, or issue closure.
+- Review state: implementation evidence only; independent GPT-6 Sol medium review pending after commit and push.
+- Source-bound verification: final-02 shared 2 files/6 tests and focused API 12 files/35 tests passed; root `pnpm typecheck`, `pnpm lint`, and `pnpm build` passed. Mandatory commit-hook suite and remote equality are pending until commit/push. See `checkpoint-180/README.md` in the release QA reports directory for exact commands, source hashes, first failures, wall/child CPU, and limitations.
+
+---
+
 # Activity / Journal release status
 
 ## Checkpoint

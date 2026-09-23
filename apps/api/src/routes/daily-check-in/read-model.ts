@@ -29,6 +29,7 @@ import {
 } from '../../db/schema/index.js';
 import { getDailyNutritionForDate } from '../nutrition/store.js';
 import { readSourceReference } from './source-authority.js';
+import { readJournalForDate } from '../journal/store.js';
 
 const CONTEXT_LIMIT = 200;
 const SOURCE_REFERENCE_LIMIT = 1000;
@@ -479,6 +480,7 @@ export const buildDailyContextReadModel = async ({
     pendingQuestions,
     currentAnswers,
     observations,
+    journalObservations: readJournalForDate(sqlite, userId, localDate),
     assignments,
     executions,
     activities,

@@ -11,6 +11,7 @@ import {
   checkInQuestionRevisionSchema,
   guidanceSchema,
   healthObservationSchema,
+  journalObservationSchema,
   provenanceSchema,
 } from './activity-journal-contracts.js';
 import { dateSchema } from './common.js';
@@ -200,6 +201,7 @@ export const dailyContextRuntimeResponseSchema = z
     pendingQuestions: z.array(checkInQuestionRevisionSchema),
     currentAnswers: z.array(dailyCheckInAnswerAuditRevisionSchema),
     observations: z.array(healthObservationSchema),
+    journalObservations: z.array(journalObservationSchema),
     assignments: z.array(activityAssignmentSchema),
     executions: z.array(activityExecutionSchema),
     activities: z.array(dailyContextActivitySummarySchema),

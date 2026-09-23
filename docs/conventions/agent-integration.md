@@ -673,3 +673,34 @@ Food definitions planned by AgentToken meal writes are created inside the same t
 the current meal/items and usage projection. Exact reuse is rechecked inside that transaction
 so concurrent current writes reuse the first committed definition; any persistence failure
 rolls back the new definition together with the meal. No history is relinked.
+
+## Journal observation capture (#180)
+
+Use `GET /api/v1/daily-context?date=YYYY-MM-DD` to copy a current owned source token. AgentToken writes omit subject, actor, timezone, and capture timestamp; Pulse derives those from authentication and the subject's timezone. A meaningful observation links to source facts without duplicating a routine log:
+
+```json
+{
+  "localDate": "2026-09-19",
+  "title": "Shoulder after walking",
+  "content": "The shoulder felt tighter for about half an hour after the walk.",
+  "category": "health",
+  "sourceReferences": [
+    {
+      "kind": "body_concern",
+      "id": "<owned concern id>",
+      "revisionId": "<current revision from readback>"
+    }
+  ],
+  "source": {
+    "class": "user_observation",
+    "sourceId": "conversation-180",
+    "sourceLabel": "User conversation",
+    "sourceOccurredAt": "2026-09-19T16:00:00.000Z",
+    "uncertainty": "uncertain",
+    "freshness": { "state": "current", "asOf": "2026-09-19T16:00:00.000Z", "reasons": [] }
+  },
+  "idempotencyKey": "journal-conversation-180-001"
+}
+```
+
+`POST /api/v1/journal` returns current/history. Corrections use `POST /api/v1/journal/:id/corrections` with `expectedRevisionId`, nonempty `correctedFields`, `reason`, and a fresh idempotency key. Reuse the original key only to replay the original request. `GET /api/v1/journal/weekly-reflection?start=2026-09-14&end=2026-09-20` derives facts and gaps without an LLM. Unknown/skipped answers remain gaps. Legacy date-only Journal rows are listed with their missing provenance stated, and cannot be corrected through the canonical route.

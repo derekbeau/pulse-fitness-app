@@ -58,7 +58,7 @@ describe('activity runtime migration 0069', () => {
   it('runs the production migration chain on a fresh database and cascades every runtime root', () => {
     const sqlite = openDb(join(makeDir(), 'fresh.db'));
     try {
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 72 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 73 });
       const tables = sqlite
         .prepare(
           `select name from sqlite_master
@@ -113,7 +113,7 @@ describe('activity runtime migration 0069', () => {
       `);
       const before = sqlite.prepare(`select * from activities where id = 'legacy-walk'`).get();
 
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 3 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 4 });
       expect(sqlite.prepare(`select * from activities where id = 'legacy-walk'`).get()).toEqual(
         before,
       );
