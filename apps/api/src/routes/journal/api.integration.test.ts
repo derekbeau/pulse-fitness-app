@@ -142,6 +142,9 @@ describe('registered Journal runtime', () => {
       expect(created.statusCode).toBe(201);
       const first = created.json().data;
       const id = first.observation.id as string;
+      const firstRevisionBytes = database.sqlite
+        .prepare('select snapshot_json from journal_observation_revisions where id = ?')
+        .get(first.observation.currentRevisionId);
       expect(first.observation.sourceReferences).toEqual([
         { kind: 'body_concern', id: 'concern', subjectUserId: 'owner', revisionId: 'concern-r1' },
       ]);
@@ -207,6 +210,11 @@ describe('registered Journal runtime', () => {
       expect(corrected.statusCode).toBe(200);
       expect(corrected.json().data.history).toHaveLength(2);
       expect(corrected.json().data.history[0].observation).toEqual(first.observation);
+      expect(
+        database.sqlite
+          .prepare('select snapshot_json from journal_observation_revisions where id = ?')
+          .get(first.observation.currentRevisionId),
+      ).toEqual(firstRevisionBytes);
       expect(corrected.json().data.observation.createdAt).toBe(first.observation.createdAt);
       expect(corrected.json().data.history[0].recordedAt).toBe('2026-09-20T04:30:00.000Z');
       expect(corrected.json().data.history[1].recordedAt).toBe('2026-09-20T05:30:00.000Z');
@@ -385,6 +393,42 @@ describe('registered Journal runtime', () => {
         `2026-09-20: check-in answer ${unknown.json().data.currentAnswer.answerId} is unknown`,
       );
       expect(withUnknown.json().data.facts).toHaveLength(1);
+      const skippedQuestion = await app.inject({
+        method: 'POST',
+        url: '/api/v1/check-in/questions',
+        headers: auth,
+        payload: {
+          localDate: '2026-09-20',
+          semanticTopic: 'movement details unavailable',
+          prompt: 'Any additional movement details?',
+          sourceReferences: [{ kind: 'body_concern', id: 'concern', revisionId: 'concern-r1' }],
+          followUpQuestionId: null,
+          idempotencyKey: 'skipped-question-180',
+        },
+      });
+      expect(skippedQuestion.statusCode).toBe(201);
+      const skipped = await app.inject({
+        method: 'POST',
+        url: `/api/v1/check-in/questions/${skippedQuestion.json().data.question.questionId}/answers`,
+        headers: auth,
+        payload: {
+          expectedQuestionRevisionId: skippedQuestion.json().data.question.id,
+          expectedAnswerRevision: 0,
+          state: 'skipped',
+          source,
+          idempotencyKey: 'skipped-answer-180',
+        },
+      });
+      expect(skipped.statusCode).toBe(201);
+      const withSkipped = await app.inject({
+        method: 'GET',
+        url: '/api/v1/journal/weekly-reflection?start=2026-09-19&end=2026-09-20',
+        headers: auth,
+      });
+      expect(withSkipped.json().data.gaps).toContain(
+        `2026-09-20: check-in answer ${skipped.json().data.currentAnswer.answerId} is skipped`,
+      );
+      expect(withSkipped.json().data.facts).toHaveLength(1);
       for (const range of ['start=2026-09-21&end=2026-09-20', 'start=2026-09-01&end=2026-09-20']) {
         const invalidRange = await app.inject({
           method: 'GET',
@@ -395,7 +439,7 @@ describe('registered Journal runtime', () => {
       }
       expect(
         database.sqlite.prepare('select count(*) count from daily_check_in_questions').get(),
-      ).toEqual({ count: 1 });
+      ).toEqual({ count: 2 });
     } finally {
       await app.close();
     }
@@ -540,6 +584,9 @@ describe('registered Journal runtime', () => {
       expect(
         database.sqlite.prepare('select count(*) count from journal_observations').get(),
       ).toEqual({ count: 0 });
+      expect(
+        database.sqlite.prepare('select count(*) count from journal_idempotency_receipts').get(),
+      ).toEqual({ count: 0 });
       const meaningful = await app.inject({
         method: 'POST',
         url: '/api/v1/journal',
@@ -633,6 +680,196 @@ describe('registered Journal runtime', () => {
       expect(readback.json()).toEqual(created.json());
     } finally {
       await reopened.close();
+    }
+  });
+  it('links an Activity execution and concern without mutating their rows or canonical check-in', async () => {
+    const capturedSource = JSON.stringify({
+      ...source,
+      capturedAt: '2026-09-19T16:00:00.000Z',
+      capturedBy: { kind: 'agent_token', id: 'agent-a', label: 'a' },
+    });
+    database.sqlite
+      .prepare(
+        "insert into canonical_activities (id,user_id,kind,name,source_json,actor_json,revision,current_revision_id,created_at,updated_at) values ('walk','owner','walking','Fictional walk',?,?,1,'activity-r1','2026-09-19T16:00:00.000Z','2026-09-19T16:00:00.000Z')",
+      )
+      .run(capturedSource, JSON.stringify({ kind: 'agent_token', id: 'agent-a', label: 'a' }));
+    database.sqlite
+      .prepare(
+        "insert into activity_executions (id,user_id,activity_id,actual_occurred_at,actual_local_date,time_zone,duration_minutes,outcome,source_json,revision,current_revision_id,created_at,updated_at) values ('execution','owner','walk','2026-09-19T16:00:00.000Z','2026-09-19','America/Detroit',20,'completed',?,1,'execution-r1','2026-09-19T16:00:00.000Z','2026-09-19T16:00:00.000Z')",
+      )
+      .run(capturedSource);
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const question = await app.inject({
+        method: 'POST',
+        url: '/api/v1/check-in/questions',
+        headers: auth,
+        payload: {
+          localDate: '2026-09-19',
+          semanticTopic: 'movement response',
+          prompt: 'How did the walk feel?',
+          sourceReferences: [
+            { kind: 'activity_execution', id: 'execution', revisionId: 'execution-r1' },
+          ],
+          followUpQuestionId: null,
+          idempotencyKey: 'activity-question-180',
+        },
+      });
+      expect(question.statusCode).toBe(201);
+      const q = question.json().data.question;
+      const answered = await app.inject({
+        method: 'POST',
+        url: `/api/v1/check-in/questions/${q.questionId}/answers`,
+        headers: auth,
+        payload: {
+          expectedQuestionRevisionId: q.id,
+          expectedAnswerRevision: 0,
+          state: 'answered',
+          value: 'More comfortable by evening.',
+          source,
+          idempotencyKey: 'activity-answer-180',
+        },
+      });
+      expect(answered.statusCode).toBe(201);
+      const tables = [
+        'canonical_activities',
+        'activity_executions',
+        'body_context_concerns',
+        'daily_check_in_questions',
+        'daily_check_in_answers',
+      ];
+      const snapshots = tables.map((table) =>
+        database.sqlite.prepare(`select * from ${table} where user_id='owner' order by id`).all(),
+      );
+      const payload = {
+        ...input('activity-journal-180'),
+        content: 'The shoulder felt less tight after a gradual walk.',
+        sourceReferences: [
+          { kind: 'activity_execution', id: 'execution', revisionId: 'execution-r1' },
+          { kind: 'body_concern', id: 'concern', revisionId: 'concern-r1' },
+        ],
+      };
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/v1/journal',
+        headers: { authorization: 'AgentToken b-secret' },
+        payload,
+      });
+      expect(created.statusCode).toBe(201);
+      expect(created.json().data.observation.sourceReferences).toHaveLength(2);
+      const id = created.json().data.observation.id;
+      const corrected = await app.inject({
+        method: 'POST',
+        url: `/api/v1/journal/${id}/corrections`,
+        headers: auth,
+        payload: {
+          expectedRevisionId: created.json().data.observation.currentRevisionId,
+          correctedFields: {
+            content: 'The shoulder felt less tight after the slower portion of the walk.',
+          },
+          reason: 'User clarified the timing.',
+          idempotencyKey: 'activity-journal-correct-180',
+        },
+      });
+      expect(corrected.statusCode).toBe(200);
+      expect(
+        tables.map((table) =>
+          database.sqlite.prepare(`select * from ${table} where user_id='owner' order by id`).all(),
+        ),
+      ).toEqual(snapshots);
+      const context = await app.inject({
+        method: 'GET',
+        url: '/api/v1/daily-context?date=2026-09-19',
+        headers: { authorization: 'AgentToken b-secret' },
+      });
+      expect(context.statusCode).toBe(200);
+      expect(context.json().data.currentAnswers).toHaveLength(1);
+      expect(context.json().data.pendingQuestions).toEqual([]);
+      expect(context.json().data.observations).toEqual([]);
+      expect(context.json().data.journalObservations).toHaveLength(1);
+      const second = await app.inject({
+        method: 'POST',
+        url: '/api/v1/journal',
+        headers: auth,
+        payload: { ...payload, idempotencyKey: 'activity-journal-second-180' },
+      });
+      expect(second.statusCode).toBe(201);
+      expect(second.json().data.observation.id).not.toBe(id);
+    } finally {
+      await app.close();
+    }
+  });
+  it('rejects an owner-labeled execution whose parent Activity belongs to another subject', async () => {
+    const capturedSource = JSON.stringify({
+      ...source,
+      capturedAt: '2026-09-19T16:00:00.000Z',
+      capturedBy: { kind: 'agent_token', id: 'agent-a', label: 'a' },
+    });
+    database.sqlite
+      .prepare(
+        "insert into canonical_activities (id,user_id,kind,name,source_json,actor_json,revision,current_revision_id,created_at,updated_at) values ('foreign-walk','foreign','walking','Foreign walk',?,?,1,'foreign-activity-r1','2026-09-19T16:00:00.000Z','2026-09-19T16:00:00.000Z')",
+      )
+      .run(capturedSource, JSON.stringify({ kind: 'agent_token', id: 'agent-a', label: 'a' }));
+    database.sqlite
+      .prepare(
+        "insert into activity_executions (id,user_id,activity_id,actual_occurred_at,actual_local_date,time_zone,duration_minutes,outcome,source_json,revision,current_revision_id,created_at,updated_at) values ('cross-owner-execution','owner','foreign-walk','2026-09-19T16:00:00.000Z','2026-09-19','America/Detroit',20,'completed',?,1,'cross-r1','2026-09-19T16:00:00.000Z','2026-09-19T16:00:00.000Z')",
+      )
+      .run(capturedSource); // fixture-DB tamper probe, not an API bypass
+    database.sqlite
+      .prepare(
+        "insert into body_context_flares (id,concern_id,user_id,occurred_at,local_date,time_zone,observation,source_json,created_at) values ('cross-owner-flare','foreign-concern','owner','2026-09-19T16:00:00.000Z','2026-09-19','America/Detroit','Fictional flare',?,'2026-09-19T16:00:00.000Z')",
+      )
+      .run(capturedSource); // fixture-DB tamper probe
+    const { readCurrentSourceRevision } = await import('../daily-check-in/source-authority.js');
+    const flareRevision = readCurrentSourceRevision(
+      database.sqlite,
+      'owner',
+      'observation',
+      'cross-owner-flare',
+    );
+    expect(flareRevision).not.toBeNull();
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/journal',
+        headers: auth,
+        payload: {
+          ...input('nested-owner-180'),
+          sourceReferences: [
+            { kind: 'activity_execution', id: 'cross-owner-execution', revisionId: 'cross-r1' },
+          ],
+        },
+      });
+      expect(response.statusCode).toBe(404);
+      expect(response.json().error.code).toBe('OWNED_LINK_NOT_FOUND');
+      expect(response.body).not.toContain('foreign-walk');
+      const flareResponse = await app.inject({
+        method: 'POST',
+        url: '/api/v1/journal',
+        headers: auth,
+        payload: {
+          ...input('nested-flare-180'),
+          sourceReferences: [
+            { kind: 'observation', id: 'cross-owner-flare', revisionId: flareRevision },
+          ],
+        },
+      });
+      expect(flareResponse.statusCode).toBe(404);
+      expect(flareResponse.json().error.code).toBe('OWNED_LINK_NOT_FOUND');
+      expect(flareResponse.body).not.toContain('foreign-concern');
+      expect(
+        database.sqlite.prepare('select count(*) count from journal_observations').get(),
+      ).toEqual({ count: 0 });
+      expect(
+        database.sqlite.prepare('select count(*) count from journal_idempotency_receipts').get(),
+      ).toEqual({ count: 0 });
+    } finally {
+      await app.close();
     }
   });
   it('keeps spring, fall, and UTC-boundary facts on the authoritative Detroit local date', async () => {

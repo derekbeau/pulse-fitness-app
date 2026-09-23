@@ -35,7 +35,10 @@ import {
   resolveUserTimeZoneForUser,
   UserTimeZoneRequiredError,
 } from '../../lib/user-time-zone.js';
-import { readCurrentSourceRevision } from '../daily-check-in/source-authority.js';
+import {
+  readCurrentJournalSourceRevision,
+  readCurrentSourceRevision,
+} from '../daily-check-in/source-authority.js';
 
 const dbFor = (sqlite: Database.Database) => drizzle(sqlite, { schema });
 const getSqlite = async () => (await import('../../db/index.js')).sqlite;
@@ -119,7 +122,7 @@ const normalizeReferences = (
   const validated = refs.map((ref) => {
     if (ref.subjectUserId !== undefined && ref.subjectUserId !== userId)
       throw new JournalOwnedLinkNotFoundError();
-    const current = readCurrentSourceRevision(sqlite, userId, ref.kind, ref.id);
+    const current = readCurrentJournalSourceRevision(sqlite, userId, ref.kind, ref.id);
     if (!current || current !== ref.revisionId) throw new JournalOwnedLinkNotFoundError();
     return { kind: ref.kind, id: ref.id, subjectUserId: userId, revisionId: current };
   });

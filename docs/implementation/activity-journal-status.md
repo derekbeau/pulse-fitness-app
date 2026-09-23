@@ -4,7 +4,7 @@
 - Worktree: `/Users/meridian/Projects/pulse-activity-journal-release`; branch `feat/activity-journal-release`; starting HEAD `a7347934f2d2af766221dd5ec911f4e49cab7052`; writable and clean before edits.
 - Scope: canonical Journal observations, immutable corrections, owner-scoped list/detail, additive daily-context field, derived weekly reflection, 0072 migration, registered OpenAPI. No UI, #181, merge, deployment, production, or issue closure.
 - Review state: implementation evidence only; independent GPT-6 Sol medium review pending after commit and push.
-- Source-bound verification: final-02 shared 2 files/6 tests and focused API 12 files/35 tests passed; root `pnpm typecheck`, `pnpm lint`, and `pnpm build` passed. Mandatory commit-hook suite and remote equality are pending until commit/push. See `checkpoint-180/README.md` in the release QA reports directory for exact commands, source hashes, first failures, wall/child CPU, and limitations.
+- Source-bound verification: the initial #180 commit `3ccd4ade338a7ec033e943c8a86b42540539e14a` passed its focused matrix and mandatory full-suite hook, then was pushed. A follow-up audit added direct Activity/concern, skipped-answer, source-row immutability, and nested ownership acceptance evidence; its final matrix, commit hook, and push receipts are recorded in `checkpoint-180/README.md` in the release QA reports directory.
 
 ---
 

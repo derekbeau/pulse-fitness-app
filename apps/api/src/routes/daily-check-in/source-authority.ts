@@ -239,6 +239,70 @@ export const readCurrentSourceRevision = (
   id: string,
 ) => sourceRevisionResolvers[kind](sourceDb(sqlite), userId, id);
 
+// Journal accepts the same current tokens as check-in, but a linked row with a
+// corrupted cross-subject parent is not an owned source. Keep that relationship
+// check beside the shared source resolvers rather than duplicating lifecycle
+// rules in the Journal store. These queries read only; they never rewrite a
+// historical receipt or source projection.
+const journalNestedOwnershipSql: Partial<Record<DailyCheckInSourceKind, string>> = {
+  activity: `select 1 from canonical_activities a
+    left join workout_sessions w on w.id = a.structured_workout_session_id
+    where a.id = @id and a.user_id = @userId
+      and (a.structured_workout_session_id is null or w.user_id = @userId)`,
+  activity_assignment: `select 1 from activity_assignments x
+    join canonical_activities a on a.id = x.activity_id
+    left join activity_recurrences r on r.id = x.recurrence_id
+    where x.id = @id and x.user_id = @userId and a.user_id = @userId
+      and (x.recurrence_id is null or (r.user_id = @userId and r.activity_id = x.activity_id))`,
+  activity_execution: `select 1 from activity_executions x
+    join canonical_activities a on a.id = x.activity_id
+    left join activity_assignments assignment on assignment.id = x.assignment_id
+    left join workout_sessions w on w.id = x.structured_workout_session_id
+    where x.id = @id and x.user_id = @userId and a.user_id = @userId
+      and (x.assignment_id is null or (assignment.user_id = @userId and assignment.activity_id = x.activity_id))
+      and (x.structured_workout_session_id is null or w.user_id = @userId)`,
+  workout_session: `select 1 from workout_sessions w
+    left join workout_templates t on t.id = w.template_id
+    left join scheduled_workouts s on s.id = w.scheduled_workout_id
+    where w.id = @id and w.user_id = @userId
+      and (w.template_id is null or t.user_id = @userId)
+      and (w.scheduled_workout_id is null or s.user_id = @userId)`,
+  scheduled_workout: `select 1 from scheduled_workouts s
+    left join workout_templates t on t.id = s.template_id
+    left join workout_sessions w on w.id = s.session_id
+    where s.id = @id and s.user_id = @userId
+      and (s.template_id is null or t.user_id = @userId)
+      and (s.session_id is null or w.user_id = @userId)`,
+  guidance: `select 1 from body_context_guidance g
+    left join body_context_concerns c on c.id = g.concern_id
+    left join body_context_capabilities cap on cap.id = g.capability_id
+    where g.id = @id and g.user_id = @userId
+      and (g.concern_id is null or c.user_id = @userId)
+      and (g.capability_id is null or cap.user_id = @userId)`,
+  observation: `select 1 from body_context_flares f
+    join body_context_concerns c on c.id = f.concern_id
+    where f.id = @id and f.user_id = @userId and c.user_id = @userId`,
+  check_in_question: `select 1 from daily_check_in_questions q
+    left join daily_check_in_questions parent on parent.id = q.follow_up_question_id
+    where q.id = @id and q.user_id = @userId
+      and (q.follow_up_question_id is null or parent.user_id = @userId)`,
+  check_in_answer: `select 1 from daily_check_in_answers a
+    join daily_check_in_questions q on q.id = a.question_id
+    where a.id = @id and a.user_id = @userId and q.user_id = @userId`,
+};
+
+export const readCurrentJournalSourceRevision = (
+  sqlite: Database.Database,
+  userId: string,
+  kind: DailyCheckInSourceKind,
+  id: string,
+): string | null => {
+  const revisionId = readCurrentSourceRevision(sqlite, userId, kind, id);
+  if (revisionId === null) return null;
+  const nestedSql = journalNestedOwnershipSql[kind];
+  return nestedSql && !sqlite.prepare(nestedSql).get({ id, userId }) ? null : revisionId;
+};
+
 export const readSourceReference = (
   sqlite: Database.Database,
   userId: string,
