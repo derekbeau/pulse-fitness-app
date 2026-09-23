@@ -34,7 +34,6 @@ import {
   createInitialWorkoutSetDrafts,
   createWorkoutSetDraft,
   workoutFeedbackFields,
-  workoutSessionContext,
   type ActiveWorkoutCustomFeedbackField,
   type ActiveWorkoutFeedbackDraft,
   type ActiveWorkoutSetDrafts,
@@ -160,10 +159,6 @@ export function ActiveWorkoutPage() {
     { status: ['in-progress', 'paused'] },
     { enabled: !requestedTemplateId },
   );
-  const completedSessionsQuery = useWorkoutSessions(
-    { status: ['completed'], limit: 3 },
-    { enabled: !requestedTemplateId },
-  );
   const activeSessions = activeSessionsQuery.data ?? [];
   const sessionId =
     requestedSessionId ??
@@ -268,20 +263,6 @@ export function ActiveWorkoutPage() {
   const startTime =
     startTimeOverride ??
     (activeSession ? new Date(activeSession.startedAt).toISOString() : fallbackStartTime);
-  const sessionContext = useMemo(() => {
-    // #183 will replace this mock-backed preview with the #181 session context read.
-    const recentSessions = (completedSessionsQuery.data ?? []).slice(0, 3).map((session) => ({
-      date: session.date,
-      id: session.id,
-      name: session.name,
-      volume: 0,
-    }));
-
-    return {
-      ...workoutSessionContext,
-      recentSessions,
-    };
-  }, [completedSessionsQuery.data]);
   const redirectToCompletedSessionNotice = useCallback(() => {
     clearStoredActiveWorkoutDraft(activeWorkoutDraftId);
     if (activeSessionId) {
@@ -851,7 +832,7 @@ export function ActiveWorkoutPage() {
             </div>
           ) : null}
 
-          <SessionContext context={sessionContext} />
+          <SessionContext sessionId={activeSessionId} />
 
           <SessionExerciseList
             enableApiLastPerformance={enableApiLastPerformance}

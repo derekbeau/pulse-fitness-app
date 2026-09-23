@@ -1,3 +1,11 @@
+# #183 checkpoint status (ready for independent review)
+
+- Parent Astra approved `activity-journal-183.md` at `fcd2a2179f4cb63748db5da5ccd5317d4bcfbc78` with the occurrence-id clarification recorded in that spec before coding.
+- The isolated worktree began clean and writable on `feat/activity-journal-release` at that SHA. Activity, Journal, and Session Context now read strict registered APIs; Calendar deep links preserve canonical Activity ownership and exact occurrence selection.
+- Registered API-seeded fictional browser acceptance passed with desktop/mobile deep links, hard reloads, owner isolation, empty/error/login states, and the API-envelope HTML fixture. Focused web tests, repository scripts, typecheck, lint, and build passed. The mandatory pre-commit suite runs at commit time. Earlier failures and superseding runs are retained separately. No merge, deployment, production data, issue closure, or broad release audit has occurred.
+
+---
+
 # #182 checkpoint status (ready for independent review)
 
 - Parent Astra approved the frozen #182 contract at `5aae3bd1bab11d6057c935a1b1f95629208cc458`. Worktree was clean and writable on `feat/activity-journal-release` at that SHA before edits.

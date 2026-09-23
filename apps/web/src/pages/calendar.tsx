@@ -53,9 +53,17 @@ const hrefFor = (item: CalendarRuntimeItem) => {
       ? `/workouts/scheduled/${item.record.id}`
       : `/workouts/session/${item.record.id}`;
   if (item.domain === 'nutrition') return `/nutrition?date=${item.localDate}`;
-  if (item.domain === 'journal') return '/journal';
-  if (item.domain === 'activity') return '/activity';
-  return '/activity';
+  if (item.domain === 'journal')
+    return item.record.kind === 'journal_entry'
+      ? `/journal?date=${item.localDate}&legacy=${encodeURIComponent(item.record.id)}`
+      : `/journal/${encodeURIComponent(item.record.id)}`;
+  if (item.domain === 'activity') {
+    if (item.record.kind === 'activity') return `/activity/${encodeURIComponent(item.record.id)}`;
+    return item.activityId
+      ? `/activity/${encodeURIComponent(item.activityId)}?occurrence=${encodeURIComponent(item.record.id)}`
+      : `/activity?occurrence=${encodeURIComponent(item.record.id)}`;
+  }
+  return `/journal?date=${item.localDate}&flare=${encodeURIComponent(item.record.id)}`;
 };
 const monthStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1, 12);
 const rangeFor = (month: Date) => {

@@ -722,3 +722,5 @@ Authorization: AgentToken <token>
 ```
 
 The date query may be omitted to use the subject's current local date. Read `data.target`, `positiveFocus`, `relevantConcerns`, `trackedIrrelevantConcerns`, `applicableGuidance`, `workload.items`, and `missingInputs` together. `coOccurrences` means only that records share a local date. Durations retain their native units and may be null. A blank concern list is not clearance, and stale or missing information must be reported as such. These GETs do not change a plan or write observations.
+
+For the complete #183 conversation/voice, follow-up, routine reschedule, flare, approval, and weekly-grounding sequence, see [`activity-journal-183-agent-guide.md`](../implementation/activity-journal-183-agent-guide.md).

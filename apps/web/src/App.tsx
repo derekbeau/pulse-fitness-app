@@ -15,6 +15,10 @@ const ActivityPage = lazy(async () => {
   const module = await import('./pages/activity');
   return { default: module.ActivityPage };
 });
+const ActivityDetailPage = lazy(async () => {
+  const module = await import('./pages/activity');
+  return { default: module.ActivityDetailPage };
+});
 
 const ActiveWorkoutPage = lazy(async () => {
   const module = await import('./pages/active-workout');
@@ -233,6 +237,7 @@ function AppRoutes() {
         />
         <Route element={renderWithPageFallback(<HabitsPage />)} path="habits" />
         <Route element={renderWithPageFallback(<ActivityPage />)} path="activity" />
+        <Route element={renderWithPageFallback(<ActivityDetailPage />)} path="activity/:id" />
         <Route element={<Navigate replace to="/nutrition?view=foods" />} path="foods" />
         <Route element={renderWithPageFallback(<JournalPage />)} path="journal" />
         <Route element={renderWithPageFallback(<JournalEntryPage />)} path="journal/:entryId" />

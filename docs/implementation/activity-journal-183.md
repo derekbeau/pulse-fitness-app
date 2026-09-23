@@ -73,7 +73,7 @@ Remove `PreviewBanner` from Activity, Journal, and Session Context once they rea
 
 ### Calendar consumer (not a rebuild)
 
-Allowed Calendar edits: `hrefFor` (and tests) so activity items link to `/activity/:id` (assignment or execution id = calendar `record.id`) and journal items to `/journal/:entryId`. Do not change Calendar grid/agenda, filters, nav, nutrition overlay, workout-only adapter, or GET contract. Reuse valid #182 source-bound Calendar evidence; add only the missing connected link/identity sequence.
+Allowed Calendar edits: `hrefFor` (and tests) so activity items resolve the owning canonical Activity and select the exact assignment or execution occurrence; journal items link to `/journal/:entryId`. Assignment and execution ids are not canonical Activity ids. Never pass a Calendar occurrence id blindly to `GET /activities/:id`. The link may instead resolve an occurrence through an existing owned API. Prove every deep link after hard reload. Do not change Calendar grid/agenda, filters, nav, nutrition overlay, workout-only adapter, or GET contract. Reuse valid #182 source-bound Calendar evidence; add only the missing connected link/identity sequence.
 
 ### Body context live UI (no new registry)
 
