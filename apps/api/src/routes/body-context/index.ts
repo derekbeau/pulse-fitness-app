@@ -19,6 +19,7 @@ import {
   createBodyGuidanceApiInputSchema,
   createPlanChangeProposalApiInputSchema,
   planChangeProposalSchema,
+  proposalApprovalStatementListSchema,
   proposalApprovalStatementSchema,
   recordBodyFlareApiInputSchema,
   recordProposalApprovalStatementApiInputSchema,
@@ -61,6 +62,7 @@ import {
   getBodyConcern,
   getBodyGuidance,
   getPlanChangeProposal,
+  getProposalApprovalStatements,
   listBodyCapabilities,
   listBodyConcerns,
   listBodyGuidance,
@@ -479,6 +481,28 @@ export const bodyContextRuntimeRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request, reply) => {
       const result = await getPlanChangeProposal(request.userId, request.params.id);
+      return result
+        ? reply.send({ data: result })
+        : sendError(reply, 404, 'BODY_CONTEXT_NOT_FOUND', 'Proposal not found');
+    },
+  );
+  typed.get(
+    '/plan-change-proposals/:id/approval-statements',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(proposalApprovalStatementListSchema),
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+        },
+        tags: ['body-context'],
+        summary: 'Read captured approval claims for an owned proposal',
+        security: authSecurity,
+      },
+    },
+    async (request, reply) => {
+      const result = await getProposalApprovalStatements(request.userId, request.params.id);
       return result
         ? reply.send({ data: result })
         : sendError(reply, 404, 'BODY_CONTEXT_NOT_FOUND', 'Proposal not found');

@@ -5,6 +5,10 @@ import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { useSessionContext } from '../api/session-context';
 import { projectWhatMattersToday } from '../lib/session-context-migration';
+import {
+  BodySourceAudit,
+  RuntimeSourceLink,
+} from '@/features/journal/components/runtime-source-link';
 
 const XL_BREAKPOINT_QUERY = '(min-width: 1280px)';
 export function SessionContext({
@@ -80,6 +84,15 @@ export function SessionContext({
                       <li key={item.id} data-record-id={item.id}>
                         {item.label} · {item.provenance.replaceAll('_', ' ')} ·{' '}
                         {item.freshness.state}
+                        <p className="text-xs">
+                          {item.source.sourceLabel} ·{' '}
+                          {item.source.sourceOccurredAt ?? 'time unknown'}
+                        </p>
+                        <BodySourceAudit
+                          kind="capability"
+                          id={item.id}
+                          revisionId={item.currentRevisionId}
+                        />
                       </li>
                     ))}
                   </ul>
@@ -95,6 +108,15 @@ export function SessionContext({
                       <li key={item.id} data-record-id={item.id}>
                         {item.label} · symptoms {item.symptomState} · management{' '}
                         {item.managementState} · {item.provenance.replaceAll('_', ' ')}
+                        <p className="text-xs">
+                          {item.source.sourceLabel} ·{' '}
+                          {item.source.sourceOccurredAt ?? 'time unknown'}
+                        </p>
+                        <BodySourceAudit
+                          kind="body_concern"
+                          id={item.id}
+                          revisionId={item.currentRevisionId}
+                        />
                       </li>
                     ))}
                   </ul>
@@ -113,6 +135,15 @@ export function SessionContext({
                       <li key={item.id} data-record-id={item.id}>
                         {item.text} · {item.provenance.replaceAll('_', ' ')} ·{' '}
                         {item.freshness.state}
+                        <p className="text-xs">
+                          {item.source.sourceLabel} ·{' '}
+                          {item.source.sourceOccurredAt ?? 'time unknown'}
+                        </p>
+                        <BodySourceAudit
+                          kind="guidance"
+                          id={item.id}
+                          revisionId={item.currentRevisionId}
+                        />
                       </li>
                     ))}
                   </ul>
@@ -127,6 +158,11 @@ export function SessionContext({
                     {view.trackedIrrelevantConcerns.map((item) => (
                       <li key={item.id} data-record-id={item.id}>
                         {item.label} · {item.symptomState} · {item.managementState}
+                        <BodySourceAudit
+                          kind="body_concern"
+                          id={item.id}
+                          revisionId={item.currentRevisionId}
+                        />
                       </li>
                     ))}
                   </ul>
@@ -141,6 +177,11 @@ export function SessionContext({
                     {view.uncertainRelevanceConcerns.map((item) => (
                       <li key={item.id} data-record-id={item.id}>
                         {item.label}
+                        <BodySourceAudit
+                          kind="body_concern"
+                          id={item.id}
+                          revisionId={item.currentRevisionId}
+                        />
                       </li>
                     ))}
                   </ul>
@@ -167,6 +208,7 @@ export function SessionContext({
                           ? 'duration unknown'
                           : `${item.workoutDurationSeconds} seconds`
                         : `${item.activityDurationMinutes} minutes`}
+                      <RuntimeSourceLink reference={item.sourceReference} />
                     </li>
                   ))}
                 </ul>

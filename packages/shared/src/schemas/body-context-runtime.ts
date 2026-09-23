@@ -393,6 +393,11 @@ export const proposalApprovalStatementSchema = z
   })
   .strict();
 
+// Read-only audit of captured claims. A statement is not an approval.
+export const proposalApprovalStatementListSchema = z
+  .object({ statements: z.array(proposalApprovalStatementSchema) })
+  .strict();
+
 export const planChangeProposalRevisionSchema = z
   .object({
     id: idSchema,

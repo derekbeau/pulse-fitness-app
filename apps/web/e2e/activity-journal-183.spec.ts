@@ -1,10 +1,10 @@
 import { expect, request, test, type APIRequestContext } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { setAuthenticatedSession } from './auth-session';
 import { apiBaseURL } from './test-env';
 import { basename, resolve } from 'node:path';
-import { realpathSync } from 'node:fs';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 
 // All primary records are written through registered APIs into the isolated E2E SQLite.
 const provenance = (classification: 'user_observation' | 'agent_suggestion') => ({
@@ -48,6 +48,8 @@ test('registered Activity and Journal records survive Calendar deep links and re
   browser,
 }) => {
   test.setTimeout(120_000);
+  if (process.env.PULSE_TEST_NOW !== '2026-09-24T15:00:00.000Z')
+    throw new Error('Fixed API test clock required for #183 evidence');
   await page.clock.setFixedTime(new Date('2026-09-24T15:00:00.000Z'));
   const consoleErrors: string[] = [];
   page.on('pageerror', (error) => consoleErrors.push(error.message));
@@ -133,6 +135,19 @@ test('registered Activity and Journal records survive Calendar deep links and re
     const detail = (await detailResponse.json()).data;
     expect(detail.assignments[0].id).toBe(assignment.id);
     expect(detail.executions[0].id).toBe(execution.id);
+    await setAuthenticatedSession(page, token);
+    await page.goto(`/activity/${activityId}?occurrence=${assignment.id}`, {
+      waitUntil: 'networkidle',
+    });
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(page.locator(`[data-occurrence-id="${assignment.id}"]`)).toContainText(
+      '2026-09-22',
+    );
+    await page.goto('/calendar', { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: 'Agenda' }).click();
+    await expect(
+      page.locator(`[data-local-date="2026-09-22"] [data-record-id="${assignment.id}"]`),
+    ).toBeVisible();
 
     const bodySource = sourceWithoutCapture('user_observation');
     const journalSource = sourceWithoutCapture('user_observation');
@@ -187,13 +202,17 @@ test('registered Activity and Journal records survive Calendar deep links and re
         idempotencyKey: 'activity-183-lower-focus',
       },
     );
-    await write(agent, '/api/v1/body-context/guidance', {
-      concernId: shoulder.concern.id,
-      capabilityId: upperFocus.capability.id,
-      text: 'Fictional clinician-relayed shoulder guidance.',
-      source: { ...bodySource, class: 'user_relayed_clinician' },
-      idempotencyKey: 'activity-183-shoulder-guidance',
-    });
+    const shoulderGuidance = await write<{ guidance: { id: string } }>(
+      agent,
+      '/api/v1/body-context/guidance',
+      {
+        concernId: shoulder.concern.id,
+        capabilityId: upperFocus.capability.id,
+        text: 'Fictional clinician-relayed shoulder guidance.',
+        source: { ...bodySource, class: 'user_relayed_clinician' },
+        idempotencyKey: 'activity-183-shoulder-guidance',
+      },
+    );
     await write(agent, '/api/v1/body-context/guidance', {
       concernId: quad.concern.id,
       capabilityId: lowerFocus.capability.id,
@@ -214,6 +233,21 @@ test('registered Activity and Journal records survive Calendar deep links and re
         idempotencyKey: 'activity-183-flare',
       },
     );
+    await page.goto(`/activity/${activityId}?occurrence=${assignment.id}`, {
+      waitUntil: 'networkidle',
+    });
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(page.locator(`[data-occurrence-id="${assignment.id}"]`)).toContainText(
+      '2026-09-22',
+    );
+    await page.goto('/calendar', { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: 'Agenda' }).click();
+    await expect(
+      page.locator(`[data-local-date="2026-09-22"] [data-record-id="${assignment.id}"]`),
+    ).toBeVisible();
+    await expect(
+      page.locator(`[data-local-date="2026-09-24"] [data-record-id="${flare.id}"]`),
+    ).toBeVisible();
     const upperExercise = await write<{ id: string }>(owner, '/api/v1/exercises', {
       category: 'compound',
       equipment: 'barbell',
@@ -345,14 +379,40 @@ test('registered Activity and Journal records survive Calendar deep links and re
       sourceReferences: [],
       idempotencyKey: 'activity-183-pending-proposal',
     });
-    await write(agent, `/api/v1/plan-change-proposals/${pending.id}/approval-statements`, {
-      proposalRevisionId: pending.currentRevisionId,
-      targetRevisionFingerprint: pending.targetRevisionFingerprint,
-      statement: 'Fictional statement awaiting explicit approval.',
-      sourceId: 'fictional-183-pending-message',
-      sourceOccurredAt: '2026-09-24T10:00:00.000-04:00',
-      idempotencyKey: 'activity-183-pending-statement',
-    });
+    const capturedStatement = await write<{ id: string }>(
+      agent,
+      `/api/v1/plan-change-proposals/${pending.id}/approval-statements`,
+      {
+        proposalRevisionId: pending.currentRevisionId,
+        targetRevisionFingerprint: pending.targetRevisionFingerprint,
+        statement: 'Fictional statement awaiting explicit approval.',
+        sourceId: 'fictional-183-pending-message',
+        sourceOccurredAt: '2026-09-24T10:00:00.000-04:00',
+        idempotencyKey: 'activity-183-pending-statement',
+      },
+    );
+    await page.goto(`/activity/${activityId}?proposal=${pending.id}`, { waitUntil: 'networkidle' });
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(page.locator(`[data-statement-id="${capturedStatement.id}"]`)).toContainText(
+      'Fictional statement awaiting explicit approval.',
+    );
+    await expect(page.locator(`[data-statement-id="${capturedStatement.id}"]`)).toContainText(
+      'Captured for current revision; not approval',
+    );
+    await expect(page.locator(`[data-proposal-id="${pending.id}"]`)).toContainText(
+      'Approval pending; no plan effect executed.',
+    );
+    await expect(page.locator(`[data-occurrence-id="${pendingAssignment.id}"]`)).toContainText(
+      '2026-09-26',
+    );
+    await page.goto('/calendar', { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: 'Agenda' }).click();
+    await expect(
+      page.locator(`[data-local-date="2026-09-26"] [data-record-id="${pendingAssignment.id}"]`),
+    ).toBeVisible();
+    await expect(
+      page.locator(`[data-local-date="2026-09-27"] [data-record-id="${pendingAssignment.id}"]`),
+    ).toHaveCount(0);
     const approvedAssignment = await write<{ id: string }>(
       agent,
       `/api/v1/activities/${activityId}/assignments`,
@@ -382,6 +442,16 @@ test('registered Activity and Journal records survive Calendar deep links and re
       sourceReferences: [],
       idempotencyKey: 'activity-183-approved-proposal',
     });
+    await page.goto(`/activity/${activityId}?proposal=${approvedProposal.id}`, {
+      waitUntil: 'networkidle',
+    });
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(page.locator(`[data-occurrence-id="${approvedAssignment.id}"]`)).toContainText(
+      '2026-09-28',
+    );
+    await expect(page.locator(`[data-proposal-id="${approvedProposal.id}"]`)).toContainText(
+      'Approval pending; no plan effect executed.',
+    );
     const approvalResponse = await owner.post(
       `/api/v1/plan-change-proposals/${approvedProposal.id}/approval`,
       {
@@ -396,6 +466,25 @@ test('registered Activity and Journal records survive Calendar deep links and re
     const approvedReadback = (await approvalResponse.json()).data;
     expect(approvedReadback.approval.approvedBy.kind).toBe('user');
     expect(approvedReadback.approval.relayedBy).toBeNull();
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(page.locator(`[data-occurrence-id="${approvedAssignment.id}"]`)).toContainText(
+      '2026-09-29',
+    );
+    await expect(page.locator(`[data-proposal-id="${approvedProposal.id}"]`)).toContainText(
+      'Approved by user',
+    );
+    await page.goto('/calendar', { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: 'Agenda' }).click();
+    await expect(
+      page.locator(`[data-local-date="2026-09-29"] [data-record-id="${approvedAssignment.id}"]`),
+    ).toBeVisible();
+    const committedAssignment = await read<{
+      assignments: Array<{ id: string; plannedLocalDate: string }>;
+    }>(owner, `/api/v1/activities/${activityId}`);
+    expect(
+      committedAssignment.assignments.find((item) => item.id === approvedAssignment.id)
+        ?.plannedLocalDate,
+    ).toBe('2026-09-29');
     const pendingReadback = await read<{ state: string; approval: null }>(
       owner,
       `/api/v1/plan-change-proposals/${pending.id}`,
@@ -446,17 +535,55 @@ test('registered Activity and Journal records survive Calendar deep links and re
     const executionRevisionId = calendar.items.find((item) => item.id === execution.id)
       ?.sourceReference?.revisionId;
     expect(executionRevisionId).toBeTruthy();
-    const journal = await write<{ observation: { id: string } }>(agent, '/api/v1/journal', {
-      localDate: '2026-09-24',
-      title: 'Fictional mobility observation',
-      content: 'I completed the Tuesday mobility item on Thursday.',
-      category: 'movement',
-      sourceReferences: [
-        { kind: 'activity_execution', id: execution.id, revisionId: executionRevisionId },
-      ],
-      source: journalSource,
-      idempotencyKey: 'activity-183-journal',
-    });
+    const journal = await write<{ observation: { id: string; currentRevisionId: string } }>(
+      agent,
+      '/api/v1/journal',
+      {
+        localDate: '2026-09-24',
+        title: 'Fictional mobility observation',
+        content: 'I completed the Tuesday mobility item on Thursday.',
+        category: 'movement',
+        sourceReferences: [
+          { kind: 'activity_execution', id: execution.id, revisionId: executionRevisionId },
+        ],
+        source: journalSource,
+        idempotencyKey: 'activity-183-journal',
+      },
+    );
+    const journalCorrection = await agent.post(
+      `/api/v1/journal/${journal.observation.id}/corrections`,
+      {
+        data: {
+          expectedRevisionId: journal.observation.currentRevisionId,
+          correctedFields: {
+            content:
+              'I completed the Tuesday mobility item on Thursday; shoulder tightness was also recorded.',
+            sourceReferences: [
+              {
+                kind: 'body_concern',
+                id: shoulder.concern.id,
+                revisionId: currentShoulder.concern.currentRevisionId,
+              },
+            ],
+          },
+          reason: 'Fictional source clarification',
+          idempotencyKey: 'activity-183-journal-correction',
+        },
+      },
+    );
+    expect(journalCorrection.status(), await journalCorrection.text()).toBe(200);
+    const correctedJournal = (await journalCorrection.json()).data as {
+      observation: { currentRevisionId: string };
+      history: Array<{
+        id: string;
+        observation: { content: string; sourceReferences: Array<{ id: string }> };
+      }>;
+    };
+    expect(correctedJournal.history[0]?.id).toBe(journal.observation.currentRevisionId);
+    expect(correctedJournal.history[0]?.observation.content).toBe(
+      'I completed the Tuesday mobility item on Thursday.',
+    );
+    expect(correctedJournal.history[0]?.observation.sourceReferences[0]?.id).toBe(execution.id);
     const suggestion = await write<{ observation: { id: string } }>(agent, '/api/v1/journal', {
       localDate: '2026-09-24',
       title: 'Fictional agent suggestion',
@@ -483,7 +610,7 @@ test('registered Activity and Journal records survive Calendar deep links and re
       '/api/v1/journal/weekly-reflection?start=2026-09-22&end=2026-09-28',
     );
     expect(weeklyReadback.facts.length).toBeGreaterThan(0);
-    expect(weeklyReadback.gaps.length).toBeGreaterThan(0);
+    expect(weeklyReadback.gaps).toContain('2026-09-25: workout missing');
     const flareReadback = await read<{ flares: Array<{ id: string }> }>(
       owner,
       `/api/v1/body-context/concerns/${shoulder.concern.id}`,
@@ -505,23 +632,45 @@ test('registered Activity and Journal records survive Calendar deep links and re
       lowerSession: `/api/v1/workout-sessions/${lowerSession.id}/session-context`,
       whatMatters: '/api/v1/planning/what-matters?date=2026-09-24',
       pendingProposal: `/api/v1/plan-change-proposals/${pending.id}`,
+      pendingStatements: `/api/v1/plan-change-proposals/${pending.id}/approval-statements`,
       approvedProposal: `/api/v1/plan-change-proposals/${approvedProposal.id}`,
       calendar: '/api/v1/calendar?from=2026-09-22&to=2026-09-29',
     };
     const envelopes: Record<string, unknown> = {};
+    const registeredBodies: Record<string, { path: string; body: string; sha256: string }> = {};
     for (const [name, path] of Object.entries(paths)) {
       const response = await owner.get(path);
       expect(response.ok(), await response.text()).toBeTruthy();
-      envelopes[name] = await response.json();
+      const body = await response.text();
+      registeredBodies[name] = {
+        path,
+        body,
+        sha256: createHash('sha256').update(body).digest('hex'),
+      };
+      envelopes[name] = JSON.parse(body);
     }
+    const rawPath = test.info().outputPath('registered-get-bodies.json');
+    writeFileSync(rawPath, JSON.stringify(registeredBodies, null, 2));
     const embedded = JSON.stringify({ paths, envelopes }).replaceAll('<', '\\u003c');
     const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pulse #183 registered API fixture</title><style>body{font:16px system-ui;max-width:70rem;margin:auto;padding:1.5rem;background:#101823;color:#edf3f8}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#1e2a38;padding:1rem;border-radius:.75rem}summary{cursor:pointer;padding:.7rem}</style><h1>Pulse #183 registered API fixture</h1><p>Fictional America/Detroit owner. These envelopes were copied from registered authenticated GETs; this file is supplementary evidence, not the live UI.</p><main id="records"></main><script type="application/json" id="fixtures">${embedded}</script><script>const fixture=JSON.parse(document.getElementById('fixtures').textContent);for(const [name,path] of Object.entries(fixture.paths)){const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent=name+' · '+path;const pre=document.createElement('pre');pre.textContent=JSON.stringify(fixture.envelopes[name],null,2);details.append(summary,pre);document.getElementById('records').append(details)}</script></html>`;
-    writeFileSync(test.info().outputPath('live-ui.html'), html);
-    const match = html.match(
+    const htmlPath = test.info().outputPath('live-ui.html');
+    writeFileSync(htmlPath, html);
+    const fileOnDisk = readFileSync(htmlPath, 'utf8');
+    const bodiesOnDisk = JSON.parse(readFileSync(rawPath, 'utf8')) as typeof registeredBodies;
+    const match = fileOnDisk.match(
       /<script type="application\/json" id="fixtures">([\s\S]*?)<\/script>/u,
     );
     if (!match?.[1]) throw new Error('HTML fixture payload missing');
-    expect(JSON.parse(match[1])).toEqual({ paths, envelopes });
+    const saved = JSON.parse(match[1]) as {
+      paths: Record<string, string>;
+      envelopes: Record<string, unknown>;
+    };
+    expect(saved.paths).toEqual(paths);
+    for (const [name, capture] of Object.entries(bodiesOnDisk)) {
+      expect(createHash('sha256').update(capture.body).digest('hex')).toBe(capture.sha256);
+      expect(saved.paths[name]).toBe(capture.path);
+      expect(saved.envelopes[name]).toEqual(JSON.parse(capture.body));
+    }
     await setAuthenticatedSession(page, token);
     await page.goto('/calendar', { waitUntil: 'networkidle' });
     await page.getByRole('button', { name: 'Agenda' }).click();
@@ -592,10 +741,31 @@ test('registered Activity and Journal records survive Calendar deep links and re
     await page.goto(`/journal/${journal.observation.id}`, { waitUntil: 'networkidle' });
     await page.reload({ waitUntil: 'networkidle' });
     await expect(
-      page.getByText('I completed the Tuesday mobility item on Thursday.').first(),
+      page
+        .getByText(
+          'I completed the Tuesday mobility item on Thursday; shoulder tightness was also recorded.',
+        )
+        .first(),
     ).toBeVisible();
-    await expect(page.locator(`[data-source-id="${execution.id}"]`)).toBeVisible();
-    await page.locator(`[data-source-id="${execution.id}"]`).click();
+    await page.getByText('Revision history').click();
+    const priorJournalRevision = page.locator(
+      `[data-revision-id="${journal.observation.currentRevisionId}"]`,
+    );
+    await expect(priorJournalRevision).toContainText(
+      'I completed the Tuesday mobility item on Thursday.',
+    );
+    await expect(priorJournalRevision.locator(`[data-source-id="${execution.id}"]`)).toContainText(
+      'referenced revision',
+    );
+    await page
+      .locator(`[data-source-id="${shoulder.concern.id}"]`)
+      .first()
+      .getByRole('button')
+      .click();
+    await expect(page.locator(`[data-source-id="${shoulder.concern.id}"]`).first()).toContainText(
+      'Exact recorded revision',
+    );
+    await page.locator(`[data-source-id="${execution.id}"]`).getByRole('link').click();
     await page.reload({ waitUntil: 'networkidle' });
     await expect(page.locator(`[data-occurrence-id="${execution.id}"]`)).toBeVisible();
     await page.goto('/journal?date=2026-09-24', { waitUntil: 'networkidle' });
@@ -606,6 +776,11 @@ test('registered Activity and Journal records survive Calendar deep links and re
     await expect(page.getByRole('region', { name: 'Daily check-in' })).toContainText(
       'Fictional shoulder tightness; cause unknown.',
     );
+    await page.goto('/journal?date=2026-09-28', { waitUntil: 'networkidle' });
+    await expect(page.getByRole('region', { name: 'Weekly reflection' })).toContainText(
+      '2026-09-25: workout missing',
+    );
+    await page.goto('/journal?date=2026-09-24', { waitUntil: 'networkidle' });
     await page.screenshot({ path: test.info().outputPath('journal-desktop.png'), fullPage: true });
     await page.goto(`/workouts/active?sessionId=${upperSession.id}`, { waitUntil: 'networkidle' });
     await expandSessionContext(page);
@@ -613,6 +788,15 @@ test('registered Activity and Journal records survive Calendar deep links and re
     await expect(page.getByText('Fictional knee concern')).toBeVisible();
     await expect(page.getByText('Fictional upper-body control')).toBeVisible();
     await expect(page.getByText(/sleep.*training_phase/)).toBeVisible();
+    for (const sourceId of [
+      shoulder.concern.id,
+      upperFocus.capability.id,
+      shoulderGuidance.guidance.id,
+    ]) {
+      const audit = page.locator(`[data-source-id="${sourceId}"]`);
+      await audit.getByRole('button').click();
+      await expect(audit).toContainText('Exact recorded revision');
+    }
     await page.screenshot({
       path: test.info().outputPath('upper-session-desktop.png'),
       fullPage: true,
@@ -621,6 +805,9 @@ test('registered Activity and Journal records survive Calendar deep links and re
     await expandSessionContext(page);
     await expect(page.getByText('Fictional quad tightness')).toBeVisible();
     await expect(page.getByText('Fictional lower-body control')).toBeVisible();
+    await expect(page.locator(`[data-source-id="${execution.id}"]`).first()).toContainText(
+      'referenced revision',
+    );
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload({ waitUntil: 'networkidle' });
     await expandSessionContext(page);
@@ -629,6 +816,28 @@ test('registered Activity and Journal records survive Calendar deep links and re
       path: test.info().outputPath('lower-session-mobile.png'),
       fullPage: true,
     });
+    // Fixture-DB uncertainty probe: no registered API can erase a saved exercise's muscle identity.
+    execFileSync('sqlite3', [
+      file,
+      `update exercises set muscle_groups='null' where id='${lowerExercise.id}' and user_id='${user.id}';`,
+    ]);
+    try {
+      await page.reload({ waitUntil: 'networkidle' });
+      await expandSessionContext(page);
+      await expect(page.getByText(/Missing muscle identity for 1 set/)).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Uncertain relevance' }).locator('..'),
+      ).toContainText('Fictional quad tightness');
+      await page.screenshot({
+        path: test.info().outputPath('uncertain-session-mobile.png'),
+        fullPage: true,
+      });
+    } finally {
+      execFileSync('sqlite3', [
+        file,
+        `update exercises set muscle_groups='["quads"]' where id='${lowerExercise.id}' and user_id='${user.id}';`,
+      ]);
+    }
     await page.goto('/calendar', { waitUntil: 'networkidle' });
     const agendaButton = page.getByRole('button', { name: 'Agenda' });
     await agendaButton.focus();
@@ -650,6 +859,31 @@ test('registered Activity and Journal records survive Calendar deep links and re
     await page.reload({ waitUntil: 'networkidle' });
     await expect(page.getByText(/Legacy date only: 2026-09-24/)).toBeVisible();
     expect(consoleErrors).toEqual([]);
+    // Fixture-DB overflow only: preserve registered canonical seed, exercise a real owner-scoped server 422.
+    execFileSync('sqlite3', [
+      file,
+      `with recursive seq(n) as (select 1 union all select n+1 from seq where n<1000) insert into journal_entries (id,user_id,date,title,type,content,created_by,created_at,updated_at) select 'overflow-183-'||n,'${user.id}','2026-09-24','Fictional overflow','observation','Fixture-only limit row','user',1000,1000 from seq;`,
+    ]);
+    try {
+      const overflow = await owner.get('/api/v1/journal?from=2026-09-01&to=2026-09-24');
+      expect(overflow.status(), await overflow.text()).toBe(422);
+      expect((await overflow.json()).error).toMatchObject({
+        code: 'JOURNAL_READ_LIMIT_EXCEEDED',
+        details: { scope: 'journal_list_legacy' },
+      });
+      await page.goto('/journal?date=2026-09-24', { waitUntil: 'networkidle' });
+      await expect(page.getByRole('alert')).toContainText('422');
+      await expect(page.getByRole('alert')).toContainText('JOURNAL_READ_LIMIT_EXCEEDED');
+      await page.screenshot({
+        path: test.info().outputPath('real-422-mobile.png'),
+        fullPage: true,
+      });
+    } finally {
+      execFileSync('sqlite3', [
+        file,
+        "delete from journal_entries where id like 'overflow-183-%';",
+      ]);
+    }
     await page.goto('/activity/absent-183', { waitUntil: 'networkidle' });
     await expect(page.getByRole('alert')).toContainText('404');
     await page.goto('/journal/absent-183', { waitUntil: 'networkidle' });

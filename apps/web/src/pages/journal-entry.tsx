@@ -56,7 +56,12 @@ export function JournalEntryPage() {
             </div>
             <div>
               <dt className="font-semibold">Source</dt>
-              <dd>{query.data.observation.source.sourceLabel}</dd>
+              <dd>
+                {query.data.observation.source.sourceLabel} ·{' '}
+                {query.data.observation.source.sourceId} · occurred{' '}
+                {query.data.observation.source.sourceOccurredAt ?? 'unknown'} · captured{' '}
+                {query.data.observation.source.capturedAt}
+              </dd>
             </div>
           </dl>
           <section aria-label="Source links">
@@ -77,7 +82,11 @@ export function JournalEntryPage() {
             <summary className="cursor-pointer font-semibold">Revision history</summary>
             <ol className="mt-3 space-y-3">
               {query.data.history.map((item) => (
-                <li key={item.id} className="border-t border-border pt-2">
+                <li
+                  key={item.id}
+                  data-revision-id={item.id}
+                  className="border-t border-border pt-2"
+                >
                   <p className="text-sm">
                     Revision {item.revision} · {item.recordedAt} · {item.recordedBy.kind}
                     {item.reason ? ` · ${item.reason}` : ''}
@@ -86,8 +95,20 @@ export function JournalEntryPage() {
                   <p className="whitespace-pre-wrap text-sm">{item.observation.content}</p>
                   <p className="text-xs">
                     {item.observation.source.class.replaceAll('_', ' ')} ·{' '}
-                    {item.observation.source.uncertainty}
+                    {item.observation.source.uncertainty} · source{' '}
+                    {item.observation.source.sourceId} · {item.observation.source.sourceLabel} ·
+                    occurred {item.observation.source.sourceOccurredAt ?? 'unknown'}
                   </p>
+                  <p className="text-xs">Immutable revision {item.id} · source references:</p>
+                  <ul className="space-y-2 pl-4">
+                    {item.observation.sourceReferences.map((reference) => (
+                      <li
+                        key={`${item.id}:${reference.kind}:${reference.id}:${reference.revisionId}`}
+                      >
+                        <RuntimeSourceLink reference={reference} />
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               ))}
             </ol>

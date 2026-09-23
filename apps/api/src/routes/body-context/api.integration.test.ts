@@ -336,6 +336,7 @@ describe('body-context runtime API acceptance', () => {
         patch: expect.any(Object),
       },
       '/api/v1/plan-change-proposals/{id}/approval-statements': {
+        get: expect.any(Object),
         post: expect.any(Object),
       },
       '/api/v1/plan-change-proposals/{id}/approval': { post: expect.any(Object) },
@@ -639,6 +640,35 @@ describe('body-context runtime API acceptance', () => {
       });
       expect(capturedOnly.statusCode, capturedOnly.body).toBe(200);
       expect(capturedOnly.json().data).toMatchObject({ state: 'proposed', approval: null });
+      const receiptsBeforeRead = dbModule.sqlite
+        .prepare('select count(*) as count from body_context_idempotency_receipts')
+        .get();
+      const statementRead = await app.inject({
+        method: 'GET',
+        url: `/api/v1/plan-change-proposals/${relayId}/approval-statements`,
+        headers: jwtHeaders,
+      });
+      expect(statementRead.statusCode, statementRead.body).toBe(200);
+      expect(statementRead.json().data.statements).toEqual([statement.json().data]);
+      const foreignStatementRead = await app.inject({
+        method: 'GET',
+        url: `/api/v1/plan-change-proposals/${relayId}/approval-statements`,
+        headers: foreignAgentHeaders,
+      });
+      expect(foreignStatementRead.statusCode).toBe(404);
+      expect(foreignStatementRead.json().error.code).toBe('BODY_CONTEXT_NOT_FOUND');
+      const absentStatementRead = await app.inject({
+        method: 'GET',
+        url: '/api/v1/plan-change-proposals/absent/approval-statements',
+        headers: jwtHeaders,
+      });
+      expect(absentStatementRead.statusCode).toBe(404);
+      expect(absentStatementRead.json().error.code).toBe('BODY_CONTEXT_NOT_FOUND');
+      expect(
+        dbModule.sqlite
+          .prepare('select count(*) as count from body_context_idempotency_receipts')
+          .get(),
+      ).toEqual(receiptsBeforeRead);
       expect(
         dbModule.sqlite
           .prepare('select planned_local_date,revision from activity_assignments where id=?')
@@ -731,6 +761,79 @@ describe('body-context runtime API acceptance', () => {
         headers: foreignAgentHeaders,
       });
       expect(foreignRelayRead.statusCode).toBe(404);
+
+      const historicalProposal = await app.inject({
+        method: 'POST',
+        url: '/api/v1/plan-change-proposals',
+        headers: agentHeaders,
+        payload: {
+          summary: 'Fictional revision-bound statement',
+          effects: [
+            {
+              kind: 'activity_assignment_reschedule',
+              assignmentId,
+              expectedRevision: 3,
+              plannedLocalDate: '2026-09-25',
+              timeZone: 'America/Detroit',
+              reason: 'Fictional future option',
+            },
+          ],
+          sourceReferences: [],
+          idempotencyKey: 'historical-proposal-183',
+        },
+      });
+      expect(historicalProposal.statusCode, historicalProposal.body).toBe(201);
+      const historicalId = historicalProposal.json().data.id as string;
+      const oldBinding = {
+        proposalRevisionId: historicalProposal.json().data.currentRevisionId,
+        targetRevisionFingerprint: historicalProposal.json().data.targetRevisionFingerprint,
+      };
+      const oldClaim = await app.inject({
+        method: 'POST',
+        url: `/api/v1/plan-change-proposals/${historicalId}/approval-statements`,
+        headers: agentHeaders,
+        payload: {
+          ...oldBinding,
+          statement: 'A claim for the first draft only.',
+          sourceId: 'fictional-message-183',
+          sourceOccurredAt: '2026-09-19T10:00:00.000-04:00',
+          idempotencyKey: 'historical-claim-183',
+        },
+      });
+      expect(oldClaim.statusCode, oldClaim.body).toBe(201);
+      const revisedClaimTarget = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/plan-change-proposals/${historicalId}`,
+        headers: agentHeaders,
+        payload: {
+          expectedProposalRevisionId: oldBinding.proposalRevisionId,
+          summary: 'Fictional revised draft',
+          effects: [
+            {
+              kind: 'activity_assignment_reschedule',
+              assignmentId,
+              expectedRevision: 3,
+              plannedLocalDate: '2026-09-26',
+              timeZone: 'America/Detroit',
+              reason: 'Fictional revised option',
+            },
+          ],
+          sourceReferences: [],
+          idempotencyKey: 'historical-revise-183',
+        },
+      });
+      expect(revisedClaimTarget.statusCode, revisedClaimTarget.body).toBe(200);
+      expect(revisedClaimTarget.json().data.currentRevisionId).not.toBe(
+        oldBinding.proposalRevisionId,
+      );
+      const historicalRead = await app.inject({
+        method: 'GET',
+        url: `/api/v1/plan-change-proposals/${historicalId}/approval-statements`,
+        headers: jwtHeaders,
+      });
+      expect(historicalRead.statusCode, historicalRead.body).toBe(200);
+      expect(historicalRead.json().data.statements).toEqual([oldClaim.json().data]);
+      expect(revisedClaimTarget.json().data.approval).toBeNull();
 
       const staleProposal = await app.inject({
         method: 'POST',

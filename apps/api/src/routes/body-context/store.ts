@@ -1263,6 +1263,23 @@ export const getPlanChangeProposal = async (userId: string, id: string) => {
   return row ? proposalModel(sqlite, row) : null;
 };
 
+export const getProposalApprovalStatements = async (userId: string, proposalId: string) => {
+  const sqlite = await getSqlite();
+  if (!proposalRow(sqlite, userId, proposalId)) return null;
+  const rows = sqlite
+    .prepare(
+      `select id,proposal_id as proposalId,user_id as subjectUserId,
+              proposal_revision_id as proposalRevisionId,
+              target_revision_fingerprint as targetRevisionFingerprint,statement,
+              source_id as sourceId,source_occurred_at as sourceOccurredAt,
+              recorded_by_json as recordedByJson,created_at as createdAt
+         from proposal_approval_statements where proposal_id=? and user_id=?
+         order by created_at asc,id asc`,
+    )
+    .all(proposalId, userId) as ProposalApprovalStatementRow[];
+  return { statements: rows.map(proposalApprovalStatementModel) };
+};
+
 const writeProposalRevision = (
   sqlite: Database.Database,
   userId: string,

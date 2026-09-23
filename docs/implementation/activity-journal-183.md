@@ -38,7 +38,7 @@ Replace preview/mock Activity, Journal, and Session Context with live reads of a
 - `#182` Calendar `hrefFor` sends activity/journal/body items to `/activity` or `/journal` list routes, not record ids. Workout/nutrition links are already canonical.
 - `/profile/injuries` remains a separate preview. Do not convert it into a second concern registry.
 - Writes for Activity, Journal, flares, proposals, check-in questions/answers remain AgentToken-only. Web JWT is read-only for those captures.
-- Latest additive migration is `0072_journal_runtime`. #183 is UI + agent guide + integrated acceptance: no `0073`, no new tables, no new public write routes, no calendar rewrite.
+- Latest additive migration is `0072_journal_runtime`. #183 is UI + agent guide + integrated acceptance: no `0073`, no new tables, no new public write routes, no calendar rewrite. For consolidated repair, the parent explicitly authorized one additive read-only, owner-scoped approval-statement read so captured pending claims can be shown without treating them as approval. It does not change approval behavior or the existing proposal GET shape.
 
 ## Frozen practical fixture (before any UI code)
 

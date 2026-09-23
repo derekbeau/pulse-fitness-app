@@ -7,6 +7,8 @@ export const projectWhatMattersToday = (context: SessionContextRuntime) => ({
     id: capability.id,
     label: capability.label,
     provenance: capability.source.class,
+    source: capability.source,
+    currentRevisionId: capability.currentRevisionId,
     freshness:
       context.positiveFocusAttributions.find((item) => item.capabilityId === capability.id)
         ?.derivedFreshness ?? capability.source.freshness,
@@ -17,24 +19,32 @@ export const projectWhatMattersToday = (context: SessionContextRuntime) => ({
     symptomState: concern.symptomState,
     managementState: concern.managementState,
     provenance: concern.source.class,
+    source: concern.source,
+    currentRevisionId: concern.currentRevisionId,
   })),
   trackedIrrelevantConcerns: context.trackedIrrelevantConcerns.map((concern) => ({
     id: concern.id,
     label: concern.label,
     symptomState: concern.symptomState,
     managementState: concern.managementState,
+    source: concern.source,
+    currentRevisionId: concern.currentRevisionId,
   })),
   uncertainRelevanceConcerns: context.uncertainRelevanceConcerns.map((concern) => ({
     id: concern.id,
     label: concern.label,
     symptomState: concern.symptomState,
     managementState: concern.managementState,
+    source: concern.source,
+    currentRevisionId: concern.currentRevisionId,
   })),
   unknownSessionExerciseSetIds: context.unknownSessionExerciseSetIds,
   guidance: context.applicableGuidance.map((item) => ({
     id: item.id,
     text: item.text,
     provenance: item.source.class,
+    source: item.source,
+    currentRevisionId: item.currentRevisionId,
     freshness:
       context.guidanceFreshnessAttributions.find(
         (attribution) => attribution.guidanceId === item.id,

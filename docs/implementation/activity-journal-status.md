@@ -1,4 +1,12 @@
-# #183 checkpoint status (ready for independent review)
+# #183 checkpoint status (consolidated repair candidate)
+
+## Consolidated repair after independent review
+
+- Independent `review-183-sol6/report.md` marked candidate `799d2884353da33093efd9292e3855a0f3d17be3` changes required. Parent-authorized repair scope is `qa-reports/pulse-activity-journal-release/repair-183-sol6.md`.
+- The sole backend contract exception is an owner-scoped, read-only `GET /api/v1/plan-change-proposals/:id/approval-statements`. It reads existing persisted claims, including exact statement/source/time/recording actor/revision/fingerprint. A claim remains distinct from approval and execution; no new write, registry, migration, or approval path is introduced.
+- Journal current and immutable revision source references now retain navigable identity and version. Existing owned body-context reads expose exact recorded revisions in a compact source panel; the raw snapshot remains available on demand. Session Context exposes the same owned source audit for focus, guidance, and concerns, plus labeled workload source identity. Where an owned detail cannot be shown, the UI names that limitation and does not treat a current record as a historical snapshot.
+- Registered Chromium acceptance now observes the same Activity before and after flare, pending statement, and direct JWT approval; verifies Journal correction history, scheduled-only weekly workout gap, a real owner-scoped 422, and visibly uncertain muscle mapping. The 422 and missing-muscle probes use labeled fixture-DB rows in isolated temporary SQLite after registered primary seeding, with restoration. Captured raw GET bodies match the committed HTML fixture on disk. Earlier failures remain in repair evidence.
+- The affected browser, API, focused web, typecheck, lint, and build checks passed before commit. The mandatory hook runs at commit time; independent delta review remains pending. No merge, deployment, production access, issue closure, or release-wide browser audit occurred.
 
 - Parent Astra approved `activity-journal-183.md` at `fcd2a2179f4cb63748db5da5ccd5317d4bcfbc78` with the occurrence-id clarification recorded in that spec before coding.
 - The isolated worktree began clean and writable on `feat/activity-journal-release` at that SHA. Activity, Journal, and Session Context now read strict registered APIs; Calendar deep links preserve canonical Activity ownership and exact occurrence selection.

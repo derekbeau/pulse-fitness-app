@@ -11,7 +11,10 @@ import {
   fetchActivities,
 } from '@/features/activity/api/activity';
 import { ActivityRuntimeView } from '@/features/activity/components/activity-runtime-view';
-import { usePlanChangeProposal } from '@/features/activity/api/proposal';
+import {
+  usePlanChangeProposal,
+  useProposalApprovalStatements,
+} from '@/features/activity/api/proposal';
 import { ApiError } from '@/lib/api-client';
 
 function ErrorState({ error, retry }: { error: unknown; retry: () => void }) {
@@ -142,6 +145,7 @@ export function ActivityPage() {
 
 function ProposalReadback({ id }: { id: string }) {
   const query = usePlanChangeProposal(id);
+  const statements = useProposalApprovalStatements(id);
   if (query.isPending) return <p role="status">Loading proposal…</p>;
   if (query.isError) return <ErrorState error={query.error} retry={() => void query.refetch()} />;
   const proposal = query.data;
@@ -194,6 +198,54 @@ function ProposalReadback({ id }: { id: string }) {
       ) : (
         <p>Approval pending; no plan effect executed.</p>
       )}
+      <section aria-label="Captured approval statements" className="border-t border-border pt-3">
+        <h4 className="font-semibold">Captured statements · audit only</h4>
+        <p className="text-xs text-muted-foreground">
+          Agent-recorded claims are not authenticated external speech or plan approval.
+        </p>
+        {statements.isPending && <p role="status">Loading captured statements…</p>}
+        {statements.isError && (
+          <ErrorState error={statements.error} retry={() => void statements.refetch()} />
+        )}
+        {statements.data &&
+          (statements.data.statements.length ? (
+            <ul className="space-y-3">
+              {statements.data.statements.map((statement) => {
+                const boundToCurrent =
+                  statement.proposalRevisionId === proposal.currentRevisionId &&
+                  statement.targetRevisionFingerprint === proposal.targetRevisionFingerprint;
+                const usedForApproval = proposal.approval?.approvalStatementId === statement.id;
+                return (
+                  <li
+                    key={statement.id}
+                    data-statement-id={statement.id}
+                    className="rounded-lg border p-3"
+                  >
+                    <p className="whitespace-pre-wrap">{statement.statement}</p>
+                    <p>
+                      {usedForApproval
+                        ? 'Used for recorded relay approval'
+                        : boundToCurrent
+                          ? 'Captured for current revision; not approval'
+                          : 'Superseded revision claim; not current approval'}
+                    </p>
+                    <p className="text-xs">
+                      Source {statement.sourceId} · occurred {statement.sourceOccurredAt} · recorded{' '}
+                      {statement.createdAt}
+                    </p>
+                    <p className="text-xs">
+                      Recorded by {statement.recordedBy.kind} {statement.recordedBy.id} · proposal
+                      revision {statement.proposalRevisionId} · target fingerprint{' '}
+                      {statement.targetRevisionFingerprint}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p>No statement captured.</p>
+          ))}
+      </section>
     </section>
   );
 }
