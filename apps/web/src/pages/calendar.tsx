@@ -42,6 +42,11 @@ const shortDay = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
 });
+const macroNumber = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+const macroLine = (values: NonNullable<CalendarRuntimeItem['nutrition']>['target']) =>
+  values
+    ? `${macroNumber.format(values.calories)} kcal · ${macroNumber.format(values.protein)} g protein · ${macroNumber.format(values.carbs)} g carbs · ${macroNumber.format(values.fat)} g fat`
+    : null;
 const hrefFor = (item: CalendarRuntimeItem) => {
   if (item.domain === 'workout')
     return item.record.kind === 'scheduled_workout'
@@ -90,13 +95,15 @@ function Entry({ item }: { item: CalendarRuntimeItem }) {
           {item.lifecycleStatus ? ` · ${item.lifecycleStatus}` : ''}
         </span>
         {item.nutrition && (
-          <span className="mt-1 block text-xs text-muted-foreground">
-            {item.nutrition.actual
-              ? `${Math.round(item.nutrition.actual.calories)} kcal logged`
-              : 'Intake unknown'}
-            {item.nutrition.target
-              ? ` · ${Math.round(item.nutrition.target.calories)} kcal target`
-              : ''}
+          <span className="mt-1 block space-y-0.5 text-xs leading-relaxed text-muted-foreground">
+            <span className="block">
+              {item.nutrition.actual
+                ? `Actual: ${macroLine(item.nutrition.actual)}`
+                : 'Actual: intake unknown'}
+            </span>
+            {item.nutrition.target && (
+              <span className="block">Target: {macroLine(item.nutrition.target)}</span>
+            )}
           </span>
         )}
       </span>
@@ -321,7 +328,7 @@ export function CalendarPage() {
               {range.days
                 .filter((date) => grouped.has(date))
                 .map((date) => (
-                  <div key={date}>
+                  <div key={date} data-local-date={date}>
                     <h2 className="mb-2 text-sm font-semibold text-muted-foreground">
                       {shortDay.format(parseDateKey(date))}
                     </h2>

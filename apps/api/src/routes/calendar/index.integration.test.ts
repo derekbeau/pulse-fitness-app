@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -121,6 +121,117 @@ describe('Calendar registered API on a fictional isolated SQLite fixture', () =>
       )
       .run();
   };
+  const seedHtmlFixtureExtras = () => {
+    const sql = database.sqlite;
+    sql
+      .prepare(
+        "insert into nutrition_targets (id,user_id,calories,protein,carbs,fat,source,macro_calories,effective_date,created_at,updated_at) values ('fixture-target','owner',2000,100,250,60,'manual',1940,'2026-03-08',1000,1000)",
+      )
+      .run();
+    sql
+      .prepare(
+        "insert into nutrition_target_events (id,target_id,user_id,sequence,effective_date,calories,protein,carbs,fat,macro_calories,source,event_type,recorded_at,created_at) values ('fixture-event','fixture-target','owner',1,'2026-03-08',2000,100,250,60,1940,'manual','manual_write',1000,1000)",
+      )
+      .run();
+    sql
+      .prepare(
+        "insert into nutrition_logs (id,user_id,date,status,status_updated_at,created_at,updated_at) values ('fixture-meal-log','owner','2026-03-14','partial',1000,1000,1000)",
+      )
+      .run();
+    sql
+      .prepare(
+        "insert into meals (id,nutrition_log_id,name,created_at,updated_at) values ('fixture-meal','fixture-meal-log','Fictional meal',1000,1000)",
+      )
+      .run();
+    sql
+      .prepare(
+        "insert into meal_items (id,meal_id,name,amount,unit,calories,protein,carbs,fat,created_at) values ('fixture-meal-item','fixture-meal','Fictional food',1,'serving',640,35,65,24,1000)",
+      )
+      .run();
+    sql
+      .prepare(
+        "insert into body_context_concerns (id,user_id,label,body_region,symptom_state,management_state,source_json,revision,current_revision_id,created_at,updated_at) values ('fixture-concern','owner','Fictional shoulder','shoulder','affirmed','active',?,1,'fixture-concern-r1','2026-03-08T00:00:00.000Z','2026-03-08T00:00:00.000Z')",
+      )
+      .run(source);
+    sql
+      .prepare(
+        "insert into body_context_flares (id,concern_id,user_id,occurred_at,local_date,time_zone,observation,source_json,created_at) values ('fixture-flare','fixture-concern','owner','2026-03-08T03:30:00.000-04:00','2026-03-08','America/Detroit','Fictional flare',?,'2026-03-08T07:30:00.000Z')",
+      )
+      .run(source);
+  };
+  it('embeds a complete registered GET response in the browser-readable HTML fixture', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-03-14T16:00:00.000Z') });
+    seed();
+    seedHtmlFixtureExtras();
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const jwt = app.jwt.sign(
+        { sub: 'owner', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '1h' },
+      );
+      const response = await app.inject({
+        method: 'GET',
+        url: url('2026-03-08', '2026-03-14'),
+        headers: { authorization: `Bearer ${jwt}` },
+      });
+      expect(response.statusCode, response.body).toBe(200);
+      const envelope = response.json();
+      if (process.env.CALENDAR_182_READBACK_PATH) {
+        const readback = resolve(process.env.CALENDAR_182_READBACK_PATH);
+        if (!readback.startsWith('/private/tmp/pulse-calendar-182-repair-'))
+          throw new Error('Calendar fixture readback must stay in an isolated temporary path');
+        writeFileSync(readback, response.body);
+      }
+      const model = calendarRuntimeSchema.parse(envelope.data);
+      expect(calendarReadModelSchema.safeParse(calendarFoundationProjection(model)).success).toBe(
+        true,
+      );
+      expect(model.items.map((item) => item.id)).toEqual(
+        expect.arrayContaining([
+          'fixture-flare',
+          'plan',
+          'actual',
+          'unstarted',
+          'session',
+          'legacy-journal',
+          'nutrition-day:2026-03-11',
+          'zero-log',
+          'fixture-meal-log',
+        ]),
+      );
+      expect(model.items.find((item) => item.id === 'fixture-meal-log')?.nutrition?.actual).toEqual(
+        {
+          calories: 640,
+          protein: 35,
+          carbs: 65,
+          fat: 24,
+        },
+      );
+      const fixture = new URL(
+        '../../../../../docs/implementation/activity-journal-182-fixtures/calendar-agenda.html',
+        import.meta.url,
+      );
+      const html = readFileSync(fixture, 'utf8');
+      const marker =
+        /(<script id="registered-payload" type="application\/json">\n)[\s\S]*?(\n\s*<\/script>)/u;
+      expect(html).toMatch(marker);
+      const updated =
+        process.env.UPDATE_CALENDAR_182_FIXTURE === '1'
+          ? html.replace(marker, `$1${JSON.stringify(envelope, null, 2)}$2`)
+          : html;
+      if (updated !== html) writeFileSync(fixture, updated);
+      const embedded = updated
+        .match(marker)?.[0]
+        .replace(/^<script[^>]*>\n/u, '')
+        .replace(/\n\s*<\/script>$/u, '');
+      expect(JSON.parse(embedded ?? 'null')).toEqual(envelope);
+    } finally {
+      await app.close();
+      vi.useRealTimers();
+    }
+  });
   it('reads distinct planned and actual records, workout pairing, explicit zero, filters, ownership, and strict foundation', async () => {
     seed();
     const { buildServer } = await import('../../index.js');
@@ -652,6 +763,53 @@ describe('Calendar registered API on a fictional isolated SQLite fixture', () =>
       }
     },
   );
+  it('excludes deleted workout sessions before the owner source cap', async () => {
+    const sql = database.sqlite;
+    const insert = sql.prepare(
+      "insert into workout_sessions (id,user_id,name,date,status,started_at,completed_at,duration,time_segments,deleted_at,created_at,updated_at) values (?,?,'Fictional','2026-03-08','completed',1000,2000,60,'[]',?,1000,2000)",
+    );
+    sql.transaction(() => {
+      for (let i = 0; i < 1001; i++)
+        insert.run(`deleted-${i}`, 'owner', '2026-03-09T00:00:00.000Z');
+      for (let i = 0; i < 1001; i++) insert.run(`foreign-${i}`, 'foreign', null);
+    })();
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    const read = () =>
+      app.inject({
+        method: 'GET',
+        url: url('2026-03-08', '2026-03-08', '&domain=workout'),
+        headers: auth,
+      });
+    try {
+      const empty = await read();
+      expect(empty.statusCode, empty.body).toBe(200);
+      expect(empty.json().data.items).toEqual([]);
+
+      insert.run('live-0', 'owner', null);
+      const mixed = await read();
+      expect(mixed.statusCode, mixed.body).toBe(200);
+      expect(mixed.json().data.items.map((item: { id: string }) => item.id)).toEqual(['live-0']);
+
+      sql.transaction(() => {
+        for (let i = 0; i < 999; i++)
+          sql.prepare('update workout_sessions set deleted_at=null where id=?').run(`deleted-${i}`);
+      })();
+      const atLimit = await read();
+      expect(atLimit.statusCode, atLimit.body).toBe(200);
+      expect(atLimit.json().data.items).toHaveLength(1000);
+      sql.prepare('update workout_sessions set deleted_at=null where id=?').run('deleted-999');
+      const overflow = await read();
+      expect(overflow.statusCode, overflow.body).toBe(422);
+      expect(overflow.json().error).toMatchObject({
+        code: 'CALENDAR_READ_LIMIT_EXCEEDED',
+        details: { scope: 'source_workout_sessions', limit: 1000 },
+      });
+    } finally {
+      await app.close();
+    }
+  });
   it('rejects invalid ranges and filter values, preserves source read limits', async () => {
     const { buildServer } = await import('../../index.js');
     const app = buildServer();

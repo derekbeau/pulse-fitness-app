@@ -80,8 +80,10 @@
   </style>
   <h1>Calendar / agenda</h1>
   <p>
-    Fictional registered <code>GET /api/v1/calendar</code> payload. Paste a real response envelope
-    from an isolated fixture API and choose Render; this file performs no network requests.
+    Complete fictional response from a registered <code>GET /api/v1/calendar</code> on an isolated
+    fixture database. Paste another response envelope and choose Render; this file performs no
+    network requests. The embedded response was generated with a fixed 2026-03-14 16:00 UTC clock;
+    its exact fields are checked against the registered GET in the Calendar API integration test.
   </p>
   <p class="note">
     Tuesday’s assignment and Thursday’s execution keep separate identities. A target-only nutrition
@@ -96,103 +98,374 @@
   <div class="toolbar" aria-label="State filters" id="states"></div>
   <p id="summary" role="status"></p>
   <main id="agenda"></main>
-  <script>
-    const sample = {
-      data: {
-        contractVersion: 'activity-journal-v1',
-        subjectUserId: 'fictional-owner',
-        from: '2026-03-08',
-        to: '2026-03-14',
-        timeZone: 'America/Detroit',
-        filters: { domain: [], state: [] },
-        items: [
+  <script id="registered-payload" type="application/json">
+    {
+      "data": {
+        "contractVersion": "activity-journal-v1",
+        "subjectUserId": "owner",
+        "from": "2026-03-08",
+        "to": "2026-03-14",
+        "timeZone": "America/Detroit",
+        "items": [
           {
-            id: 'flare-spring',
-            domain: 'body_context',
-            record: { kind: 'observation', id: 'flare-spring' },
-            localDate: '2026-03-08',
-            occurrenceAt: '2026-03-08T03:30:00-04:00',
-            state: 'observed',
-            title: 'Fictional shoulder flare',
-          },
-          {
-            id: 'plan-tue',
-            domain: 'activity',
-            record: { kind: 'activity_assignment', id: 'plan-tue' },
-            localDate: '2026-03-10',
-            occurrenceAt: null,
-            state: 'planned',
-            title: 'Fictional walk',
-            plannedLocalDate: '2026-03-10',
-          },
-          {
-            id: 'scheduled-tue',
-            domain: 'workout',
-            record: { kind: 'scheduled_workout', id: 'scheduled-tue' },
-            localDate: '2026-03-10',
-            occurrenceAt: null,
-            state: 'planned',
-            title: 'Fictional strength plan',
-          },
-          {
-            id: 'nutrition-day:2026-03-11',
-            domain: 'nutrition',
-            record: { kind: 'nutrition_log', id: 'nutrition-day:2026-03-11', revisionId: null },
-            localDate: '2026-03-11',
-            occurrenceAt: null,
-            state: 'summary',
-            title: 'Nutrition',
-            nutrition: {
-              status: null,
-              actual: null,
-              target: { calories: 2000, protein: 100, carbs: 250, fat: 60 },
+            "id": "fixture-flare",
+            "subjectUserId": "owner",
+            "domain": "body_context",
+            "record": {
+              "kind": "observation",
+              "id": "fixture-flare",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:5ce6e8429fc23f737edf73db8c4119aa278b6931a01943b1ae06e4d86711671e"
             },
+            "localDate": "2026-03-08",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": "2026-03-08T03:30:00.000-04:00",
+            "state": "observed",
+            "title": "Fictional flare",
+            "sourceReference": {
+              "kind": "observation",
+              "id": "fixture-flare",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:5ce6e8429fc23f737edf73db8c4119aa278b6931a01943b1ae06e4d86711671e"
+            }
           },
           {
-            id: 'actual-thu',
-            domain: 'activity',
-            record: { kind: 'activity_execution', id: 'actual-thu' },
-            localDate: '2026-03-12',
-            occurrenceAt: '2026-03-12T23:30:00-04:00',
-            state: 'completed',
-            title: 'Fictional walk',
-            actualLocalDate: '2026-03-12',
-          },
-          {
-            id: 'session-thu',
-            domain: 'workout',
-            record: { kind: 'workout_session', id: 'session-thu' },
-            localDate: '2026-03-12',
-            occurrenceAt: null,
-            state: 'completed',
-            title: 'Fictional strength session',
-          },
-          {
-            id: 'journal-thu',
-            domain: 'journal',
-            record: { kind: 'journal_entry', id: 'journal-thu' },
-            localDate: '2026-03-12',
-            occurrenceAt: null,
-            state: 'observed',
-            title: 'Fictional note',
-          },
-          {
-            id: 'nutrition-thu',
-            domain: 'nutrition',
-            record: { kind: 'nutrition_log', id: 'nutrition-thu' },
-            localDate: '2026-03-12',
-            occurrenceAt: null,
-            state: 'summary',
-            title: 'Nutrition',
-            nutrition: {
-              status: 'complete',
-              actual: { calories: 0, protein: 0, carbs: 0, fat: 0 },
-              target: { calories: 2000, protein: 100, carbs: 250, fat: 60 },
+            "id": "nutrition-day:2026-03-08",
+            "subjectUserId": "owner",
+            "domain": "nutrition",
+            "record": {
+              "kind": "nutrition_log",
+              "id": "nutrition-day:2026-03-08",
+              "subjectUserId": "owner",
+              "revisionId": null
             },
+            "localDate": "2026-03-08",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "summary",
+            "title": "Nutrition",
+            "nutrition": {
+              "status": null,
+              "actual": null,
+              "target": {
+                "calories": 2000,
+                "protein": 100,
+                "carbs": 250,
+                "fat": 60
+              }
+            }
           },
+          {
+            "id": "nutrition-day:2026-03-09",
+            "subjectUserId": "owner",
+            "domain": "nutrition",
+            "record": {
+              "kind": "nutrition_log",
+              "id": "nutrition-day:2026-03-09",
+              "subjectUserId": "owner",
+              "revisionId": null
+            },
+            "localDate": "2026-03-09",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "summary",
+            "title": "Nutrition",
+            "nutrition": {
+              "status": null,
+              "actual": null,
+              "target": {
+                "calories": 2000,
+                "protein": 100,
+                "carbs": 250,
+                "fat": 60
+              }
+            }
+          },
+          {
+            "id": "plan",
+            "subjectUserId": "owner",
+            "domain": "activity",
+            "record": {
+              "kind": "activity_assignment",
+              "id": "plan",
+              "subjectUserId": "owner",
+              "revisionId": "plan-r1"
+            },
+            "localDate": "2026-03-10",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "planned",
+            "title": "Fictional walk",
+            "lifecycleStatus": "planned",
+            "plannedLocalDate": "2026-03-10",
+            "activityId": "walk",
+            "assignmentId": "plan",
+            "sourceReference": {
+              "kind": "activity_assignment",
+              "id": "plan",
+              "subjectUserId": "owner",
+              "revisionId": "plan-r1"
+            }
+          },
+          {
+            "id": "nutrition-day:2026-03-10",
+            "subjectUserId": "owner",
+            "domain": "nutrition",
+            "record": {
+              "kind": "nutrition_log",
+              "id": "nutrition-day:2026-03-10",
+              "subjectUserId": "owner",
+              "revisionId": null
+            },
+            "localDate": "2026-03-10",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "summary",
+            "title": "Nutrition",
+            "nutrition": {
+              "status": null,
+              "actual": null,
+              "target": {
+                "calories": 2000,
+                "protein": 100,
+                "carbs": 250,
+                "fat": 60
+              }
+            }
+          },
+          {
+            "id": "unstarted",
+            "subjectUserId": "owner",
+            "domain": "workout",
+            "record": {
+              "kind": "scheduled_workout",
+              "id": "unstarted",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:634f4d1a660c4264f09c803adcc096b375e49f6c6796a2a3f316416d44899507"
+            },
+            "localDate": "2026-03-10",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "planned",
+            "title": "Workout unavailable",
+            "lifecycleStatus": "scheduled",
+            "plannedLocalDate": "2026-03-10",
+            "scheduledWorkoutId": "unstarted",
+            "sourceReference": {
+              "kind": "scheduled_workout",
+              "id": "unstarted",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:634f4d1a660c4264f09c803adcc096b375e49f6c6796a2a3f316416d44899507"
+            }
+          },
+          {
+            "id": "nutrition-day:2026-03-11",
+            "subjectUserId": "owner",
+            "domain": "nutrition",
+            "record": {
+              "kind": "nutrition_log",
+              "id": "nutrition-day:2026-03-11",
+              "subjectUserId": "owner",
+              "revisionId": null
+            },
+            "localDate": "2026-03-11",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "summary",
+            "title": "Nutrition",
+            "nutrition": {
+              "status": null,
+              "actual": null,
+              "target": {
+                "calories": 2000,
+                "protein": 100,
+                "carbs": 250,
+                "fat": 60
+              }
+            }
+          },
+          {
+            "id": "actual",
+            "subjectUserId": "owner",
+            "domain": "activity",
+            "record": {
+              "kind": "activity_execution",
+              "id": "actual",
+              "subjectUserId": "owner",
+              "revisionId": "actual-r1"
+            },
+            "localDate": "2026-03-12",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": "2026-03-12T23:30:00.000-04:00",
+            "state": "completed",
+            "title": "Fictional walk",
+            "lifecycleStatus": "completed",
+            "actualLocalDate": "2026-03-12",
+            "workoutSessionId": "session",
+            "activityId": "walk",
+            "assignmentId": "plan",
+            "sourceReference": {
+              "kind": "activity_execution",
+              "id": "actual",
+              "subjectUserId": "owner",
+              "revisionId": "actual-r1"
+            }
+          },
+          {
+            "id": "legacy-journal",
+            "subjectUserId": "owner",
+            "domain": "journal",
+            "record": {
+              "kind": "journal_entry",
+              "id": "legacy-journal",
+              "subjectUserId": "owner",
+              "revisionId": null
+            },
+            "localDate": "2026-03-12",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "observed",
+            "title": "Fictional note",
+            "missingProvenance": true
+          },
+          {
+            "id": "zero-log",
+            "subjectUserId": "owner",
+            "domain": "nutrition",
+            "record": {
+              "kind": "nutrition_log",
+              "id": "zero-log",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:3c93b230f9a7d3b8655f83ff10d2acd02d5e882e21458102a15b48934dffa876"
+            },
+            "localDate": "2026-03-12",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "summary",
+            "title": "Nutrition",
+            "sourceReference": {
+              "kind": "nutrition_log",
+              "id": "zero-log",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:3c93b230f9a7d3b8655f83ff10d2acd02d5e882e21458102a15b48934dffa876"
+            },
+            "nutrition": {
+              "status": "complete",
+              "actual": {
+                "calories": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0
+              },
+              "target": {
+                "calories": 2000,
+                "protein": 100,
+                "carbs": 250,
+                "fat": 60
+              }
+            }
+          },
+          {
+            "id": "session",
+            "subjectUserId": "owner",
+            "domain": "workout",
+            "record": {
+              "kind": "workout_session",
+              "id": "session",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:5b6e086af817d1012615590df67d6fc9c5facaf62636885d22390a1389de4665"
+            },
+            "localDate": "2026-03-12",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "completed",
+            "title": "Fictional lift",
+            "lifecycleStatus": "completed",
+            "plannedLocalDate": "2026-03-10",
+            "actualLocalDate": "2026-03-12",
+            "scheduledWorkoutId": "started-plan",
+            "workoutSessionId": "session",
+            "linkedActivityExecutionIds": ["actual"],
+            "sourceReference": {
+              "kind": "workout_session",
+              "id": "session",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:5b6e086af817d1012615590df67d6fc9c5facaf62636885d22390a1389de4665"
+            }
+          },
+          {
+            "id": "nutrition-day:2026-03-13",
+            "subjectUserId": "owner",
+            "domain": "nutrition",
+            "record": {
+              "kind": "nutrition_log",
+              "id": "nutrition-day:2026-03-13",
+              "subjectUserId": "owner",
+              "revisionId": null
+            },
+            "localDate": "2026-03-13",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "summary",
+            "title": "Nutrition",
+            "nutrition": {
+              "status": null,
+              "actual": null,
+              "target": {
+                "calories": 2000,
+                "protein": 100,
+                "carbs": 250,
+                "fat": 60
+              }
+            }
+          },
+          {
+            "id": "fixture-meal-log",
+            "subjectUserId": "owner",
+            "domain": "nutrition",
+            "record": {
+              "kind": "nutrition_log",
+              "id": "fixture-meal-log",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:be027c8b8f0568b3573c6c764734cc8f368fcf8b0fc8a53b389effbb9be59e13"
+            },
+            "localDate": "2026-03-14",
+            "timeZone": "America/Detroit",
+            "occurrenceAt": null,
+            "state": "summary",
+            "title": "Nutrition",
+            "sourceReference": {
+              "kind": "nutrition_log",
+              "id": "fixture-meal-log",
+              "subjectUserId": "owner",
+              "revisionId": "sha256:be027c8b8f0568b3573c6c764734cc8f368fcf8b0fc8a53b389effbb9be59e13"
+            },
+            "nutrition": {
+              "status": "partial",
+              "actual": {
+                "calories": 640,
+                "protein": 35,
+                "carbs": 65,
+                "fat": 24
+              },
+              "target": {
+                "calories": 2000,
+                "protein": 100,
+                "carbs": 250,
+                "fat": 60
+              }
+            }
+          }
         ],
-      },
-    };
+        "filters": {
+          "domain": [],
+          "state": []
+        }
+      }
+    }
+  </script>
+  <script>
+    const sample = JSON.parse(document.getElementById('registered-payload').textContent);
     const $ = (id) => document.getElementById(id);
     let payload = sample;
     let domains = new Set(),
@@ -241,7 +514,11 @@
             card.append(category, title);
             if (item.nutrition) {
               const detail = document.createElement('small');
-              detail.textContent = `Actual ${item.nutrition.actual ? item.nutrition.actual.calories + ' kcal' : 'unknown'} · target ${item.nutrition.target ? item.nutrition.target.calories + ' kcal' : 'none'}`;
+              const macros = (value) =>
+                value
+                  ? `${value.calories} kcal · ${value.protein} g protein · ${value.carbs} g carbs · ${value.fat} g fat`
+                  : 'unknown';
+              detail.textContent = `Actual ${macros(item.nutrition.actual)} · target ${macros(item.nutrition.target)}`;
               card.append(detail);
             }
             grid.append(card);

@@ -47,7 +47,7 @@ const queries = {
   source_activity_executions: `select e.*, c.name from activity_executions e join canonical_activities c on c.id=e.activity_id and c.user_id=e.user_id where e.user_id=? and e.actual_local_date between ? and ? order by e.actual_local_date,e.id limit ?`,
   source_legacy_activities: `select * from activities where user_id=? and date between ? and ? order by date,id limit ?`,
   source_scheduled_workouts: `select s.*, t.name from scheduled_workouts s left join workout_templates t on t.id=s.template_id and t.user_id=s.user_id where s.user_id=? and s.date between ? and ? order by s.date,s.id limit ?`,
-  source_workout_sessions: `select * from workout_sessions where user_id=? and date between ? and ? order by date,id limit ?`,
+  source_workout_sessions: `select * from workout_sessions where user_id=? and date between ? and ? and deleted_at is null order by date,id limit ?`,
   source_journal_observations: `select * from journal_observations where user_id=? and local_date between ? and ? order by local_date,id limit ?`,
   source_legacy_journal: `select * from journal_entries where user_id=? and date between ? and ? order by date,id limit ?`,
   source_observations: `select * from body_context_flares where user_id=? and local_date between ? and ? order by local_date,id limit ?`,
