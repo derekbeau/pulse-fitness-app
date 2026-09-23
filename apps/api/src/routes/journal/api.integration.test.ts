@@ -925,4 +925,194 @@ describe('registered Journal runtime', () => {
       await app.close();
     }
   });
+  it('makes daily and list bounds visible without omitting an owned canonical or legacy row', async () => {
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/v1/journal',
+        headers: auth,
+        payload: input('dense-seed-180'),
+      });
+      expect(created.statusCode).toBe(201);
+      const base = created.json().data.observation;
+      const insertCanonical = database.sqlite.prepare(
+        'insert into journal_observations (id,user_id,local_date,time_zone,current_revision_id,revision,snapshot_json,created_at) values (?,?,?,?,?,1,?,?)',
+      );
+      const insertRevision = database.sqlite.prepare(
+        'insert into journal_observation_revisions (id,observation_id,user_id,revision,prior_revision_id,recorded_at,recorded_by_json,reason,snapshot_json) values (?,?,?,1,null,?,?,null,?)',
+      );
+      const addCanonical = (owner: string, start: number, end: number) =>
+        database.sqlite.transaction(() => {
+          for (let n = start; n <= end; n++) {
+            const id = `${owner}-dense-${String(n).padStart(4, '0')}`;
+            const revisionId = `${id}-r1`;
+            const snapshot = JSON.stringify({
+              ...base,
+              id,
+              subjectUserId: owner,
+              currentRevisionId: revisionId,
+              sourceReferences:
+                owner === 'owner'
+                  ? base.sourceReferences
+                  : [
+                      {
+                        kind: 'body_concern',
+                        id: 'foreign-concern',
+                        subjectUserId: owner,
+                        revisionId: 'concern-r1',
+                      },
+                    ],
+            });
+            insertCanonical.run(
+              id,
+              owner,
+              base.localDate,
+              base.timeZone,
+              revisionId,
+              snapshot,
+              base.createdAt,
+            );
+            insertRevision.run(
+              revisionId,
+              id,
+              owner,
+              base.createdAt,
+              JSON.stringify(base.source.capturedBy),
+              snapshot,
+            );
+          }
+        })();
+      const insertLegacy = database.sqlite.prepare(
+        "insert into journal_entries (id,user_id,date,title,type,content,created_by,created_at,updated_at) values (?,?,'2026-09-19','Legacy note','observation','Fictional note','agent',?,?)",
+      );
+      const addLegacy = (owner: string, start: number, end: number) =>
+        database.sqlite.transaction(() => {
+          for (let n = start; n <= end; n++)
+            insertLegacy.run(`${owner}-legacy-${String(n).padStart(4, '0')}`, owner, n, n);
+        })();
+      const daily = () =>
+        app.inject({ method: 'GET', url: '/api/v1/daily-context?date=2026-09-19', headers: auth });
+      const list = () =>
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/journal?from=2026-09-19&to=2026-09-19',
+          headers: auth,
+        });
+      addCanonical('owner', 1, 198);
+      expect((await daily()).json().data.journalObservations).toHaveLength(199);
+      addCanonical('owner', 199, 199);
+      addCanonical('foreign', 1, 1);
+      const exactDaily = await daily();
+      expect(exactDaily.json().data.journalObservations).toHaveLength(200);
+      expect(
+        exactDaily.json().data.journalObservations.map((item: { id: string }) => item.id),
+      ).not.toContain('foreign-dense-0001');
+      addCanonical('owner', 200, 200);
+      const dailyOverflow = await daily();
+      expect(dailyOverflow.statusCode).toBe(422);
+      expect(dailyOverflow.json().error).toMatchObject({
+        code: 'JOURNAL_READ_LIMIT_EXCEEDED',
+        details: { scope: 'daily_context', limit: 200 },
+      });
+      expect((await list()).json().data.items).toHaveLength(201);
+      addCanonical('owner', 201, 498);
+      expect((await list()).json().data.items).toHaveLength(499);
+      addCanonical('owner', 499, 499);
+      addCanonical('foreign', 2, 2);
+      addLegacy('owner', 1, 499);
+      addLegacy('foreign', 1, 1);
+      const exact = await list();
+      expect(exact.statusCode).toBe(200);
+      expect(exact.json().data.items).toHaveLength(999);
+      addLegacy('owner', 500, 500);
+      const fullList = await list();
+      expect(fullList.json().data.items).toHaveLength(1000);
+      expect(fullList.json().data.items).not.toContainEqual(
+        expect.objectContaining({ id: 'foreign-legacy-0001' }),
+      );
+      expect(
+        fullList.json().data.items.filter((item: { kind: string }) => item.kind === 'canonical'),
+      ).not.toContainEqual(
+        expect.objectContaining({
+          observation: expect.objectContaining({ id: 'foreign-dense-0001' }),
+        }),
+      );
+      addLegacy('owner', 501, 501);
+      const legacyOverflow = await list();
+      expect(legacyOverflow.statusCode).toBe(422);
+      expect(legacyOverflow.json().error).toMatchObject({
+        code: 'JOURNAL_READ_LIMIT_EXCEEDED',
+        details: { scope: 'journal_list_legacy', limit: 500 },
+      });
+      database.sqlite.prepare("delete from journal_entries where id='owner-legacy-0501'").run();
+      addCanonical('owner', 500, 500);
+      const canonicalOverflow = await list();
+      expect(canonicalOverflow.statusCode).toBe(422);
+      expect(canonicalOverflow.json().error).toMatchObject({
+        code: 'JOURNAL_READ_LIMIT_EXCEEDED',
+        details: { scope: 'journal_list_canonical', limit: 500 },
+      });
+      const openapi = await app.inject({ method: 'GET', url: '/api/docs/json' });
+      expect(openapi.json().paths['/api/v1/journal'].get.responses['422']).toBeDefined();
+      expect(openapi.json().paths['/api/v1/daily-context'].get.responses['422']).toBeDefined();
+    } finally {
+      await app.close();
+    }
+  });
+  it('requires an actual started or completed session for weekly workout coverage', async () => {
+    const rows = [
+      ['scheduled', '2026-09-19', null, null],
+      ['cancelled', '2026-09-20', null, null],
+      ['deleted', '2026-09-21', null, '2026-09-22T00:00:00.000Z'],
+      ['in-progress', '2026-09-22', null, null],
+      ['paused', '2026-09-23', null, null],
+      ['completed', '2026-09-24', 1790003600000, null],
+    ] as const;
+    const insert = database.sqlite.prepare(
+      'insert into workout_sessions (id,user_id,name,date,status,started_at,completed_at,deleted_at) values (?,?,?,?,?,?,?,?)',
+    );
+    for (const [status, date, completedAt, deletedAt] of rows) {
+      insert.run(
+        status,
+        'owner',
+        `Fictional ${status} workout`,
+        date,
+        status === 'deleted' ? 'completed' : status,
+        1790000000000,
+        completedAt ?? (status === 'deleted' ? 1790003600000 : null),
+        deletedAt,
+      );
+    }
+    insert.run(
+      'foreign-workout',
+      'foreign',
+      'Foreign workout',
+      '2026-09-19',
+      'completed',
+      1790000000000,
+      1790003600000,
+      null,
+    );
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/journal/weekly-reflection?start=2026-09-19&end=2026-09-24',
+        headers: auth,
+      });
+      expect(response.statusCode).toBe(200);
+      const gaps: string[] = response.json().data.gaps;
+      for (const date of ['2026-09-19', '2026-09-20', '2026-09-21'])
+        expect(gaps).toContain(`${date}: workout missing`);
+      for (const date of ['2026-09-22', '2026-09-23', '2026-09-24'])
+        expect(gaps).not.toContain(`${date}: workout missing`);
+    } finally {
+      await app.close();
+    }
+  });
 });

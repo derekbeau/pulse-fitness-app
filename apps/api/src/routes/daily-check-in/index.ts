@@ -14,6 +14,10 @@ import { sendError } from '../../lib/reply.js';
 import { UserTimeZoneRequiredError } from '../../lib/user-time-zone.js';
 import { requireAgentOnly, requireAuth } from '../../middleware/auth.js';
 import {
+  JournalReadLimitError,
+  journalReadLimitErrorResponseSchema,
+} from '../journal/read-limit.js';
+import {
   agentTokenSecurity,
   apiErrorResponseSchema,
   authSecurity,
@@ -101,6 +105,7 @@ export const dailyCheckInRoutes: FastifyPluginAsync = async (app) => {
           200: apiDataResponseSchema(dailyContextRuntimeResponseSchema),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
+          422: journalReadLimitErrorResponseSchema,
         },
         tags: ['daily-context'],
         summary: 'Read canonical grounded daily context',
@@ -112,6 +117,8 @@ export const dailyCheckInRoutes: FastifyPluginAsync = async (app) => {
         return reply.send({ data: (await readDailyContext(r.userId, r.query.date)) as never });
       } catch (e) {
         if (e instanceof UserTimeZoneRequiredError) return sendError(reply, 400, e.code, e.message);
+        if (e instanceof JournalReadLimitError)
+          return sendError(reply, 422, e.code, e.message, { scope: e.scope, limit: e.limit });
         throw e;
       }
     },

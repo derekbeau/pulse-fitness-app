@@ -35,6 +35,7 @@ import {
   listJournal,
   weeklyReflection,
 } from './store.js';
+import { JournalReadLimitError, journalReadLimitErrorResponseSchema } from './read-limit.js';
 
 const actor = (r: FastifyRequest) => ({
   kind: 'agent_token' as const,
@@ -72,6 +73,8 @@ const handle = (reply: FastifyReply, e: unknown) => {
     );
   if (e instanceof JournalReceiptIntegrityError)
     return sendError(reply, 400, e.code, 'The stored Journal receipt could not be verified.');
+  if (e instanceof JournalReadLimitError)
+    return sendError(reply, 422, e.code, e.message, { scope: e.scope, limit: e.limit });
   throw e;
 };
 const mutation = async (
@@ -94,7 +97,11 @@ export const journalRoutes: FastifyPluginAsync = async (app) => {
     {
       schema: {
         querystring: journalListQuerySchema,
-        response: { 200: apiDataResponseSchema(journalListSchema), ...errors },
+        response: {
+          200: apiDataResponseSchema(journalListSchema),
+          422: journalReadLimitErrorResponseSchema,
+          ...errors,
+        },
         tags: ['journal'],
         summary: 'List canonical and date-only legacy Journal records',
         security: authSecurity,

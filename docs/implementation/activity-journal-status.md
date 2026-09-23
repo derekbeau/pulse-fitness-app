@@ -3,8 +3,9 @@
 - Parent Astra approved the complete frozen spec `docs/implementation/activity-journal-180.md` at `a7347934f2d2af766221dd5ec911f4e49cab7052`.
 - Worktree: `/Users/meridian/Projects/pulse-activity-journal-release`; branch `feat/activity-journal-release`; starting HEAD `a7347934f2d2af766221dd5ec911f4e49cab7052`; writable and clean before edits.
 - Scope: canonical Journal observations, immutable corrections, owner-scoped list/detail, additive daily-context field, derived weekly reflection, 0072 migration, registered OpenAPI. No UI, #181, merge, deployment, production, or issue closure.
-- Review state: implementation evidence only; independent GPT-6 Sol medium review pending after commit and push.
+- Review state: independent GPT-6 Sol medium review at `5194873f3e0653e94ad1cefcc920aa911a8c3f02` requested two bounded repairs; completeness and workout-gap delta review pending after repair commit and push.
 - Source-bound verification: the initial #180 commit `3ccd4ade338a7ec033e943c8a86b42540539e14a` passed its focused matrix and mandatory full-suite hook, then was pushed. A follow-up audit added direct Activity/concern, skipped-answer, source-row immutability, and nested ownership acceptance evidence; its final matrix, commit hook, and push receipts are recorded in `checkpoint-180/README.md` in the release QA reports directory.
+- Consolidated repair: Journal daily and list reads signal owned limit overflow through documented typed 422 responses; weekly workout coverage requires `in-progress`, `paused`, or `completed` status. Exact below/at/above limit and workout-state tests preserve owner isolation. The prior implementation, #179 identity, historical replay, and immutable corrections remain in scope. Delta receipts and final SHA are in `checkpoint-180/README.md`.
 
 ---
 

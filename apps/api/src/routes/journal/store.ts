@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
-import { and, asc, eq, gte, isNull, lte, ne } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import type {
   ActivityJournalActor,
@@ -39,9 +39,12 @@ import {
   readCurrentJournalSourceRevision,
   readCurrentSourceRevision,
 } from '../daily-check-in/source-authority.js';
+import { JournalReadLimitError } from './read-limit.js';
 
 const dbFor = (sqlite: Database.Database) => drizzle(sqlite, { schema });
 const getSqlite = async () => (await import('../../db/index.js')).sqlite;
+const JOURNAL_DAILY_LIMIT = 200;
+const JOURNAL_LIST_KIND_LIMIT = 500;
 const now = () => getApplicationNow().toISOString();
 const stable = (v: unknown): unknown =>
   Array.isArray(v)
@@ -581,17 +584,20 @@ export const readJournalForDate = (
   sqlite: Database.Database,
   userId: string,
   localDate: string,
-): JournalObservation[] =>
-  dbFor(sqlite)
+): JournalObservation[] => {
+  const rows = dbFor(sqlite)
     .select({ snapshot: journalObservations.snapshot })
     .from(journalObservations)
     .where(
       and(eq(journalObservations.userId, userId), eq(journalObservations.localDate, localDate)),
     )
     .orderBy(asc(journalObservations.createdAt), asc(journalObservations.id))
-    .limit(200)
-    .all()
-    .map((r) => journalObservationSchema.parse(r.snapshot));
+    .limit(JOURNAL_DAILY_LIMIT + 1)
+    .all();
+  if (rows.length > JOURNAL_DAILY_LIMIT)
+    throw new JournalReadLimitError('daily_context', JOURNAL_DAILY_LIMIT);
+  return rows.map((r) => journalObservationSchema.parse(r.snapshot));
+};
 const days = (start: string, end: string) => {
   const out: string[] = [];
   let at = new Date(`${start}T12:00:00.000Z`);
@@ -615,7 +621,7 @@ export const listJournal = async (userId: string, from?: string, to?: string) =>
   checkedRange(start, end, 31);
   const sqlite = await getSqlite();
   const db = dbFor(sqlite);
-  const canonical = db
+  const canonicalRows = db
     .select({ snapshot: journalObservations.snapshot })
     .from(journalObservations)
     .where(
@@ -630,10 +636,15 @@ export const listJournal = async (userId: string, from?: string, to?: string) =>
       asc(journalObservations.createdAt),
       asc(journalObservations.id),
     )
-    .limit(500)
-    .all()
-    .map((r) => ({ kind: 'canonical' as const, observation: r.snapshot }));
-  const legacy = db
+    .limit(JOURNAL_LIST_KIND_LIMIT + 1)
+    .all();
+  if (canonicalRows.length > JOURNAL_LIST_KIND_LIMIT)
+    throw new JournalReadLimitError('journal_list_canonical', JOURNAL_LIST_KIND_LIMIT);
+  const canonical = canonicalRows.map((r) => ({
+    kind: 'canonical' as const,
+    observation: r.snapshot,
+  }));
+  const legacyRows = db
     .select()
     .from(journalEntries)
     .where(
@@ -644,17 +655,19 @@ export const listJournal = async (userId: string, from?: string, to?: string) =>
       ),
     )
     .orderBy(asc(journalEntries.date), asc(journalEntries.createdAt), asc(journalEntries.id))
-    .limit(500)
-    .all()
-    .map((r) => ({
-      kind: 'legacy_date_only' as const,
-      id: r.id,
-      localDate: r.date,
-      title: r.title,
-      type: r.type,
-      content: r.content,
-      limitation: 'Source links, timezone, actor, and revisions were never recorded.' as const,
-    }));
+    .limit(JOURNAL_LIST_KIND_LIMIT + 1)
+    .all();
+  if (legacyRows.length > JOURNAL_LIST_KIND_LIMIT)
+    throw new JournalReadLimitError('journal_list_legacy', JOURNAL_LIST_KIND_LIMIT);
+  const legacy = legacyRows.map((r) => ({
+    kind: 'legacy_date_only' as const,
+    id: r.id,
+    localDate: r.date,
+    title: r.title,
+    type: r.type,
+    content: r.content,
+    limitation: 'Source links, timezone, actor, and revisions were never recorded.' as const,
+  }));
   return journalListSchema.parse({
     items: [...canonical, ...legacy].sort(
       (a, b) =>
@@ -789,7 +802,7 @@ export const weeklyReflection = async (userId: string, start: string, end: strin
         gte(workoutSessions.date, start),
         lte(workoutSessions.date, end),
         isNull(workoutSessions.deletedAt),
-        ne(workoutSessions.status, 'cancelled'),
+        inArray(workoutSessions.status, ['in-progress', 'paused', 'completed']),
       ),
     )
     .all();
