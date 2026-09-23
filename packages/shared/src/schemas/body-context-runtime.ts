@@ -394,8 +394,30 @@ export const proposalApprovalStatementSchema = z
   .strict();
 
 // Read-only audit of captured claims. A statement is not an approval.
+export const PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT = 100;
 export const proposalApprovalStatementListSchema = z
-  .object({ statements: z.array(proposalApprovalStatementSchema) })
+  .object({
+    statements: z
+      .array(proposalApprovalStatementSchema)
+      .max(PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT),
+  })
+  .strict();
+
+export const proposalApprovalStatementReadLimitErrorResponseSchema = z
+  .object({
+    error: z
+      .object({
+        code: z.literal('PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT_EXCEEDED'),
+        message: z.string(),
+        details: z
+          .object({
+            scope: z.literal('proposal_approval_statements'),
+            limit: z.literal(PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT),
+          })
+          .strict(),
+      })
+      .strict(),
+  })
   .strict();
 
 export const planChangeProposalRevisionSchema = z

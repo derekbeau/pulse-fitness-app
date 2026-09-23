@@ -28,5 +28,5 @@ export const useProposalApprovalStatements = (id: string) =>
       ),
     enabled: Boolean(id),
     retry: (attempt, error) =>
-      !(error instanceof ApiError && [400, 401, 404].includes(error.status)) && attempt < 2,
+      !(error instanceof ApiError && [400, 401, 404, 422].includes(error.status)) && attempt < 2,
   });

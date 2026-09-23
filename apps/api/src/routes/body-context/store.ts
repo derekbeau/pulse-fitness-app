@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import type Database from 'better-sqlite3';
 import {
+  PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT,
   bodyCapabilityDetailSchema,
   bodyConcernDetailSchema,
   bodyGuidanceDetailSchema,
@@ -1263,6 +1264,14 @@ export const getPlanChangeProposal = async (userId: string, id: string) => {
   return row ? proposalModel(sqlite, row) : null;
 };
 
+export class ProposalApprovalStatementReadLimitError extends Error {
+  readonly code = 'PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT_EXCEEDED';
+  readonly limit = PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT;
+  constructor() {
+    super('Approval statement audit exceeds the supported read limit.');
+  }
+}
+
 export const getProposalApprovalStatements = async (userId: string, proposalId: string) => {
   const sqlite = await getSqlite();
   if (!proposalRow(sqlite, userId, proposalId)) return null;
@@ -1274,9 +1283,15 @@ export const getProposalApprovalStatements = async (userId: string, proposalId: 
               source_id as sourceId,source_occurred_at as sourceOccurredAt,
               recorded_by_json as recordedByJson,created_at as createdAt
          from proposal_approval_statements where proposal_id=? and user_id=?
-         order by created_at asc,id asc`,
+         order by created_at asc,id asc limit ?`,
     )
-    .all(proposalId, userId) as ProposalApprovalStatementRow[];
+    .all(
+      proposalId,
+      userId,
+      PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT + 1,
+    ) as ProposalApprovalStatementRow[];
+  if (rows.length > PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT)
+    throw new ProposalApprovalStatementReadLimitError();
   return { statements: rows.map(proposalApprovalStatementModel) };
 };
 

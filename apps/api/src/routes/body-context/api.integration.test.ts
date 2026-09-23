@@ -341,6 +341,9 @@ describe('body-context runtime API acceptance', () => {
       },
       '/api/v1/plan-change-proposals/{id}/approval': { post: expect.any(Object) },
     });
+    expect(
+      openApi.paths['/api/v1/plan-change-proposals/{id}/approval-statements'].get.responses,
+    ).toHaveProperty('422');
     const concernCreateProperties =
       openApi.paths['/api/v1/body-context/concerns'].post.requestBody.content['application/json']
         .schema.properties;
@@ -834,6 +837,93 @@ describe('body-context runtime API acceptance', () => {
       expect(historicalRead.statusCode, historicalRead.body).toBe(200);
       expect(historicalRead.json().data.statements).toEqual([oldClaim.json().data]);
       expect(revisedClaimTarget.json().data.approval).toBeNull();
+
+      // Fixture-DB boundary rows exercise the read cap without 100 unrelated mutation receipts.
+      const insertStatement = dbModule.sqlite.prepare(
+        `insert into proposal_approval_statements
+          (id,proposal_id,user_id,proposal_revision_id,target_revision_fingerprint,statement,
+           source_id,source_occurred_at,recorded_by_json,created_at)
+         values (?,?,?,?,?,?,?,?,?,?)`,
+      );
+      const addStatement = (id: string, proposalId: string, userId: string) =>
+        insertStatement.run(
+          id,
+          proposalId,
+          userId,
+          oldBinding.proposalRevisionId,
+          oldBinding.targetRevisionFingerprint,
+          `Fictional claim ${id}`,
+          `source-${id}`,
+          '2026-09-19T10:00:00.000-04:00',
+          JSON.stringify(oldClaim.json().data.recordedBy),
+          '2026-09-19T14:00:00.000Z',
+        );
+      for (let index = 1; index <= 98; index += 1)
+        addStatement(`bounded-own-${String(index).padStart(3, '0')}`, historicalId, 'user-1');
+      for (let index = 1; index <= 3; index += 1) {
+        addStatement(`bounded-other-${index}`, relayId, 'user-1');
+        addStatement(`bounded-foreign-${index}`, historicalId, 'user-2');
+      }
+      const boundedUrl = `/api/v1/plan-change-proposals/${historicalId}/approval-statements`;
+      const belowCap = await app.inject({ method: 'GET', url: boundedUrl, headers: jwtHeaders });
+      expect(belowCap.statusCode, belowCap.body).toBe(200);
+      expect(belowCap.json().data.statements).toHaveLength(99);
+      addStatement('bounded-own-099', historicalId, 'user-1');
+      const atCap = await app.inject({ method: 'GET', url: boundedUrl, headers: jwtHeaders });
+      expect(atCap.statusCode, atCap.body).toBe(200);
+      expect(atCap.json().data.statements).toHaveLength(100);
+      expect(
+        atCap
+          .json()
+          .data.statements.map((item: { id: string; createdAt: string }) => [
+            item.createdAt,
+            item.id,
+          ]),
+      ).toEqual(
+        [...atCap.json().data.statements]
+          .sort(
+            (a: { id: string; createdAt: string }, b: { id: string; createdAt: string }) =>
+              a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+          )
+          .map((item: { id: string; createdAt: string }) => [item.createdAt, item.id]),
+      );
+      addStatement('bounded-own-100', historicalId, 'user-1');
+      const rowsBeforeOverflow = dbModule.sqlite
+        .prepare(
+          'select count(*) as count from proposal_approval_statements where proposal_id=? and user_id=?',
+        )
+        .get(historicalId, 'user-1');
+      const receiptsBeforeOverflow = dbModule.sqlite
+        .prepare('select count(*) as count from body_context_idempotency_receipts')
+        .get();
+      const aboveCap = await app.inject({ method: 'GET', url: boundedUrl, headers: jwtHeaders });
+      expect(aboveCap.statusCode, aboveCap.body).toBe(422);
+      expect(aboveCap.json()).toEqual({
+        error: {
+          code: 'PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT_EXCEEDED',
+          message: 'Approval statement audit exceeds the supported read limit.',
+          details: { scope: 'proposal_approval_statements', limit: 100 },
+        },
+      });
+      expect(
+        dbModule.sqlite
+          .prepare(
+            'select count(*) as count from proposal_approval_statements where proposal_id=? and user_id=?',
+          )
+          .get(historicalId, 'user-1'),
+      ).toEqual(rowsBeforeOverflow);
+      expect(
+        dbModule.sqlite
+          .prepare('select count(*) as count from body_context_idempotency_receipts')
+          .get(),
+      ).toEqual(receiptsBeforeOverflow);
+      const foreignAboveCap = await app.inject({
+        method: 'GET',
+        url: boundedUrl,
+        headers: foreignAgentHeaders,
+      });
+      expect(foreignAboveCap.statusCode).toBe(404);
+      expect(foreignAboveCap.json().error.code).toBe('BODY_CONTEXT_NOT_FOUND');
 
       const staleProposal = await app.inject({
         method: 'POST',

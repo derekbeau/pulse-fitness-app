@@ -143,7 +143,7 @@ export function ActivityPage() {
   );
 }
 
-function ProposalReadback({ id }: { id: string }) {
+export function ProposalReadback({ id }: { id: string }) {
   const query = usePlanChangeProposal(id);
   const statements = useProposalApprovalStatements(id);
   if (query.isPending) return <p role="status">Loading proposal…</p>;
@@ -205,7 +205,10 @@ function ProposalReadback({ id }: { id: string }) {
         </p>
         {statements.isPending && <p role="status">Loading captured statements…</p>}
         {statements.isError && (
-          <ErrorState error={statements.error} retry={() => void statements.refetch()} />
+          <div>
+            <p>Statement audit unavailable; no statement list was returned.</p>
+            <ErrorState error={statements.error} retry={() => void statements.refetch()} />
+          </div>
         )}
         {statements.data &&
           (statements.data.statements.length ? (

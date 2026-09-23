@@ -1,5 +1,9 @@
 # #183 checkpoint status (consolidated repair candidate)
 
+## Final statement read bound
+
+- The independent Sol6 delta resolved the earlier consolidated findings but found the new statement GET unbounded. The narrow follow-up enforces an owner/proposal `LIMIT 101` before materialization, a strict 100-statement response schema, and a typed 422 with no partial audit. The UI labels overflow as unavailable while keeping proposal approval/execution state separate. Focused below/at/above cap, foreign/different-proposal, no-write, OpenAPI, shared-schema, and renderer evidence is retained in the statement-bound checkpoint receipts. Independent delta acceptance is still parent-owned.
+
 ## Consolidated repair after independent review
 
 - Independent `review-183-sol6/report.md` marked candidate `799d2884353da33093efd9292e3855a0f3d17be3` changes required. Parent-authorized repair scope is `qa-reports/pulse-activity-journal-release/repair-183-sol6.md`.

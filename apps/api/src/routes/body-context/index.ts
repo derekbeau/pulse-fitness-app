@@ -20,6 +20,7 @@ import {
   createPlanChangeProposalApiInputSchema,
   planChangeProposalSchema,
   proposalApprovalStatementListSchema,
+  proposalApprovalStatementReadLimitErrorResponseSchema,
   proposalApprovalStatementSchema,
   recordBodyFlareApiInputSchema,
   recordProposalApprovalStatementApiInputSchema,
@@ -63,6 +64,7 @@ import {
   getBodyGuidance,
   getPlanChangeProposal,
   getProposalApprovalStatements,
+  ProposalApprovalStatementReadLimitError,
   listBodyCapabilities,
   listBodyConcerns,
   listBodyGuidance,
@@ -495,6 +497,7 @@ export const bodyContextRuntimeRoutes: FastifyPluginAsync = async (app) => {
           200: apiDataResponseSchema(proposalApprovalStatementListSchema),
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
+          422: proposalApprovalStatementReadLimitErrorResponseSchema,
         },
         tags: ['body-context'],
         summary: 'Read captured approval claims for an owned proposal',
@@ -502,10 +505,19 @@ export const bodyContextRuntimeRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const result = await getProposalApprovalStatements(request.userId, request.params.id);
-      return result
-        ? reply.send({ data: result })
-        : sendError(reply, 404, 'BODY_CONTEXT_NOT_FOUND', 'Proposal not found');
+      try {
+        const result = await getProposalApprovalStatements(request.userId, request.params.id);
+        return result
+          ? reply.send({ data: result })
+          : sendError(reply, 404, 'BODY_CONTEXT_NOT_FOUND', 'Proposal not found');
+      } catch (error) {
+        if (error instanceof ProposalApprovalStatementReadLimitError)
+          return sendError(reply, 422, error.code, error.message, {
+            scope: 'proposal_approval_statements',
+            limit: error.limit,
+          });
+        throw error;
+      }
     },
   );
   typed.patch(

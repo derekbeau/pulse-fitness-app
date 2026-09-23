@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT,
   createPlanChangeProposalApiInputSchema,
   planChangeProposalSchema,
+  proposalApprovalStatementListSchema,
+  proposalApprovalStatementReadLimitErrorResponseSchema,
   recordBodyFlareApiInputSchema,
 } from './body-context-runtime.js';
 
@@ -93,6 +96,36 @@ const proposalBase = {
 };
 
 describe('body-context runtime contracts', () => {
+  it('bounds the read-only statement audit and types its overflow', () => {
+    const statements = Array.from(
+      { length: PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT },
+      (_, index) => ({
+        id: `statement-${index}`,
+        subjectUserId: 'user-1',
+        proposalId: 'proposal-1',
+        proposalRevisionId: 'proposal-revision-1',
+        targetRevisionFingerprint: proposalFingerprint,
+        statement: `Fictional claim ${index}`,
+        sourceId: `source-${index}`,
+        sourceOccurredAt: '2026-09-19T09:58:00.000-04:00',
+        recordedBy: { kind: 'agent_token' as const, id: 'agent-1', label: null },
+        createdAt: '2026-09-19T14:00:00.000Z',
+      }),
+    );
+    expect(proposalApprovalStatementListSchema.parse({ statements }).statements).toHaveLength(100);
+    expect(() =>
+      proposalApprovalStatementListSchema.parse({ statements: [...statements, statements[0]] }),
+    ).toThrow();
+    expect(
+      proposalApprovalStatementReadLimitErrorResponseSchema.parse({
+        error: {
+          code: 'PROPOSAL_APPROVAL_STATEMENT_READ_LIMIT_EXCEEDED',
+          message: 'Approval statement audit exceeds the supported read limit.',
+          details: { scope: 'proposal_approval_statements', limit: 100 },
+        },
+      }).error.details.limit,
+    ).toBe(100);
+  });
   it('keeps occurrence local date distinct from capture time across DST', () => {
     expect(
       recordBodyFlareApiInputSchema.parse({
