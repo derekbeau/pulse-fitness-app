@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { createBrowserId } from '@/lib/browser-id';
 import { toDateKey } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 
@@ -58,6 +59,7 @@ export function ActivityForm({ className, onSubmit }: ActivityFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [formState, setFormState] = useState<ActivityFormState>(createDefaultFormState);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [idError, setIdError] = useState<string | null>(null);
 
   const parsedDuration = Number(formState.durationMinutes);
   const hasValidDuration =
@@ -103,11 +105,19 @@ export function ActivityForm({ className, onSubmit }: ActivityFormProps) {
 
     const activityName = formState.name.trim();
     const notes = formState.notes.trim();
+    const id = createBrowserId('activity-local-');
+    if (!id.ok) {
+      setIdError(
+        'This browser cannot create a secure activity identifier. Use a current browser or a secure connection, then retry.',
+      );
+      return;
+    }
+    setIdError(null);
 
     onSubmit({
       date: formState.date,
       durationMinutes: parsedDuration,
-      id: `activity-local-${crypto.randomUUID()}`,
+      id: id.value,
       linkedJournalEntries: [],
       name: activityName,
       notes: notes.length > 0 ? notes : undefined,
@@ -148,6 +158,14 @@ export function ActivityForm({ className, onSubmit }: ActivityFormProps) {
           </DialogHeader>
 
           <form className="space-y-5" onSubmit={handleSubmit}>
+            {idError ? (
+              <div
+                className="rounded-xl border border-destructive/40 bg-destructive/5 p-3"
+                role="alert"
+              >
+                {idError}
+              </div>
+            ) : null}
             <div className="space-y-3">
               <Label>Type</Label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

@@ -17,7 +17,7 @@ function renderForm(
 ) {
   vi.stubGlobal('fetch', fetchMock);
   const { wrapper } = createQueryClientWrapper();
-  render(
+  return render(
     <MemoryRouter initialEntries={['/body?check-in=1']}>
       <Routes>
         <Route
@@ -41,6 +41,51 @@ function renderForm(
 
 describe('GuidedCheckInForm', () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it('opens without randomUUID and reuses one fallback key across rerender and retry', async () => {
+    const nativeCrypto = globalThis.crypto;
+    vi.stubGlobal('crypto', {
+      getRandomValues: nativeCrypto.getRandomValues.bind(nativeCrypto),
+    });
+    const bodies: Array<Record<string, unknown>> = [];
+    const fetchMock = vi.fn(async (_input, init) => {
+      bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      if (bodies.length === 1) {
+        return new Response(
+          JSON.stringify({ error: { code: 'TEMPORARY_FAILURE', message: 'retry this operation' } }),
+          { status: 503 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          data: { ...populatedBodyCheckInFixture, source: 'user', sourceId: null },
+        }),
+        { status: 201 },
+      );
+    }) as typeof fetch;
+    renderForm(fetchMock);
+
+    expect(screen.getByTestId('guided-check-in-form')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Reading 1 (cm)'), { target: { value: '84.0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('retry this operation');
+    fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+    await screen.findByText('Saved detail');
+
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0]?.idempotencyKey).toMatch(/^body-ui-[0-9a-f-]{36}$/u);
+    expect(bodies[1]?.idempotencyKey).toBe(bodies[0]?.idempotencyKey);
+  });
+
+  it('renders a controlled unavailable state when browser crypto is absent', () => {
+    vi.stubGlobal('crypto', undefined);
+    renderForm();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Secure identifier generation is unavailable',
+    );
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Complete check-in' })).toBeDisabled();
+  });
 
   it('ships exact protocol media and focuses reading three above server tolerance', async () => {
     renderForm();
