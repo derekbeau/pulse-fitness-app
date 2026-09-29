@@ -117,18 +117,12 @@ describe('ActiveWorkoutPage', () => {
     expect(screen.getByText(/Exercise 1 of \d+/)).toBeInTheDocument();
     expect(screen.getByText(/~\d+ min total estimate/i)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Session context' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Session Context/i })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /What matters today/i })).toHaveAttribute(
       'aria-expanded',
       'false',
     );
-    expect(screen.getByText('Recent Training')).toBeInTheDocument();
-    expect(screen.getByText('Recovery Status')).toBeInTheDocument();
-    expect(screen.getByText('Active Injuries')).toBeInTheDocument();
-    expect(screen.getByText('Training Phase')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Session Context/i }));
-    expect(
-      screen.getByText("Some cards are in preview — sample data is shown and won't be saved."),
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /What matters today/i }));
+    expect(screen.getByText('Start a workout to load its context.')).toBeInTheDocument();
     expect(
       within(screen.getByRole('button', { name: /Warmup/i })).getByText('0/2'),
     ).toBeInTheDocument();

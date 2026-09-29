@@ -18,11 +18,18 @@ describe('workoutQueryKeys', () => {
       'sessions',
       {
         from: null,
+        dateBasis: null,
         limit: 10,
         status: 'completed|cancelled',
         to: null,
       },
     ]);
+    expect(
+      workoutQueryKeys.sessionList({ from: '2026-03-09', dateBasis: 'actual' })[2],
+    ).toMatchObject({ from: '2026-03-09', dateBasis: 'actual' });
+    expect(workoutQueryKeys.completedSessions()).toEqual(
+      workoutQueryKeys.sessionList({ status: ['completed'] }),
+    );
   });
 
   it('returns a stable template list key', () => {

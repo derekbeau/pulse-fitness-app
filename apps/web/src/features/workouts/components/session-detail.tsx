@@ -198,6 +198,18 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
   }
 
   const sessionDate = new Date(session.startedAt);
+  const receiptProjection = completedSessionsQuery.data?.find((item) => item.id === session.id);
+  const actualDate = receiptProjection?.actualLocalDate
+    ? new Date(`${receiptProjection.actualLocalDate}T12:00:00`)
+    : sessionDate;
+  const plannedDate = receiptProjection?.plannedLocalDate;
+  const actualTime = receiptProjection?.actualTimeZone
+    ? new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: receiptProjection.actualTimeZone,
+      }).format(sessionDate)
+    : timeFormatter.format(sessionDate);
   const durationLabel = formatDuration(session.duration);
   const summary = getSessionSummary(session, template ?? null);
   const shouldShowRepsStat = summary.metricTotals.reps > 0 && summary.metricLabel !== 'reps';
@@ -278,12 +290,17 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                 {session.name || template?.name || 'Workout Session'}
               </h1>
               <p className="max-w-3xl text-sm opacity-80 sm:text-base dark:text-muted dark:opacity-100">
-                {dateFormatter.format(sessionDate)}
+                {dateFormatter.format(actualDate)}
                 {' · '}
                 {durationLabel === '-' ? 'Duration not tracked' : durationLabel}
                 {' · '}
-                {`Started ${timeFormatter.format(sessionDate)}`}
+                {`Started ${actualTime}`}
               </p>
+              {plannedDate && plannedDate !== receiptProjection?.actualLocalDate && (
+                <p className="text-sm opacity-80 dark:text-muted">
+                  Originally scheduled {dateFormatter.format(new Date(`${plannedDate}T12:00:00`))}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-3 lg:items-end">

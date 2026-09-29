@@ -61,6 +61,7 @@ function renderBottomNav(initialPath = '/', store = createAuthStore()) {
       <Routes>
         <Route element={<h1>Dashboard Route</h1>} path="/" />
         <Route element={<h1>Workouts Route</h1>} path="/workouts" />
+        <Route element={<h1>Calendar Route</h1>} path="/calendar" />
         <Route element={<h1>Nutrition Route</h1>} path="/nutrition" />
         <Route element={<h1>Habits Route</h1>} path="/habits" />
         <Route element={<h1>Data Quality Route</h1>} path="/data-quality" />
@@ -81,12 +82,10 @@ describe('BottomNav', () => {
     renderBottomNav('/');
 
     const nav = screen.getByRole('navigation', { name: 'Mobile navigation' });
-    expect(nav).toHaveClass(
-      'grid-cols-5',
-      'items-stretch',
-      'pb-[calc(env(safe-area-inset-bottom)+0.5rem)]',
-    );
+    expect(nav).toHaveClass('items-stretch', 'pb-[calc(env(safe-area-inset-bottom)+0.5rem)]');
 
+    expect(nav).toHaveStyle({ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' });
+    expect(screen.getByRole('link', { name: 'Calendar' })).toHaveAttribute('href', '/calendar');
     const moreButton = screen.getByRole('button', { name: 'More' });
     expect(moreButton).toHaveClass('cursor-pointer');
     expect(moreButton).toHaveClass('min-h-[44px]');

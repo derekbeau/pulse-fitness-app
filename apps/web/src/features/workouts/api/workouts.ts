@@ -137,6 +137,7 @@ type CreateScheduledWorkoutRequest = CreateScheduledWorkoutInput;
 type UpdateScheduledWorkoutRequest = {
   id: string;
   date: string;
+  expectedUpdatedAt: number;
 };
 type DeleteScheduledWorkoutRequest = {
   id: string;
@@ -251,6 +252,7 @@ const normalizeWorkoutSessionParams = (params: WorkoutSessionQueryParams = {}) =
 
   return {
     from: parsedParams.from ?? null,
+    dateBasis: parsedParams.dateBasis ?? null,
     limit: parsedParams.limit ?? null,
     status: parsedParams.status?.join('|') ?? null,
     to: parsedParams.to ?? null,
@@ -258,7 +260,7 @@ const normalizeWorkoutSessionParams = (params: WorkoutSessionQueryParams = {}) =
 };
 
 const completedSessionsKey = () =>
-  ['workouts', 'sessions', { from: null, limit: null, status: 'completed', to: null }] as const;
+  ['workouts', 'sessions', normalizeWorkoutSessionParams({ status: ['completed'] })] as const;
 const workoutSessionDetailKey = (sessionId: string) => ['workout-sessions', sessionId] as const;
 const exercisesKey = (params?: ExerciseQueryParams) =>
   params
@@ -705,6 +707,9 @@ async function getWorkoutSessions(params: WorkoutSessionQueryParams = {}, signal
   if (parsedParams.to) {
     searchParams.set('to', parsedParams.to);
   }
+  if (parsedParams.dateBasis) {
+    searchParams.set('dateBasis', parsedParams.dateBasis);
+  }
 
   if (parsedParams.status) {
     for (const status of parsedParams.status) {
@@ -955,10 +960,13 @@ async function updateSessionSectionTimer(input: UpdateSessionSectionTimerRequest
     action: input.action,
     section: input.section,
   });
-  const data = await apiRequest<unknown>(`/api/v1/workout-sessions/${input.sessionId}/section-timer`, {
-    body: JSON.stringify(parsedInput),
-    method: 'PATCH',
-  });
+  const data = await apiRequest<unknown>(
+    `/api/v1/workout-sessions/${input.sessionId}/section-timer`,
+    {
+      body: JSON.stringify(parsedInput),
+      method: 'PATCH',
+    },
+  );
   const payload = workoutSessionResponseSchema.parse({ data });
 
   return payload.data;
@@ -978,6 +986,7 @@ async function createScheduledWorkout(input: CreateScheduledWorkoutRequest) {
 async function updateScheduledWorkout(input: UpdateScheduledWorkoutRequest) {
   const parsedInput = updateScheduledWorkoutInputSchema.parse({
     date: input.date,
+    expectedUpdatedAt: input.expectedUpdatedAt,
   });
   const data = await apiRequest<unknown>(`/api/v1/scheduled-workouts/${input.id}`, {
     body: JSON.stringify(parsedInput),
@@ -1021,7 +1030,9 @@ async function updateScheduledWorkoutExercises(input: UpdateScheduledWorkoutExer
   return payload.data;
 }
 
-async function updateScheduledWorkoutExerciseSets(input: UpdateScheduledWorkoutExerciseSetsRequest) {
+async function updateScheduledWorkoutExerciseSets(
+  input: UpdateScheduledWorkoutExerciseSetsRequest,
+) {
   const parsedInput = updateScheduledWorkoutExerciseSetsInputSchema.parse(input.input);
   const data = await apiRequest<unknown>(`/api/v1/scheduled-workouts/${input.id}/exercise-sets`, {
     body: JSON.stringify(parsedInput),
@@ -1070,7 +1081,9 @@ export function useScheduledWorkouts(
   });
 }
 
-export type ScheduledWorkoutDetail = SharedScheduledWorkoutDetail & { template: WorkoutTemplate | null };
+export type ScheduledWorkoutDetail = SharedScheduledWorkoutDetail & {
+  template: WorkoutTemplate | null;
+};
 
 export function useScheduledWorkoutDetail(id: string, options?: { enabled?: boolean }) {
   return useQuery<ScheduledWorkoutDetail>({
@@ -1276,7 +1289,10 @@ export function useReorderScheduledWorkout() {
         return;
       }
 
-      queryClient.setQueryData(workoutQueryKeys.scheduledWorkout(variables.id), context.previousDetail);
+      queryClient.setQueryData(
+        workoutQueryKeys.scheduledWorkout(variables.id),
+        context.previousDetail,
+      );
     },
     onSuccess: async (_, variables) => {
       await Promise.all([
@@ -1319,7 +1335,10 @@ export function useUpdateScheduledWorkoutExercises() {
         return;
       }
 
-      queryClient.setQueryData(workoutQueryKeys.scheduledWorkout(variables.id), context.previousDetail);
+      queryClient.setQueryData(
+        workoutQueryKeys.scheduledWorkout(variables.id),
+        context.previousDetail,
+      );
     },
     onSuccess: async (_, variables) => {
       await Promise.all([
@@ -1339,7 +1358,11 @@ export function useUpdateScheduledWorkoutExercises() {
 export function useUpdateScheduledWorkoutExerciseSets() {
   const queryClient = useQueryClient();
 
-  return useMutation<SharedScheduledWorkoutDetail, Error, UpdateScheduledWorkoutExerciseSetsRequest>({
+  return useMutation<
+    SharedScheduledWorkoutDetail,
+    Error,
+    UpdateScheduledWorkoutExerciseSetsRequest
+  >({
     mutationFn: updateScheduledWorkoutExerciseSets,
     onSuccess: async (_, variables) => {
       await Promise.all([
@@ -1709,11 +1732,7 @@ export function useUpdateSessionSectionTimer(sessionId: string | null | undefine
   const queryClient = useQueryClient();
   const normalizedSessionId = sessionId?.trim() ?? '';
 
-  return useMutation<
-    WorkoutSession,
-    Error,
-    Omit<UpdateSessionSectionTimerRequest, 'sessionId'>
-  >({
+  return useMutation<WorkoutSession, Error, Omit<UpdateSessionSectionTimerRequest, 'sessionId'>>({
     mutationFn: async (input) => {
       if (!normalizedSessionId) {
         throw new Error('Session id is required to update section timer');

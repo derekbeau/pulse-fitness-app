@@ -162,6 +162,7 @@ A workout session is the user-specific execution record of a template.
 - `templateId`: source template reference
 - `status`: `scheduled`, `in-progress`, `paused`, `cancelled`, or `completed`
 - `startedAt`: ISO timestamp for session start
+- `GET /api/v1/workout-sessions` defaults to `dateBasis=history`: `from`/`to` filter the persisted `date`, including cancelled history. `dateBasis=actual` instead lists Calendar-like occurrences: in-progress, paused and completed sessions use the owner's current timezone to project `startedAt` (with the pre-2020 placeholder fallback to `date`); unstarted `scheduled` sessions use their planned `date` and return `actualLocalDate: null`, even though the create contract requires `startedAt`. Cancelled sessions are absent from this occurrence basis. Filtering precedes the response limit; oversized candidate reads return 422 rather than truncate. The persisted history `date` and scheduled provenance are never rewritten by the list projection.
 - `completedAt`: ISO timestamp for session finish; optional until complete
 - `duration`: total elapsed minutes for the session
 - `timeSegments`: ordered timing windows where each segment has `start` ISO timestamp, nullable `end`, and a `section` (`warmup`, `main`, `cooldown`, or `supplemental`)

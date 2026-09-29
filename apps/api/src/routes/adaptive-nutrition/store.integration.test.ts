@@ -905,6 +905,101 @@ describe('adaptive nutrition lifecycle store', () => {
     ]);
   });
 
+  it.each([
+    { label: 'equal-time', advanceMs: 0 },
+    { label: 'later-time control', advanceMs: 1 },
+  ])(
+    'keeps the latest accepted check-in after $label reverse-ID acceptance and replay',
+    ({ advanceMs }) => {
+      nowMs = Date.parse('2026-06-22T16:00:00.000Z');
+      const issuedIds = [
+        'ffffffff-ffff-4fff-8fff-ffffffffffff',
+        '00000000-0000-4000-8000-000000000001',
+      ];
+      storeA = createAdaptiveNutritionStore({
+        db: dbA,
+        sqlite: sqliteA,
+        now: () => new Date(nowMs),
+        createCheckInId: () => {
+          const id = issuedIds.shift();
+          if (!id) throw new Error('Unexpected check-in insertion');
+          return id;
+        },
+      });
+
+      storeA.upsertProgram('user-1', programInput());
+      const baseline = requireValue(storeA.getState('user-1').pendingCheckIn, 'Expected baseline');
+      expect(baseline.id).toBe('ffffffff-ffff-4fff-8fff-ffffffffffff');
+      const acceptedBaseline = storeA.acceptCheckIn('user-1', baseline.id, {
+        replaceSameDateTarget: false,
+      });
+      expect(storeA.getState('user-1').pendingCheckIn).toBeNull();
+
+      nowMs += advanceMs;
+      seedEligibleHistory('user-1');
+      const manual = storeA.previewCheckIn('user-1', { kind: 'manual', includeToday: false });
+      expect(manual).toMatchObject({
+        id: '00000000-0000-4000-8000-000000000001',
+        status: 'pending',
+        analysisEnd: '2026-06-21',
+      });
+      const acceptedManual = storeA.acceptCheckIn('user-1', manual.id, {
+        replaceSameDateTarget: true,
+      });
+      expect(acceptedManual.checkIn.createdAt).toBe(acceptedBaseline.checkIn.createdAt + advanceMs);
+      expect(acceptedManual.checkIn.resolvedAt).toBe(
+        requireValue(acceptedBaseline.checkIn.resolvedAt, 'Expected baseline resolution') +
+          advanceMs,
+      );
+      expect(acceptedManual.target.id).toBe(acceptedBaseline.target.id);
+
+      for (const store of [storeA, storeB]) {
+        const state = store.getState('user-1');
+        expect(state.latestAcceptedCheckIn?.id).toBe(manual.id);
+        expect(state.currentTarget).toMatchObject({
+          id: acceptedManual.target.id,
+          adaptiveCheckInId: manual.id,
+        });
+        expect(state.pendingCheckIn).toBeNull();
+        expect(store.listCheckIns('user-1', { page: 1, limit: 10 }).data).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: baseline.id, status: 'accepted' }),
+            expect.objectContaining({ id: manual.id, status: 'accepted' }),
+          ]),
+        );
+      }
+
+      const eventsBeforeReplay = dbA
+        .select()
+        .from(nutritionTargetEvents)
+        .where(eq(nutritionTargetEvents.targetId, acceptedManual.target.id))
+        .all();
+      expect(eventsBeforeReplay).toEqual([
+        expect.objectContaining({ sequence: 1, adaptiveCheckInId: baseline.id }),
+        expect.objectContaining({ sequence: 2, adaptiveCheckInId: manual.id }),
+      ]);
+      expect(storeB.acceptCheckIn('user-1', manual.id, { replaceSameDateTarget: true })).toEqual(
+        acceptedManual,
+      );
+      const held = storeB.previewCheckIn('user-1', { kind: 'manual', includeToday: false });
+      expect(held).toMatchObject({
+        status: 'held',
+        calculationState: 'holding',
+        analysisEnd: manual.analysisEnd,
+        proposedTargets: null,
+      });
+      expect(held.reasonCodes).toContain('NO_NEW_EVIDENCE');
+      expect(storeB.getState('user-1').latestAcceptedCheckIn?.id).toBe(manual.id);
+      expect(
+        dbA
+          .select()
+          .from(nutritionTargetEvents)
+          .where(eq(nutritionTargetEvents.targetId, acceptedManual.target.id))
+          .all(),
+      ).toEqual(eventsBeforeReplay);
+    },
+  );
+
   it('blocks the exact 2410 to 2450 to 2480 same-window ratchet until analysisEnd advances', () => {
     storeA.upsertProgram('user-1', programInput({ manualBaselineTdeeKcal: 2410 }));
     const baseline = requireValue(storeA.getState('user-1').pendingCheckIn, 'Expected baseline');

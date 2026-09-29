@@ -80,6 +80,7 @@ import {
   updateScheduledWorkoutExerciseSets,
   updateScheduledWorkoutExercises,
   updateScheduledWorkout,
+  ScheduledWorkoutGuardConflictError,
   SCHEDULED_WORKOUT_INVALID_REP_TARGET,
 } from './store.js';
 
@@ -133,8 +134,6 @@ const scheduledWorkoutDetailWithTemplateSchema = scheduledWorkoutDetailSchema.ex
   template: workoutTemplateSchema.nullable(),
 });
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 const mapSnapshotExercise = (
   exercise: Awaited<ReturnType<typeof readSnapshot>>['exercises'][number],
   exerciseName: string,
@@ -168,22 +167,6 @@ const mapSnapshotExercise = (
     targetZone: set.targetZone,
   })),
 });
-
-const toUtcDay = (date: string): number => {
-  const [yearText, monthText, dayText] = date.split('-');
-  const year = Number.parseInt(yearText ?? '', 10);
-  const month = Number.parseInt(monthText ?? '', 10);
-  const day = Number.parseInt(dayText ?? '', 10);
-  return Math.trunc(Date.UTC(year, month - 1, day) / DAY_MS);
-};
-
-const shouldMarkAgentNoteStale = ({
-  scheduledDateAtGeneration,
-  newDate,
-}: {
-  scheduledDateAtGeneration: string;
-  newDate: string;
-}) => Math.abs(toUtcDay(newDate) - toUtcDay(scheduledDateAtGeneration)) > 2;
 
 const toSnapshotSetDrafts = ({
   sets,
@@ -358,51 +341,6 @@ const buildScheduledWorkoutDetailWithTemplate = async ({
     ...payload,
     template,
   };
-};
-
-const markRescheduledAgentNotesAsStale = async ({
-  scheduledWorkoutId,
-  newDate,
-}: {
-  scheduledWorkoutId: string;
-  newDate: string;
-}) => {
-  const { db } = await import('../../db/index.js');
-  db.transaction((tx) => {
-    const exercisesWithAgentNotes = tx
-      .select({
-        id: scheduledWorkoutExercises.id,
-        agentNotesMeta: scheduledWorkoutExercises.agentNotesMeta,
-      })
-      .from(scheduledWorkoutExercises)
-      .where(eq(scheduledWorkoutExercises.scheduledWorkoutId, scheduledWorkoutId))
-      .all();
-
-    for (const row of exercisesWithAgentNotes) {
-      if (!row.agentNotesMeta) {
-        continue;
-      }
-
-      if (
-        !shouldMarkAgentNoteStale({
-          scheduledDateAtGeneration: row.agentNotesMeta.scheduledDateAtGeneration,
-          newDate,
-        })
-      ) {
-        continue;
-      }
-
-      tx.update(scheduledWorkoutExercises)
-        .set({
-          agentNotesMeta: {
-            ...row.agentNotesMeta,
-            stale: true,
-          },
-        })
-        .where(eq(scheduledWorkoutExercises.id, row.id))
-        .run();
-    }
-  });
 };
 
 export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
@@ -1045,7 +983,7 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
           404: apiErrorResponseSchema,
-          409: workoutFeedbackRevisionConflictResponseSchema,
+          409: z.union([workoutFeedbackRevisionConflictResponseSchema, apiErrorResponseSchema]),
         },
         tags: ['scheduled-workouts'],
         summary: 'Update a scheduled workout',
@@ -1097,6 +1035,23 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
             currentRevision: error.currentRevision,
           });
         }
+        if (error instanceof ScheduledWorkoutGuardConflictError) {
+          if (error.reason === 'stale_revision') {
+            return sendError(
+              reply,
+              409,
+              'SCHEDULED_WORKOUT_STALE',
+              'Scheduled workout changed. Refresh and retry.',
+              {
+                currentUpdatedAt: error.currentUpdatedAt,
+                expectedUpdatedAt: request.body.expectedUpdatedAt,
+              },
+            );
+          }
+          return sendError(reply, 409, 'SCHEDULED_WORKOUT_NOT_RESCHEDULABLE', error.message, {
+            reason: error.reason,
+          });
+        }
         throw error;
       }
       if (!scheduledWorkout) {
@@ -1106,13 +1061,6 @@ export const scheduledWorkoutRoutes: FastifyPluginAsync = async (app) => {
           SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.code,
           SCHEDULED_WORKOUT_NOT_FOUND_RESPONSE.message,
         );
-      }
-
-      if (request.body.date !== undefined && request.body.date !== existingScheduledWorkout.date) {
-        await markRescheduledAgentNotesAsStale({
-          scheduledWorkoutId: scheduledWorkout.id,
-          newDate: scheduledWorkout.date,
-        });
       }
 
       return reply.send({

@@ -580,6 +580,8 @@ describe('workouts integration', () => {
       headers: createAuthorizationHeader(authToken),
       payload: {
         date: '2026-04-20',
+        expectedUpdatedAt: (createFirstResponse.json() as { data: { updatedAt: number } }).data
+          .updatedAt,
       },
     });
 

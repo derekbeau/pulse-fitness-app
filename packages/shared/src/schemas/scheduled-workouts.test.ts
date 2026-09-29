@@ -272,6 +272,7 @@ describe('scheduledWorkoutListItemSchema', () => {
       templateTrackingTypes: ['weight_reps', 'seconds_only'],
       sessionId: 'session-1',
       createdAt: 1,
+      updatedAt: 2,
     });
 
     const scheduledWorkout: ScheduledWorkoutListItem = payload;
@@ -284,6 +285,7 @@ describe('scheduledWorkoutListItemSchema', () => {
       templateTrackingTypes: ['weight_reps', 'seconds_only'],
       sessionId: 'session-1',
       createdAt: 1,
+      updatedAt: 2,
     });
   });
 
@@ -295,6 +297,7 @@ describe('scheduledWorkoutListItemSchema', () => {
       templateName: 'Lower Body',
       sessionId: null,
       createdAt: 2,
+      updatedAt: 3,
     });
 
     const scheduledWorkout: ScheduledWorkoutListItem = payload;
@@ -306,6 +309,7 @@ describe('scheduledWorkoutListItemSchema', () => {
       templateName: 'Lower Body',
       sessionId: null,
       createdAt: 2,
+      updatedAt: 3,
     });
   });
 });
@@ -330,11 +334,18 @@ describe('updateScheduledWorkoutInputSchema', () => {
   it('accepts partial updates for date changes', () => {
     const payload: UpdateScheduledWorkoutInput = updateScheduledWorkoutInputSchema.parse({
       date: '2026-03-13',
+      expectedUpdatedAt: 123,
     });
 
     expect(payload).toEqual({
       date: '2026-03-13',
+      expectedUpdatedAt: 123,
     });
+  });
+
+  it('requires date updates to carry the exact scheduled-workout revision', () => {
+    expect(() => updateScheduledWorkoutInputSchema.parse({ date: '2026-03-13' })).toThrow();
+    expect(() => updateScheduledWorkoutInputSchema.parse({ expectedUpdatedAt: 123 })).toThrow();
   });
 
   it('rejects empty update payloads', () => {

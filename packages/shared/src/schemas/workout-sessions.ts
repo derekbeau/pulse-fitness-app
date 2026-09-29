@@ -376,6 +376,10 @@ export const workoutSessionListItemSchema = z
     id: z.string(),
     name: requiredStringSchema,
     date: dateSchema,
+    actualLocalDate: dateSchema.nullable().optional(),
+    actualTimeZone: z.string().optional(),
+    plannedLocalDate: dateSchema.nullable().optional(),
+    scheduledWorkoutId: requiredStringSchema.nullable().optional(),
     status: workoutSessionStatusSchema,
     templateId: z.string().nullable(),
     templateName: requiredStringSchema.nullable(),
@@ -667,6 +671,7 @@ export const workoutSessionQueryParamsSchema = z
   .object({
     from: dateSchema.optional(),
     to: dateSchema.optional(),
+    dateBasis: z.enum(['history', 'actual']).optional(),
     status: z
       .preprocess((value) => {
         if (value === undefined) {

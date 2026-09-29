@@ -387,10 +387,12 @@ export const createAdaptiveNutritionStore = (options: {
   db: AdaptiveDatabase;
   sqlite: Database.Database;
   now?: () => Date;
+  createCheckInId?: () => string;
   runInTransaction?: <T>(operation: () => T) => T;
 }) => {
   const { db, sqlite } = options;
   const now = options.now ?? getApplicationNow;
+  const createCheckInId = options.createCheckInId ?? randomUUID;
 
   const immediate = <T>(operation: () => T): T =>
     options.runInTransaction
@@ -595,7 +597,7 @@ export const createAdaptiveNutritionStore = (options: {
       .orderBy(
         desc(adaptiveNutritionCheckIns.resolvedAt),
         desc(adaptiveNutritionCheckIns.createdAt),
-        desc(adaptiveNutritionCheckIns.id),
+        desc(sql<number>`adaptive_nutrition_checkins.rowid`),
       )
       .limit(1)
       .get();
@@ -624,7 +626,7 @@ export const createAdaptiveNutritionStore = (options: {
         desc(adaptiveNutritionCheckIns.analysisEnd),
         desc(adaptiveNutritionCheckIns.resolvedAt),
         desc(adaptiveNutritionCheckIns.createdAt),
-        desc(adaptiveNutritionCheckIns.id),
+        desc(sql<number>`adaptive_nutrition_checkins.rowid`),
       )
       .limit(1)
       .get();
@@ -1108,7 +1110,7 @@ export const createAdaptiveNutritionStore = (options: {
     const value = db
       .insert(adaptiveNutritionCheckIns)
       .values({
-        id: randomUUID(),
+        id: createCheckInId(),
         userId,
         programId,
         goalId: goalContext.goal.id,

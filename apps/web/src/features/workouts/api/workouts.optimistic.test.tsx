@@ -142,6 +142,7 @@ const scheduledWorkouts = [
     templateTrackingTypes: ['weight_reps'] as const,
     sessionId: null,
     createdAt: 1,
+    updatedAt: 1,
   },
 ];
 
@@ -170,12 +171,12 @@ describe('workout optimistic mutations', () => {
     });
 
     await waitFor(() => {
-      expect(queryClient.getQueryData<typeof template[]>(workoutQueryKeys.templateList())).toEqual([
-        expect.objectContaining({ name: 'Upper Push' }),
-      ]);
-      expect(queryClient.getQueryData<typeof template>(workoutQueryKeys.template('template-1'))).toEqual(
-        expect.objectContaining({ name: 'Upper Push' }),
-      );
+      expect(
+        queryClient.getQueryData<(typeof template)[]>(workoutQueryKeys.templateList()),
+      ).toEqual([expect.objectContaining({ name: 'Upper Push' })]);
+      expect(
+        queryClient.getQueryData<typeof template>(workoutQueryKeys.template('template-1')),
+      ).toEqual(expect.objectContaining({ name: 'Upper Push' }));
     });
 
     await act(async () => {
@@ -229,19 +230,22 @@ describe('workout optimistic mutations', () => {
     });
 
     await waitFor(() => {
-      expect(queryClient.getQueryData<typeof exercise>(workoutQueryKeys.exercise('exercise-1'))).toEqual(
-        expect.objectContaining({ name: 'Paused Bench Press' }),
-      );
       expect(
-        queryClient.getQueryData<{ data: typeof exercise[]; meta: { limit: number; page: number; total: number } }>(
-          workoutQueryKeys.exerciseList(),
-        ),
+        queryClient.getQueryData<typeof exercise>(workoutQueryKeys.exercise('exercise-1')),
+      ).toEqual(expect.objectContaining({ name: 'Paused Bench Press' }));
+      expect(
+        queryClient.getQueryData<{
+          data: (typeof exercise)[];
+          meta: { limit: number; page: number; total: number };
+        }>(workoutQueryKeys.exerciseList()),
       ).toEqual(
         expect.objectContaining({
           data: [expect.objectContaining({ name: 'Paused Bench Press' })],
         }),
       );
-      expect(queryClient.getQueryData<typeof template>(workoutQueryKeys.template('template-1'))).toEqual(
+      expect(
+        queryClient.getQueryData<typeof template>(workoutQueryKeys.template('template-1')),
+      ).toEqual(
         expect.objectContaining({
           sections: expect.arrayContaining([
             expect.objectContaining({
@@ -250,7 +254,9 @@ describe('workout optimistic mutations', () => {
           ]),
         }),
       );
-      expect(queryClient.getQueryData<typeof session>(workoutQueryKeys.session('session-1'))).toEqual(
+      expect(
+        queryClient.getQueryData<typeof session>(workoutQueryKeys.session('session-1')),
+      ).toEqual(
         expect.objectContaining({
           exercises: [expect.objectContaining({ exerciseName: 'Paused Bench Press' })],
         }),
@@ -287,6 +293,7 @@ describe('workout optimistic mutations', () => {
     act(() => {
       rescheduleResult.current.mutate({
         date: '2026-03-09',
+        expectedUpdatedAt: 1,
         id: 'scheduled-1',
       });
     });

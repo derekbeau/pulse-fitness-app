@@ -121,6 +121,17 @@ const seedScheduledWorkout = (values: {
     })
     .run();
 
+const scheduledWorkoutUpdatedAt = (id: string) => {
+  const row = context.db
+    .select({ updatedAt: scheduledWorkouts.updatedAt })
+    .from(scheduledWorkouts)
+    .where(eq(scheduledWorkouts.id, id))
+    .limit(1)
+    .get();
+  if (!row) throw new Error(`Missing scheduled workout ${id}`);
+  return row.updatedAt;
+};
+
 const seedWorkoutSession = (values: {
   id: string;
   userId: string;
@@ -460,6 +471,7 @@ describe('scheduled workout routes', () => {
         url: '/api/v1/scheduled-workouts/schedule-1',
         payload: {
           date: '2026-03-11',
+          expectedUpdatedAt: 0,
         },
       }),
       context.app.inject({
@@ -561,6 +573,7 @@ describe('scheduled workout routes', () => {
           templateName: 'Upper Push',
           sessionId: null,
           createdAt: createdPayload.data.createdAt,
+          updatedAt: createdPayload.data.updatedAt,
         },
         {
           id: 'existing-1',
@@ -569,6 +582,7 @@ describe('scheduled workout routes', () => {
           templateName: 'Lower Body',
           sessionId: null,
           createdAt: expect.any(Number),
+          updatedAt: expect.any(Number),
         },
       ],
     });
@@ -2772,6 +2786,7 @@ describe('scheduled workout routes', () => {
       headers: createAuthorizationHeader(authToken),
       payload: {
         date: '2026-03-16',
+        expectedUpdatedAt: scheduledWorkoutUpdatedAt(scheduledWorkoutId),
       },
     });
     expect(rescheduleResponse.statusCode).toBe(200);
@@ -2845,6 +2860,7 @@ describe('scheduled workout routes', () => {
       headers: createAuthorizationHeader(authToken),
       payload: {
         date: '2026-03-13',
+        expectedUpdatedAt: scheduledWorkoutUpdatedAt(scheduledWorkoutId),
       },
     });
     expect(rescheduleResponse.statusCode).toBe(200);
@@ -2989,6 +3005,7 @@ describe('scheduled workout routes', () => {
           templateName: 'Upper Push',
           sessionId: null,
           createdAt: expect.any(Number),
+          updatedAt: expect.any(Number),
         },
       ],
     });
@@ -3051,26 +3068,19 @@ describe('scheduled workout routes', () => {
     });
   });
 
-  it('reschedules a workout date within the user scope', async () => {
+  it('reschedules an unstarted workout date within the user scope', async () => {
     const authToken = context.app.jwt.sign(
       { sub: 'user-1', type: 'session', iss: 'pulse-api' },
       { expiresIn: '7d' },
     );
 
-    seedWorkoutSession({
-      id: 'session-1',
-      userId: 'user-1',
-      templateId: 'template-1',
-      name: 'Upper Push',
-      date: '2026-03-12',
-    });
     seedScheduledWorkout({
       id: 'schedule-1',
       userId: 'user-1',
       templateId: 'template-1',
       date: '2026-03-12',
-      sessionId: 'session-1',
     });
+    const expectedUpdatedAt = scheduledWorkoutUpdatedAt('schedule-1');
 
     const response = await context.app.inject({
       method: 'PATCH',
@@ -3078,6 +3088,7 @@ describe('scheduled workout routes', () => {
       headers: createAuthorizationHeader(authToken),
       payload: {
         date: '2026-03-13',
+        expectedUpdatedAt,
       },
     });
 
@@ -3115,6 +3126,212 @@ describe('scheduled workout routes', () => {
       date: '2026-03-13',
       sessionId: null,
     });
+    expect(response.json().data.updatedAt).toBeGreaterThan(expectedUpdatedAt);
+  });
+
+  it.each([
+    { sessionId: 'session-started', status: 'in-progress' as const },
+    { sessionId: 'session-completed', status: 'completed' as const },
+  ])(
+    'keeps $status occurrence date and session identity immutable',
+    async ({ sessionId, status }) => {
+      const authToken = context.app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '7d' },
+      );
+      seedWorkoutSession({
+        id: sessionId,
+        userId: 'user-1',
+        templateId: 'template-1',
+        name: 'Upper Push',
+        date: '2026-03-12',
+        status,
+      });
+      const scheduledWorkoutId = `schedule-${status}`;
+      seedScheduledWorkout({
+        id: scheduledWorkoutId,
+        userId: 'user-1',
+        templateId: 'template-1',
+        date: '2026-03-12',
+        sessionId,
+      });
+      const expectedUpdatedAt = scheduledWorkoutUpdatedAt(scheduledWorkoutId);
+
+      const response = await context.app.inject({
+        method: 'PATCH',
+        url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}`,
+        headers: createAuthorizationHeader(authToken),
+        payload: { date: '2026-03-13', expectedUpdatedAt },
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(response.json()).toEqual({
+        error: {
+          code: 'SCHEDULED_WORKOUT_NOT_RESCHEDULABLE',
+          message: 'Started or completed scheduled workouts cannot be rescheduled.',
+          details: { reason: 'linked_session' },
+        },
+      });
+      expect(
+        context.db
+          .select({
+            date: scheduledWorkouts.date,
+            sessionId: scheduledWorkouts.sessionId,
+            updatedAt: scheduledWorkouts.updatedAt,
+          })
+          .from(scheduledWorkouts)
+          .where(eq(scheduledWorkouts.id, scheduledWorkoutId))
+          .get(),
+      ).toEqual({ date: '2026-03-12', sessionId, updatedAt: expectedUpdatedAt });
+    },
+  );
+
+  it('treats an exact same-date request as a no-op without detaching a completed occurrence', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedWorkoutSession({
+      id: 'session-same-date',
+      userId: 'user-1',
+      name: 'Upper Push',
+      date: '2026-03-12',
+      status: 'completed',
+    });
+    seedScheduledWorkout({
+      id: 'schedule-same-date',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-03-12',
+      sessionId: 'session-same-date',
+    });
+    const expectedUpdatedAt = scheduledWorkoutUpdatedAt('schedule-same-date');
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: '/api/v1/scheduled-workouts/schedule-same-date',
+      headers: createAuthorizationHeader(authToken),
+      payload: { date: '2026-03-12', expectedUpdatedAt },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data).toMatchObject({
+      date: '2026-03-12',
+      sessionId: 'session-same-date',
+      updatedAt: expectedUpdatedAt,
+    });
+  });
+
+  it('allows one concurrent date change and rejects the stale competing writer', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    seedScheduledWorkout({
+      id: 'schedule-stale-date',
+      userId: 'user-1',
+      templateId: 'template-1',
+      date: '2026-03-12',
+    });
+    const expectedUpdatedAt = scheduledWorkoutUpdatedAt('schedule-stale-date');
+
+    const responses = await Promise.all(
+      ['2026-03-13', '2026-03-14'].map((date) =>
+        context.app.inject({
+          method: 'PATCH',
+          url: '/api/v1/scheduled-workouts/schedule-stale-date',
+          headers: createAuthorizationHeader(authToken),
+          payload: { date, expectedUpdatedAt },
+        }),
+      ),
+    );
+
+    expect(responses.map((response) => response.statusCode).sort()).toEqual([200, 409]);
+    const success = responses.find((response) => response.statusCode === 200);
+    const conflict = responses.find((response) => response.statusCode === 409);
+    expect(conflict?.json()).toMatchObject({
+      error: {
+        code: 'SCHEDULED_WORKOUT_STALE',
+        message: 'Scheduled workout changed. Refresh and retry.',
+        details: { expectedUpdatedAt },
+      },
+    });
+    expect(
+      context.db
+        .select({ date: scheduledWorkouts.date, updatedAt: scheduledWorkouts.updatedAt })
+        .from(scheduledWorkouts)
+        .where(eq(scheduledWorkouts.id, 'schedule-stale-date'))
+        .get(),
+    ).toEqual({
+      date: success?.json().data.date,
+      updatedAt: success?.json().data.updatedAt,
+    });
+  });
+
+  it('rolls a guarded date move back when a mixed feedback update conflicts', async () => {
+    const authToken = context.app.jwt.sign(
+      { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+      { expiresIn: '7d' },
+    );
+    const agentToken = seedAgentToken('user-1', 'mixed-rollback-agent');
+    seedExercise({
+      id: 'exercise-mixed-rollback',
+      userId: 'user-1',
+      name: 'Goblet Squat',
+      trackingType: 'weight_reps',
+    });
+    seedTemplateExercise({
+      id: 'template-exercise-mixed-rollback',
+      templateId: 'template-1',
+      exerciseId: 'exercise-mixed-rollback',
+      section: 'main',
+      orderIndex: 0,
+    });
+    const scheduledWorkoutId = await createScheduledWorkoutFromTemplate({ authToken });
+    const notesResponse = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}/exercise-notes`,
+      headers: createAgentTokenHeader(agentToken),
+      payload: {
+        notes: [
+          {
+            exerciseId: 'exercise-mixed-rollback',
+            agentNotes: 'Preserve this occurrence note if the mixed write fails.',
+          },
+        ],
+      },
+    });
+    expect(notesResponse.statusCode).toBe(200);
+    const expectedUpdatedAt = scheduledWorkoutUpdatedAt(scheduledWorkoutId);
+
+    const response = await context.app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scheduled-workouts/${scheduledWorkoutId}`,
+      headers: createAuthorizationHeader(authToken),
+      payload: {
+        date: '2026-03-16',
+        expectedUpdatedAt,
+        feedbackQuestions: [],
+        feedbackQuestionsExpectedRevision: 9,
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().error.code).toBe('WORKOUT_FEEDBACK_REVISION_CONFLICT');
+    expect(
+      context.db
+        .select({ date: scheduledWorkouts.date, updatedAt: scheduledWorkouts.updatedAt })
+        .from(scheduledWorkouts)
+        .where(eq(scheduledWorkouts.id, scheduledWorkoutId))
+        .get(),
+    ).toEqual({ date: '2026-03-12', updatedAt: expectedUpdatedAt });
+    expect(
+      context.db
+        .select({ agentNotesMeta: scheduledWorkoutExercises.agentNotesMeta })
+        .from(scheduledWorkoutExercises)
+        .where(eq(scheduledWorkoutExercises.scheduledWorkoutId, scheduledWorkoutId))
+        .get()?.agentNotesMeta,
+    ).toMatchObject({ scheduledDateAtGeneration: '2026-03-12', stale: false });
   });
 
   it('deletes scheduled workouts within the authenticated user scope', async () => {
@@ -3188,6 +3405,7 @@ describe('scheduled workout routes', () => {
           templateName: null,
           sessionId: null,
           createdAt: expect.any(Number),
+          updatedAt: expect.any(Number),
         },
       ],
     });
@@ -3258,7 +3476,7 @@ describe('scheduled workout routes', () => {
       { expiresIn: '7d' },
     );
 
-    const [postResponse, getResponse, patchResponse] = await Promise.all([
+    const [postResponse, getResponse, patchResponse, missingRevisionResponse] = await Promise.all([
       context.app.inject({
         method: 'POST',
         url: '/api/v1/scheduled-workouts',
@@ -3279,6 +3497,12 @@ describe('scheduled workout routes', () => {
         headers: createAuthorizationHeader(authToken),
         payload: {},
       }),
+      context.app.inject({
+        method: 'PATCH',
+        url: '/api/v1/scheduled-workouts/schedule-1',
+        headers: createAuthorizationHeader(authToken),
+        payload: { date: '2026-03-13' },
+      }),
     ]);
 
     expect(postResponse.statusCode).toBe(400);
@@ -3293,6 +3517,12 @@ describe('scheduled workout routes', () => {
 
     expect(patchResponse.statusCode).toBe(400);
     expectRequestValidationError(patchResponse, 'PATCH', '/api/v1/scheduled-workouts/schedule-1');
+    expect(missingRevisionResponse.statusCode).toBe(400);
+    expectRequestValidationError(
+      missingRevisionResponse,
+      'PATCH',
+      '/api/v1/scheduled-workouts/schedule-1',
+    );
   });
 
   it('returns not found for schedules outside the authenticated user scope', async () => {
@@ -3315,6 +3545,7 @@ describe('scheduled workout routes', () => {
         headers: createAuthorizationHeader(authToken),
         payload: {
           date: '2026-03-13',
+          expectedUpdatedAt: scheduledWorkoutUpdatedAt('other-user-schedule'),
         },
       }),
       context.app.inject({

@@ -30,6 +30,12 @@ import {
   writeFrozenQuestionList,
   type FeedbackMutationActor,
 } from '../workout-feedback/store.js';
+import {
+  rescheduleScheduledWorkoutGuarded,
+  ScheduledWorkoutGuardConflictError,
+} from './guarded-reschedule.js';
+
+export { ScheduledWorkoutGuardConflictError } from './guarded-reschedule.js';
 
 // Supplemental is retained for deterministic ordering of legacy snapshot rows.
 // Structural edit input schemas prevent callers from assigning supplemental.
@@ -63,6 +69,7 @@ const scheduledWorkoutListSelection = {
   templateName: workoutTemplates.name,
   sessionId: scheduledWorkouts.sessionId,
   createdAt: scheduledWorkouts.createdAt,
+  updatedAt: scheduledWorkouts.updatedAt,
 };
 
 const scheduledWorkoutExerciseMutationSelection = {
@@ -573,30 +580,31 @@ export const updateScheduledWorkout = async ({
   changes: UpdateScheduledWorkoutInput;
   actor: FeedbackMutationActor;
 }): Promise<ScheduledWorkout | undefined> => {
-  const { db } = await import('../../db/index.js');
+  const { db, sqlite } = await import('../../db/index.js');
 
-  const existingWorkout = await findScheduledWorkoutById(id, userId);
-  if (!existingWorkout) {
-    return undefined;
-  }
-
-  const { feedbackQuestions, feedbackQuestionsExpectedRevision, ...scheduledChanges } = changes;
-  const shouldClearSessionLink =
-    scheduledChanges.date !== undefined && existingWorkout.date !== scheduledChanges.date;
-  const updatePayload = shouldClearSessionLink
-    ? { ...scheduledChanges, sessionId: null }
-    : scheduledChanges;
+  const { date, expectedUpdatedAt, feedbackQuestions, feedbackQuestionsExpectedRevision } = changes;
 
   const updatedWorkout = db.transaction((tx) => {
-    const updated =
-      Object.keys(updatePayload).length === 0
-        ? existingWorkout
-        : tx
-            .update(scheduledWorkouts)
-            .set(updatePayload)
-            .where(and(eq(scheduledWorkouts.id, id), eq(scheduledWorkouts.userId, userId)))
-            .returning(scheduledWorkoutSelection)
-            .get();
+    const current = tx
+      .select(scheduledWorkoutSelection)
+      .from(scheduledWorkouts)
+      .where(and(eq(scheduledWorkouts.id, id), eq(scheduledWorkouts.userId, userId)))
+      .limit(1)
+      .get();
+    if (!current) return undefined;
+
+    if (date !== undefined) {
+      if (expectedUpdatedAt === undefined) {
+        throw new ScheduledWorkoutGuardConflictError('stale_revision', current.updatedAt);
+      }
+      rescheduleScheduledWorkoutGuarded({
+        sqlite,
+        userId,
+        scheduledWorkoutId: id,
+        expectedUpdatedAt,
+        plannedLocalDate: date,
+      });
+    }
     if (feedbackQuestions !== undefined) {
       writeAuthoredQuestionList(tx, {
         userId,
@@ -608,7 +616,12 @@ export const updateScheduledWorkout = async ({
         actor,
       });
     }
-    return updated;
+    return tx
+      .select(scheduledWorkoutSelection)
+      .from(scheduledWorkouts)
+      .where(and(eq(scheduledWorkouts.id, id), eq(scheduledWorkouts.userId, userId)))
+      .limit(1)
+      .get();
   });
 
   if (!updatedWorkout) return undefined;

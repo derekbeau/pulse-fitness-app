@@ -230,25 +230,32 @@ test.describe.serial('Adaptive TDEE Coach', () => {
     await expect(page.getByText(/Targets accepted and applied from today/)).toBeVisible();
   });
 
-  test('detects a stale recommendation after source data changes and refreshes safely', async ({
-    page,
-  }) => {
+  test('holds the consumed evidence window without changing accepted targets', async ({ page }) => {
+    const headers = { Authorization: `Bearer ${authToken}` };
+    const targetBefore = await apiContext.get('/api/v1/nutrition-targets/current', { headers });
+    const targetsBefore = await apiContext.get('/api/v1/nutrition-targets', { headers });
+    expect(targetBefore.ok()).toBeTruthy();
+    expect(targetsBefore.ok()).toBeTruthy();
+    const acceptedTarget = await targetBefore.json();
+    const acceptedHistory = await targetsBefore.json();
+    expect(acceptedTarget.data.calories).toBe(2500);
     await authenticatePage(page);
     await page.goto('/nutrition?view=coach');
-    await page.getByRole('button', { name: 'Check in now' }).click();
-    await expect(page.getByRole('button', { name: 'Use these targets' })).toBeVisible();
-    await postMeal(addDateDays(detroitDateKey(), -1), 'Late correction');
-    await page.getByRole('button', { name: 'Use these targets' }).click();
-    const replacementDialog = page.getByRole('alertdialog');
-    if (await replacementDialog.isVisible()) {
-      await replacementDialog.getByRole('button', { name: 'Replace target' }).click();
-    }
-    await expect(page.getByText(/recommendation is out of date/i)).toBeVisible();
-    await page.getByRole('button', { name: 'Refresh recommendation' }).click();
-    await expect(page.getByText('Recommendation ready for review.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Check in now' })).toBeDisabled();
     await expect(
-      page.getByRole('heading', { level: 2, name: 'Current and proposed targets' }),
+      page.getByText('This completed evidence window is already accepted.'),
     ).toBeVisible();
+    await expect(page.getByText(/next automatic evidence window opens/i)).toBeVisible();
+    await expect(page.getByText('Current calories').locator('..')).toContainText('2,500 kcal');
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Check in now' })).toBeDisabled();
+    await expect(page.getByText('Current calories').locator('..')).toContainText('2,500 kcal');
+    expect(
+      await (await apiContext.get('/api/v1/nutrition-targets/current', { headers })).json(),
+    ).toEqual(acceptedTarget);
+    expect(await (await apiContext.get('/api/v1/nutrition-targets', { headers })).json()).toEqual(
+      acceptedHistory,
+    );
   });
 
   test('marks today complete with confirmation and auto-downgrades after a meal change', async ({
@@ -284,7 +291,7 @@ test.describe.serial('Adaptive TDEE Coach', () => {
     await authenticatePage(page);
     await page.goto('/nutrition?view=coach');
     await expect(
-      page.getByRole('heading', { level: 2, name: 'Current and proposed targets' }),
+      page.getByRole('heading', { level: 2, name: 'Your Adaptive TDEE is active' }),
     ).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
@@ -316,5 +323,58 @@ test.describe.serial('Adaptive TDEE Coach', () => {
       await replacementDialog.getByRole('button', { name: 'Replace target' }).press('Enter');
     }
     await expect(page.getByText(/Targets accepted and applied from today/)).toBeVisible();
+  });
+
+  test('holds an actionable include-today preview without a target ratchet', async ({ page }) => {
+    const heldToken = await registerUser('atdee-held');
+    const headers = { Authorization: `Bearer ${heldToken}` };
+    await authenticatePage(page, heldToken);
+    await page.goto('/nutrition?view=coach');
+    await page.getByLabel('Starting equation').selectOption('manual_tdee');
+    await page.getByLabel('Starting TDEE (kcal/day)').fill('2500');
+    await page.getByLabel('Current weight (lbs)').fill('180');
+    await page
+      .getByRole('radiogroup', { name: 'Goal direction' })
+      .getByRole('radio', { name: /Maintain/ })
+      .check();
+    await page.getByRole('button', { name: 'Preview starting targets' }).click();
+    await page.getByRole('button', { name: 'Use these targets' }).click();
+    await expect(page.getByText(/Targets accepted and applied from today/)).toBeVisible();
+    const targetBefore = await (
+      await apiContext.get('/api/v1/nutrition-targets/current', { headers })
+    ).json();
+    const targetsBefore = await (
+      await apiContext.get('/api/v1/nutrition-targets', { headers })
+    ).json();
+    expect(targetBefore.data.calories).toBe(2500);
+    await postMeal(detroitDateKey(), 'Fictional held-day meal', heldToken);
+    await page.goto('/nutrition');
+    await page.getByRole('button', { name: /Complete/ }).click();
+    await page.getByRole('button', { name: 'Mark complete' }).click();
+    await page.goto('/nutrition?view=coach');
+    await page.getByRole('checkbox', { name: /Include today in a manual check-in/ }).check();
+    await expect(page.getByRole('button', { name: 'Check in now' })).toBeEnabled();
+    const previewResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/v1/adaptive-nutrition/check-ins/preview') &&
+        response.status() === 200,
+    );
+    await page.getByRole('button', { name: 'Check in now' }).click();
+    const preview = await previewResponse;
+    expect((await preview.json()).data.status).toBe('held');
+    await expect(
+      page.getByText(
+        'Check-in complete. Pulse kept your current estimate because the data did not support an update.',
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Use these targets' })).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByText('Current calories').locator('..')).toContainText('2,500 kcal');
+    expect(
+      await (await apiContext.get('/api/v1/nutrition-targets/current', { headers })).json(),
+    ).toEqual(targetBefore);
+    expect(await (await apiContext.get('/api/v1/nutrition-targets', { headers })).json()).toEqual(
+      targetsBefore,
+    );
   });
 });

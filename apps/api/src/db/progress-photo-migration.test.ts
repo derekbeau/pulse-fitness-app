@@ -72,7 +72,7 @@ describe('0067 progress photo migration lifecycle', () => {
   it('creates strict fresh tables with owned relations, cascade, and set-null linkage', () => {
     const sqlite = openDb(join(makeDir(), 'fresh.db'));
     try {
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 69 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 73 });
       for (const table of [
         'body_progress_photo_preferences',
         'body_progress_photo_sets',
@@ -156,7 +156,7 @@ describe('0067 progress photo migration lifecycle', () => {
         .prepare("insert into users(id,username,password_hash) values('legacy','legacy','hash')")
         .run();
       await sqlite.backup(backupPath);
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 2 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 6 });
       expect(sqlite.prepare("select username from users where id='legacy'").pluck().get()).toBe(
         'legacy',
       );
@@ -211,7 +211,7 @@ describe('0067 progress photo migration lifecycle', () => {
         )
         .run();
       await sqlite.backup(predecessorBackup);
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 2 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 6 });
       expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 0 });
 
       const fixture = await sharp(

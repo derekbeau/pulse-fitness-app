@@ -10,6 +10,7 @@ import {
   isNotNull,
   isNull,
   lte,
+  ne,
   or,
   sql,
   type SQL,
@@ -64,6 +65,19 @@ import {
   type FeedbackMutationActor,
 } from '../workout-feedback/store.js';
 import { backfillTimeSegmentSections, calculateSectionDurations } from './time-segments.js';
+import { resolveUserTimeZoneForUser, UserTimeZoneRequiredError } from '../../lib/user-time-zone.js';
+import {
+  workoutActualLocalDate,
+  workoutOccurrenceDayCandidates,
+} from '../../lib/workout-occurrence-date.js';
+
+const ACTUAL_DAY_CANDIDATE_LIMIT = 10_000;
+export class WorkoutSessionReadLimitError extends Error {
+  readonly code = 'WORKOUT_SESSION_READ_LIMIT_EXCEEDED';
+  constructor(readonly limit = ACTUAL_DAY_CANDIDATE_LIMIT) {
+    super('Workout session date read exceeds the supported candidate limit.');
+  }
+}
 
 const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'supplemental', 'cooldown'];
 
@@ -209,6 +223,10 @@ const workoutSessionListSelection = {
   id: workoutSessions.id,
   name: workoutSessions.name,
   date: workoutSessions.date,
+  scheduledWorkoutId: workoutSessions.scheduledWorkoutId,
+  plannedLocalDate: sql<
+    string | null
+  >`(select ${scheduledWorkouts.date} from ${scheduledWorkouts} where ${scheduledWorkouts.userId} = ${workoutSessions.userId} and (${scheduledWorkouts.id} = ${workoutSessions.scheduledWorkoutId} or ${scheduledWorkouts.sessionId} = ${workoutSessions.id}) limit 1)`,
   status: workoutSessions.status,
   templateId: workoutSessions.templateId,
   templateName: workoutTemplates.name,
@@ -1755,23 +1773,36 @@ export const listWorkoutSessions = async ({
   to,
   status,
   limit,
+  dateBasis,
 }: {
   userId: string;
   from?: string;
   to?: string;
   status?: WorkoutSession['status'][];
   limit?: number;
+  dateBasis?: 'history' | 'actual';
 }): Promise<WorkoutSessionListItem[]> => {
   const { db } = await import('../../db/index.js');
   const whereClauses = [eq(workoutSessions.userId, userId), isNull(workoutSessions.deletedAt)];
 
-  if (from) {
+  if (dateBasis === 'actual' && (from || to)) {
+    const candidatePredicate = workoutOccurrenceDayCandidates(
+      workoutSessions.date,
+      workoutSessions.startedAt,
+      workoutSessions.status,
+      from,
+      to,
+    );
+    if (candidatePredicate) whereClauses.push(candidatePredicate);
+  } else if (from) {
     whereClauses.push(gte(workoutSessions.date, from));
   }
 
-  if (to) {
+  if (to && dateBasis !== 'actual') {
     whereClauses.push(lte(workoutSessions.date, to));
   }
+  // Cancelled sessions remain in historical reads, but are not Calendar occurrences.
+  if (dateBasis === 'actual') whereClauses.push(ne(workoutSessions.status, 'cancelled'));
 
   if (status && status.length > 0) {
     whereClauses.push(inArray(workoutSessions.status, status));
@@ -1791,11 +1822,42 @@ export const listWorkoutSessions = async ({
       desc(workoutSessions.createdAt),
     );
 
-  if (typeof limit === 'number') {
-    return query.limit(limit).all();
-  }
-
-  return query.all();
+  const sessions =
+    dateBasis === 'actual'
+      ? query.limit(ACTUAL_DAY_CANDIDATE_LIMIT + 1).all()
+      : typeof limit === 'number'
+        ? query.limit(limit).all()
+        : query.all();
+  if (dateBasis === 'actual' && sessions.length > ACTUAL_DAY_CANDIDATE_LIMIT)
+    throw new WorkoutSessionReadLimitError(ACTUAL_DAY_CANDIDATE_LIMIT);
+  const zone = await resolveUserTimeZoneForUser(userId);
+  if (dateBasis === 'actual' && !zone) throw new UserTimeZoneRequiredError();
+  return sessions
+    .map((session) => ({
+      ...session,
+      actualLocalDate:
+        session.status === 'scheduled' || session.status === 'cancelled'
+          ? null
+          : zone
+            ? workoutActualLocalDate(session, zone.timeZone)
+            : session.date,
+      ...(zone ? { actualTimeZone: zone.timeZone } : {}),
+    }))
+    .filter(
+      (session) =>
+        dateBasis !== 'actual' ||
+        ((!from || (session.actualLocalDate ?? session.date) >= from) &&
+          (!to || (session.actualLocalDate ?? session.date) <= to)),
+    )
+    .sort((left, right) =>
+      dateBasis === 'actual'
+        ? (right.actualLocalDate ?? right.date).localeCompare(left.actualLocalDate ?? left.date) ||
+          right.startedAt - left.startedAt ||
+          right.createdAt - left.createdAt ||
+          left.id.localeCompare(right.id)
+        : 0,
+    )
+    .slice(0, limit);
 };
 
 export const findWorkoutSessionById = async (

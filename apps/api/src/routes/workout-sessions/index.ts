@@ -28,6 +28,7 @@ import {
   workoutSessionQueryParamsSchema,
   workoutSessionSchema,
   workoutTemplateSchema,
+  sessionContextRuntimeSchema,
 } from '@pulse/shared';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
@@ -36,6 +37,10 @@ import { z } from 'zod';
 
 import { exercises, workoutSessions } from '../../db/schema/index.js';
 import { sendError } from '../../lib/reply.js';
+import { UserTimeZoneRequiredError } from '../../lib/user-time-zone.js';
+import { sqlite } from '../../db/index.js';
+import { buildSessionContext } from '../planning/session-context.js';
+import { sendSessionContextError } from '../planning/index.js';
 import { isAgentRequest, requireAuth } from '../../middleware/auth.js';
 import {
   agentEnrichmentOnSend,
@@ -107,6 +112,7 @@ import {
   updateWorkoutSession,
   WorkoutSessionNotCompletedError,
   WorkoutSessionNotFoundError,
+  WorkoutSessionReadLimitError,
 } from './store.js';
 import {
   calculateActiveDuration,
@@ -639,6 +645,38 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
 
   const typedApp = app.withTypeProvider<ZodTypeProvider>();
   typedApp.get(
+    '/:id/session-context',
+    {
+      schema: {
+        params: idParamsSchema,
+        response: {
+          200: apiDataResponseSchema(sessionContextRuntimeSchema),
+          400: badRequestResponseSchema,
+          401: apiErrorResponseSchema,
+          404: apiErrorResponseSchema,
+          422: apiErrorResponseSchema,
+        },
+        tags: ['workout-sessions'],
+        security: authSecurity,
+        summary: 'Read source-linked context relevant to an owned workout session',
+      },
+    },
+    async (request, reply) => {
+      reply.header('Cache-Control', 'private, no-cache');
+      try {
+        return {
+          data: await buildSessionContext({
+            sqlite,
+            userId: request.userId,
+            sessionId: request.params.id,
+          }),
+        };
+      } catch (error) {
+        return sendSessionContextError(reply, error);
+      }
+    },
+  );
+  typedApp.get(
     '/:id/feedback-audit',
     {
       schema: {
@@ -1120,6 +1158,13 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
           200: apiDataResponseSchema(z.array(workoutSessionListItemSchema)),
           400: badRequestResponseSchema,
           401: apiErrorResponseSchema,
+          422: z.object({
+            error: z.object({
+              code: z.literal('WORKOUT_SESSION_READ_LIMIT_EXCEEDED'),
+              message: z.string(),
+              details: z.object({ limit: z.number() }),
+            }),
+          }),
         },
         tags: ['workout-sessions'],
         summary: 'List workout sessions',
@@ -1127,14 +1172,16 @@ export const workoutSessionRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const sessions = await listWorkoutSessions({
-        userId: request.userId,
-        ...request.query,
-      });
-
-      return reply.send({
-        data: sessions,
-      });
+      try {
+        const sessions = await listWorkoutSessions({ userId: request.userId, ...request.query });
+        return reply.send({ data: sessions });
+      } catch (error) {
+        if (error instanceof UserTimeZoneRequiredError)
+          return sendError(reply, 400, error.code, error.message);
+        if (error instanceof WorkoutSessionReadLimitError)
+          return sendError(reply, 422, error.code, error.message, { limit: error.limit });
+        throw error;
+      }
     },
   );
 

@@ -349,6 +349,27 @@ Guidelines:
 - Use shared schemas from `@pulse/shared` as the single source of truth for API contracts.
 - Do not introduce new legacy agent-only routes. Agent-specific behavior belongs on the unified `/api/v1/*` surface.
 
+### Trusted chat-approval relay for plan changes (#178)
+
+`POST /api/v1/plan-change-proposals/:id/approval` accepts either direct JWT approval or a
+trusted AgentToken relay of explicit chat approval. Relay does not require a second in-app
+approval, but it does require the AgentToken to first persist the exact user statement through
+`POST /api/v1/plan-change-proposals/:id/approval-statements`, bound to the current proposal
+revision and server-derived target fingerprint. Statement capture alone never executes.
+
+The approval response is deliberately machine-distinguishable. Direct approval has
+`relayedBy`, `approvalStatementId`, and `approvalStatement` set to `null`. Relayed approval keeps
+`approvedBy` as the subject user whose decision the agent attests it obtained, while `relayedBy`
+is the authenticated AgentToken caller. The linked `approvalStatement` reads back its exact text,
+source id, source time, authenticated recorder, and capture time across restart.
+
+This is an explicit trust policy, not independent proof of an external conversation. Pulse
+authenticates the relay agent and enforces ownership, exact revision/fingerprint binding,
+idempotency, stale checks, and atomic execution. It does not decide whether arbitrary text is a
+genuine approval. An agent suggestion, flare report, generic message, missing/wrong/stale
+statement, or statement capture without the dedicated approval call cannot approve or execute a
+proposal.
+
 ### Model-only weekly review acceptance (issue 137)
 
 A JWT acceptance of an eligible `updating` keep review resolves its weekly/manual check-in as

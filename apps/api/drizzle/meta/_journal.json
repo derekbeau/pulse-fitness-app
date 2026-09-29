@@ -484,6 +484,34 @@
       "when": 1789603200000,
       "tag": "0068_body_progress_photo_deletion_intents",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "6",
+      "when": 1789862400000,
+      "tag": "0069_activity_runtime",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "6",
+      "when": 1789948800000,
+      "tag": "0070_body_context_runtime",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "6",
+      "when": 1790035200000,
+      "tag": "0071_daily_check_in_runtime",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "6",
+      "when": 1790121600000,
+      "tag": "0072_journal_runtime",
+      "breakpoints": true
     }
   ]
 }

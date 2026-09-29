@@ -55,7 +55,8 @@ export function BottomNav() {
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex border-t border-border/40 bg-background/70 shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.08)] backdrop-blur-2xl backdrop-saturate-150 md:hidden">
       <nav
         aria-label="Mobile navigation"
-        className="pointer-events-auto mx-auto grid w-full max-w-screen-sm grid-cols-5 items-stretch gap-2 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2"
+        className="pointer-events-auto mx-auto grid w-full max-w-screen-sm items-stretch gap-1 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2"
+        style={{ gridTemplateColumns: `repeat(${primaryNavItems.length + 1}, minmax(0, 1fr))` }}
       >
         {primaryNavItems.map((item) => {
           const Icon = item.icon;

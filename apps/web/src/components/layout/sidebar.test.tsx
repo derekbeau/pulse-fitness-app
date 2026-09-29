@@ -47,6 +47,7 @@ const mockedUseUser = vi.mocked(useUser);
 const navLinks = [
   { label: 'Dashboard', path: '/' },
   { label: 'Workouts', path: '/workouts' },
+  { label: 'Calendar', path: '/calendar' },
   { label: 'Nutrition', path: '/nutrition' },
   { label: 'Habits', path: '/habits' },
   { label: 'Activity', path: '/activity' },
