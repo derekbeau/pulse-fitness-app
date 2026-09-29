@@ -307,6 +307,22 @@ const buildMeasurementValues = (
   };
 };
 
+const measurementInputMatches = (
+  existing: Pick<
+    BodyCheckInMeasurement,
+    'unitAtEntry' | 'reading1Mm' | 'reading2Mm' | 'reading3Mm'
+  >,
+  input: BodyCheckInMeasurementInput,
+) => {
+  if (existing.unitAtEntry !== input.unit) return false;
+  const canonical = calculateCanonicalBodyReading(input.readings, input.unit);
+  return (
+    existing.reading1Mm === canonical.readingMm[0] &&
+    existing.reading2Mm === canonical.readingMm[1] &&
+    existing.reading3Mm === canonical.readingMm[2]
+  );
+};
+
 const buildMeasurementVersionValues = (
   versionId: string,
   measurement: typeof bodyCheckInMeasurements.$inferSelect,
@@ -649,9 +665,15 @@ export const patchBodyCheckIn = async (
     }));
     if (input.measurements) {
       tx.delete(bodyCheckInMeasurements).where(eq(bodyCheckInMeasurements.checkInId, id)).run();
-      snapshotMeasurements = input.measurements.map((measurement) =>
-        buildMeasurementValues(id, measurement, now),
-      );
+      snapshotMeasurements = input.measurements.map((measurement) => {
+        const existingMeasurement = existingMeasurements.find(
+          (candidate) =>
+            candidate.site === measurement.site && candidate.laterality === measurement.laterality,
+        );
+        return existingMeasurement && measurementInputMatches(existingMeasurement, measurement)
+          ? { ...existingMeasurement, checkInId: id }
+          : buildMeasurementValues(id, measurement, now);
+      });
       if (snapshotMeasurements.length > 0) {
         tx.insert(bodyCheckInMeasurements).values(snapshotMeasurements).run();
       }

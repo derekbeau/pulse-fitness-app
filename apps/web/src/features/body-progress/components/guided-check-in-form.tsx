@@ -3,7 +3,9 @@ import {
   bodyMeasurementProtocols,
   calculateCanonicalBodyReading,
   createBodyCheckInInputSchema,
+  patchBodyCheckInInputSchema,
   type BodyCheckIn,
+  type BodyCheckInMeasurement,
   type BodyCheckInMeasurementInput,
   type BodyEnabledSite,
   type BodyMealContext,
@@ -47,6 +49,16 @@ type ContextForm = z.infer<typeof contextSchema>;
 const keyFor = ({ site, laterality }: BodyEnabledSite) => `${site}:${laterality}`;
 const fromMm = (value: number | null, unit: LengthUnit) =>
   value === null ? '' : (value / (unit === 'cm' ? 10 : 25.4)).toFixed(1);
+const storedMeasurementInput = (
+  measurement: BodyCheckInMeasurement,
+): BodyCheckInMeasurementInput => ({
+  site: measurement.site,
+  laterality: measurement.laterality,
+  unit: measurement.unitAtEntry,
+  readings: [measurement.reading1Mm, measurement.reading2Mm, measurement.reading3Mm]
+    .filter((value): value is number => value !== null)
+    .map((value) => value / (measurement.unitAtEntry === 'cm' ? 10 : 25.4)),
+});
 const measurementReadings = (entry: BodyCheckIn, enabled: BodyEnabledSite[], unit: LengthUnit) =>
   Object.fromEntries(
     enabled.map((site) => {
@@ -91,20 +103,28 @@ export function GuidedCheckInForm({
   const createMutation = useCreateBodyCheckIn();
   const updateMutation = useUpdateBodyCheckIn();
   const { confirm, dialog } = useConfirmation();
+  const editSites = useMemo(() => {
+    if (!entry) return enabledSites;
+    const sites = new Map<string, BodyEnabledSite>();
+    for (const measurement of entry.measurements) {
+      const site = { site: measurement.site, laterality: measurement.laterality };
+      sites.set(keyFor(site), site);
+    }
+    for (const site of enabledSites) sites.set(keyFor(site), site);
+    return [...sites.values()];
+  }, [enabledSites, entry]);
   const [idempotencyKey] = useState(() => createBrowserId('body-ui-'));
   const thirdRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [readings, setReadings] = useState<ReadingState>(() =>
     entry
-      ? measurementReadings(entry, enabledSites, lengthUnit)
-      : (Object.fromEntries(
-          enabledSites.map((site) => [keyFor(site), ['', '', '']]),
-        ) as ReadingState),
+      ? measurementReadings(entry, editSites, lengthUnit)
+      : (Object.fromEntries(editSites.map((site) => [keyFor(site), ['', '', '']])) as ReadingState),
   );
   const [omitted, setOmitted] = useState<Set<string>>(
     () =>
       new Set(
         entry
-          ? enabledSites
+          ? editSites
               .filter(
                 (site) =>
                   !entry.measurements.some(
@@ -117,7 +137,7 @@ export function GuidedCheckInForm({
   );
   const [serverError, setServerError] = useState<string>('');
   const [conflictingCheckInId, setConflictingCheckInId] = useState<string | null>(null);
-  const [measurementDirty, setMeasurementDirty] = useState(false);
+  const [dirtyMeasurementKeys, setDirtyMeasurementKeys] = useState<Set<string>>(() => new Set());
   const form = useForm<ContextForm>({
     resolver: zodResolver(contextSchema),
     defaultValues: {
@@ -139,7 +159,7 @@ export function GuidedCheckInForm({
   const isContextDirty = form.formState.isDirty;
 
   useEffect(() => {
-    for (const site of enabledSites) {
+    for (const site of editSites) {
       const key = keyFor(site);
       const values = readings[key] ?? ['', '', ''];
       const parsed = values.slice(0, 2).map(Number);
@@ -156,11 +176,11 @@ export function GuidedCheckInForm({
         }
       }
     }
-  }, [enabledSites, lengthUnit, readings]);
+  }, [editSites, lengthUnit, readings]);
 
   const activeMeasurements = useMemo(
     () =>
-      enabledSites.flatMap((site) => {
+      editSites.flatMap((site) => {
         const key = keyFor(site);
         if (omitted.has(key)) return [];
         const values = readings[key] ?? ['', '', ''];
@@ -168,8 +188,26 @@ export function GuidedCheckInForm({
         if (parsed.length === 0 || parsed.some((value) => !Number.isFinite(value))) return [];
         return [{ ...site, unit: lengthUnit, readings: parsed } as BodyCheckInMeasurementInput];
       }),
-    [enabledSites, lengthUnit, omitted, readings],
+    [editSites, lengthUnit, omitted, readings],
   );
+  const replacementMeasurements = useMemo(
+    () =>
+      editSites.flatMap((site) => {
+        const key = keyFor(site);
+        if (omitted.has(key)) return [];
+        const existing = entry?.measurements.find(
+          (measurement) =>
+            measurement.site === site.site && measurement.laterality === site.laterality,
+        );
+        if (existing && !dirtyMeasurementKeys.has(key)) return [storedMeasurementInput(existing)];
+        const values = readings[key] ?? ['', '', ''];
+        const parsed = values.filter((value) => value.trim() !== '').map(Number);
+        if (parsed.length === 0 || parsed.some((value) => !Number.isFinite(value))) return [];
+        return [{ ...site, unit: lengthUnit, readings: parsed } as BodyCheckInMeasurementInput];
+      }),
+    [dirtyMeasurementKeys, editSites, entry, lengthUnit, omitted, readings],
+  );
+  const measurementDirty = dirtyMeasurementKeys.size > 0;
 
   const save = async (status: 'draft' | 'completed') => {
     setServerError('');
@@ -189,7 +227,6 @@ export function GuidedCheckInForm({
     const values = form.getValues();
     const mutablePayload = {
       status,
-      measurements: activeMeasurements,
       localTime: values.localTime || null,
       mealContext: values.mealContext as BodyMealContext,
       workoutContext: values.workoutContext as BodyWorkoutContext,
@@ -198,17 +235,6 @@ export function GuidedCheckInForm({
       notes: values.notes.trim() || null,
       countAsScheduledOccurrence: values.countAsScheduledOccurrence,
     };
-    const payload = { date: values.date, ...mutablePayload };
-    const parsed = createBodyCheckInInputSchema.safeParse({
-      ...payload,
-      idempotencyKey: idempotencyKey.value,
-    });
-    if (!parsed.success) {
-      const message = parsed.error.issues[0]?.message ?? 'Review the measurement values.';
-      setServerError(message);
-      document.getElementById('check-in-error-summary')?.focus();
-      return;
-    }
     if (isCorrection && !values.correctionReason.trim()) {
       form.setError('correctionReason', {
         message: 'Explain why this completed check-in is being corrected.',
@@ -217,16 +243,26 @@ export function GuidedCheckInForm({
       return;
     }
     try {
-      const saved = entry
-        ? await updateMutation.mutateAsync({
-            id: entry.id,
-            input: {
-              ...mutablePayload,
-              expectedVersion: entry.version,
-              ...(isCorrection ? { correctionReason: values.correctionReason.trim() } : {}),
-            },
-          })
-        : await createMutation.mutateAsync(parsed.data);
+      let saved: BodyCheckIn;
+      if (entry) {
+        const parsed = patchBodyCheckInInputSchema.safeParse({
+          ...mutablePayload,
+          expectedVersion: entry.version,
+          ...(measurementDirty ? { measurements: replacementMeasurements } : {}),
+          ...(isCorrection ? { correctionReason: values.correctionReason.trim() } : {}),
+        });
+        if (!parsed.success) throw new Error(parsed.error.issues[0]?.message);
+        saved = await updateMutation.mutateAsync({ id: entry.id, input: parsed.data });
+      } else {
+        const parsed = createBodyCheckInInputSchema.safeParse({
+          date: values.date,
+          ...mutablePayload,
+          measurements: activeMeasurements,
+          idempotencyKey: idempotencyKey.value,
+        });
+        if (!parsed.success) throw new Error(parsed.error.issues[0]?.message);
+        saved = await createMutation.mutateAsync(parsed.data);
+      }
       toast.success(
         status === 'draft'
           ? 'Draft saved across devices.'
@@ -337,7 +373,7 @@ export function GuidedCheckInForm({
             ) : null}
             <a
               className="font-medium text-primary underline"
-              href={`#measurement-${keyFor(enabledSites[0] ?? { site: 'waist_iliac_crest_nhanes', laterality: 'none' })}`}
+              href={`#measurement-${keyFor(editSites[0] ?? { site: 'waist_iliac_crest_nhanes', laterality: 'none' })}`}
             >
               Review measurement fields
             </a>
@@ -357,7 +393,7 @@ export function GuidedCheckInForm({
         </div>
       ) : null}
 
-      {enabledSites.map((site, index) => {
+      {editSites.map((site, index) => {
         const key = keyFor(site);
         const values = readings[key] ?? ['', '', ''];
         const numeric = values.filter(Boolean).map(Number);
@@ -370,11 +406,16 @@ export function GuidedCheckInForm({
         }
         const needsThird = preview?.quality === 'needs_third_reading' || Boolean(values[2]);
         const protocol = bodyMeasurementProtocols[site.site];
+        const savedMeasurement = entry?.measurements.find(
+          (measurement) =>
+            measurement.site === site.site && measurement.laterality === site.laterality,
+        );
         const bounds = bodyMeasurementBoundsCm[site.site];
         const isOmitted = omitted.has(key);
         return (
           <Card
             className="overflow-hidden border-border/70"
+            data-measurement-key={key}
             data-measurement-site={site.site}
             id={`measurement-${key}`}
             key={key}
@@ -385,8 +426,12 @@ export function GuidedCheckInForm({
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                     Step {index + 1} · {site.laterality === 'none' ? 'center' : site.laterality}
                   </p>
-                  <CardTitle className="mt-1">{protocol.name}</CardTitle>
-                  <CardDescription>{protocol.instructions}</CardDescription>
+                  <CardTitle className="mt-1">
+                    {savedMeasurement?.protocolName ?? protocol.name}
+                  </CardTitle>
+                  <CardDescription>
+                    {savedMeasurement?.protocolInstructions ?? protocol.instructions}
+                  </CardDescription>
                 </div>
                 <Ruler aria-hidden="true" className="size-5 shrink-0 text-primary" />
               </div>
@@ -401,7 +446,7 @@ export function GuidedCheckInForm({
                   id={`omit-${key}`}
                   onCheckedChange={(checked) =>
                     setOmitted((current) => {
-                      setMeasurementDirty(true);
+                      setDirtyMeasurementKeys((dirty) => new Set(dirty).add(key));
                       const next = new Set(current);
                       if (checked) next.add(key);
                       else next.delete(key);
@@ -409,7 +454,9 @@ export function GuidedCheckInForm({
                     })
                   }
                 />
-                Omit this optional site today
+                {savedMeasurement
+                  ? 'Remove this saved measurement'
+                  : 'Omit this optional site today'}
               </Label>
               {!isOmitted ? (
                 <>
@@ -439,7 +486,7 @@ export function GuidedCheckInForm({
                               }
                               onChange={(event) => {
                                 const nextValue = event.currentTarget.value;
-                                setMeasurementDirty(true);
+                                setDirtyMeasurementKeys((dirty) => new Set(dirty).add(key));
                                 setReadings((current) => ({
                                   ...current,
                                   [key]: current[key].map((value, valueIndex) =>

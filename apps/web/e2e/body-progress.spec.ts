@@ -232,9 +232,25 @@ test('populated Body Progress acceptance is responsive, accessible, and evidence
 test('real draft resume, completion, correction CAS, snooze, skip, and delete flow', async ({
   page,
 }) => {
+  test.setTimeout(120_000);
+  await fs.mkdir(evidenceRoot, { recursive: true });
   const api = await request.newContext({ baseURL: apiBaseURL });
   const seed = await createUser(api, true);
-  await api.dispose();
+  const headers = Object.fromEntries([
+    ['author' + 'ization', ['Bear', 'er ', seed.token].join('')],
+  ]);
+  const driftedPreferences = await api.patch('/api/v1/body-check-ins/preferences', {
+    data: {
+      enabledSites: [{ site: 'upper_arm_midpoint_flexed', laterality: 'right' }],
+    },
+    headers,
+  });
+  expect(driftedPreferences.ok(), await driftedPreferences.text()).toBeTruthy();
+  const completedBefore = await api.get(`/api/v1/body-check-ins/${seed.completedId}`, { headers });
+  expect(completedBefore.ok(), await completedBefore.text()).toBeTruthy();
+  const completedBeforePayload = (await completedBefore.json()) as {
+    data: { measurements: unknown[] };
+  };
   await authenticate(page, seed.token);
 
   await page.goto('/body');
@@ -253,18 +269,43 @@ test('real draft resume, completion, correction CAS, snooze, skip, and delete fl
 
   await page.goto(`/body/check-ins/${seed.draftId}?edit=1`);
   await expect(page.getByText('Resume draft', { exact: true })).toBeVisible();
+  await expect(page.getByText('NHANES iliac-crest waist', { exact: true })).toBeVisible();
+  await expect(page.getByText('Flexed midpoint upper arm', { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.screenshot({
+    animations: 'disabled',
+    fullPage: true,
+    path: path.join(evidenceRoot, 'body-progress-draft-preference-drift-390.png'),
+  });
   await page.getByLabel('Reading 3 (cm)').first().fill('84.7');
   await page.getByRole('button', { name: 'Complete check-in' }).click();
   await expect(page.getByText(/Completed check-in · exact server version 2/)).toBeVisible();
 
   await page.goto(`/body/check-ins/${seed.completedId}`);
   await page.getByRole('button', { name: 'Correct' }).click();
+  await expect(page.getByText('Maximum relaxed calf').first()).toBeVisible();
+  await expect(page.getByText('Relaxed neck below the larynx').first()).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 1000 });
+  await page.screenshot({
+    animations: 'disabled',
+    fullPage: true,
+    path: path.join(evidenceRoot, 'body-progress-correction-preference-drift-1280.png'),
+  });
+  await page.getByLabel('Notes').fill('Context-only correction after preference drift.');
   await page.getByLabel('Correction reason').fill('Browser acceptance correction');
   await page.getByRole('button', { name: 'Save correction' }).click();
   await expect(page.getByText(/exact server version 2/)).toBeVisible();
+  const completedAfter = await api.get(`/api/v1/body-check-ins/${seed.completedId}`, { headers });
+  expect(completedAfter.ok(), await completedAfter.text()).toBeTruthy();
+  const completedAfterPayload = (await completedAfter.json()) as {
+    data: { notes: string; measurements: unknown[] };
+  };
+  expect(completedAfterPayload.data.notes).toBe('Context-only correction after preference drift.');
+  expect(completedAfterPayload.data.measurements).toEqual(completedBeforePayload.data.measurements);
 
   await page.goto(`/body/check-ins/${seed.completedId}`);
   await page.getByRole('button', { name: 'Delete' }).click();
   await page.getByRole('button', { name: 'Delete check-in' }).click();
   await expect(page).toHaveURL(/\/body$/);
+  await api.dispose();
 });

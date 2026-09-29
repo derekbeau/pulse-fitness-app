@@ -244,6 +244,7 @@ describe('body check-in API bridge', () => {
       });
       expect(scheduled.statusCode).toBe(201);
       const scheduledId = scheduled.json().data.id;
+      const scheduledMeasurements = scheduled.json().data.measurements;
       const corrected = await app.inject({
         method: 'PATCH',
         url: `/api/v1/body-check-ins/${scheduledId}`,
@@ -262,6 +263,7 @@ describe('body check-in API bridge', () => {
         correctedBySourceId: 'body-agent-token',
         correctionReason: 'fixed context note',
       });
+      expect(corrected.json().data.measurements).toEqual(scheduledMeasurements);
       expect(
         (
           await app.inject({
@@ -740,6 +742,12 @@ describe('body check-in API bridge', () => {
       });
       expect(completed.statusCode, completed.body).toBe(200);
       expect(completed.json().data).toMatchObject({ status: 'completed', version: 2 });
+      const untouchedRightCalf = completed
+        .json()
+        .data.measurements.find(
+          (measurement: { site: string; laterality: string }) =>
+            measurement.site === 'calf_maximum_relaxed' && measurement.laterality === 'right',
+        );
       const corrected = await app.inject({
         method: 'PATCH',
         url: `/api/v1/body-check-ins/${id}`,
@@ -756,6 +764,14 @@ describe('body check-in API bridge', () => {
       });
       expect(corrected.statusCode, corrected.body).toBe(200);
       expect(corrected.json().data).toMatchObject({ version: 3 });
+      expect(
+        corrected
+          .json()
+          .data.measurements.find(
+            (measurement: { site: string; laterality: string }) =>
+              measurement.site === 'calf_maximum_relaxed' && measurement.laterality === 'right',
+          ),
+      ).toEqual(untouchedRightCalf);
       const history = await app.inject({
         method: 'GET',
         url: `/api/v1/body-check-ins/${id}/history`,
