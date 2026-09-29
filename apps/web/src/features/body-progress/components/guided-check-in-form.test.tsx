@@ -14,6 +14,7 @@ function renderForm(
   options: {
     entry?: BodyCheckIn;
     enabledSites?: BodyEnabledSite[];
+    lengthUnit?: 'cm' | 'in';
   } = {},
 ) {
   vi.stubGlobal('fetch', fetchMock);
@@ -28,7 +29,7 @@ function renderForm(
               dueState="due_today"
               enabledSites={options.enabledSites ?? [...waist]}
               entry={options.entry}
-              lengthUnit="cm"
+              lengthUnit={options.lengthUnit ?? 'cm'}
               serverLocalDate="2026-09-15"
             />
           }
@@ -347,6 +348,93 @@ describe('GuidedCheckInForm', () => {
       expect.objectContaining({ laterality: 'left', readings: [35.1] }),
       expect.objectContaining({ laterality: 'right', readings: [36.1] }),
     ]);
+  });
+
+  it('round-trips untouched inch readings when correcting the other side', async () => {
+    let body: Record<string, unknown> | undefined;
+    const armMeasurements = populatedBodyCheckInFixture.measurements.map((measurement, index) => ({
+      ...measurement,
+      id: `inch-arm-${index}`,
+      site: 'upper_arm_midpoint_flexed' as const,
+      laterality: (index === 0 ? 'left' : 'right') as 'left' | 'right',
+      unitAtEntry: 'in' as const,
+      reading1Mm: index === 0 ? 358 : 363,
+      reading2Mm: index === 0 ? 361 : null,
+      reading3Mm: index === 0 ? 363 : null,
+      canonicalMm: index === 0 ? 362 : 363,
+      quality: (index === 0 ? 'replicated_with_tiebreaker' : 'single_reading') as
+        | 'replicated_with_tiebreaker'
+        | 'single_reading',
+      selectedReadingPair: index === 0 ? ([2, 3] as [2, 3]) : null,
+      protocolId: 'upper_arm_midpoint_flexed' as const,
+    }));
+    const entry = { ...populatedBodyCheckInFixture, measurements: armMeasurements };
+    const fetchMock = vi.fn(async (_input, init) => {
+      body = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ data: entry }), { status: 200 });
+    }) as typeof fetch;
+    renderForm(fetchMock, {
+      entry,
+      enabledSites: [{ site: 'upper_arm_midpoint_flexed', laterality: 'right' }],
+      lengthUnit: 'in',
+    });
+
+    const right = screen
+      .getByTestId('guided-check-in-form')
+      .querySelector('[data-measurement-key="upper_arm_midpoint_flexed:right"]');
+    fireEvent.change(within(right as HTMLElement).getByLabelText('Reading 1 (in)'), {
+      target: { value: '14.4' },
+    });
+    fireEvent.change(screen.getByLabelText('Correction reason'), {
+      target: { value: 'Corrected right arm inch reading' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save correction' }));
+    await screen.findByText('Saved detail');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(body?.measurements).toEqual([
+      expect.objectContaining({ laterality: 'left', unit: 'in', readings: [14.1, 14.2, 14.3] }),
+      expect.objectContaining({ laterality: 'right', unit: 'in', readings: [14.4] }),
+    ]);
+  });
+
+  it('fails closed when a legacy inch reading cannot round-trip at input precision', async () => {
+    const measurements = populatedBodyCheckInFixture.measurements.map((measurement, index) => ({
+      ...measurement,
+      site: 'upper_arm_midpoint_flexed' as const,
+      laterality: (index === 0 ? 'left' : 'right') as 'left' | 'right',
+      unitAtEntry: 'in' as const,
+      reading1Mm: index === 0 ? 359 : 363,
+      reading2Mm: null,
+      reading3Mm: null,
+      canonicalMm: index === 0 ? 359 : 363,
+      quality: 'single_reading' as const,
+      selectedReadingPair: null,
+      protocolId: 'upper_arm_midpoint_flexed' as const,
+    }));
+    const entry = { ...populatedBodyCheckInFixture, measurements };
+    const fetchMock = vi.fn() as typeof fetch;
+    renderForm(fetchMock, {
+      entry,
+      enabledSites: [{ site: 'upper_arm_midpoint_flexed', laterality: 'right' }],
+      lengthUnit: 'in',
+    });
+
+    const right = screen
+      .getByTestId('guided-check-in-form')
+      .querySelector('[data-measurement-key="upper_arm_midpoint_flexed:right"]');
+    fireEvent.change(within(right as HTMLElement).getByLabelText('Reading 1 (in)'), {
+      target: { value: '14.4' },
+    });
+    fireEvent.change(screen.getByLabelText('Correction reason'), {
+      target: { value: 'Corrected right arm inch reading' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save correction' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'cannot be represented at the original input precision',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('removes an existing measurement only through its visible removal control', async () => {

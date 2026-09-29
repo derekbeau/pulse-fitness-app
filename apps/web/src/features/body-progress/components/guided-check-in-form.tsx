@@ -49,16 +49,26 @@ type ContextForm = z.infer<typeof contextSchema>;
 const keyFor = ({ site, laterality }: BodyEnabledSite) => `${site}:${laterality}`;
 const fromMm = (value: number | null, unit: LengthUnit) =>
   value === null ? '' : (value / (unit === 'cm' ? 10 : 25.4)).toFixed(1);
+const storedReadingInput = (valueMm: number, unit: LengthUnit) => {
+  const millimetresPerUnit = unit === 'cm' ? 10 : 25.4;
+  const value = Number((valueMm / millimetresPerUnit).toFixed(1));
+  return Math.round(value * millimetresPerUnit) === valueMm ? value : null;
+};
 const storedMeasurementInput = (
   measurement: BodyCheckInMeasurement,
-): BodyCheckInMeasurementInput => ({
-  site: measurement.site,
-  laterality: measurement.laterality,
-  unit: measurement.unitAtEntry,
-  readings: [measurement.reading1Mm, measurement.reading2Mm, measurement.reading3Mm]
+): BodyCheckInMeasurementInput | null => {
+  const readings = [measurement.reading1Mm, measurement.reading2Mm, measurement.reading3Mm]
     .filter((value): value is number => value !== null)
-    .map((value) => value / (measurement.unitAtEntry === 'cm' ? 10 : 25.4)),
-});
+    .map((value) => storedReadingInput(value, measurement.unitAtEntry));
+  if (readings.some((value) => value === null)) return null;
+  const exactReadings = readings.filter((value): value is number => value !== null);
+  return {
+    site: measurement.site,
+    laterality: measurement.laterality,
+    unit: measurement.unitAtEntry,
+    readings: exactReadings,
+  };
+};
 const measurementReadings = (entry: BodyCheckIn, enabled: BodyEnabledSite[], unit: LengthUnit) =>
   Object.fromEntries(
     enabled.map((site) => {
@@ -190,23 +200,30 @@ export function GuidedCheckInForm({
       }),
     [editSites, lengthUnit, omitted, readings],
   );
-  const replacementMeasurements = useMemo(
-    () =>
-      editSites.flatMap((site) => {
-        const key = keyFor(site);
-        if (omitted.has(key)) return [];
-        const existing = entry?.measurements.find(
-          (measurement) =>
-            measurement.site === site.site && measurement.laterality === site.laterality,
-        );
-        if (existing && !dirtyMeasurementKeys.has(key)) return [storedMeasurementInput(existing)];
-        const values = readings[key] ?? ['', '', ''];
-        const parsed = values.filter((value) => value.trim() !== '').map(Number);
-        if (parsed.length === 0 || parsed.some((value) => !Number.isFinite(value))) return [];
-        return [{ ...site, unit: lengthUnit, readings: parsed } as BodyCheckInMeasurementInput];
-      }),
-    [dirtyMeasurementKeys, editSites, entry, lengthUnit, omitted, readings],
-  );
+  const replacement = useMemo(() => {
+    let hasUnrepresentableStoredReading = false;
+    const measurements = editSites.flatMap((site) => {
+      const key = keyFor(site);
+      if (omitted.has(key)) return [];
+      const existing = entry?.measurements.find(
+        (measurement) =>
+          measurement.site === site.site && measurement.laterality === site.laterality,
+      );
+      if (existing && !dirtyMeasurementKeys.has(key)) {
+        const stored = storedMeasurementInput(existing);
+        if (!stored) {
+          hasUnrepresentableStoredReading = true;
+          return [];
+        }
+        return [stored];
+      }
+      const values = readings[key] ?? ['', '', ''];
+      const parsed = values.filter((value) => value.trim() !== '').map(Number);
+      if (parsed.length === 0 || parsed.some((value) => !Number.isFinite(value))) return [];
+      return [{ ...site, unit: lengthUnit, readings: parsed } as BodyCheckInMeasurementInput];
+    });
+    return { hasUnrepresentableStoredReading, measurements };
+  }, [dirtyMeasurementKeys, editSites, entry, lengthUnit, omitted, readings]);
   const measurementDirty = dirtyMeasurementKeys.size > 0;
 
   const save = async (status: 'draft' | 'completed') => {
@@ -221,6 +238,13 @@ export function GuidedCheckInForm({
     }
     const validContext = await form.trigger();
     if (!validContext) {
+      document.getElementById('check-in-error-summary')?.focus();
+      return;
+    }
+    if (measurementDirty && replacement.hasUnrepresentableStoredReading) {
+      setServerError(
+        'A saved measurement cannot be represented at the original input precision. Remove and re-enter it explicitly before saving other measurement changes.',
+      );
       document.getElementById('check-in-error-summary')?.focus();
       return;
     }
@@ -248,7 +272,7 @@ export function GuidedCheckInForm({
         const parsed = patchBodyCheckInInputSchema.safeParse({
           ...mutablePayload,
           expectedVersion: entry.version,
-          ...(measurementDirty ? { measurements: replacementMeasurements } : {}),
+          ...(measurementDirty ? { measurements: replacement.measurements } : {}),
           ...(isCorrection ? { correctionReason: values.correctionReason.trim() } : {}),
         });
         if (!parsed.success) throw new Error(parsed.error.issues[0]?.message);

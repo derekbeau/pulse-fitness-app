@@ -309,3 +309,165 @@ test('real draft resume, completion, correction CAS, snooze, skip, and delete fl
   await expect(page).toHaveURL(/\/body$/);
   await api.dispose();
 });
+
+test('corrects one imperial side after preference and display-unit drift without rewriting the other', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const api = await request.newContext({ baseURL: apiBaseURL });
+  const seed = await createUser(api, false);
+  const headers = Object.fromEntries([
+    ['author' + 'ization', ['Bear', 'er ', seed.token].join('')],
+  ]);
+  const inchPreferences = await api.patch('/api/v1/body-check-ins/preferences', {
+    data: {
+      lengthUnit: 'in',
+      enabledSites: [
+        { site: 'upper_arm_midpoint_flexed', laterality: 'left' },
+        { site: 'upper_arm_midpoint_flexed', laterality: 'right' },
+      ],
+    },
+    headers,
+  });
+  expect(inchPreferences.ok(), await inchPreferences.text()).toBeTruthy();
+  const created = await api.post('/api/v1/body-check-ins', {
+    data: {
+      date: '2026-09-15',
+      status: 'completed',
+      measurements: [
+        {
+          site: 'upper_arm_midpoint_flexed',
+          laterality: 'left',
+          unit: 'in',
+          readings: [14.1, 14.2, 14.3],
+        },
+        {
+          site: 'upper_arm_midpoint_flexed',
+          laterality: 'right',
+          unit: 'in',
+          readings: [14.3],
+        },
+      ],
+      notes: 'Fictional imperial bilateral browser fixture.',
+      countAsScheduledOccurrence: false,
+    },
+    headers,
+  });
+  expect(created.ok(), await created.text()).toBeTruthy();
+  const before = (await created.json()) as {
+    data: {
+      id: string;
+      measurements: Array<{
+        id: string;
+        laterality: string;
+        unitAtEntry: string;
+        reading1Mm: number;
+        reading2Mm: number | null;
+        reading3Mm: number | null;
+        canonicalMm: number;
+        protocolId: string;
+        protocolVersion: string;
+        protocolName: string;
+        protocolInstructions: string;
+        protocolSourceUrls: string[];
+      }>;
+    };
+  };
+  const beforeLeft = before.data.measurements.find(
+    (measurement) => measurement.laterality === 'left',
+  );
+  const beforeRight = before.data.measurements.find(
+    (measurement) => measurement.laterality === 'right',
+  );
+  expect(beforeLeft).toBeDefined();
+  expect(beforeRight).toBeDefined();
+
+  const driftedPreferences = await api.patch('/api/v1/body-check-ins/preferences', {
+    data: {
+      lengthUnit: 'cm',
+      enabledSites: [{ site: 'upper_arm_midpoint_flexed', laterality: 'right' }],
+    },
+    headers,
+  });
+  expect(driftedPreferences.ok(), await driftedPreferences.text()).toBeTruthy();
+  await authenticate(page, seed.token);
+  await page.goto(`/body/check-ins/${before.data.id}`);
+  await page.getByRole('button', { name: 'Correct' }).click();
+  const form = page.getByTestId('guided-check-in-form');
+  const left = form.locator('[data-measurement-key="upper_arm_midpoint_flexed:left"]');
+  const right = form.locator('[data-measurement-key="upper_arm_midpoint_flexed:right"]');
+  await expect(left.getByLabel('Reading 1 (cm)')).toHaveValue('35.8');
+  await expect(right.getByLabel('Reading 1 (cm)')).toHaveValue('36.3');
+  await right.getByLabel('Reading 1 (cm)').fill('36.6');
+  await page.getByLabel('Correction reason').fill('Corrected fictional right arm reading');
+  await page.getByRole('button', { name: 'Save correction' }).click();
+  await expect(page.getByText(/exact server version 2/)).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText('Corrected fictional right arm reading', { exact: true }),
+  ).toBeVisible();
+
+  const readback = await api.get(`/api/v1/body-check-ins/${before.data.id}`, { headers });
+  expect(readback.ok(), await readback.text()).toBeTruthy();
+  const after = (await readback.json()) as typeof before;
+  const afterLeft = after.data.measurements.find(
+    (measurement) => measurement.laterality === 'left',
+  );
+  const afterRight = after.data.measurements.find(
+    (measurement) => measurement.laterality === 'right',
+  );
+  expect(afterLeft).toEqual(beforeLeft);
+  expect(afterRight).toMatchObject({
+    unitAtEntry: 'cm',
+    reading1Mm: 366,
+    reading2Mm: null,
+    reading3Mm: null,
+    canonicalMm: 366,
+    protocolId: beforeRight?.protocolId,
+    protocolVersion: beforeRight?.protocolVersion,
+    protocolName: beforeRight?.protocolName,
+    protocolInstructions: beforeRight?.protocolInstructions,
+    protocolSourceUrls: beforeRight?.protocolSourceUrls,
+  });
+  expect(afterRight?.id).not.toBe(beforeRight?.id);
+
+  const history = await api.get(`/api/v1/body-check-ins/${before.data.id}/history`, { headers });
+  expect(history.ok(), await history.text()).toBeTruthy();
+  const historyPayload = (await history.json()) as {
+    data: { versions: Array<{ measurements: typeof before.data.measurements }> };
+  };
+  expect(historyPayload.data.versions).toHaveLength(2);
+  expect(historyPayload.data.versions[0]?.measurements).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        laterality: 'left',
+        unitAtEntry: 'in',
+        reading1Mm: 358,
+        reading2Mm: 361,
+        reading3Mm: 363,
+      }),
+      expect.objectContaining({ laterality: 'right', unitAtEntry: 'in', reading1Mm: 363 }),
+    ]),
+  );
+  expect(historyPayload.data.versions[1]?.measurements).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        laterality: 'left',
+        unitAtEntry: 'in',
+        reading1Mm: 358,
+        reading2Mm: 361,
+        reading3Mm: 363,
+        protocolId: beforeLeft?.protocolId,
+        protocolVersion: beforeLeft?.protocolVersion,
+      }),
+      expect.objectContaining({
+        laterality: 'right',
+        unitAtEntry: 'cm',
+        reading1Mm: 366,
+        reading2Mm: null,
+        reading3Mm: null,
+      }),
+    ]),
+  );
+  await api.dispose();
+});

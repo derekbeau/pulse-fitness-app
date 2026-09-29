@@ -603,6 +603,132 @@ describe('body check-in API bridge', () => {
     }
   });
 
+  it('preserves an untouched inch side while rebuilding the corrected opposite side', async () => {
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const jwt = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '1h' },
+      );
+      const headers = { authorization: ['Bear', 'er ', jwt].join('') };
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/v1/body-check-ins/',
+        headers,
+        payload: {
+          date: '2026-09-15',
+          status: 'completed',
+          measurements: [
+            {
+              site: 'upper_arm_midpoint_flexed',
+              laterality: 'left',
+              unit: 'in',
+              readings: [14.1, 14.2, 14.3],
+            },
+            {
+              site: 'upper_arm_midpoint_flexed',
+              laterality: 'right',
+              unit: 'in',
+              readings: [14.3],
+            },
+          ],
+        },
+      });
+      expect(created.statusCode, created.body).toBe(201);
+      const original = created.json().data as {
+        id: string;
+        measurements: Array<Record<string, unknown>>;
+      };
+      const originalLeft = original.measurements.find(
+        (measurement) => measurement.laterality === 'left',
+      );
+      const originalRight = original.measurements.find(
+        (measurement) => measurement.laterality === 'right',
+      );
+
+      const corrected = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/body-check-ins/${original.id}`,
+        headers,
+        payload: {
+          expectedVersion: 1,
+          correctionReason: 'Corrected right arm transcription',
+          measurements: [
+            {
+              site: 'upper_arm_midpoint_flexed',
+              laterality: 'left',
+              unit: 'in',
+              readings: [14.1, 14.2, 14.3],
+            },
+            {
+              site: 'upper_arm_midpoint_flexed',
+              laterality: 'right',
+              unit: 'in',
+              readings: [14.4],
+            },
+          ],
+        },
+      });
+      expect(corrected.statusCode, corrected.body).toBe(200);
+      expect(corrected.json().data.version).toBe(2);
+      const correctedLeft = corrected
+        .json()
+        .data.measurements.find(
+          (measurement: { laterality: string }) => measurement.laterality === 'left',
+        );
+      const correctedRight = corrected
+        .json()
+        .data.measurements.find(
+          (measurement: { laterality: string }) => measurement.laterality === 'right',
+        );
+      expect(correctedLeft).toEqual(originalLeft);
+      expect(correctedRight).toMatchObject({
+        unitAtEntry: 'in',
+        reading1Mm: 366,
+        reading2Mm: null,
+        reading3Mm: null,
+        canonicalMm: 366,
+        quality: 'single_reading',
+        selectedReadingPair: null,
+      });
+      expect(correctedRight.id).not.toBe(originalRight?.id);
+
+      const history = await app.inject({
+        method: 'GET',
+        url: `/api/v1/body-check-ins/${original.id}/history`,
+        headers,
+      });
+      expect(history.statusCode, history.body).toBe(200);
+      expect(history.json().data.versions).toHaveLength(2);
+      expect(history.json().data.versions[1].measurements).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            laterality: 'left',
+            unitAtEntry: 'in',
+            reading1Mm: 358,
+            reading2Mm: 361,
+            reading3Mm: 363,
+            canonicalMm: 362,
+            protocolId: originalLeft?.protocolId,
+            protocolVersion: originalLeft?.protocolVersion,
+          }),
+          expect.objectContaining({
+            laterality: 'right',
+            unitAtEntry: 'in',
+            reading1Mm: 366,
+            reading2Mm: null,
+            reading3Mm: null,
+            canonicalMm: 366,
+          }),
+        ]),
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
   it('allows exactly one concurrent owner-scoped correction for an expected version', async () => {
     const { buildServer } = await import('../../index.js');
     const app = buildServer();
