@@ -352,6 +352,63 @@ describe('WorkoutList', () => {
     expect(within(completedSection).getByText('1h 30m')).toBeInTheDocument();
   });
 
+  it('shows actual start day, scheduled provenance and grammatical exercise counts', async () => {
+    renderWorkoutList(
+      [
+        createSession({
+          id: 'active-one',
+          status: 'in-progress',
+          date: '2026-03-08',
+          actualLocalDate: '2026-03-12',
+          plannedLocalDate: '2026-03-08',
+          exerciseCount: 1,
+          templateName: 'Overdue training',
+        }),
+        createSession({
+          id: 'completed-zero',
+          status: 'completed',
+          date: '2026-03-10',
+          actualLocalDate: '2026-03-11',
+          plannedLocalDate: '2026-03-10',
+          exerciseCount: 0,
+          templateName: 'Empty training',
+        }),
+        createSession({
+          id: 'completed-two',
+          status: 'completed',
+          date: '2026-03-09',
+          exerciseCount: 2,
+          templateName: 'Two exercises',
+        }),
+      ],
+      [],
+    );
+    const active = screen
+      .getByText('Overdue training')
+      .closest('[data-slot="card"]') as HTMLElement;
+    expect(within(active).getAllByText('Thu, Mar 12')).toHaveLength(2);
+    expect(within(active).getByText('Originally scheduled Sun, Mar 8')).toBeInTheDocument();
+    expect(within(active).getByText('1 exercise')).toBeInTheDocument();
+    const completed = screen
+      .getByText('Empty training')
+      .closest('[data-slot="card"]') as HTMLElement;
+    expect(within(completed).getByText('0 exercises')).toBeInTheDocument();
+    expect(screen.getByText('2 exercises')).toBeInTheDocument();
+  });
+
+  it('labels overdue scheduled starts before mutation', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ data: [] }));
+    renderWorkoutList([], [createScheduledWorkout({ date: '2026-03-08' })]);
+    const button = await screen.findByRole('button', { name: 'Start' });
+    await waitFor(() => expect(button).toBeEnabled());
+    fireEvent.click(button);
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Start overdue workout?')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/original scheduled date remains in its history/),
+    ).toBeInTheDocument();
+  });
+
   it('does not start after date authority locks while early-start confirmation is open', async () => {
     dateAuthorityMocks.setMutationDate('2026-03-12');
     const createSessionSpy = vi.fn();

@@ -53,6 +53,7 @@ export const sessionContextRuntimeSchema = foundation
   .extend({
     workoutSessionId: id.nullable(),
     localDate: dateSchema,
+    plannedLocalDate: dateSchema.nullable().optional(),
     timeZone: ianaTimeZoneSchema,
     target: z.discriminatedUnion('kind', [
       z.object({ kind: z.literal('workout_session'), workoutSessionId: id }).strict(),

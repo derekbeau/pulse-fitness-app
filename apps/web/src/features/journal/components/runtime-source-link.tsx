@@ -23,10 +23,12 @@ export function BodySourceAudit({
   kind,
   id,
   revisionId,
+  compact = false,
 }: {
   kind: BodyKind;
   id: string;
   revisionId: string | null;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const query = useQuery({
@@ -64,11 +66,17 @@ export function BodySourceAudit({
         className="text-left text-primary underline focus-visible:outline-2 focus-visible:outline-primary"
         onClick={() => setOpen((current) => !current)}
       >
-        Inspect {kind.replaceAll('_', ' ')} · {id}
+        Inspect {kind.replaceAll('_', ' ')}
+        {compact ? ' source' : ` · ${id}`}
       </button>
-      <p className="text-xs">Referenced revision {revisionId ?? 'not recorded'}</p>
+      {!compact && <p className="text-xs">Referenced revision {revisionId ?? 'not recorded'}</p>}
       {open && (
         <div className="rounded-lg border border-border p-3 text-sm">
+          {compact && (
+            <p className="break-all text-xs">
+              Source {kind} · {id} · referenced revision {revisionId ?? 'not recorded'}
+            </p>
+          )}
           {query.isPending && <p role="status">Loading owned source…</p>}
           {query.isError && (
             <p role="alert">
@@ -134,7 +142,15 @@ export function BodySourceAudit({
   );
 }
 
-export function RuntimeSourceLink({ reference }: { reference: Reference }) {
+export function RuntimeSourceLink({
+  reference,
+  compact = false,
+  label,
+}: {
+  reference: Reference;
+  compact?: boolean;
+  label?: string;
+}) {
   if (
     reference.kind === 'body_concern' ||
     reference.kind === 'capability' ||
@@ -161,9 +177,23 @@ export function RuntimeSourceLink({ reference }: { reference: Reference }) {
         className="text-primary underline focus-visible:outline-2 focus-visible:outline-primary"
         to={href}
       >
-        {reference.kind.replaceAll('_', ' ')} · {reference.id}
+        {compact
+          ? (label ?? reference.kind.replaceAll('_', ' '))
+          : `${reference.kind.replaceAll('_', ' ')} · ${reference.id}`}
       </Link>{' '}
-      · referenced revision {reference.revisionId} (destination may show current record)
+      {compact ? (
+        <details className="mt-1 break-all text-muted-foreground">
+          <summary className="cursor-pointer w-fit text-primary focus-visible:outline-2 focus-visible:outline-primary">
+            Source details
+          </summary>
+          <p>
+            Source {reference.kind} · {reference.id}
+          </p>
+          <p>Referenced revision {reference.revisionId} (destination may show current record).</p>
+        </details>
+      ) : (
+        `· referenced revision ${reference.revisionId} (destination may show current record)`
+      )}
     </span>
   ) : (
     <span className="block text-xs" data-source-id={reference.id}>

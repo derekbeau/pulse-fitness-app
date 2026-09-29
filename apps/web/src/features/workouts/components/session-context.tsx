@@ -5,6 +5,7 @@ import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { useSessionContext } from '../api/session-context';
 import { projectWhatMattersToday } from '../lib/session-context-migration';
+import { describeMissingInput } from '../lib/context-missing-input';
 import {
   BodySourceAudit,
   RuntimeSourceLink,
@@ -73,9 +74,15 @@ export function SessionContext({
         {view && (
           <>
             <p className="text-xs text-muted-foreground">
-              {view.localDate} · {query.data?.timeZone}
+              Context for {view.localDate} · {query.data?.timeZone}
             </p>
-            <div className="grid gap-4 md:grid-cols-2">
+            {query.data?.plannedLocalDate && query.data.plannedLocalDate !== view.localDate && (
+              <p className="text-xs text-muted-foreground">
+                Originally scheduled {query.data.plannedLocalDate}; this context uses the actual
+                start day.
+              </p>
+            )}
+            <div className="grid min-w-0 gap-4 break-words md:grid-cols-2">
               <section className="rounded-xl border p-4">
                 <h3 className="font-semibold">Positive focus</h3>
                 {view.focus.length ? (
@@ -89,6 +96,7 @@ export function SessionContext({
                           {item.source.sourceOccurredAt ?? 'time unknown'}
                         </p>
                         <BodySourceAudit
+                          compact
                           kind="capability"
                           id={item.id}
                           revisionId={item.currentRevisionId}
@@ -114,6 +122,7 @@ export function SessionContext({
                         </p>
                         <BodySourceAudit
                           kind="body_concern"
+                          compact
                           id={item.id}
                           revisionId={item.currentRevisionId}
                         />
@@ -140,6 +149,7 @@ export function SessionContext({
                           {item.source.sourceOccurredAt ?? 'time unknown'}
                         </p>
                         <BodySourceAudit
+                          compact
                           kind="guidance"
                           id={item.id}
                           revisionId={item.currentRevisionId}
@@ -159,6 +169,7 @@ export function SessionContext({
                       <li key={item.id} data-record-id={item.id}>
                         {item.label} · {item.symptomState} · {item.managementState}
                         <BodySourceAudit
+                          compact
                           kind="body_concern"
                           id={item.id}
                           revisionId={item.currentRevisionId}
@@ -178,6 +189,7 @@ export function SessionContext({
                       <li key={item.id} data-record-id={item.id}>
                         {item.label}
                         <BodySourceAudit
+                          compact
                           kind="body_concern"
                           id={item.id}
                           revisionId={item.currentRevisionId}
@@ -208,7 +220,11 @@ export function SessionContext({
                           ? 'duration unknown'
                           : `${item.workoutDurationSeconds} seconds`
                         : `${item.activityDurationMinutes} minutes`}
-                      <RuntimeSourceLink reference={item.sourceReference} />
+                      <RuntimeSourceLink
+                        compact
+                        label={`View ${item.identityKind.replaceAll('_', ' ')} · ${item.localDate}`}
+                        reference={item.sourceReference}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -217,11 +233,26 @@ export function SessionContext({
             </div>
             <section>
               <h3 className="font-semibold">Missing inputs</h3>
-              <p>
-                {view.missingInputs.length
-                  ? view.missingInputs.join(', ')
-                  : 'None reported by this read.'}
-              </p>
+              {view.missingInputs.length ? (
+                <ul className="list-disc space-y-1 pl-5 text-sm">
+                  {view.missingInputs.map((input) => {
+                    const missing = describeMissingInput(input);
+                    return (
+                      <li key={input}>
+                        {missing.label}
+                        <details className="text-xs text-muted-foreground">
+                          <summary className="cursor-pointer w-fit text-primary focus-visible:outline-2 focus-visible:outline-primary">
+                            Input details
+                          </summary>
+                          <span className="break-all">{missing.raw}</span>
+                        </details>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p>None reported by this read.</p>
+              )}
             </section>
             <section>
               <h3 className="font-semibold">Same-day co-occurrences</h3>

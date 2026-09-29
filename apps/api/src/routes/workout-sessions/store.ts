@@ -64,6 +64,8 @@ import {
   type FeedbackMutationActor,
 } from '../workout-feedback/store.js';
 import { backfillTimeSegmentSections, calculateSectionDurations } from './time-segments.js';
+import { resolveUserTimeZoneForUser } from '../../lib/user-time-zone.js';
+import { workoutActualLocalDate } from '../../lib/workout-occurrence-date.js';
 
 const SECTION_ORDER: WorkoutTemplateSectionType[] = ['warmup', 'main', 'supplemental', 'cooldown'];
 
@@ -209,6 +211,10 @@ const workoutSessionListSelection = {
   id: workoutSessions.id,
   name: workoutSessions.name,
   date: workoutSessions.date,
+  scheduledWorkoutId: workoutSessions.scheduledWorkoutId,
+  plannedLocalDate: sql<
+    string | null
+  >`(select ${scheduledWorkouts.date} from ${scheduledWorkouts} where ${scheduledWorkouts.userId} = ${workoutSessions.userId} and (${scheduledWorkouts.id} = ${workoutSessions.scheduledWorkoutId} or ${scheduledWorkouts.sessionId} = ${workoutSessions.id}) limit 1)`,
   status: workoutSessions.status,
   templateId: workoutSessions.templateId,
   templateName: workoutTemplates.name,
@@ -1791,11 +1797,13 @@ export const listWorkoutSessions = async ({
       desc(workoutSessions.createdAt),
     );
 
-  if (typeof limit === 'number') {
-    return query.limit(limit).all();
-  }
-
-  return query.all();
+  const sessions = typeof limit === 'number' ? query.limit(limit).all() : query.all();
+  const zone = await resolveUserTimeZoneForUser(userId);
+  return sessions.map((session) => ({
+    ...session,
+    actualLocalDate: zone ? workoutActualLocalDate(session, zone.timeZone) : session.date,
+    ...(zone ? { actualTimeZone: zone.timeZone } : {}),
+  }));
 };
 
 export const findWorkoutSessionById = async (

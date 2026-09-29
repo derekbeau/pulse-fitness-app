@@ -1,5 +1,5 @@
 import { FeedbackAudit, FeedbackNoteReviewNotice } from './feedback-audit';
-import { buildScheduledStartPayload } from '../lib/scheduled-start';
+import { buildScheduledStartPayload, scheduledStartConfirmation } from '../lib/scheduled-start';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import {
@@ -299,8 +299,7 @@ export function ScheduledWorkoutDetail({ bannerSlot, id }: ScheduledWorkoutDetai
 
     if (scheduledWorkout.date !== todayKey) {
       confirm({
-        title: 'Start workout early?',
-        description: `This workout is scheduled for ${dateFormatter.format(new Date(`${scheduledWorkout.date}T12:00:00`))}. Starting now will begin it today instead.`,
+        ...scheduledStartConfirmation(scheduledWorkout.date, todayKey),
         confirmLabel: 'Start now',
         onConfirm: () => {
           void doStart(todayKey);

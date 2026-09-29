@@ -35,7 +35,7 @@ import {
 } from '../api/workouts';
 import { useTodayKey } from '../hooks/use-today-key';
 import { hasAvailableTemplate } from '../lib/workout-filters';
-import { buildScheduledStartPayload } from '../lib/scheduled-start';
+import { buildScheduledStartPayload, scheduledStartConfirmation } from '../lib/scheduled-start';
 import { ApiError } from '@/lib/api-client';
 import { toast } from 'sonner';
 import {
@@ -65,6 +65,7 @@ type WorkoutListViewItem = {
   accentColor: string;
   cardClass: string;
   date: Date;
+  plannedDate: Date | null;
   duration: number | null;
   exerciseCount: number;
   id: string;
@@ -285,6 +286,11 @@ function InProgressWorkoutCard({
           <div className="space-y-1">
             <CardTitle>{session.name}</CardTitle>
             <p className="text-sm text-muted">{sessionDateFormatter.format(session.date)}</p>
+            {session.plannedDate && (
+              <p className="text-xs text-muted">
+                Originally scheduled {sessionDateFormatter.format(session.plannedDate)}
+              </p>
+            )}
           </div>
 
           <span
@@ -459,8 +465,7 @@ function ScheduledWorkoutCard({
 
     if (scheduledWorkout.date !== todayKey) {
       confirm({
-        title: 'Start workout early?',
-        description: `This workout is scheduled for ${sessionDateFormatter.format(parseDateForDisplay(scheduledWorkout.date))}. Starting now will begin it today instead.`,
+        ...scheduledStartConfirmation(scheduledWorkout.date, todayKey),
         confirmLabel: 'Start now',
         onConfirm: () => {
           void doStart(todayKey);
@@ -652,6 +657,11 @@ function WorkoutListCard({
             <div className="space-y-1">
               <CardTitle>{session.name}</CardTitle>
               <p className="text-sm text-muted">{sessionDateFormatter.format(session.date)}</p>
+              {session.plannedDate && (
+                <p className="text-xs text-muted">
+                  Originally scheduled {sessionDateFormatter.format(session.plannedDate)}
+                </p>
+              )}
             </div>
 
             <span
@@ -692,13 +702,18 @@ function WorkoutStat({ icon: Icon, label }: { icon: typeof CalendarDays; label: 
 }
 
 function buildWorkoutListItem(session: WorkoutSessionListItem): WorkoutListViewItem {
-  const date = parseDateForDisplay(session.date);
+  const date = parseDateForDisplay(session.actualLocalDate ?? session.date);
   const presentation = getWorkoutPresentation(session.status);
 
   return {
     accentColor: presentation.accentColor,
     cardClass: presentation.cardClass,
     date,
+    plannedDate:
+      session.plannedLocalDate &&
+      session.plannedLocalDate !== (session.actualLocalDate ?? session.date)
+        ? parseDateForDisplay(session.plannedLocalDate)
+        : null,
     duration: session.duration,
     exerciseCount: session.exerciseCount,
     id: session.id,
@@ -747,6 +762,8 @@ function getWorkoutPresentation(status: WorkoutSessionStatus) {
   };
 }
 
+const exerciseCountLabel = (count: number) => `${count} exercise${count === 1 ? '' : 's'}`;
+
 function buildStatusStats(session: WorkoutListViewItem) {
   if (session.status === 'completed') {
     const durationLabel = formatDuration(session.duration);
@@ -754,7 +771,7 @@ function buildStatusStats(session: WorkoutListViewItem) {
     return [
       { icon: CalendarCheck2, label: sessionDateFormatter.format(session.date) },
       { icon: Timer, label: durationLabel === '-' ? 'Duration n/a' : durationLabel },
-      { icon: Dumbbell, label: `${session.exerciseCount} exercises` },
+      { icon: Dumbbell, label: exerciseCountLabel(session.exerciseCount) },
     ];
   }
 
@@ -762,7 +779,7 @@ function buildStatusStats(session: WorkoutListViewItem) {
     return [
       { icon: CalendarDays, label: sessionDateFormatter.format(session.date) },
       { icon: Activity, label: 'In Progress' },
-      { icon: Dumbbell, label: `${session.exerciseCount} exercises` },
+      { icon: Dumbbell, label: exerciseCountLabel(session.exerciseCount) },
     ];
   }
 
@@ -770,13 +787,13 @@ function buildStatusStats(session: WorkoutListViewItem) {
     return [
       { icon: CalendarDays, label: sessionDateFormatter.format(session.date) },
       { icon: Activity, label: 'Paused' },
-      { icon: Dumbbell, label: `${session.exerciseCount} exercises` },
+      { icon: Dumbbell, label: exerciseCountLabel(session.exerciseCount) },
     ];
   }
 
   return [
     { icon: CalendarPlus2, label: `Scheduled ${sessionDateFormatter.format(session.date)}` },
-    { icon: Dumbbell, label: `${session.exerciseCount} exercises` },
+    { icon: Dumbbell, label: exerciseCountLabel(session.exerciseCount) },
   ];
 }
 

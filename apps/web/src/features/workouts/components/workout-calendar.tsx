@@ -32,7 +32,7 @@ import {
 } from '../api/workouts';
 import { ScheduleWorkoutDialog } from './schedule-workout-dialog';
 import { useTodayKey } from '../hooks/use-today-key';
-import { buildScheduledStartPayload } from '../lib/scheduled-start';
+import { buildScheduledStartPayload, scheduledStartConfirmation } from '../lib/scheduled-start';
 import { ApiError } from '@/lib/api-client';
 import { useCalendar } from '@/features/calendar/api/calendar';
 import { calendarWorkoutItems } from '@/features/calendar/lib/calendar-workout-filter';
@@ -151,8 +151,8 @@ export function WorkoutCalendar({
       activeSessions.filter(
         (session) =>
           session.status === 'completed' &&
-          session.date >= dateRange.from &&
-          session.date <= dateRange.to,
+          (session.actualLocalDate ?? session.date) >= dateRange.from &&
+          (session.actualLocalDate ?? session.date) <= dateRange.to,
       ),
     [activeSessions, dateRange.from, dateRange.to],
   );
@@ -161,9 +161,10 @@ export function WorkoutCalendar({
     for (const session of activeCompletedSessions
       .slice()
       .sort((left, right) => right.startedAt - left.startedAt)) {
-      const sessionsForDate = grouped.get(session.date) ?? [];
+      const day = session.actualLocalDate ?? session.date;
+      const sessionsForDate = grouped.get(day) ?? [];
       sessionsForDate.push(session);
-      grouped.set(session.date, sessionsForDate);
+      grouped.set(day, sessionsForDate);
     }
 
     return grouped;
@@ -189,9 +190,10 @@ export function WorkoutCalendar({
       ) {
         continue;
       }
-      const sessionsForDate = grouped.get(session.date) ?? [];
+      const day = session.actualLocalDate ?? session.date;
+      const sessionsForDate = grouped.get(day) ?? [];
       sessionsForDate.push(session);
-      grouped.set(session.date, sessionsForDate);
+      grouped.set(day, sessionsForDate);
     }
 
     return grouped;
@@ -523,8 +525,7 @@ function DayWorkoutItemCard({
 
     if (workout.scheduledWorkout && dateKey !== todayKey) {
       confirm({
-        title: 'Start workout early?',
-        description: `This workout is scheduled for ${shortDateFormatter.format(parseDateKey(dateKey))}. Starting now will begin it today instead.`,
+        ...scheduledStartConfirmation(dateKey, todayKey),
         confirmLabel: 'Start now',
         onConfirm: () => {
           void doStart(todayKey);
@@ -642,6 +643,13 @@ function DayWorkoutItemCard({
           {workoutStatusLabel(workout)}
         </span>
       </div>
+      {workout.session?.plannedLocalDate &&
+        workout.session.plannedLocalDate !==
+          (workout.session.actualLocalDate ?? workout.session.date) && (
+          <p className="mt-1 text-xs text-muted">
+            Originally scheduled {workout.session.plannedLocalDate}
+          </p>
+        )}
 
       <div className="mt-3 flex flex-wrap gap-2">
         {workout.status === 'scheduled' ? (

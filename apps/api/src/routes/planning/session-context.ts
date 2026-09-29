@@ -12,6 +12,7 @@ import {
 
 import { getApplicationNow } from '../../lib/clock.js';
 import { getDateKeyInTimeZone, resolveUserTimeZoneForUser } from '../../lib/user-time-zone.js';
+import { workoutActualLocalDate } from '../../lib/workout-occurrence-date.js';
 import { readSourceReference } from '../daily-check-in/source-authority.js';
 
 export class SessionContextNotFoundError extends Error {}
@@ -111,7 +112,13 @@ const sourceRows = <T>(
   args: unknown[],
   scope: keyof typeof limits,
 ): T[] => bounded(rows<T>(sqlite, `${sql} limit ?`, [...args, limits[scope] + 1]), scope);
-type Workout = { id: string; date: string; status: string; duration: number | null };
+type Workout = {
+  id: string;
+  date: string;
+  status: string;
+  duration: number | null;
+  startedAt: number;
+};
 type Execution = {
   id: string;
   actualLocalDate: string;
@@ -178,20 +185,40 @@ export async function buildSessionContext({
   const target = sessionId
     ? rows<Workout>(
         sqlite,
-        "select id,date,status,duration from workout_sessions where id=? and user_id=? and deleted_at is null and status in ('scheduled','in-progress','paused','completed') limit 1",
+        "select id,date,status,duration,started_at as startedAt from workout_sessions where id=? and user_id=? and deleted_at is null and status in ('scheduled','in-progress','paused','completed') limit 1",
         [sessionId, userId],
       )[0]
     : undefined;
   if (sessionId && !target) throw new SessionContextNotFoundError();
+  const plannedLocalDate = sessionId
+    ? (rows<{ date: string }>(
+        sqlite,
+        'select s.date from scheduled_workouts s join workout_sessions w on w.user_id=s.user_id and (w.scheduled_workout_id=s.id or s.session_id=w.id) where w.id=? and w.user_id=? limit 1',
+        [sessionId, userId],
+      )[0]?.date ?? null)
+    : null;
   const localDate =
-    target?.date ?? date ?? getDateKeyInTimeZone(getApplicationNow(), zone.timeZone);
+    (target
+      ? target.status === 'scheduled'
+        ? target.date
+        : workoutActualLocalDate(target, zone.timeZone)
+      : date) ?? getDateKeyInTimeZone(getApplicationNow(), zone.timeZone);
   const startLocalDate = dateOffset(localDate, -6);
-  const workouts = sourceRows<Workout>(
+  const workoutCandidates = sourceRows<Workout>(
     sqlite,
-    "select id,date,status,duration from workout_sessions where user_id=? and deleted_at is null and date between ? and ? and status in ('in-progress','paused','completed') order by date,id",
-    [userId, startLocalDate, localDate],
+    "select id,date,status,duration,started_at as startedAt from workout_sessions where user_id=? and deleted_at is null and (date between ? and ? or started_at between (unixepoch(?) - 86400)*1000 and (unixepoch(?) + 172800)*1000) and status in ('in-progress','paused','completed') order by date,id",
+    [userId, startLocalDate, localDate, startLocalDate, localDate],
     'source_workouts',
   );
+  const workouts = workoutCandidates
+    .map((workout) => ({
+      ...workout,
+      actualLocalDate: workoutActualLocalDate(workout, zone.timeZone),
+    }))
+    .filter(
+      (workout) =>
+        workout.actualLocalDate >= startLocalDate && workout.actualLocalDate <= localDate,
+    );
   const executions = sourceRows<Execution>(
     sqlite,
     "select id,actual_local_date as actualLocalDate,duration_minutes as durationMinutes,outcome,structured_workout_session_id as structuredWorkoutSessionId from activity_executions where user_id=? and actual_local_date between ? and ? and outcome in ('completed','partial') order by actual_local_date,id",
@@ -208,7 +235,7 @@ export async function buildSessionContext({
     items.push({
       identityKind: 'workout_session',
       identityId: workout.id,
-      localDate: workout.date,
+      localDate: workout.actualLocalDate,
       activityDurationMinutes: null,
       workoutDurationSeconds: workout.duration,
       outcomeOrStatus: workout.status as 'completed' | 'in-progress' | 'paused',
@@ -220,7 +247,7 @@ export async function buildSessionContext({
   for (const execution of executions) {
     if (execution.structuredWorkoutSessionId) {
       const workout = workoutById.get(execution.structuredWorkoutSessionId);
-      if (!workout || workout.date !== execution.actualLocalDate) {
+      if (!workout || workout.actualLocalDate !== execution.actualLocalDate) {
         missingInputs.push(`linked_load_mismatch:${execution.id}`);
         continue;
       }
@@ -532,6 +559,7 @@ export async function buildSessionContext({
     workoutSessionId: sessionId ?? null,
     generatedAt: getApplicationNow().toISOString(),
     localDate,
+    ...(plannedLocalDate ? { plannedLocalDate } : {}),
     timeZone: zone.timeZone,
     target: sessionId
       ? { kind: 'workout_session', workoutSessionId: sessionId }

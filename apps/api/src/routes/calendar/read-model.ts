@@ -5,6 +5,7 @@ import {
   type CalendarRuntimeItem,
 } from '@pulse/shared';
 import { resolveUserTimeZoneForUser } from '../../lib/user-time-zone.js';
+import { workoutActualLocalDate } from '../../lib/workout-occurrence-date.js';
 import { getDailyNutritionSummaryForDate } from '../nutrition/store.js';
 import { readSourceReference } from '../daily-check-in/source-authority.js';
 
@@ -38,7 +39,13 @@ const read = (
   from: string,
   to: string,
 ) => {
-  const rows = sqlite.prepare(sql).all(userId, from, to, SOURCE_LIMIT + 1) as Row[];
+  const rows = sqlite
+    .prepare(sql)
+    .all(
+      ...(scope === 'source_workout_sessions'
+        ? [userId, from, to, from, to, SOURCE_LIMIT + 1]
+        : [userId, from, to, SOURCE_LIMIT + 1]),
+    ) as Row[];
   if (rows.length > SOURCE_LIMIT) throw new CalendarReadLimitError(scope, SOURCE_LIMIT);
   return rows;
 };
@@ -47,7 +54,9 @@ const queries = {
   source_activity_executions: `select e.*, c.name from activity_executions e join canonical_activities c on c.id=e.activity_id and c.user_id=e.user_id where e.user_id=? and e.actual_local_date between ? and ? order by e.actual_local_date,e.id limit ?`,
   source_legacy_activities: `select * from activities where user_id=? and date between ? and ? order by date,id limit ?`,
   source_scheduled_workouts: `select s.*, t.name from scheduled_workouts s left join workout_templates t on t.id=s.template_id and t.user_id=s.user_id where s.user_id=? and s.date between ? and ? order by s.date,s.id limit ?`,
-  source_workout_sessions: `select * from workout_sessions where user_id=? and date between ? and ? and deleted_at is null order by date,id limit ?`,
+  // Started sessions can occur on another day than their retained scheduled date.
+  // The broad UTC window is filtered to the precise owner-local day below.
+  source_workout_sessions: `select * from workout_sessions where user_id=? and (date between ? and ? or (started_at between (unixepoch(?) - 86400)*1000 and (unixepoch(?) + 172800)*1000)) and deleted_at is null order by date,id limit ?`,
   source_journal_observations: `select * from journal_observations where user_id=? and local_date between ? and ? order by local_date,id limit ?`,
   source_legacy_journal: `select * from journal_entries where user_id=? and date between ? and ? order by date,id limit ?`,
   source_observations: `select * from body_context_flares where user_id=? and local_date between ? and ? order by local_date,id limit ?`,
@@ -200,6 +209,15 @@ export const buildCalendarReadModel = async ({
   }
   for (const row of source.source_workout_sessions) {
     if (row.deleted_at !== null || row.status === 'cancelled') continue;
+    const actualDate =
+      row.status === 'scheduled'
+        ? null
+        : workoutActualLocalDate(
+            { date: text(row.date), startedAt: Number(row.started_at) },
+            timeZone,
+          );
+    const occurrenceDate = actualDate ?? text(row.date);
+    if (occurrenceDate < from || occurrenceDate > to) continue;
     const linked = linkedSchedule.get(userId, row.scheduled_workout_id, row.id) as
       | { id: string; date: string }
       | undefined;
@@ -207,15 +225,17 @@ export const buildCalendarReadModel = async ({
       'workout',
       'workout_session',
       row,
-      text(row.date),
+      occurrenceDate,
       timeZone,
-      null,
+      actualDate && Number(row.started_at) >= Date.UTC(2020, 0, 1)
+        ? new Date(Number(row.started_at)).toISOString()
+        : null,
       row.status === 'completed' ? 'completed' : 'planned',
       text(row.name),
       {
         lifecycleStatus: row.status as 'scheduled' | 'in-progress' | 'paused' | 'completed',
         plannedLocalDate: linked?.date ?? null,
-        actualLocalDate: text(row.date),
+        actualLocalDate: actualDate,
         scheduledWorkoutId: linked?.id ?? null,
         workoutSessionId: text(row.id),
         linkedActivityExecutionIds: executionIdsBySession.get(text(row.id)) ?? [],

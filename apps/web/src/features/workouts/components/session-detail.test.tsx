@@ -151,6 +151,36 @@ describe('SessionDetail', () => {
     expect(screen.getByText('Bench at setting 5; keep elbows tucked.')).toBeInTheDocument();
   });
 
+  it('shows actual owner-local receipt day and time with original scheduled provenance', async () => {
+    const start = Date.parse('2026-03-10T03:30:00Z');
+    const session = createSession({
+      id: 'late-start',
+      scheduledWorkoutId: 'plan',
+      date: '2026-03-08',
+      startedAt: start,
+      completedAt: start + 1800000,
+    });
+    mockSessionDetailRequests({
+      sessionId: session.id,
+      session,
+      sessions: [
+        createSessionListItem({
+          id: session.id,
+          date: '2026-03-08',
+          actualLocalDate: '2026-03-09',
+          actualTimeZone: 'America/Detroit',
+          plannedLocalDate: '2026-03-08',
+          startedAt: start,
+          completedAt: start + 1800000,
+        }),
+      ],
+    });
+    renderSessionDetail(session.id);
+    expect(await screen.findByText('Workout receipt')).toBeInTheDocument();
+    expect(screen.getByText(/Monday, March 9, 2026.*Started 11:30 PM/)).toBeInTheDocument();
+    expect(screen.getByText('Originally scheduled Sunday, March 8, 2026')).toBeInTheDocument();
+  });
+
   it('retains the receipt but disables repeat workout while date authority is stale', async () => {
     dateAuthorityMocks.state = {
       dateAuthorityLocked: true,

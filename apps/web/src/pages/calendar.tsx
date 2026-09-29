@@ -51,7 +51,9 @@ const hrefFor = (item: CalendarRuntimeItem) => {
   if (item.domain === 'workout')
     return item.record.kind === 'scheduled_workout'
       ? `/workouts/scheduled/${item.record.id}`
-      : `/workouts/session/${item.record.id}`;
+      : item.lifecycleStatus === 'in-progress' || item.lifecycleStatus === 'paused'
+        ? `/workouts/active?sessionId=${encodeURIComponent(item.record.id)}`
+        : `/workouts/session/${encodeURIComponent(item.record.id)}`;
   if (item.domain === 'nutrition') return `/nutrition?date=${item.localDate}`;
   if (item.domain === 'journal')
     return item.record.kind === 'journal_entry'
@@ -75,6 +77,9 @@ const toggle = <T extends string>(current: T[], value: T) =>
   current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
 
 function Entry({ item }: { item: CalendarRuntimeItem }) {
+  const activeWorkout =
+    item.domain === 'workout' &&
+    (item.lifecycleStatus === 'in-progress' || item.lifecycleStatus === 'paused');
   return (
     <Link
       className="group flex min-w-0 items-start gap-3 rounded-xl border border-border/60 bg-card/80 px-3 py-3 transition-colors hover:border-primary/45 hover:bg-accent/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
@@ -85,13 +90,15 @@ function Entry({ item }: { item: CalendarRuntimeItem }) {
         aria-hidden="true"
         className={cn(
           'mt-1.5 size-2 shrink-0 rounded-full',
-          item.state === 'planned'
-            ? 'bg-amber-400'
-            : item.state === 'completed'
-              ? 'bg-emerald-400'
-              : item.domain === 'nutrition'
-                ? 'bg-sky-400'
-                : 'bg-fuchsia-400',
+          activeWorkout
+            ? 'bg-orange-400'
+            : item.state === 'planned'
+              ? 'bg-amber-400'
+              : item.state === 'completed'
+                ? 'bg-emerald-400'
+                : item.domain === 'nutrition'
+                  ? 'bg-sky-400'
+                  : 'bg-fuchsia-400',
         )}
       />
       <span className="min-w-0 flex-1">
@@ -99,9 +106,17 @@ function Entry({ item }: { item: CalendarRuntimeItem }) {
           {item.title}
         </span>
         <span className="mt-0.5 block text-xs text-muted-foreground">
-          {domainLabel[item.domain]} · {stateLabel[item.state]}
+          {domainLabel[item.domain]} · {activeWorkout ? 'Actual' : stateLabel[item.state]}
           {item.lifecycleStatus ? ` · ${item.lifecycleStatus}` : ''}
         </span>
+        {item.domain === 'workout' &&
+          item.plannedLocalDate &&
+          item.actualLocalDate &&
+          item.plannedLocalDate !== item.actualLocalDate && (
+            <span className="mt-1 block text-xs text-muted-foreground">
+              Originally scheduled {item.plannedLocalDate}
+            </span>
+          )}
         {item.nutrition && (
           <span className="mt-1 block space-y-0.5 text-xs leading-relaxed text-muted-foreground">
             <span className="block">

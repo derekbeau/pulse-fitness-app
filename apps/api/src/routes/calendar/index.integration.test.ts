@@ -391,6 +391,112 @@ describe('Calendar registered API on a fictional isolated SQLite fixture', () =>
       await app.close();
     }
   });
+  it('projects planned and actual workout days separately across midnight', async () => {
+    const sql = database.sqlite;
+    sql
+      .prepare(
+        "insert into scheduled_workouts (id,user_id,date,created_at,updated_at) values ('past-plan','owner','2026-03-08',1000,1000),('future-plan','owner','2026-03-18',1000,1000),('unstarted-plan','owner','2026-03-08',1000,1000)",
+      )
+      .run();
+    const insert = sql.prepare(
+      "insert into workout_sessions (id,user_id,scheduled_workout_id,name,date,status,started_at,completed_at,time_segments,created_at,updated_at) values (?,'owner',?, ?, ?, ?, ?, ?, '[]',1000,1000)",
+    );
+    const morning = Date.parse('2026-03-09T12:00:00Z');
+    insert.run(
+      'overdue',
+      'past-plan',
+      'Overdue',
+      '2026-03-08',
+      'in-progress',
+      Date.parse('2026-03-10T03:30:00Z'),
+      null,
+    );
+    insert.run(
+      'early',
+      'future-plan',
+      'Early',
+      '2026-03-18',
+      'completed',
+      morning,
+      morning + 1800000,
+    );
+    insert.run(
+      'unscheduled',
+      null,
+      'Unscheduled',
+      '2026-03-09',
+      'completed',
+      morning,
+      morning + 1800000,
+    );
+    insert.run('same-day', null, 'Same day', '2026-03-09', 'paused', morning, null);
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const read = async (day: string) => {
+        const response = await app.inject({
+          method: 'GET',
+          url: url(day, day, '&domain=workout'),
+          headers: auth,
+        });
+        expect(response.statusCode, response.body).toBe(200);
+        return calendarRuntimeSchema.parse(response.json().data).items;
+      };
+      const actual = await read('2026-03-09');
+      for (const id of ['overdue', 'early', 'unscheduled', 'same-day']) {
+        expect(actual.find((item) => item.id === id)).toMatchObject({
+          localDate: '2026-03-09',
+          actualLocalDate: '2026-03-09',
+        });
+      }
+      expect(actual.find((item) => item.id === 'overdue')).toMatchObject({
+        plannedLocalDate: '2026-03-08',
+        scheduledWorkoutId: 'past-plan',
+      });
+      expect(actual.find((item) => item.id === 'early')).toMatchObject({
+        plannedLocalDate: '2026-03-18',
+        scheduledWorkoutId: 'future-plan',
+      });
+      expect((await read('2026-03-08')).map((item) => item.id)).toContain('unstarted-plan');
+      expect((await read('2026-03-08')).map((item) => item.id)).not.toContain('overdue');
+      expect((await read('2026-03-18')).map((item) => item.id)).not.toContain('early');
+      const list = await app.inject({
+        method: 'GET',
+        url: '/api/v1/workout-sessions',
+        headers: auth,
+      });
+      expect(list.statusCode, list.body).toBe(200);
+      expect(list.json().data.find((item: { id: string }) => item.id === 'overdue')).toMatchObject({
+        date: '2026-03-08',
+        actualLocalDate: '2026-03-09',
+        plannedLocalDate: '2026-03-08',
+      });
+      const context = await app.inject({
+        method: 'GET',
+        url: '/api/v1/workout-sessions/overdue/session-context',
+        headers: auth,
+      });
+      expect(context.statusCode, context.body).toBe(200);
+      expect(context.json().data).toMatchObject({
+        localDate: '2026-03-09',
+        plannedLocalDate: '2026-03-08',
+        workload: { window: { endLocalDate: '2026-03-09' } },
+      });
+      expect(
+        context
+          .json()
+          .data.workload.items.find(
+            (item: { identityId: string }) => item.identityId === 'overdue',
+          ),
+      ).toMatchObject({ localDate: '2026-03-09' });
+      expect(sql.prepare("select date from workout_sessions where id='overdue'").get()).toEqual({
+        date: '2026-03-08',
+      });
+    } finally {
+      await app.close();
+    }
+  });
   it('uses a stable date read identity for target-only days and keeps missing intake null', async () => {
     database.sqlite
       .prepare(
