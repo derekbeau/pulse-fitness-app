@@ -31,8 +31,8 @@ import { getDailyNutritionForDate } from '../nutrition/store.js';
 import { readSourceReference } from './source-authority.js';
 import { readJournalForDate } from '../journal/store.js';
 import {
-  workoutActualDayCandidates,
   workoutActualLocalDate,
+  workoutOccurrenceDayCandidates,
 } from '../../lib/workout-occurrence-date.js';
 import { JournalReadLimitError } from '../journal/read-limit.js';
 
@@ -313,9 +313,10 @@ export const buildDailyContextReadModel = async ({
         eq(workoutSessions.userId, userId),
         isNull(workoutSessions.deletedAt),
         ne(workoutSessions.status, 'cancelled'),
-        workoutActualDayCandidates(
+        workoutOccurrenceDayCandidates(
           workoutSessions.date,
           workoutSessions.startedAt,
+          workoutSessions.status,
           localDate,
           localDate,
         ),

@@ -376,7 +376,7 @@ export const workoutSessionListItemSchema = z
     id: z.string(),
     name: requiredStringSchema,
     date: dateSchema,
-    actualLocalDate: dateSchema.optional(),
+    actualLocalDate: dateSchema.nullable().optional(),
     actualTimeZone: z.string().optional(),
     plannedLocalDate: dateSchema.nullable().optional(),
     scheduledWorkoutId: requiredStringSchema.nullable().optional(),

@@ -430,6 +430,29 @@ describe('Calendar registered API on a fictional isolated SQLite fixture', () =>
       morning + 1800000,
     );
     insert.run('same-day', null, 'Same day', '2026-03-09', 'paused', morning, null);
+    insert.run(
+      'unstarted-session',
+      null,
+      'Unstarted',
+      '2026-03-08',
+      'scheduled',
+      Date.parse('2026-03-10T03:30:00Z'),
+      null,
+    );
+    insert.run(
+      'cancelled-session',
+      null,
+      'Cancelled',
+      '2026-03-08',
+      'cancelled',
+      Date.parse('2026-03-10T03:30:00Z'),
+      null,
+    );
+    sql
+      .prepare(
+        "insert into workout_sessions (id,user_id,name,date,status,started_at) values ('foreign-unstarted','foreign','Foreign unstarted','2026-03-08','scheduled',1773113400000)",
+      )
+      .run();
     const { buildServer } = await import('../../index.js');
     const app = buildServer();
     await app.ready();
@@ -459,7 +482,15 @@ describe('Calendar registered API on a fictional isolated SQLite fixture', () =>
         scheduledWorkoutId: 'future-plan',
       });
       expect((await read('2026-03-08')).map((item) => item.id)).toContain('unstarted-plan');
+      expect(
+        (await read('2026-03-08')).find((item) => item.id === 'unstarted-session'),
+      ).toMatchObject({
+        localDate: '2026-03-08',
+        actualLocalDate: null,
+      });
       expect((await read('2026-03-08')).map((item) => item.id)).not.toContain('overdue');
+      expect((await read('2026-03-08')).map((item) => item.id)).not.toContain('cancelled-session');
+      expect((await read('2026-03-09')).map((item) => item.id)).not.toContain('unstarted-session');
       expect((await read('2026-03-18')).map((item) => item.id)).not.toContain('early');
       const list = await app.inject({
         method: 'GET',
@@ -472,6 +503,13 @@ describe('Calendar registered API on a fictional isolated SQLite fixture', () =>
         actualLocalDate: '2026-03-09',
         plannedLocalDate: '2026-03-08',
       });
+      expect(
+        list.json().data.find((item: { id: string }) => item.id === 'unstarted-session'),
+      ).toMatchObject({
+        date: '2026-03-08',
+        actualLocalDate: null,
+        status: 'scheduled',
+      });
       const sessionDay = async (day: string, basis = 'actual', limit = '') => {
         const response = await app.inject({
           method: 'GET',
@@ -479,7 +517,7 @@ describe('Calendar registered API on a fictional isolated SQLite fixture', () =>
           headers: auth,
         });
         expect(response.statusCode, response.body).toBe(200);
-        return response.json().data as { id: string; actualLocalDate: string }[];
+        return response.json().data as { id: string; actualLocalDate: string | null }[];
       };
       expect((await sessionDay('2026-03-09')).map((item) => item.id).sort()).toEqual([
         'early',
@@ -487,14 +525,66 @@ describe('Calendar registered API on a fictional isolated SQLite fixture', () =>
         'same-day',
         'unscheduled',
       ]);
-      expect((await sessionDay('2026-03-08')).map((item) => item.id)).not.toContain('overdue');
+      expect((await sessionDay('2026-03-08')).map((item) => item.id)).toEqual([
+        'unstarted-session',
+      ]);
+      expect((await sessionDay('2026-03-08'))[0]).toMatchObject({
+        actualLocalDate: null,
+        date: '2026-03-08',
+        status: 'scheduled',
+      });
+      expect((await sessionDay('2026-03-09')).map((item) => item.id)).not.toContain(
+        'unstarted-session',
+      );
+      expect((await sessionDay('2026-03-08', 'actual', '&limit=1')).map((item) => item.id)).toEqual(
+        ['unstarted-session'],
+      );
       expect((await sessionDay('2026-03-18')).map((item) => item.id)).not.toContain('early');
       expect((await sessionDay('2026-03-09', 'actual', '&limit=1')).map((item) => item.id)).toEqual(
         ['overdue'],
       );
-      expect(await sessionDay('2026-03-08', 'actual', '&limit=1')).toEqual([]);
       expect((await sessionDay('2026-03-08', 'history')).map((item) => item.id)).toContain(
         'overdue',
+      );
+      expect((await sessionDay('2026-03-08', 'history')).map((item) => item.id)).toContain(
+        'cancelled-session',
+      );
+      expect((await sessionDay('2026-03-09', 'history')).map((item) => item.id)).not.toContain(
+        'unstarted-session',
+      );
+      const scheduledOnly = await app.inject({
+        method: 'GET',
+        url: '/api/v1/workout-sessions?from=2026-03-09&to=2026-03-09&dateBasis=actual&status=scheduled',
+        headers: auth,
+      });
+      expect(scheduledOnly.statusCode, scheduledOnly.body).toBe(200);
+      expect(scheduledOnly.json().data).toEqual([]);
+      const cancelledOnly = await app.inject({
+        method: 'GET',
+        url: '/api/v1/workout-sessions?from=2026-03-08&to=2026-03-08&dateBasis=actual&status=cancelled',
+        headers: auth,
+      });
+      expect(cancelledOnly.statusCode, cancelledOnly.body).toBe(200);
+      expect(cancelledOnly.json().data).toEqual([]);
+      const dailyPlanned = await app.inject({
+        method: 'GET',
+        url: '/api/v1/daily-context?date=2026-03-08',
+        headers: auth,
+      });
+      expect(dailyPlanned.statusCode, dailyPlanned.body).toBe(200);
+      expect(
+        dailyPlanned
+          .json()
+          .data.workouts.find((item: { id: string }) => item.id === 'unstarted-session'),
+      ).toMatchObject({ kind: 'planned', actualLocalDate: null });
+      const dailyActual = await app.inject({
+        method: 'GET',
+        url: '/api/v1/daily-context?date=2026-03-09',
+        headers: auth,
+      });
+      expect(dailyActual.statusCode, dailyActual.body).toBe(200);
+      expect(dailyActual.json().data.workouts.map((item: { id: string }) => item.id)).not.toContain(
+        'unstarted-session',
       );
       expect((await sessionDay('2026-03-08', 'history')).map((item) => item.id)).not.toContain(
         'early',

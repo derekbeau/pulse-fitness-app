@@ -10,6 +10,7 @@ import {
   isNotNull,
   isNull,
   lte,
+  ne,
   or,
   sql,
   type SQL,
@@ -66,8 +67,8 @@ import {
 import { backfillTimeSegmentSections, calculateSectionDurations } from './time-segments.js';
 import { resolveUserTimeZoneForUser, UserTimeZoneRequiredError } from '../../lib/user-time-zone.js';
 import {
-  workoutActualDayCandidates,
   workoutActualLocalDate,
+  workoutOccurrenceDayCandidates,
 } from '../../lib/workout-occurrence-date.js';
 
 const ACTUAL_DAY_CANDIDATE_LIMIT = 10_000;
@@ -1785,9 +1786,10 @@ export const listWorkoutSessions = async ({
   const whereClauses = [eq(workoutSessions.userId, userId), isNull(workoutSessions.deletedAt)];
 
   if (dateBasis === 'actual' && (from || to)) {
-    const candidatePredicate = workoutActualDayCandidates(
+    const candidatePredicate = workoutOccurrenceDayCandidates(
       workoutSessions.date,
       workoutSessions.startedAt,
+      workoutSessions.status,
       from,
       to,
     );
@@ -1799,6 +1801,8 @@ export const listWorkoutSessions = async ({
   if (to && dateBasis !== 'actual') {
     whereClauses.push(lte(workoutSessions.date, to));
   }
+  // Cancelled sessions remain in historical reads, but are not Calendar occurrences.
+  if (dateBasis === 'actual') whereClauses.push(ne(workoutSessions.status, 'cancelled'));
 
   if (status && status.length > 0) {
     whereClauses.push(inArray(workoutSessions.status, status));
@@ -1831,17 +1835,23 @@ export const listWorkoutSessions = async ({
   return sessions
     .map((session) => ({
       ...session,
-      actualLocalDate: zone ? workoutActualLocalDate(session, zone.timeZone) : session.date,
+      actualLocalDate:
+        session.status === 'scheduled' || session.status === 'cancelled'
+          ? null
+          : zone
+            ? workoutActualLocalDate(session, zone.timeZone)
+            : session.date,
       ...(zone ? { actualTimeZone: zone.timeZone } : {}),
     }))
     .filter(
       (session) =>
         dateBasis !== 'actual' ||
-        ((!from || session.actualLocalDate >= from) && (!to || session.actualLocalDate <= to)),
+        ((!from || (session.actualLocalDate ?? session.date) >= from) &&
+          (!to || (session.actualLocalDate ?? session.date) <= to)),
     )
     .sort((left, right) =>
       dateBasis === 'actual'
-        ? right.actualLocalDate.localeCompare(left.actualLocalDate) ||
+        ? (right.actualLocalDate ?? right.date).localeCompare(left.actualLocalDate ?? left.date) ||
           right.startedAt - left.startedAt ||
           right.createdAt - left.createdAt ||
           left.id.localeCompare(right.id)

@@ -1,5 +1,5 @@
 import { getDateKeyInTimeZone } from './user-time-zone.js';
-import { and, gte, lte, or, type AnyColumn } from 'drizzle-orm';
+import { and, eq, gte, inArray, lte, or, type AnyColumn } from 'drizzle-orm';
 
 // Session.date is the persisted scheduling/history date, not necessarily the day it began.
 // Old imported rows can have placeholder timestamps; only a real start projects an actual day.
@@ -28,3 +28,25 @@ export const workoutActualDayCandidates = (
   );
   return from || to ? or(dates, starts) : undefined;
 };
+
+// Scheduled sessions have a required startedAt even though they have not begun.
+// Cancelled sessions are history, not occurrences. Keep both decisions in SQL
+// before the bounded candidate read, then project owner-local dates in memory.
+export const workoutOccurrenceDayCandidates = (
+  dateColumn: AnyColumn,
+  startedColumn: AnyColumn,
+  statusColumn: AnyColumn,
+  from?: string,
+  to?: string,
+) =>
+  or(
+    and(
+      eq(statusColumn, 'scheduled'),
+      from ? gte(dateColumn, from) : undefined,
+      to ? lte(dateColumn, to) : undefined,
+    ),
+    and(
+      inArray(statusColumn, ['in-progress', 'paused', 'completed']),
+      workoutActualDayCandidates(dateColumn, startedColumn, from, to),
+    ),
+  );
