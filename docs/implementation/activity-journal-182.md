@@ -103,7 +103,7 @@ Calendar is read-only. Inventory existing date mutation paths and prove read-aft
 - `POST /api/v1/activities/:id/executions` and execution corrections — actual history is the execution; Tuesday plan + Thursday actual remain two items
 - Guarded `PATCH /api/v1/scheduled-workouts/:id` date (`expectedUpdatedAt`) — unstarted eligible move updates the planned item; started/completed date change remains rejected and must not detach `sessionId`; same-date is identity-preserving no-op
 - Typed #178 proposal `activity_assignment_reschedule` / `scheduled_workout_reschedule` — calendar reflects committed effects only; capture/approval-statement alone does not move items; no implicit approval
-- Workout session complete/cancel — completed session is `completed` on `session.date`; cancelled omitted
+- Workout session complete/cancel — the original contract used `session.date` for completed occurrences; the later visual-audit repair supersedes this for real starts. Calendar now projects the owner-local day from `startedAt` while retaining `session.date` and the linked planned date as provenance; cancelled sessions remain omitted. See `docs/conventions/agent-integration.md` for the compatible session-list date filter.
 
 GET calendar must not mutate plans, sessions, journal, flares, nutrition, or receipts. Identical idempotent replay of an existing write leaves calendar item identities stable; changed-payload conflict leaves calendar unchanged.
 

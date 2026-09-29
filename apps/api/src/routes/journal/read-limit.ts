@@ -5,7 +5,12 @@ export const journalReadLimitErrorResponseSchema = z.object({
     code: z.literal('JOURNAL_READ_LIMIT_EXCEEDED'),
     message: z.string(),
     details: z.object({
-      scope: z.enum(['daily_context', 'journal_list_canonical', 'journal_list_legacy']),
+      scope: z.enum([
+        'daily_context',
+        'journal_list_canonical',
+        'journal_list_legacy',
+        'weekly_workouts',
+      ]),
       limit: z.number().int().positive(),
     }),
   }),

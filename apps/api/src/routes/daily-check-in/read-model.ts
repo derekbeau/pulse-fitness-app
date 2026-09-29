@@ -30,6 +30,11 @@ import {
 import { getDailyNutritionForDate } from '../nutrition/store.js';
 import { readSourceReference } from './source-authority.js';
 import { readJournalForDate } from '../journal/store.js';
+import {
+  workoutActualDayCandidates,
+  workoutActualLocalDate,
+} from '../../lib/workout-occurrence-date.js';
+import { JournalReadLimitError } from '../journal/read-limit.js';
 
 const CONTEXT_LIMIT = 200;
 const SOURCE_REFERENCE_LIMIT = 1000;
@@ -300,16 +305,7 @@ export const buildDailyContextReadModel = async ({
     .orderBy(asc(scheduledWorkouts.createdAt), asc(scheduledWorkouts.id))
     .limit(CONTEXT_LIMIT)
     .all();
-  const scheduledIds = scheduledForDay.map(({ scheduled }) => scheduled.id);
-  const linkedSessionIds = scheduledForDay
-    .map(({ scheduled }) => scheduled.sessionId)
-    .filter((id): id is string => id !== null);
-  const sessionPredicate = [eq(workoutSessions.date, localDate)];
-  if (linkedSessionIds.length > 0)
-    sessionPredicate.push(inArray(workoutSessions.id, linkedSessionIds));
-  if (scheduledIds.length > 0)
-    sessionPredicate.push(inArray(workoutSessions.scheduledWorkoutId, scheduledIds));
-  const sessionRows = db
+  const sessionCandidates = db
     .select()
     .from(workoutSessions)
     .where(
@@ -317,12 +313,25 @@ export const buildDailyContextReadModel = async ({
         eq(workoutSessions.userId, userId),
         isNull(workoutSessions.deletedAt),
         ne(workoutSessions.status, 'cancelled'),
-        or(...sessionPredicate),
+        workoutActualDayCandidates(
+          workoutSessions.date,
+          workoutSessions.startedAt,
+          localDate,
+          localDate,
+        ),
       ),
     )
     .orderBy(asc(workoutSessions.startedAt), asc(workoutSessions.id))
-    .limit(CONTEXT_LIMIT)
+    .limit(CONTEXT_LIMIT + 1)
     .all();
+  if (sessionCandidates.length > CONTEXT_LIMIT)
+    throw new JournalReadLimitError('daily_context', CONTEXT_LIMIT);
+  const sessionRows = sessionCandidates.filter(
+    (session) =>
+      (session.status === 'scheduled'
+        ? session.date
+        : workoutActualLocalDate(session, timeZone)) === localDate,
+  );
   const sessionIds = sessionRows.map((session) => session.id);
   const referencedScheduledIds = sessionRows
     .map((session) => session.scheduledWorkoutId)
@@ -383,7 +392,8 @@ export const buildDailyContextReadModel = async ({
       id: session.id,
       kind,
       plannedLocalDate: scheduled?.date ?? null,
-      actualLocalDate: session.date,
+      actualLocalDate:
+        session.status === 'scheduled' ? null : workoutActualLocalDate(session, timeZone),
       name: session.name,
       status: session.status,
       scheduledWorkoutId: scheduled?.id ?? null,

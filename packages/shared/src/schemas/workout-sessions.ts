@@ -671,6 +671,7 @@ export const workoutSessionQueryParamsSchema = z
   .object({
     from: dateSchema.optional(),
     to: dateSchema.optional(),
+    dateBasis: z.enum(['history', 'actual']).optional(),
     status: z
       .preprocess((value) => {
         if (value === undefined) {

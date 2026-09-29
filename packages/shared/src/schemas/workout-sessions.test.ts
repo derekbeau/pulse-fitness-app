@@ -1136,6 +1136,9 @@ describe('workoutSessionQueryParamsSchema', () => {
       limit: 10,
     });
     expect(
+      workoutSessionQueryParamsSchema.parse({ from: '2026-03-09', dateBasis: 'actual' }),
+    ).toEqual({ from: '2026-03-09', dateBasis: 'actual' });
+    expect(
       workoutSessionQueryParamsSchema.parse({
         status: ['in-progress', 'paused'],
       }),
@@ -1150,5 +1153,6 @@ describe('workoutSessionQueryParamsSchema', () => {
     ).toThrow();
     expect(() => workoutSessionQueryParamsSchema.parse({ limit: 0 })).toThrow();
     expect(() => workoutSessionQueryParamsSchema.parse({ limit: 99 })).toThrow();
+    expect(() => workoutSessionQueryParamsSchema.parse({ dateBasis: 'scheduled' })).toThrow();
   });
 });

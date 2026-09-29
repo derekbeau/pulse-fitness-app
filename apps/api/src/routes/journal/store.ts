@@ -40,11 +40,16 @@ import {
   readCurrentSourceRevision,
 } from '../daily-check-in/source-authority.js';
 import { JournalReadLimitError } from './read-limit.js';
+import {
+  workoutActualDayCandidates,
+  workoutActualLocalDate,
+} from '../../lib/workout-occurrence-date.js';
 
 const dbFor = (sqlite: Database.Database) => drizzle(sqlite, { schema });
 const getSqlite = async () => (await import('../../db/index.js')).sqlite;
 const JOURNAL_DAILY_LIMIT = 200;
 const JOURNAL_LIST_KIND_LIMIT = 500;
+const WEEKLY_WORKOUT_CANDIDATE_LIMIT = 1000;
 const now = () => getApplicationNow().toISOString();
 const stable = (v: unknown): unknown =>
   Array.isArray(v)
@@ -793,19 +798,24 @@ export const weeklyReflection = async (userId: string, start: string, end: strin
       ),
     )
     .all();
-  const workouts = db
-    .select({ date: workoutSessions.date })
+  const workoutCandidates = db
+    .select({ date: workoutSessions.date, startedAt: workoutSessions.startedAt })
     .from(workoutSessions)
     .where(
       and(
         eq(workoutSessions.userId, userId),
-        gte(workoutSessions.date, start),
-        lte(workoutSessions.date, end),
+        workoutActualDayCandidates(workoutSessions.date, workoutSessions.startedAt, start, end),
         isNull(workoutSessions.deletedAt),
         inArray(workoutSessions.status, ['in-progress', 'paused', 'completed']),
       ),
     )
+    .limit(WEEKLY_WORKOUT_CANDIDATE_LIMIT + 1)
     .all();
+  if (workoutCandidates.length > WEEKLY_WORKOUT_CANDIDATE_LIMIT)
+    throw new JournalReadLimitError('weekly_workouts', WEEKLY_WORKOUT_CANDIDATE_LIMIT);
+  const workouts = workoutCandidates
+    .map((workout) => ({ date: workoutActualLocalDate(workout, zone.timeZone) }))
+    .filter((workout) => workout.date >= start && workout.date <= end);
   const gaps = dates.flatMap((date) => [
     ...(!journals.some((j) => j.localDate === date) &&
     !answers.some(

@@ -417,13 +417,7 @@ describe('daily check-in lifecycle and date projections', () => {
         actualLocalDate: '2026-03-08',
         status: 'in-progress',
       },
-      {
-        id: 'completed-session',
-        kind: 'completed',
-        plannedLocalDate: '2026-03-08',
-        actualLocalDate: '2026-03-09',
-        status: 'completed',
-      },
+
       {
         id: 'paused-session',
         kind: 'paused',
@@ -439,11 +433,7 @@ describe('daily check-in lifecycle and date projections', () => {
     expect(spring.workouts.map((workout: { id: string }) => workout.id)).not.toContain(
       'foreign-session',
     );
-    expect(spring.workoutSessionIds).toEqual([
-      'active-session',
-      'completed-session',
-      'paused-session',
-    ]);
+    expect(spring.workoutSessionIds).toEqual(['active-session', 'paused-session']);
     expect(spring.observations.map((item: { id: string }) => item.id)).toEqual(['spring-day']);
     expect((await context('2026-03-07')).observations[0]).toMatchObject({
       id: 'spring-before',
@@ -465,5 +455,71 @@ describe('daily check-in lifecycle and date projections', () => {
       (await context('2026-11-01')).observations.map((item: { id: string }) => item.id),
     ).toEqual(['fall-first-hour', 'fall-second-hour']);
     await app.close();
+  });
+  it('keeps planned provenance separate from the actual owner-local day in daily context', async () => {
+    database.sqlite.exec(`
+      insert into scheduled_workouts (id,user_id,date,session_id,created_at,updated_at) values
+        ('overdue-plan','owner','2026-03-08',null,1000,1000),
+        ('early-plan','owner','2026-03-18',null,1000,1000),
+        ('unstarted-plan','owner','2026-03-08',null,1000,1000),
+        ('foreign-plan','foreign','2026-03-08',null,1000,1000);
+      insert into workout_sessions (id,user_id,scheduled_workout_id,name,date,status,started_at,completed_at,time_segments,created_at,updated_at) values
+        ('overdue','owner','overdue-plan','Overdue','2026-03-08','in-progress',1773113400000,null,'[]',1000,1000),
+        ('early','owner','early-plan','Early','2026-03-18','completed',1773057600000,1773059400000,'[]',1000,1000),
+        ('same-day','owner',null,'Same day','2026-03-09','paused',1773057600000,null,'[]',1000,1000),
+        ('unscheduled','owner',null,'Unscheduled','2026-03-09','completed',1773057600000,1773059400000,'[]',1000,1000),
+        ('foreign-session','foreign','foreign-plan','Foreign','2026-03-08','in-progress',1773113400000,null,'[]',1000,1000);
+      update scheduled_workouts set session_id='overdue' where id='overdue-plan';
+      update scheduled_workouts set session_id='early' where id='early-plan';
+      update scheduled_workouts set session_id='foreign-session' where id='foreign-plan';
+    `);
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const read = async (day: string) => {
+        const response = await app.inject({
+          method: 'GET',
+          url: `/api/v1/daily-context?date=${day}`,
+          headers: { authorization: 'AgentToken a-secret' },
+        });
+        expect(response.statusCode, response.body).toBe(200);
+        return response.json().data;
+      };
+      const planned = await read('2026-03-08');
+      expect(planned.workouts.map((item: { id: string }) => item.id)).toEqual(['unstarted-plan']);
+      expect(planned.workoutSessionIds).toEqual([]);
+      const actual = await read('2026-03-09');
+      expect(actual.workouts.map((item: { id: string }) => item.id).sort()).toEqual([
+        'early',
+        'overdue',
+        'same-day',
+        'unscheduled',
+      ]);
+      expect(actual.workouts.find((item: { id: string }) => item.id === 'overdue')).toMatchObject({
+        plannedLocalDate: '2026-03-08',
+        actualLocalDate: '2026-03-09',
+        scheduledWorkoutId: 'overdue-plan',
+      });
+      expect(actual.workouts.find((item: { id: string }) => item.id === 'early')).toMatchObject({
+        plannedLocalDate: '2026-03-18',
+        actualLocalDate: '2026-03-09',
+      });
+      expect((await read('2026-03-18')).workouts).toEqual([]);
+      const weekly = async (day: string) => {
+        const response = await app.inject({
+          method: 'GET',
+          url: `/api/v1/journal/weekly-reflection?start=${day}&end=${day}`,
+          headers: { authorization: 'AgentToken a-secret' },
+        });
+        expect(response.statusCode, response.body).toBe(200);
+        return response.json().data.gaps as string[];
+      };
+      expect(await weekly('2026-03-08')).toContain('2026-03-08: workout missing');
+      expect(await weekly('2026-03-09')).not.toContain('2026-03-09: workout missing');
+      expect(await weekly('2026-03-18')).toContain('2026-03-18: workout missing');
+    } finally {
+      await app.close();
+    }
   });
 });

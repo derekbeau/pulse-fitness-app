@@ -148,6 +148,8 @@ Legacy date-only Activity rows appear on the same read surface with `recordType:
 
 `GET /api/v1/daily-context?date=YYYY-MM-DD` accepts a Pulse session JWT or AgentToken and returns bounded, owner-scoped Activity, workout, nutrition, body-context, and check-in state. Workout summaries distinguish `planned`, `in_progress`, `paused`, and `completed`, and preserve separate `plannedLocalDate` and `actualLocalDate`. `unknown` and unavailable values are not denial or zero.
 
+Started workout sessions in daily context and the Journal weekly-reflection workout gap use the owner's current IANA timezone to project `startedAt` onto the actual day; an unstarted schedule stays on its planned day. The persisted `workout_sessions.date` remains history/scheduling provenance, not an inferred start date. `GET /api/v1/workout-sessions?from=YYYY-MM-DD&to=YYYY-MM-DD` retains its historical `date` filter by default (also `dateBasis=history`). Use `dateBasis=actual` for owner-local occurrence-day filtering, including early/overdue starts; this basis requires a valid owner timezone. The owner-local projection is filtered and ordered by actual day/start before `limit` (max 50); reads exceeding 10,000 owner candidates fail with HTTP 422 rather than silently omitting matches, including requests without a date range. The list is an array without a total/pagination envelope. Legacy pre-2020 placeholder starts fall back to persisted date under the current write policy; this does not certify every imported historic timestamp.
+
 The write routes below are AgentToken-only; the server derives subject and actor:
 
 - `POST /api/v1/check-in/questions`

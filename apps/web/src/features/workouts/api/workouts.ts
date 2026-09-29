@@ -252,6 +252,7 @@ const normalizeWorkoutSessionParams = (params: WorkoutSessionQueryParams = {}) =
 
   return {
     from: parsedParams.from ?? null,
+    dateBasis: parsedParams.dateBasis ?? null,
     limit: parsedParams.limit ?? null,
     status: parsedParams.status?.join('|') ?? null,
     to: parsedParams.to ?? null,
@@ -259,7 +260,7 @@ const normalizeWorkoutSessionParams = (params: WorkoutSessionQueryParams = {}) =
 };
 
 const completedSessionsKey = () =>
-  ['workouts', 'sessions', { from: null, limit: null, status: 'completed', to: null }] as const;
+  ['workouts', 'sessions', normalizeWorkoutSessionParams({ status: ['completed'] })] as const;
 const workoutSessionDetailKey = (sessionId: string) => ['workout-sessions', sessionId] as const;
 const exercisesKey = (params?: ExerciseQueryParams) =>
   params
@@ -705,6 +706,9 @@ async function getWorkoutSessions(params: WorkoutSessionQueryParams = {}, signal
 
   if (parsedParams.to) {
     searchParams.set('to', parsedParams.to);
+  }
+  if (parsedParams.dateBasis) {
+    searchParams.set('dateBasis', parsedParams.dateBasis);
   }
 
   if (parsedParams.status) {

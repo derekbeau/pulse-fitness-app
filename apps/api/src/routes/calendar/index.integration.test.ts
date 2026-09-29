@@ -472,6 +472,51 @@ describe('Calendar registered API on a fictional isolated SQLite fixture', () =>
         actualLocalDate: '2026-03-09',
         plannedLocalDate: '2026-03-08',
       });
+      const sessionDay = async (day: string, basis = 'actual', limit = '') => {
+        const response = await app.inject({
+          method: 'GET',
+          url: `/api/v1/workout-sessions?from=${day}&to=${day}&dateBasis=${basis}${limit}`,
+          headers: auth,
+        });
+        expect(response.statusCode, response.body).toBe(200);
+        return response.json().data as { id: string; actualLocalDate: string }[];
+      };
+      expect((await sessionDay('2026-03-09')).map((item) => item.id).sort()).toEqual([
+        'early',
+        'overdue',
+        'same-day',
+        'unscheduled',
+      ]);
+      expect((await sessionDay('2026-03-08')).map((item) => item.id)).not.toContain('overdue');
+      expect((await sessionDay('2026-03-18')).map((item) => item.id)).not.toContain('early');
+      expect((await sessionDay('2026-03-09', 'actual', '&limit=1')).map((item) => item.id)).toEqual(
+        ['overdue'],
+      );
+      expect(await sessionDay('2026-03-08', 'actual', '&limit=1')).toEqual([]);
+      expect((await sessionDay('2026-03-08', 'history')).map((item) => item.id)).toContain(
+        'overdue',
+      );
+      expect((await sessionDay('2026-03-08', 'history')).map((item) => item.id)).not.toContain(
+        'early',
+      );
+      const unboundedActual = await app.inject({
+        method: 'GET',
+        url: '/api/v1/workout-sessions?dateBasis=actual&limit=1',
+        headers: auth,
+      });
+      expect(unboundedActual.statusCode, unboundedActual.body).toBe(200);
+      expect(unboundedActual.json().data.map((item: { id: string }) => item.id)).toEqual([
+        'overdue',
+      ]);
+      const historicalDefault = await app.inject({
+        method: 'GET',
+        url: '/api/v1/workout-sessions?from=2026-03-08&to=2026-03-08',
+        headers: auth,
+      });
+      expect(historicalDefault.statusCode).toBe(200);
+      expect(historicalDefault.json().data.map((item: { id: string }) => item.id)).toContain(
+        'overdue',
+      );
       const context = await app.inject({
         method: 'GET',
         url: '/api/v1/workout-sessions/overdue/session-context',
@@ -492,6 +537,30 @@ describe('Calendar registered API on a fictional isolated SQLite fixture', () =>
       ).toMatchObject({ localDate: '2026-03-09' });
       expect(sql.prepare("select date from workout_sessions where id='overdue'").get()).toEqual({
         date: '2026-03-08',
+      });
+    } finally {
+      await app.close();
+    }
+  });
+  it('fails closed instead of truncating actual-day candidates before a requested limit', async () => {
+    database.sqlite.exec(`
+      with recursive n(i) as (select 1 union all select i+1 from n where i<10001)
+      insert into workout_sessions (id,user_id,name,date,status,started_at)
+      select 'dense-'||i,'owner','Fictional dense workout','2026-03-08','in-progress',1773113400000 from n;
+    `);
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/workout-sessions?from=2026-03-08&to=2026-03-08&dateBasis=actual&limit=1',
+        headers: auth,
+      });
+      expect(response.statusCode, response.body).toBe(422);
+      expect(response.json().error).toMatchObject({
+        code: 'WORKOUT_SESSION_READ_LIMIT_EXCEEDED',
+        details: { limit: 10000 },
       });
     } finally {
       await app.close();

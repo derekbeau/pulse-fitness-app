@@ -134,7 +134,11 @@ export const journalRoutes: FastifyPluginAsync = async (app) => {
     {
       schema: {
         querystring: journalWeeklyQuerySchema,
-        response: { 200: apiDataResponseSchema(weeklyReflectionReadModelSchema), ...errors },
+        response: {
+          200: apiDataResponseSchema(weeklyReflectionReadModelSchema),
+          ...errors,
+          422: journalReadLimitErrorResponseSchema,
+        },
         tags: ['journal'],
         summary: 'Derive a grounded weekly reflection from saved facts',
         security: authSecurity,

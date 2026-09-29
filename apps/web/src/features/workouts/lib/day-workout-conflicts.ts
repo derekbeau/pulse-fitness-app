@@ -26,7 +26,7 @@ export async function getDayWorkoutConflicts(dateKey: string): Promise<DayWorkou
         method: 'GET',
       }),
       apiRequest<unknown>(
-        `/api/v1/workout-sessions?from=${dateKey}&to=${dateKey}&status=completed&status=in-progress&status=paused`,
+        `/api/v1/workout-sessions?from=${dateKey}&to=${dateKey}&dateBasis=actual&status=completed&status=in-progress&status=paused`,
         {
           method: 'GET',
         },
@@ -53,7 +53,8 @@ export async function getDayWorkoutConflicts(dateKey: string): Promise<DayWorkou
         consumedSessionIds.add(linkedSession.id);
         continue;
       }
-
+      // A consumed plan is provenance, not another workout on its planned day.
+      if (scheduledWorkout.sessionId) continue;
       conflicts.push({
         id: `scheduled-${scheduledWorkout.id}`,
         name: scheduledWorkout.templateName ?? 'Workout unavailable',

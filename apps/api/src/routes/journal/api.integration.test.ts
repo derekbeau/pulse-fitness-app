@@ -1081,8 +1081,8 @@ describe('registered Journal runtime', () => {
         `Fictional ${status} workout`,
         date,
         status === 'deleted' ? 'completed' : status,
-        1790000000000,
-        completedAt ?? (status === 'deleted' ? 1790003600000 : null),
+        Date.parse(`${date}T12:00:00Z`),
+        completedAt === null && status !== 'deleted' ? null : Date.parse(`${date}T13:00:00Z`),
         deletedAt,
       );
     }
