@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useConfirmation } from '@/components/ui/confirmation-dialog';
 import { ApiError } from '@/lib/api-client';
+import { createBrowserId } from '@/lib/browser-id';
 import { useCreateBodyCheckIn, useUpdateBodyCheckIn } from '../api/body-progress';
 import { ProtocolMedia } from './protocol-media';
 
@@ -90,7 +91,7 @@ export function GuidedCheckInForm({
   const createMutation = useCreateBodyCheckIn();
   const updateMutation = useUpdateBodyCheckIn();
   const { confirm, dialog } = useConfirmation();
-  const idempotencyKey = useRef(`body-ui-${crypto.randomUUID()}`);
+  const [idempotencyKey] = useState(() => createBrowserId('body-ui-'));
   const thirdRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [readings, setReadings] = useState<ReadingState>(() =>
     entry
@@ -173,6 +174,13 @@ export function GuidedCheckInForm({
   const save = async (status: 'draft' | 'completed') => {
     setServerError('');
     setConflictingCheckInId(null);
+    if (!idempotencyKey.ok) {
+      setServerError(
+        'This browser cannot create a secure check-in identifier. Use a current browser or a secure connection, then retry.',
+      );
+      document.getElementById('check-in-error-summary')?.focus();
+      return;
+    }
     const validContext = await form.trigger();
     if (!validContext) {
       document.getElementById('check-in-error-summary')?.focus();
@@ -193,7 +201,7 @@ export function GuidedCheckInForm({
     const payload = { date: values.date, ...mutablePayload };
     const parsed = createBodyCheckInInputSchema.safeParse({
       ...payload,
-      idempotencyKey: idempotencyKey.current,
+      idempotencyKey: idempotencyKey.value,
     });
     if (!parsed.success) {
       const message = parsed.error.issues[0]?.message ?? 'Review the measurement values.';
@@ -335,6 +343,15 @@ export function GuidedCheckInForm({
               Review context
             </a>
           </div>
+        </div>
+      ) : null}
+
+      {!idempotencyKey.ok && !serverError ? (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3" role="alert">
+          <p className="font-semibold">Secure identifier generation is unavailable.</p>
+          <p className="text-sm">
+            Open Pulse in a current browser over a secure connection before saving this check-in.
+          </p>
         </div>
       ) : null}
 
@@ -572,12 +589,16 @@ export function GuidedCheckInForm({
       </Card>
 
       <div className="sticky bottom-3 z-10 flex flex-wrap gap-2 rounded-2xl border border-border/70 bg-background/95 p-3 shadow-lg backdrop-blur">
-        <Button disabled={isPending} onClick={() => void save('completed')} type="button">
+        <Button
+          disabled={isPending || !idempotencyKey.ok}
+          onClick={() => void save('completed')}
+          type="button"
+        >
           {isPending ? 'Saving…' : isCorrection ? 'Save correction' : 'Complete check-in'}
         </Button>
         {!isCorrection ? (
           <Button
-            disabled={isPending}
+            disabled={isPending || !idempotencyKey.ok}
             onClick={() => void save('draft')}
             type="button"
             variant="outline"
