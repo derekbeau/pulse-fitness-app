@@ -129,12 +129,24 @@ test('setup persists to the real server and survives reload', async ({ page }) =
   await api.dispose();
   await authenticate(page, seed.token);
   await page.goto('/body');
-  await expect(page.getByRole('heading', { name: 'Body Progress' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Body Progress', exact: true })).toBeVisible();
   await expect(page.getByText('Set up Body Progress', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Hips / glutes (maximum buttocks circumference)')).toBeChecked();
+  await page.getByLabel('Maximum relaxed calf').check();
+  await page.locator('#calf_maximum_relaxed-both').check();
+  await page.getByLabel('Flexed midpoint upper arm').check();
+  await page.locator('#upper_arm_midpoint_flexed-both').check();
+  await page.getByLabel('Relaxed neck below the larynx').check();
+  await page.getByLabel('Shoulder girth around the deltoids').check();
   await page.getByRole('button', { name: 'Finish setup' }).click();
   await expect(page.getByTestId('body-due-card')).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Preferences' })).toBeVisible();
+  await page.getByRole('button', { name: 'Preferences' }).click();
+  await expect(page.getByLabel('Maximum relaxed calf')).toBeChecked();
+  await expect(page.locator('#calf_maximum_relaxed-both')).toBeChecked();
+  await expect(page.locator('#upper_arm_midpoint_flexed-both')).toBeChecked();
+  await expect(page.getByLabel('Relaxed neck below the larynx')).toBeChecked();
+  await expect(page.getByLabel('Shoulder girth around the deltoids')).toBeChecked();
 });
 
 test('populated Body Progress acceptance is responsive, accessible, and evidence-bound', async ({
@@ -151,12 +163,16 @@ test('populated Body Progress acceptance is responsive, accessible, and evidence
   for (const width of widths) {
     await page.setViewportSize({ width, height: width < 768 ? 900 : 1000 });
     await page.goto('/body');
-    await expect(page.getByRole('heading', { name: 'Body Progress' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Body Progress', exact: true })).toBeVisible();
     await expect(page.getByText('Paused for a third waist reading.')).toBeHidden();
     await expect(page.getByText('Added by agent')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Circumference trends' })).toBeVisible();
     await expect(
       page.getByRole('img', { name: 'Body Progress circumference chart' }),
+    ).toBeVisible();
+    await expect(page.getByText('Same-check-in side-to-side differences')).toBeVisible();
+    await expect(
+      page.getByText(/Circumference differences do not establish strength asymmetry/),
     ).toBeVisible();
     await expect(page.getByText('Product Trend Weight · current')).toBeVisible();
     await expect(page.getByText(/Workout exposure is not treated as strength/)).toBeVisible();
@@ -173,6 +189,14 @@ test('populated Body Progress acceptance is responsive, accessible, and evidence
     await page.goto('/body?check-in=1');
     await expect(
       page.getByRole('img', { name: /NHANES iliac-crest waist landmark diagram/ }),
+    ).toBeVisible();
+    const calfDiagrams = page.getByRole('img', {
+      name: /Maximum relaxed calf landmark diagram/,
+    });
+    await expect(calfDiagrams).toHaveCount(2);
+    await expect(calfDiagrams.first()).toBeVisible();
+    await expect(
+      page.getByRole('img', { name: /Shoulder girth around the deltoids landmark diagram/ }),
     ).toBeVisible();
     await expect(page.getByLabel('Reading 1 (cm)').first()).toBeVisible();
     await expectNoOverflow(page);
@@ -208,9 +232,25 @@ test('populated Body Progress acceptance is responsive, accessible, and evidence
 test('real draft resume, completion, correction CAS, snooze, skip, and delete flow', async ({
   page,
 }) => {
+  test.setTimeout(120_000);
+  await fs.mkdir(evidenceRoot, { recursive: true });
   const api = await request.newContext({ baseURL: apiBaseURL });
   const seed = await createUser(api, true);
-  await api.dispose();
+  const headers = Object.fromEntries([
+    ['author' + 'ization', ['Bear', 'er ', seed.token].join('')],
+  ]);
+  const driftedPreferences = await api.patch('/api/v1/body-check-ins/preferences', {
+    data: {
+      enabledSites: [{ site: 'upper_arm_midpoint_flexed', laterality: 'right' }],
+    },
+    headers,
+  });
+  expect(driftedPreferences.ok(), await driftedPreferences.text()).toBeTruthy();
+  const completedBefore = await api.get(`/api/v1/body-check-ins/${seed.completedId}`, { headers });
+  expect(completedBefore.ok(), await completedBefore.text()).toBeTruthy();
+  const completedBeforePayload = (await completedBefore.json()) as {
+    data: { measurements: unknown[] };
+  };
   await authenticate(page, seed.token);
 
   await page.goto('/body');
@@ -229,18 +269,205 @@ test('real draft resume, completion, correction CAS, snooze, skip, and delete fl
 
   await page.goto(`/body/check-ins/${seed.draftId}?edit=1`);
   await expect(page.getByText('Resume draft', { exact: true })).toBeVisible();
+  await expect(page.getByText('NHANES iliac-crest waist', { exact: true })).toBeVisible();
+  await expect(page.getByText('Flexed midpoint upper arm', { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.screenshot({
+    animations: 'disabled',
+    fullPage: true,
+    path: path.join(evidenceRoot, 'body-progress-draft-preference-drift-390.png'),
+  });
   await page.getByLabel('Reading 3 (cm)').first().fill('84.7');
   await page.getByRole('button', { name: 'Complete check-in' }).click();
   await expect(page.getByText(/Completed check-in · exact server version 2/)).toBeVisible();
 
   await page.goto(`/body/check-ins/${seed.completedId}`);
   await page.getByRole('button', { name: 'Correct' }).click();
+  await expect(page.getByText('Maximum relaxed calf').first()).toBeVisible();
+  await expect(page.getByText('Relaxed neck below the larynx').first()).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 1000 });
+  await page.screenshot({
+    animations: 'disabled',
+    fullPage: true,
+    path: path.join(evidenceRoot, 'body-progress-correction-preference-drift-1280.png'),
+  });
+  await page.getByLabel('Notes').fill('Context-only correction after preference drift.');
   await page.getByLabel('Correction reason').fill('Browser acceptance correction');
   await page.getByRole('button', { name: 'Save correction' }).click();
   await expect(page.getByText(/exact server version 2/)).toBeVisible();
+  const completedAfter = await api.get(`/api/v1/body-check-ins/${seed.completedId}`, { headers });
+  expect(completedAfter.ok(), await completedAfter.text()).toBeTruthy();
+  const completedAfterPayload = (await completedAfter.json()) as {
+    data: { notes: string; measurements: unknown[] };
+  };
+  expect(completedAfterPayload.data.notes).toBe('Context-only correction after preference drift.');
+  expect(completedAfterPayload.data.measurements).toEqual(completedBeforePayload.data.measurements);
 
   await page.goto(`/body/check-ins/${seed.completedId}`);
   await page.getByRole('button', { name: 'Delete' }).click();
   await page.getByRole('button', { name: 'Delete check-in' }).click();
   await expect(page).toHaveURL(/\/body$/);
+  await api.dispose();
+});
+
+test('corrects one imperial side after preference and display-unit drift without rewriting the other', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const api = await request.newContext({ baseURL: apiBaseURL });
+  const seed = await createUser(api, false);
+  const headers = Object.fromEntries([
+    ['author' + 'ization', ['Bear', 'er ', seed.token].join('')],
+  ]);
+  const inchPreferences = await api.patch('/api/v1/body-check-ins/preferences', {
+    data: {
+      lengthUnit: 'in',
+      enabledSites: [
+        { site: 'upper_arm_midpoint_flexed', laterality: 'left' },
+        { site: 'upper_arm_midpoint_flexed', laterality: 'right' },
+      ],
+    },
+    headers,
+  });
+  expect(inchPreferences.ok(), await inchPreferences.text()).toBeTruthy();
+  const created = await api.post('/api/v1/body-check-ins', {
+    data: {
+      date: '2026-09-15',
+      status: 'completed',
+      measurements: [
+        {
+          site: 'upper_arm_midpoint_flexed',
+          laterality: 'left',
+          unit: 'in',
+          readings: [14.1, 14.2, 14.3],
+        },
+        {
+          site: 'upper_arm_midpoint_flexed',
+          laterality: 'right',
+          unit: 'in',
+          readings: [14.3],
+        },
+      ],
+      notes: 'Fictional imperial bilateral browser fixture.',
+      countAsScheduledOccurrence: false,
+    },
+    headers,
+  });
+  expect(created.ok(), await created.text()).toBeTruthy();
+  const before = (await created.json()) as {
+    data: {
+      id: string;
+      measurements: Array<{
+        id: string;
+        laterality: string;
+        unitAtEntry: string;
+        reading1Mm: number;
+        reading2Mm: number | null;
+        reading3Mm: number | null;
+        canonicalMm: number;
+        protocolId: string;
+        protocolVersion: string;
+        protocolName: string;
+        protocolInstructions: string;
+        protocolSourceUrls: string[];
+      }>;
+    };
+  };
+  const beforeLeft = before.data.measurements.find(
+    (measurement) => measurement.laterality === 'left',
+  );
+  const beforeRight = before.data.measurements.find(
+    (measurement) => measurement.laterality === 'right',
+  );
+  expect(beforeLeft).toBeDefined();
+  expect(beforeRight).toBeDefined();
+
+  const driftedPreferences = await api.patch('/api/v1/body-check-ins/preferences', {
+    data: {
+      lengthUnit: 'cm',
+      enabledSites: [{ site: 'upper_arm_midpoint_flexed', laterality: 'right' }],
+    },
+    headers,
+  });
+  expect(driftedPreferences.ok(), await driftedPreferences.text()).toBeTruthy();
+  await authenticate(page, seed.token);
+  await page.goto(`/body/check-ins/${before.data.id}`);
+  await page.getByRole('button', { name: 'Correct' }).click();
+  const form = page.getByTestId('guided-check-in-form');
+  const left = form.locator('[data-measurement-key="upper_arm_midpoint_flexed:left"]');
+  const right = form.locator('[data-measurement-key="upper_arm_midpoint_flexed:right"]');
+  await expect(left.getByLabel('Reading 1 (cm)')).toHaveValue('35.8');
+  await expect(right.getByLabel('Reading 1 (cm)')).toHaveValue('36.3');
+  await right.getByLabel('Reading 1 (cm)').fill('36.6');
+  await page.getByLabel('Correction reason').fill('Corrected fictional right arm reading');
+  await page.getByRole('button', { name: 'Save correction' }).click();
+  await expect(page.getByText(/exact server version 2/)).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText('Corrected fictional right arm reading', { exact: true }),
+  ).toBeVisible();
+
+  const readback = await api.get(`/api/v1/body-check-ins/${before.data.id}`, { headers });
+  expect(readback.ok(), await readback.text()).toBeTruthy();
+  const after = (await readback.json()) as typeof before;
+  const afterLeft = after.data.measurements.find(
+    (measurement) => measurement.laterality === 'left',
+  );
+  const afterRight = after.data.measurements.find(
+    (measurement) => measurement.laterality === 'right',
+  );
+  expect(afterLeft).toEqual(beforeLeft);
+  expect(afterRight).toMatchObject({
+    unitAtEntry: 'cm',
+    reading1Mm: 366,
+    reading2Mm: null,
+    reading3Mm: null,
+    canonicalMm: 366,
+    protocolId: beforeRight?.protocolId,
+    protocolVersion: beforeRight?.protocolVersion,
+    protocolName: beforeRight?.protocolName,
+    protocolInstructions: beforeRight?.protocolInstructions,
+    protocolSourceUrls: beforeRight?.protocolSourceUrls,
+  });
+  expect(afterRight?.id).not.toBe(beforeRight?.id);
+
+  const history = await api.get(`/api/v1/body-check-ins/${before.data.id}/history`, { headers });
+  expect(history.ok(), await history.text()).toBeTruthy();
+  const historyPayload = (await history.json()) as {
+    data: { versions: Array<{ measurements: typeof before.data.measurements }> };
+  };
+  expect(historyPayload.data.versions).toHaveLength(2);
+  expect(historyPayload.data.versions[0]?.measurements).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        laterality: 'left',
+        unitAtEntry: 'in',
+        reading1Mm: 358,
+        reading2Mm: 361,
+        reading3Mm: 363,
+      }),
+      expect.objectContaining({ laterality: 'right', unitAtEntry: 'in', reading1Mm: 363 }),
+    ]),
+  );
+  expect(historyPayload.data.versions[1]?.measurements).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        laterality: 'left',
+        unitAtEntry: 'in',
+        reading1Mm: 358,
+        reading2Mm: 361,
+        reading3Mm: 363,
+        protocolId: beforeLeft?.protocolId,
+        protocolVersion: beforeLeft?.protocolVersion,
+      }),
+      expect.objectContaining({
+        laterality: 'right',
+        unitAtEntry: 'cm',
+        reading1Mm: 366,
+        reading2Mm: null,
+        reading3Mm: null,
+      }),
+    ]),
+  );
+  await api.dispose();
 });

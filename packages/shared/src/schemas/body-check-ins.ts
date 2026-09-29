@@ -5,7 +5,8 @@ import { dateSchema } from './common.js';
 import { lengthUnitSchema } from './body-measurements.js';
 
 export const BODY_CHECK_IN_CONTRACT_VERSION = 'body-check-ins-v1' as const;
-export const BODY_PROTOCOL_VERSION = 'body-circumference-v1' as const;
+export const BODY_PROTOCOL_VERSION = 'body-circumference-v2' as const;
+export const bodyProtocolVersionSchema = z.enum(['body-circumference-v1', BODY_PROTOCOL_VERSION]);
 
 export const bodyMeasurementSiteSchema = z.enum([
   'waist_iliac_crest_nhanes',
@@ -13,11 +14,16 @@ export const bodyMeasurementSiteSchema = z.enum([
   'hips_maximum',
   'upper_arm_midpoint_flexed',
   'thigh_midpoint',
+  'calf_maximum_relaxed',
+  'forearm_maximum_relaxed',
+  'neck_below_larynx_relaxed',
+  'shoulder_girth_deltoid',
 ]);
 export const bodyMeasurementLateralitySchema = z.enum(['none', 'left', 'right']);
 
 export const bodyMeasurementProtocols = {
   waist_iliac_crest_nhanes: {
+    version: 'body-circumference-v1',
     name: 'NHANES iliac-crest waist',
     instructions:
       'Stand with feet together, abdomen relaxed, and arms at sides. At the end of a normal expiration, keep the tape horizontal immediately above the right iliac crest and parallel to the floor. Do not use the narrowest waist, midpoint, or umbilicus.',
@@ -27,30 +33,83 @@ export const bodyMeasurementProtocols = {
     ],
   },
   chest_nipple_line_relaxed: {
+    version: 'body-circumference-v1',
     name: 'Relaxed nipple-line chest',
     instructions:
       'Stand relaxed with the tape horizontal at nipple line, arms relaxed after positioning, at normal expiration, without deliberate chest expansion.',
     sourceUrls: ['https://github.com/derekbeau/pulse-fitness-app/issues/121'],
   },
   hips_maximum: {
-    name: 'Maximum hip circumference',
+    version: 'body-circumference-v1',
+    name: 'Hips / glutes (maximum buttocks circumference)',
     instructions:
       'Stand with feet together and keep the tape horizontal at the maximum buttocks circumference.',
     sourceUrls: ['https://github.com/derekbeau/pulse-fitness-app/issues/121'],
   },
   upper_arm_midpoint_flexed: {
+    version: 'body-circumference-v1',
     name: 'Flexed midpoint upper arm',
     instructions:
       'Use the selected side at the midpoint between acromion and olecranon and flex consistently without changing the landmark.',
     sourceUrls: ['https://github.com/derekbeau/pulse-fitness-app/issues/121'],
   },
   thigh_midpoint: {
+    version: 'body-circumference-v1',
     name: 'Midpoint thigh',
     instructions:
       'Use the selected side at the fixed midpoint protocol, standing with weight distributed consistently.',
     sourceUrls: ['https://github.com/derekbeau/pulse-fitness-app/issues/121'],
   },
+  calf_maximum_relaxed: {
+    version: BODY_PROTOCOL_VERSION,
+    name: 'Maximum relaxed calf',
+    instructions:
+      'Use the selected side. Stand upright with feet about shoulder-width and weight distributed consistently, keeping the calf relaxed. Find and mark the maximum calf circumference; keep the tape horizontal and snug without compressing skin.',
+    sourceUrls: ['https://pdfs.semanticscholar.org/6488/d2bae5225cf0b4547ca49a13440d9ac4f4fb.pdf'],
+  },
+  forearm_maximum_relaxed: {
+    version: BODY_PROTOCOL_VERSION,
+    name: 'Maximum relaxed forearm',
+    instructions:
+      'Use the selected side with the arm relaxed at your side and palm facing forward. Measure the maximum forearm circumference below the elbow, with the tape perpendicular to the forearm and snug without compressing skin.',
+    sourceUrls: ['https://apps.dtic.mil/sti/tr/pdf/ADA170298.pdf'],
+  },
+  neck_below_larynx_relaxed: {
+    version: BODY_PROTOCOL_VERSION,
+    name: 'Relaxed neck below the larynx',
+    instructions:
+      'Stand upright, look straight ahead, and relax your shoulders and neck. Place the tape just below the laryngeal prominence, perpendicular to the neck axis, snug without compressing skin.',
+    sourceUrls: ['https://apps.dtic.mil/sti/tr/pdf/ADA170298.pdf'],
+  },
+  shoulder_girth_deltoid: {
+    version: BODY_PROTOCOL_VERSION,
+    name: 'Shoulder girth around the deltoids',
+    instructions:
+      'Stand upright. After positioning the tape around both deltoids, upper chest, and upper back at the maximum shoulder circumference, relax your arms at your sides and record after a normal exhalation. Keep the tape level and snug. Use a mirror and ask another person for help if needed; this is circumference, not shoulder width.',
+    sourceUrls: [
+      'https://www.researchgate.net/publication/333585249_Standards_for_Anthropometry_Assessment',
+    ],
+  },
 } as const;
+
+export const bodyMeasurementBoundsCm = {
+  waist_iliac_crest_nhanes: { min: 20, max: 300 },
+  chest_nipple_line_relaxed: { min: 20, max: 300 },
+  hips_maximum: { min: 20, max: 300 },
+  upper_arm_midpoint_flexed: { min: 20, max: 300 },
+  thigh_midpoint: { min: 20, max: 300 },
+  calf_maximum_relaxed: { min: 15, max: 80 },
+  forearm_maximum_relaxed: { min: 10, max: 60 },
+  neck_below_larynx_relaxed: { min: 20, max: 80 },
+  shoulder_girth_deltoid: { min: 50, max: 200 },
+} as const;
+
+const bilateralSites = new Set<BodyMeasurementSite>([
+  'upper_arm_midpoint_flexed',
+  'thigh_midpoint',
+  'calf_maximum_relaxed',
+  'forearm_maximum_relaxed',
+]);
 
 const siteLateralitySchema = z
   .object({
@@ -59,13 +118,13 @@ const siteLateralitySchema = z
   })
   .strict()
   .superRefine(({ laterality, site }, context) => {
-    const requiresSide = site === 'upper_arm_midpoint_flexed' || site === 'thigh_midpoint';
+    const requiresSide = bilateralSites.has(site);
     if ((requiresSide && laterality === 'none') || (!requiresSide && laterality !== 'none')) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: requiresSide
-          ? 'Arm and thigh sites require left or right laterality'
-          : 'Waist, chest, and hips require none laterality',
+          ? 'Bilateral limb sites require left or right laterality'
+          : 'Non-lateral circumference sites require none laterality',
         path: ['laterality'],
       });
     }
@@ -83,7 +142,7 @@ export const defaultBodyEnabledSites: BodyEnabledSite[] = [
 const enabledSitesSchema = z
   .array(bodyEnabledSiteSchema)
   .min(1)
-  .max(7)
+  .max(13)
   .superRefine((sites, context) => {
     const keys = sites.map(({ site, laterality }) => `${site}:${laterality}`);
     if (new Set(keys).size !== keys.length) {
@@ -103,7 +162,7 @@ export const bodyCheckInPreferenceSchema = z
     enabledSites: enabledSitesSchema,
     anchorDate: dateSchema,
     reminderLocalTime: localTimeSchema.nullable(),
-    protocolVersion: z.literal(BODY_PROTOCOL_VERSION),
+    protocolVersion: bodyProtocolVersionSchema,
     snoozedUntil: dateSchema.nullable(),
     lastDismissedDueDate: dateSchema.nullable(),
     createdAt: z.number().int(),
@@ -173,13 +232,13 @@ const validateMeasurementLaterality = (
   { laterality, site }: { laterality: BodyMeasurementLaterality; site: BodyMeasurementSite },
   context: z.RefinementCtx,
 ) => {
-  const requiresSide = site === 'upper_arm_midpoint_flexed' || site === 'thigh_midpoint';
+  const requiresSide = bilateralSites.has(site);
   if ((requiresSide && laterality === 'none') || (!requiresSide && laterality !== 'none')) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       message: requiresSide
-        ? 'Arm and thigh sites require left or right laterality'
-        : 'Waist, chest, and hips require none laterality',
+        ? 'Bilateral limb sites require left or right laterality'
+        : 'Non-lateral circumference sites require none laterality',
       path: ['laterality'],
     });
   }
@@ -192,10 +251,11 @@ export const bodyCheckInMeasurementInputSchema = z
     validateMeasurementLaterality(value, context);
     for (const [index, reading] of value.readings.entries()) {
       const millimetres = Math.round(reading * (value.unit === 'cm' ? 10 : 25.4));
-      if (millimetres < 200 || millimetres > 3000) {
+      const bounds = bodyMeasurementBoundsCm[value.site];
+      if (millimetres < bounds.min * 10 || millimetres > bounds.max * 10) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Reading must be between 20 and 300 cm after conversion',
+          message: `Reading must be between ${bounds.min} and ${bounds.max} cm after conversion`,
           path: ['readings', index],
         });
       }
@@ -222,10 +282,11 @@ export const bodyCheckInMeasurementDraftInputSchema = z
     validateMeasurementLaterality(value, context);
     for (const [index, reading] of value.readings.entries()) {
       const millimetres = Math.round(reading * (value.unit === 'cm' ? 10 : 25.4));
-      if (millimetres < 200 || millimetres > 3000) {
+      const bounds = bodyMeasurementBoundsCm[value.site];
+      if (millimetres < bounds.min * 10 || millimetres > bounds.max * 10) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Reading must be between 20 and 300 cm after conversion',
+          message: `Reading must be between ${bounds.min} and ${bounds.max} cm after conversion`,
           path: ['readings', index],
         });
       }
@@ -238,16 +299,16 @@ export const bodyCheckInMeasurementSchema = z
     site: bodyMeasurementSiteSchema,
     laterality: bodyMeasurementLateralitySchema,
     unitAtEntry: lengthUnitSchema,
-    reading1Mm: z.number().int().min(200).max(3000),
-    reading2Mm: z.number().int().min(200).max(3000).nullable(),
-    reading3Mm: z.number().int().min(200).max(3000).nullable(),
-    canonicalMm: z.number().int().min(200).max(3000),
+    reading1Mm: z.number().int().min(100).max(3000),
+    reading2Mm: z.number().int().min(100).max(3000).nullable(),
+    reading3Mm: z.number().int().min(100).max(3000).nullable(),
+    canonicalMm: z.number().int().min(100).max(3000),
     quality: bodyReadingQualitySchema,
     selectedReadingPair: z
       .tuple([z.number().int().min(1).max(3), z.number().int().min(1).max(3)])
       .nullable(),
     protocolId: bodyMeasurementSiteSchema,
-    protocolVersion: z.literal(BODY_PROTOCOL_VERSION),
+    protocolVersion: bodyProtocolVersionSchema,
     protocolName: z.string(),
     protocolInstructions: z.string(),
     protocolSourceUrls: z.array(z.string().url()).min(1),
@@ -285,7 +346,7 @@ export const createBodyCheckInInputSchema = z
   .object({
     date: dateSchema,
     status: bodyCheckInStatusSchema,
-    measurements: z.array(bodyCheckInMeasurementDraftInputSchema).max(7).default([]),
+    measurements: z.array(bodyCheckInMeasurementDraftInputSchema).max(13).default([]),
     idempotencyKey: z.string().trim().min(8).max(128).optional(),
     ...bodyCheckInMutableFields,
   })
@@ -308,7 +369,7 @@ export const patchBodyCheckInInputSchema = z
   .object({
     expectedVersion: z.number().int().min(1),
     status: bodyCheckInStatusSchema.optional(),
-    measurements: z.array(bodyCheckInMeasurementDraftInputSchema).max(7).optional(),
+    measurements: z.array(bodyCheckInMeasurementDraftInputSchema).max(13).optional(),
     correctionReason: z.string().trim().min(1).max(500).optional(),
     ...bodyCheckInMutableFields,
   })
@@ -343,7 +404,7 @@ export const bodyCheckInSchema = z
     pumpPresent: z.boolean().nullable(),
     unusualBloating: z.boolean().nullable(),
     notes: z.string().nullable(),
-    protocolVersion: z.literal(BODY_PROTOCOL_VERSION),
+    protocolVersion: bodyProtocolVersionSchema,
     source: bodyCheckInSourceSchema,
     sourceId: z.string().nullable(),
     countAsScheduledOccurrence: z.boolean(),
@@ -378,7 +439,7 @@ export const bodyCheckInVersionSchema = z
     pumpPresent: z.boolean().nullable(),
     unusualBloating: z.boolean().nullable(),
     notes: z.string().nullable(),
-    protocolVersion: z.literal(BODY_PROTOCOL_VERSION),
+    protocolVersion: bodyProtocolVersionSchema,
     source: bodyCheckInSourceSchema,
     sourceId: z.string().nullable(),
     countAsScheduledOccurrence: z.boolean(),

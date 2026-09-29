@@ -512,6 +512,13 @@
       "when": 1790121600000,
       "tag": "0072_journal_runtime",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "6",
+      "when": 1790692800000,
+      "tag": "0073_bilateral_body_measurements",
+      "breakpoints": true
     }
   ]
 }

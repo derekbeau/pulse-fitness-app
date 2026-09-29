@@ -22,6 +22,10 @@ export const BODY_PROGRESS_ANALYTICS_CONSTANTS = Object.freeze({
     hips_maximum: 10,
     upper_arm_midpoint_flexed: 10,
     thigh_midpoint: 10,
+    calf_maximum_relaxed: null,
+    forearm_maximum_relaxed: null,
+    neck_below_larynx_relaxed: null,
+    shoulder_girth_deltoid: null,
   }),
 });
 
@@ -104,11 +108,11 @@ export const bodyProgressPointSchema = z
     checkInVersion: z.number().int().positive(),
     site: bodyMeasurementSiteSchema,
     laterality: bodyMeasurementLateralitySchema,
-    canonicalMm: z.number().int().min(200).max(3000),
+    canonicalMm: z.number().int().min(100).max(3000),
     readingsMm: z.tuple([
-      z.number().int().min(200).max(3000),
-      z.number().int().min(200).max(3000).nullable(),
-      z.number().int().min(200).max(3000).nullable(),
+      z.number().int().min(100).max(3000),
+      z.number().int().min(100).max(3000).nullable(),
+      z.number().int().min(100).max(3000).nullable(),
     ]),
     unitAtEntry: lengthUnitSchema,
     quality: bodyReadingQualitySchema,
@@ -130,6 +134,7 @@ const segmentAnalysisStateSchema = z.enum([
   'high_variance',
   'stale',
   'freshness_unresolved',
+  'unsupported',
 ]);
 
 export const bodyProgressSegmentSchema = z
@@ -138,7 +143,7 @@ export const bodyProgressSegmentSchema = z
     site: bodyMeasurementSiteSchema,
     laterality: bodyMeasurementLateralitySchema,
     protocolVersion: z.string().trim().min(1),
-    noiseFloorMm: z.number().positive(),
+    noiseFloorMm: z.number().positive().nullable(),
     points: z.array(bodyProgressPointSchema),
     rawDelta: z
       .object({
@@ -323,6 +328,10 @@ export const bodyProgressAnalyticsSchema = z
             hips_maximum: z.literal(10),
             upper_arm_midpoint_flexed: z.literal(10),
             thigh_midpoint: z.literal(10),
+            calf_maximum_relaxed: z.null(),
+            forearm_maximum_relaxed: z.null(),
+            neck_below_larynx_relaxed: z.null(),
+            shoulder_girth_deltoid: z.null(),
           })
           .strict(),
         regression: z.literal('dated_ordinary_least_squares'),
@@ -345,6 +354,26 @@ export const bodyProgressAnalyticsSchema = z
       })
       .strict(),
     segments: z.array(bodyProgressSegmentSchema),
+    pairedComparisons: z.array(
+      z
+        .object({
+          checkInId: z.string(),
+          date: dateSchema,
+          site: z.enum([
+            'upper_arm_midpoint_flexed',
+            'thigh_midpoint',
+            'calf_maximum_relaxed',
+            'forearm_maximum_relaxed',
+          ]),
+          protocolVersion: z.string().min(1).nullable(),
+          leftCanonicalMm: z.number().int().nullable(),
+          rightCanonicalMm: z.number().int().nullable(),
+          differenceMm: z.number().int().nullable(),
+          reliability: z.enum(['reliable', 'high_variance', 'unavailable']),
+          limitation: z.string().min(1),
+        })
+        .strict(),
+    ),
     legacyPoints: z.array(bodyProgressLegacyPointSchema),
     strengthEvidence: bodyProgressStrengthEvidenceSchema,
     signal: bodyProgressSignalSchema,

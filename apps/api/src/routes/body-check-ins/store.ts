@@ -198,7 +198,7 @@ const toPreference = (row: typeof bodyCheckInPreferences.$inferSelect): BodyChec
   enabledSites: row.enabledSites,
   anchorDate: row.anchorDate,
   reminderLocalTime: row.reminderLocalTime,
-  protocolVersion: BODY_PROTOCOL_VERSION,
+  protocolVersion: row.protocolVersion as BodyCheckInPreference['protocolVersion'],
   snoozedUntil: row.snoozedUntil,
   lastDismissedDueDate: row.lastDismissedDueDate,
   createdAt: row.createdAt,
@@ -268,6 +268,7 @@ export const upsertBodyCheckInPreference = async (
           ? {}
           : { reminderLocalTime: input.reminderLocalTime }),
         anchorDate,
+        protocolVersion: BODY_PROTOCOL_VERSION,
         updatedAt: sql<number>`max(${bodyCheckInPreferences.updatedAt} + 1, ${updatedAt})`,
       },
     })
@@ -297,13 +298,29 @@ const buildMeasurementValues = (
     quality: canonical.quality,
     selectedReadingPair: canonical.selectedReadingPair,
     protocolId: input.site,
-    protocolVersion: BODY_PROTOCOL_VERSION,
+    protocolVersion: protocol.version,
     protocolName: protocol.name,
     protocolInstructions: protocol.instructions,
     protocolSourceUrls: [...protocol.sourceUrls],
     createdAt: timestamp,
     updatedAt: timestamp,
   };
+};
+
+const measurementInputMatches = (
+  existing: Pick<
+    BodyCheckInMeasurement,
+    'unitAtEntry' | 'reading1Mm' | 'reading2Mm' | 'reading3Mm'
+  >,
+  input: BodyCheckInMeasurementInput,
+) => {
+  if (existing.unitAtEntry !== input.unit) return false;
+  const canonical = calculateCanonicalBodyReading(input.readings, input.unit);
+  return (
+    existing.reading1Mm === canonical.readingMm[0] &&
+    existing.reading2Mm === canonical.readingMm[1] &&
+    existing.reading3Mm === canonical.readingMm[2]
+  );
 };
 
 const buildMeasurementVersionValues = (
@@ -349,7 +366,7 @@ export const findBodyCheckInById = async (
     ? {
         contractVersion: BODY_CHECK_IN_CONTRACT_VERSION,
         ...row,
-        protocolVersion: BODY_PROTOCOL_VERSION,
+        protocolVersion: row.protocolVersion as BodyCheckIn['protocolVersion'],
         measurements: await findMeasurements(row.id),
       }
     : null;
@@ -648,9 +665,15 @@ export const patchBodyCheckIn = async (
     }));
     if (input.measurements) {
       tx.delete(bodyCheckInMeasurements).where(eq(bodyCheckInMeasurements.checkInId, id)).run();
-      snapshotMeasurements = input.measurements.map((measurement) =>
-        buildMeasurementValues(id, measurement, now),
-      );
+      snapshotMeasurements = input.measurements.map((measurement) => {
+        const existingMeasurement = existingMeasurements.find(
+          (candidate) =>
+            candidate.site === measurement.site && candidate.laterality === measurement.laterality,
+        );
+        return existingMeasurement && measurementInputMatches(existingMeasurement, measurement)
+          ? { ...existingMeasurement, checkInId: id }
+          : buildMeasurementValues(id, measurement, now);
+      });
       if (snapshotMeasurements.length > 0) {
         tx.insert(bodyCheckInMeasurements).values(snapshotMeasurements).run();
       }

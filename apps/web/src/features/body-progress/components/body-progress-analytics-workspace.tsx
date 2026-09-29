@@ -65,6 +65,10 @@ const SITE_LABELS: Record<BodyProgressPoint['site'], string> = {
   hips_maximum: 'Hips',
   upper_arm_midpoint_flexed: 'Upper arm',
   thigh_midpoint: 'Thigh',
+  calf_maximum_relaxed: 'Calf',
+  forearm_maximum_relaxed: 'Forearm',
+  neck_below_larynx_relaxed: 'Neck',
+  shoulder_girth_deltoid: 'Shoulder girth',
 };
 
 const siteLabel = (point: Pick<BodyProgressPoint, 'site' | 'laterality'>) =>
@@ -149,6 +153,9 @@ export function BodyProgressAnalyticsWorkspace({ lengthUnit }: { lengthUnit: Len
     const point = segment.points.at(-1);
     return point ? [{ point, segment }] : [];
   });
+  const hasUnsupportedPoints = analytics.segments.some(
+    (segment) => segment.analysis.state === 'unsupported' && segment.points.length > 0,
+  );
   const chartState =
     analytics.readiness.state === 'stale'
       ? 'stale'
@@ -366,7 +373,7 @@ export function BodyProgressAnalyticsWorkspace({ lengthUnit }: { lengthUnit: Len
         title="Circumference trends"
         visualClassName="min-h-72"
       >
-        {!supportedState ? (
+        {!supportedState && !hasUnsupportedPoints ? (
           <ChartState
             description={
               chartState === 'stale'
@@ -379,100 +386,108 @@ export function BodyProgressAnalyticsWorkspace({ lengthUnit }: { lengthUnit: Len
             title={chartState === 'stale' ? 'Measurements are stale' : 'Direction is not ready'}
           />
         ) : (
-          <div
-            aria-label="Body Progress circumference chart"
-            className="h-72 min-w-0 sm:h-80"
-            role="img"
-          >
-            <ResponsiveContainer
-              height="100%"
-              initialDimension={{ width: 320, height: 288 }}
-              width="100%"
+          <div className="space-y-2">
+            {!supportedState && hasUnsupportedPoints ? (
+              <p className="text-sm text-muted-foreground">
+                Raw protocol-bound histories are shown. Direction classification is unavailable
+                until the evidence policy supports the site and its recency requirements are met.
+              </p>
+            ) : null}
+            <div
+              aria-label="Body Progress circumference chart"
+              className="h-72 min-w-0 sm:h-80"
+              role="img"
             >
-              <ComposedChart data={points} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
-                <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 4" />
-                <XAxis
-                  axisLine={false}
-                  dataKey="dateValue"
-                  domain={[
-                    chartDateCoordinate(analytics.range.startDate),
-                    chartDateCoordinate(analytics.range.endDate),
-                  ]}
-                  minTickGap={24}
-                  scale="time"
-                  tick={{ fill: 'var(--color-muted)', fontSize: 11 }}
-                  tickFormatter={formatChartAxisDate}
-                  tickLine={false}
-                  type="number"
-                />
-                <YAxis
-                  axisLine={false}
-                  domain={yDomain}
-                  tick={{ fill: 'var(--color-muted)', fontSize: 11 }}
-                  tickFormatter={(value: number) => value.toFixed(0)}
-                  tickLine={false}
-                  unit={lengthUnit}
-                  width={46}
-                />
-                {analytics.markers.map((marker) => (
-                  <ReferenceLine
-                    ifOverflow="visible"
-                    key={marker.id}
-                    stroke="var(--color-muted)"
-                    strokeDasharray="2 4"
-                    x={chartDateCoordinate(marker.date)}
+              <ResponsiveContainer
+                height="100%"
+                initialDimension={{ width: 320, height: 288 }}
+                width="100%"
+              >
+                <ComposedChart data={points} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 4" />
+                  <XAxis
+                    axisLine={false}
+                    dataKey="dateValue"
+                    domain={[
+                      chartDateCoordinate(analytics.range.startDate),
+                      chartDateCoordinate(analytics.range.endDate),
+                    ]}
+                    minTickGap={24}
+                    scale="time"
+                    tick={{ fill: 'var(--color-muted)', fontSize: 11 }}
+                    tickFormatter={formatChartAxisDate}
+                    tickLine={false}
+                    type="number"
                   />
-                ))}
-                <Tooltip
-                  content={({ active, payload }) => {
-                    const point = payload?.[0]?.payload as ChartPoint | undefined;
-                    if (!active || !point) return null;
-                    return (
-                      <ChartTooltip
-                        dataSlot="body-progress-tooltip"
-                        date={`${formatChartDate(point.date)} · ${siteLabel(point)}`}
-                        rows={[
-                          {
-                            color: 'var(--color-primary)',
-                            label: 'Canonical',
-                            value: formatLength(point.canonicalMm, lengthUnit),
-                          },
-                          { label: 'Quality', value: qualityLabel[point.quality] },
-                          { label: 'Protocol', value: point.protocolVersion },
-                        ]}
-                      />
-                    );
-                  }}
-                />
-                {analytics.segments.map((segment, index) => (
-                  <Line
-                    data={segment.points.map((point) => ({
-                      ...point,
-                      chartValue: displayMm(point.canonicalMm, lengthUnit),
-                      dateValue: chartDateCoordinate(point.date),
-                    }))}
+                  <YAxis
+                    axisLine={false}
+                    domain={yDomain}
+                    tick={{ fill: 'var(--color-muted)', fontSize: 11 }}
+                    tickFormatter={(value: number) => value.toFixed(0)}
+                    tickLine={false}
+                    unit={lengthUnit}
+                    width={46}
+                  />
+                  {analytics.markers.map((marker) => (
+                    <ReferenceLine
+                      ifOverflow="visible"
+                      key={marker.id}
+                      stroke="var(--color-muted)"
+                      strokeDasharray="2 4"
+                      x={chartDateCoordinate(marker.date)}
+                    />
+                  ))}
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      const point = payload?.[0]?.payload as ChartPoint | undefined;
+                      if (!active || !point) return null;
+                      return (
+                        <ChartTooltip
+                          dataSlot="body-progress-tooltip"
+                          date={`${formatChartDate(point.date)} · ${siteLabel(point)}`}
+                          rows={[
+                            {
+                              color: 'var(--color-primary)',
+                              label: 'Canonical',
+                              value: formatLength(point.canonicalMm, lengthUnit),
+                            },
+                            { label: 'Quality', value: qualityLabel[point.quality] },
+                            { label: 'Protocol', value: point.protocolVersion },
+                          ]}
+                        />
+                      );
+                    }}
+                  />
+                  {analytics.segments.map((segment, index) => (
+                    <Line
+                      data={segment.points.map((point) => ({
+                        ...point,
+                        chartValue: displayMm(point.canonicalMm, lengthUnit),
+                        dateValue: chartDateCoordinate(point.date),
+                      }))}
+                      dataKey="chartValue"
+                      dot={false}
+                      isAnimationActive={false}
+                      key={segment.id}
+                      stroke={`var(--chart-${(index % 5) + 1})`}
+                      strokeWidth={2.5}
+                      type="linear"
+                    />
+                  ))}
+                  <Scatter
+                    cursor="pointer"
                     dataKey="chartValue"
-                    dot={false}
+                    fill="var(--color-foreground)"
                     isAnimationActive={false}
-                    key={segment.id}
-                    stroke={`var(--chart-${(index % 5) + 1})`}
-                    strokeWidth={2.5}
-                    type="linear"
+                    onClick={(point) => {
+                      if (typeof point.measurementId === 'string')
+                        setSelectedMeasurementId(point.measurementId);
+                    }}
+                    shape="circle"
                   />
-                ))}
-                <Scatter
-                  cursor="pointer"
-                  dataKey="chartValue"
-                  fill="var(--color-foreground)"
-                  isAnimationActive={false}
-                  onClick={(point) => {
-                    if (typeof point.measurementId === 'string')
-                      setSelectedMeasurementId(point.measurementId);
-                  }}
-                  shape="circle"
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         )}
         <ChartLegend
@@ -483,6 +498,48 @@ export function BodyProgressAnalyticsWorkspace({ lengthUnit }: { lengthUnit: Len
           ]}
         />
       </ChartFrame>
+
+      {analytics.pairedComparisons.length ? (
+        <Card className="border-border/70">
+          <CardHeader>
+            <CardTitle>Same-check-in side-to-side differences</CardTitle>
+            <CardDescription>
+              Left and right values are compared only within the same check-in and exact protocol.
+              Circumference differences do not establish strength asymmetry, injury, or isolated
+              muscle growth; tape error, body fat, fluid, and conditions affect values.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            {analytics.pairedComparisons.map((comparison) => (
+              <div
+                className="rounded-xl border border-border/70 p-3"
+                key={`${comparison.checkInId}:${comparison.site}`}
+              >
+                <p className="font-medium">
+                  {SITE_LABELS[comparison.site]} · {formatChartDate(comparison.date)}
+                </p>
+                <p className="mt-1 text-sm">
+                  Left{' '}
+                  {comparison.leftCanonicalMm === null
+                    ? 'unavailable'
+                    : formatLength(comparison.leftCanonicalMm, lengthUnit)}{' '}
+                  · Right{' '}
+                  {comparison.rightCanonicalMm === null
+                    ? 'unavailable'
+                    : formatLength(comparison.rightCanonicalMm, lengthUnit)}
+                </p>
+                <p className="text-sm font-semibold">
+                  Difference:{' '}
+                  {comparison.differenceMm === null
+                    ? 'unavailable'
+                    : formatLength(comparison.differenceMm, lengthUnit)}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">{comparison.limitation}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="border-border/70">

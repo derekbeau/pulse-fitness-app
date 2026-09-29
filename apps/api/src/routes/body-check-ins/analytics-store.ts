@@ -184,6 +184,44 @@ export async function getBodyProgressAnalytics(
       updatedAt: row.updatedAt,
     }));
   const segments = analyzeBodyProgressSegments({ points, cadenceDays, asOfDate: endDate });
+  const bilateralSites = [
+    'upper_arm_midpoint_flexed',
+    'thigh_midpoint',
+    'calf_maximum_relaxed',
+    'forearm_maximum_relaxed',
+  ] as const;
+  const pairedComparisons: BodyProgressAnalytics['pairedComparisons'] = [];
+  const pairGroups = new Map<string, typeof points>();
+  for (const point of points) {
+    if (!bilateralSites.includes(point.site as (typeof bilateralSites)[number])) continue;
+    const key = `${point.checkInId}:${point.site}`;
+    pairGroups.set(key, [...(pairGroups.get(key) ?? []), point]);
+  }
+  for (const grouped of pairGroups.values()) {
+    const first = grouped[0];
+    if (!first) continue;
+    const left = grouped.find((point) => point.laterality === 'left') ?? null;
+    const right = grouped.find((point) => point.laterality === 'right') ?? null;
+    const compatible = Boolean(left && right && left.protocolVersion === right.protocolVersion);
+    const highVariance = compatible && [left?.quality, right?.quality].includes('high_variance');
+    pairedComparisons.push({
+      checkInId: first.checkInId,
+      date: first.date,
+      site: first.site as (typeof bilateralSites)[number],
+      protocolVersion: compatible ? (left?.protocolVersion ?? null) : null,
+      leftCanonicalMm: left?.canonicalMm ?? null,
+      rightCanonicalMm: right?.canonicalMm ?? null,
+      differenceMm: compatible
+        ? Math.abs((left?.canonicalMm ?? 0) - (right?.canonicalMm ?? 0))
+        : null,
+      reliability: !compatible ? 'unavailable' : highVariance ? 'high_variance' : 'reliable',
+      limitation: !compatible
+        ? 'Unavailable: both sides from this same check-in and protocol are required.'
+        : highVariance
+          ? 'High-variance readings make this same-check-in difference unreliable.'
+          : 'Circumference difference only; it does not establish strength asymmetry, injury, or isolated muscle growth.',
+    });
+  }
   const enabledKeys = new Set(enabledSites.map((site) => `${site.site}:${site.laterality}`));
   const enabledSegments = segments.filter((segment) =>
     enabledKeys.has(`${segment.site}:${segment.laterality}`),
@@ -363,6 +401,7 @@ export async function getBodyProgressAnalytics(
       reasonCodes: [...new Set(reasonCodes)] as BodyProgressReasonCode[],
     },
     segments,
+    pairedComparisons,
     legacyPoints,
     strengthEvidence,
     signal,

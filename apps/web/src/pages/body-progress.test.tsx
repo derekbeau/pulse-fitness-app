@@ -175,7 +175,7 @@ describe('Body Progress pages', () => {
       '84.2 cm',
     );
     expect(screen.getByText(/exact server version 2/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/body-circumference-v1/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(new RegExp(BODY_PROTOCOL_VERSION)).length).toBeGreaterThan(0);
     expect(await screen.findByText(/Version 2 · correction/)).toBeInTheDocument();
     expect(screen.getAllByText(/Created by AgentToken/).length).toBeGreaterThan(0);
   });

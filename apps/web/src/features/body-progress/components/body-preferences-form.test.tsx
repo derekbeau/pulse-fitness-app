@@ -42,8 +42,13 @@ describe('BodyPreferencesForm', () => {
     expect(await screen.findByText('Set up Body Progress')).toBeInTheDocument();
     expect(screen.getByText(/product default, not a medical standard/i)).toBeInTheDocument();
     expect(screen.getByLabelText('NHANES iliac-crest waist')).toBeChecked();
+    expect(screen.getByLabelText('Hips / glutes (maximum buttocks circumference)')).toBeChecked();
+    expect(screen.getByLabelText('Relaxed neck below the larynx')).not.toBeChecked();
+    expect(screen.getByLabelText('Shoulder girth around the deltoids')).not.toBeChecked();
     expect(screen.getByRole('radiogroup', { name: 'Length unit' })).toBeInTheDocument();
     expect(screen.getByText(/Server local date: 2026-09-15/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Maximum relaxed calf'));
+    fireEvent.click(screen.getByLabelText('Both', { selector: '#calf_maximum_relaxed-both' }));
     fireEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
     await waitFor(() =>
       expect(saved).toMatchObject({
@@ -52,6 +57,12 @@ describe('BodyPreferencesForm', () => {
         cadenceChange: 'restart',
         restartAnchorDate: '2026-09-15',
       }),
+    );
+    expect(saved?.enabledSites).toEqual(
+      expect.arrayContaining([
+        { site: 'calf_maximum_relaxed', laterality: 'left' },
+        { site: 'calf_maximum_relaxed', laterality: 'right' },
+      ]),
     );
   });
 

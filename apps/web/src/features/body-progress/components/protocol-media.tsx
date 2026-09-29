@@ -6,6 +6,10 @@ const landmarkY: Record<BodyMeasurementSite, number> = {
   thigh_midpoint: 157,
   upper_arm_midpoint_flexed: 82,
   waist_iliac_crest_nhanes: 101,
+  calf_maximum_relaxed: 174,
+  forearm_maximum_relaxed: 105,
+  neck_below_larynx_relaxed: 45,
+  shoulder_girth_deltoid: 59,
 };
 
 const equivalentText: Record<BodyMeasurementSite, string> = {
@@ -19,14 +23,28 @@ const equivalentText: Record<BodyMeasurementSite, string> = {
     'Diagram and motion: the tape circles the selected flexed upper arm at the marked midpoint between shoulder and elbow.',
   thigh_midpoint:
     'Diagram and motion: the tape circles the selected thigh at its fixed midpoint while standing with weight distributed consistently.',
+  calf_maximum_relaxed:
+    'Diagram and motion: a horizontal tape circles the widest relaxed point of the selected calf while weight stays evenly distributed.',
+  forearm_maximum_relaxed:
+    'Diagram and motion: the tape circles the widest point of the selected relaxed forearm, perpendicular to the arm.',
+  neck_below_larynx_relaxed:
+    'Diagram and motion: the tape circles the relaxed neck just below the laryngeal prominence while the head faces forward.',
+  shoulder_girth_deltoid:
+    'Diagram and motion: the tape circles both deltoids, upper chest, and upper back at maximum shoulder girth—not shoulder width. Ask another person for help if needed.',
 };
 
 export function ProtocolMedia({ site }: { site: BodyMeasurementSite }) {
   const protocol = bodyMeasurementProtocols[site];
   const y = landmarkY[site];
-  const isLimb = site === 'upper_arm_midpoint_flexed' || site === 'thigh_midpoint';
-  const x1 = isLimb ? (site === 'upper_arm_midpoint_flexed' ? 122 : 112) : 48;
-  const x2 = isLimb ? (site === 'upper_arm_midpoint_flexed' ? 143 : 139) : 152;
+  const isLimb = [
+    'upper_arm_midpoint_flexed',
+    'thigh_midpoint',
+    'calf_maximum_relaxed',
+    'forearm_maximum_relaxed',
+  ].includes(site);
+  const isArm = site === 'upper_arm_midpoint_flexed' || site === 'forearm_maximum_relaxed';
+  const x1 = isLimb ? (isArm ? 122 : 112) : 48;
+  const x2 = isLimb ? (isArm ? 143 : 139) : 152;
 
   return (
     <figure className="grid gap-3 rounded-2xl border border-border/70 bg-secondary/20 p-3 sm:grid-cols-[180px_1fr] sm:items-center">
