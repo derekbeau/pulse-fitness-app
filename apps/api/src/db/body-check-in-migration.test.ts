@@ -34,6 +34,17 @@ const makeMigrationsThrough0065 = () => {
   return dir;
 };
 
+const makeMigrationsThrough0072 = () => {
+  const dir = join(makeDir(), 'drizzle');
+  cpSync(migrationsFolder, dir, { recursive: true });
+  rmSync(join(dir, '0073_bilateral_body_measurements.sql'));
+  const journalPath = join(dir, 'meta', '_journal.json');
+  const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as { entries: unknown[] };
+  journal.entries = journal.entries.slice(0, 73);
+  writeFileSync(journalPath, `${JSON.stringify(journal, null, 2)}\n`);
+  return dir;
+};
+
 const openDb = (path: string) => {
   const sqlite = new Database(path);
   sqlite.pragma('foreign_keys = ON');
@@ -83,7 +94,7 @@ describe('0066 body check-in migration lifecycle', () => {
   it('runs the complete fresh chain and is idempotent', () => {
     const sqlite = openDb(join(makeDir(), 'fresh.db'));
     try {
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 73 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 74 });
       for (const table of [
         'body_check_in_preferences',
         'body_check_ins',
@@ -119,7 +130,7 @@ describe('0066 body check-in migration lifecycle', () => {
       sqlite.close();
       sqlite = openDb(dbPath);
 
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 7 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 8 });
       expect(legacyBodyRows(sqlite)).toEqual(before);
       expect(sqlite.prepare('select count(*) from body_check_ins').pluck().get()).toBe(0);
       assertIntegrity(sqlite);
@@ -173,6 +184,84 @@ describe('0066 body check-in migration lifecycle', () => {
       ]) {
         expect(tableExists(sqlite, table), table).toBe(false);
       }
+      assertIntegrity(sqlite);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('upgrades populated 0072 check-in tables without relabeling v1 history', () => {
+    const sqlite = openDb(join(makeDir(), 'populated-0072.db'));
+    try {
+      expect(
+        migratePulseDatabase(sqlite, { migrationsFolder: makeMigrationsThrough0072() }),
+      ).toMatchObject({ applied: 73 });
+      seedLegacyBodyMeasurements(sqlite);
+      sqlite.exec(`
+        insert into body_check_ins (
+          id, user_id, local_date, status, version, protocol_version, source,
+          count_as_scheduled_occurrence, completed_at, created_at, updated_at
+        ) values (
+          'v1-check-in', 'legacy-user', '2026-09-03', 'completed', 1,
+          'body-circumference-v1', 'user', 1, 1700000000100, 1700000000100, 1700000000100
+        );
+        insert into body_check_in_measurements (
+          id, check_in_id, site, laterality, unit_at_entry, reading_1_mm, canonical_mm,
+          quality, protocol_id, protocol_version, protocol_name, protocol_instructions,
+          protocol_source_urls, created_at, updated_at
+        ) values (
+          'v1-measurement', 'v1-check-in', 'upper_arm_midpoint_flexed', 'right', 'cm',
+          341, 341, 'single_reading', 'upper_arm_midpoint_flexed', 'body-circumference-v1',
+          'Flexed midpoint upper arm', 'Frozen v1 instructions', '["https://example.com/v1"]',
+          1700000000100, 1700000000100
+        );
+        insert into body_check_in_versions (
+          id, check_in_id, version, local_date, status, meal_context, workout_context,
+          protocol_version, source, count_as_scheduled_occurrence, completed_at,
+          actor_source, change_kind, change_reason, recorded_at
+        ) values (
+          'v1-version', 'v1-check-in', 1, '2026-09-03', 'completed', 'unspecified',
+          'unspecified', 'body-circumference-v1', 'user', 1, 1700000000100,
+          'user', 'created', 'Initial completed check-in', 1700000000100
+        );
+        insert into body_check_in_measurement_versions (
+          id, version_id, site, laterality, unit_at_entry, reading_1_mm, canonical_mm,
+          quality, protocol_id, protocol_version, protocol_name, protocol_instructions,
+          protocol_source_urls, created_at, updated_at
+        ) values (
+          'v1-measurement-version', 'v1-version', 'upper_arm_midpoint_flexed', 'right', 'cm',
+          341, 341, 'single_reading', 'upper_arm_midpoint_flexed', 'body-circumference-v1',
+          'Flexed midpoint upper arm', 'Frozen v1 instructions', '["https://example.com/v1"]',
+          1700000000100, 1700000000100
+        );
+      `);
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 1 });
+      expect(
+        sqlite
+          .prepare(
+            'select site, laterality, protocol_version, protocol_name, protocol_instructions from body_check_in_measurements where id = ?',
+          )
+          .get('v1-measurement'),
+      ).toEqual({
+        site: 'upper_arm_midpoint_flexed',
+        laterality: 'right',
+        protocol_version: 'body-circumference-v1',
+        protocol_name: 'Flexed midpoint upper arm',
+        protocol_instructions: 'Frozen v1 instructions',
+      });
+      expect(
+        sqlite
+          .prepare(
+            'select site, laterality, protocol_version, protocol_name, protocol_instructions from body_check_in_measurement_versions where id = ?',
+          )
+          .get('v1-measurement-version'),
+      ).toEqual({
+        site: 'upper_arm_midpoint_flexed',
+        laterality: 'right',
+        protocol_version: 'body-circumference-v1',
+        protocol_name: 'Flexed midpoint upper arm',
+        protocol_instructions: 'Frozen v1 instructions',
+      });
       assertIntegrity(sqlite);
     } finally {
       sqlite.close();

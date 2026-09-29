@@ -198,7 +198,7 @@ const toPreference = (row: typeof bodyCheckInPreferences.$inferSelect): BodyChec
   enabledSites: row.enabledSites,
   anchorDate: row.anchorDate,
   reminderLocalTime: row.reminderLocalTime,
-  protocolVersion: BODY_PROTOCOL_VERSION,
+  protocolVersion: row.protocolVersion as BodyCheckInPreference['protocolVersion'],
   snoozedUntil: row.snoozedUntil,
   lastDismissedDueDate: row.lastDismissedDueDate,
   createdAt: row.createdAt,
@@ -268,6 +268,7 @@ export const upsertBodyCheckInPreference = async (
           ? {}
           : { reminderLocalTime: input.reminderLocalTime }),
         anchorDate,
+        protocolVersion: BODY_PROTOCOL_VERSION,
         updatedAt: sql<number>`max(${bodyCheckInPreferences.updatedAt} + 1, ${updatedAt})`,
       },
     })
@@ -297,7 +298,7 @@ const buildMeasurementValues = (
     quality: canonical.quality,
     selectedReadingPair: canonical.selectedReadingPair,
     protocolId: input.site,
-    protocolVersion: BODY_PROTOCOL_VERSION,
+    protocolVersion: protocol.version,
     protocolName: protocol.name,
     protocolInstructions: protocol.instructions,
     protocolSourceUrls: [...protocol.sourceUrls],
@@ -349,7 +350,7 @@ export const findBodyCheckInById = async (
     ? {
         contractVersion: BODY_CHECK_IN_CONTRACT_VERSION,
         ...row,
-        protocolVersion: BODY_PROTOCOL_VERSION,
+        protocolVersion: row.protocolVersion as BodyCheckIn['protocolVersion'],
         measurements: await findMeasurements(row.id),
       }
     : null;

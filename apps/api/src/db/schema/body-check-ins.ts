@@ -212,7 +212,7 @@ export const bodyCheckInMeasurements = sqliteTable(
     check('body_check_in_measurements_unit_check', sql`${table.unitAtEntry} in ('cm', 'in')`),
     check(
       'body_check_in_measurements_bounds_check',
-      sql`${table.reading1Mm} between 200 and 3000 and (${table.reading2Mm} is null or ${table.reading2Mm} between 200 and 3000) and (${table.reading3Mm} is null or ${table.reading3Mm} between 200 and 3000) and ${table.canonicalMm} between 200 and 3000`,
+      sql`((${table.site} in ('waist_iliac_crest_nhanes','chest_nipple_line_relaxed','hips_maximum','upper_arm_midpoint_flexed','thigh_midpoint') and ${table.reading1Mm} between 200 and 3000 and (${table.reading2Mm} is null or ${table.reading2Mm} between 200 and 3000) and (${table.reading3Mm} is null or ${table.reading3Mm} between 200 and 3000) and ${table.canonicalMm} between 200 and 3000) or (${table.site} = 'calf_maximum_relaxed' and ${table.reading1Mm} between 150 and 800 and (${table.reading2Mm} is null or ${table.reading2Mm} between 150 and 800) and (${table.reading3Mm} is null or ${table.reading3Mm} between 150 and 800) and ${table.canonicalMm} between 150 and 800) or (${table.site} = 'forearm_maximum_relaxed' and ${table.reading1Mm} between 100 and 600 and (${table.reading2Mm} is null or ${table.reading2Mm} between 100 and 600) and (${table.reading3Mm} is null or ${table.reading3Mm} between 100 and 600) and ${table.canonicalMm} between 100 and 600) or (${table.site} = 'neck_below_larynx_relaxed' and ${table.reading1Mm} between 200 and 800 and (${table.reading2Mm} is null or ${table.reading2Mm} between 200 and 800) and (${table.reading3Mm} is null or ${table.reading3Mm} between 200 and 800) and ${table.canonicalMm} between 200 and 800) or (${table.site} = 'shoulder_girth_deltoid' and ${table.reading1Mm} between 500 and 2000 and (${table.reading2Mm} is null or ${table.reading2Mm} between 500 and 2000) and (${table.reading3Mm} is null or ${table.reading3Mm} between 500 and 2000) and ${table.canonicalMm} between 500 and 2000))`,
     ),
     check(
       'body_check_in_measurements_sequence_check',
@@ -220,7 +220,7 @@ export const bodyCheckInMeasurements = sqliteTable(
     ),
     check(
       'body_check_in_measurements_laterality_check',
-      sql`((${table.site} in ('waist_iliac_crest_nhanes','chest_nipple_line_relaxed','hips_maximum') and ${table.laterality} = 'none') or (${table.site} in ('upper_arm_midpoint_flexed','thigh_midpoint') and ${table.laterality} in ('left','right')))`,
+      sql`((${table.site} in ('waist_iliac_crest_nhanes','chest_nipple_line_relaxed','hips_maximum','neck_below_larynx_relaxed','shoulder_girth_deltoid') and ${table.laterality} = 'none') or (${table.site} in ('upper_arm_midpoint_flexed','thigh_midpoint','calf_maximum_relaxed','forearm_maximum_relaxed') and ${table.laterality} in ('left','right')))`,
     ),
   ],
 );
@@ -266,7 +266,7 @@ export const bodyCheckInMeasurementVersions = sqliteTable(
     ),
     check(
       'body_check_in_measurement_versions_bounds_check',
-      sql`${table.reading1Mm} between 200 and 3000 and (${table.reading2Mm} is null or ${table.reading2Mm} between 200 and 3000) and (${table.reading3Mm} is null or ${table.reading3Mm} between 200 and 3000) and ${table.canonicalMm} between 200 and 3000`,
+      sql`((${table.site} in ('waist_iliac_crest_nhanes','chest_nipple_line_relaxed','hips_maximum','upper_arm_midpoint_flexed','thigh_midpoint') and ${table.reading1Mm} between 200 and 3000 and (${table.reading2Mm} is null or ${table.reading2Mm} between 200 and 3000) and (${table.reading3Mm} is null or ${table.reading3Mm} between 200 and 3000) and ${table.canonicalMm} between 200 and 3000) or (${table.site} = 'calf_maximum_relaxed' and ${table.reading1Mm} between 150 and 800 and (${table.reading2Mm} is null or ${table.reading2Mm} between 150 and 800) and (${table.reading3Mm} is null or ${table.reading3Mm} between 150 and 800) and ${table.canonicalMm} between 150 and 800) or (${table.site} = 'forearm_maximum_relaxed' and ${table.reading1Mm} between 100 and 600 and (${table.reading2Mm} is null or ${table.reading2Mm} between 100 and 600) and (${table.reading3Mm} is null or ${table.reading3Mm} between 100 and 600) and ${table.canonicalMm} between 100 and 600) or (${table.site} = 'neck_below_larynx_relaxed' and ${table.reading1Mm} between 200 and 800 and (${table.reading2Mm} is null or ${table.reading2Mm} between 200 and 800) and (${table.reading3Mm} is null or ${table.reading3Mm} between 200 and 800) and ${table.canonicalMm} between 200 and 800) or (${table.site} = 'shoulder_girth_deltoid' and ${table.reading1Mm} between 500 and 2000 and (${table.reading2Mm} is null or ${table.reading2Mm} between 500 and 2000) and (${table.reading3Mm} is null or ${table.reading3Mm} between 500 and 2000) and ${table.canonicalMm} between 500 and 2000))`,
     ),
     check(
       'body_check_in_measurement_versions_sequence_check',
@@ -274,7 +274,7 @@ export const bodyCheckInMeasurementVersions = sqliteTable(
     ),
     check(
       'body_check_in_measurement_versions_laterality_check',
-      sql`((${table.site} in ('waist_iliac_crest_nhanes','chest_nipple_line_relaxed','hips_maximum') and ${table.laterality} = 'none') or (${table.site} in ('upper_arm_midpoint_flexed','thigh_midpoint') and ${table.laterality} in ('left','right')))`,
+      sql`((${table.site} in ('waist_iliac_crest_nhanes','chest_nipple_line_relaxed','hips_maximum','neck_below_larynx_relaxed','shoulder_girth_deltoid') and ${table.laterality} = 'none') or (${table.site} in ('upper_arm_midpoint_flexed','thigh_midpoint','calf_maximum_relaxed','forearm_maximum_relaxed') and ${table.laterality} in ('left','right')))`,
     ),
   ],
 );

@@ -39,7 +39,7 @@ describe('0072 Journal runtime migration', () => {
   it('applies fresh, upgrades populated exact 0071, reruns without mutation, and cascades owner erasure', () => {
     const fresh = open();
     try {
-      expect(migratePulseDatabase(fresh, { migrationsFolder })).toMatchObject({ applied: 73 });
+      expect(migratePulseDatabase(fresh, { migrationsFolder })).toMatchObject({ applied: 74 });
       integrity(fresh);
       expect(migratePulseDatabase(fresh, { migrationsFolder })).toMatchObject({ applied: 0 });
     } finally {
@@ -54,7 +54,7 @@ describe('0072 Journal runtime migration', () => {
         "insert into users (id,username,password_hash) values ('owner','owner','x'); insert into journal_entries (id,user_id,date,title,type,content,created_by,created_at,updated_at) values ('legacy','owner','2026-09-19','Old','observation','Date-only record','agent',1,1)",
       );
       const legacy = sqlite.prepare("select * from journal_entries where id='legacy'").get();
-      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 1 });
+      expect(migratePulseDatabase(sqlite, { migrationsFolder })).toMatchObject({ applied: 2 });
       expect(sqlite.prepare("select * from journal_entries where id='legacy'").get()).toEqual(
         legacy,
       );

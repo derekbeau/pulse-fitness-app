@@ -119,7 +119,7 @@ describe('body check-in API bridge', () => {
         measurementCadenceDays: 14,
         lengthUnit: 'in',
         anchorDate: '2026-09-15',
-        protocolVersion: 'body-circumference-v1',
+        protocolVersion: 'body-circumference-v2',
       });
       expect(
         (
@@ -674,6 +674,112 @@ describe('body check-in API bridge', () => {
           })
         ).json().data.versions,
       ).toHaveLength(2);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('validates and persists expanded sites identically for JWT and AgentToken callers', async () => {
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const jwt = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '1h' },
+      );
+      const jwtHeaders = { authorization: `Bearer ${jwt}` };
+      const agentHeaders = { authorization: 'AgentToken body-agent-secret' };
+      const enabledSites = [
+        { site: 'calf_maximum_relaxed', laterality: 'left' },
+        { site: 'calf_maximum_relaxed', laterality: 'right' },
+        { site: 'forearm_maximum_relaxed', laterality: 'left' },
+        { site: 'forearm_maximum_relaxed', laterality: 'right' },
+        { site: 'neck_below_larynx_relaxed', laterality: 'none' },
+        { site: 'shoulder_girth_deltoid', laterality: 'none' },
+      ];
+      const preference = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/body-check-ins/preferences',
+        headers: jwtHeaders,
+        payload: { enabledSites, cadenceChange: 'restart', restartAnchorDate: '2026-09-15' },
+      });
+      expect(preference.statusCode).toBe(200);
+      expect(preference.json().data.enabledSites).toEqual(enabledSites);
+
+      const measurements = [
+        { site: 'calf_maximum_relaxed', laterality: 'left', unit: 'cm', readings: [36] },
+        { site: 'calf_maximum_relaxed', laterality: 'right', unit: 'cm', readings: [36.5] },
+        { site: 'forearm_maximum_relaxed', laterality: 'left', unit: 'cm', readings: [28] },
+        { site: 'forearm_maximum_relaxed', laterality: 'right', unit: 'cm', readings: [28.4] },
+        { site: 'neck_below_larynx_relaxed', laterality: 'none', unit: 'cm', readings: [39] },
+        { site: 'shoulder_girth_deltoid', laterality: 'none', unit: 'cm', readings: [122] },
+      ];
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/v1/body-check-ins/',
+        headers: agentHeaders,
+        payload: {
+          date: '2026-09-15',
+          status: 'draft',
+          idempotencyKey: 'expanded-sites-188',
+          measurements,
+        },
+      });
+      expect(created.statusCode).toBe(201);
+      expect(created.json().data.measurements).toHaveLength(6);
+      expect(created.json().data.measurements[0]).toMatchObject({
+        protocolVersion: 'body-circumference-v2',
+      });
+      const id = created.json().data.id as string;
+      const completed = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/body-check-ins/${id}`,
+        headers: jwtHeaders,
+        payload: { expectedVersion: 1, status: 'completed', measurements },
+      });
+      expect(completed.statusCode, completed.body).toBe(200);
+      expect(completed.json().data).toMatchObject({ status: 'completed', version: 2 });
+      const corrected = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/body-check-ins/${id}`,
+        headers: agentHeaders,
+        payload: {
+          expectedVersion: 2,
+          correctionReason: 'Corrected left calf transcription',
+          measurements: measurements.map((measurement) =>
+            measurement.site === 'calf_maximum_relaxed' && measurement.laterality === 'left'
+              ? { ...measurement, readings: [36.2] }
+              : measurement,
+          ),
+        },
+      });
+      expect(corrected.statusCode, corrected.body).toBe(200);
+      expect(corrected.json().data).toMatchObject({ version: 3 });
+      const history = await app.inject({
+        method: 'GET',
+        url: `/api/v1/body-check-ins/${id}/history`,
+        headers: jwtHeaders,
+      });
+      expect(history.statusCode, history.body).toBe(200);
+      expect(history.json().data.versions).toHaveLength(3);
+      expect(history.json().data.versions[2].measurements).toHaveLength(6);
+
+      for (const headers of [jwtHeaders, agentHeaders]) {
+        const invalid = await app.inject({
+          method: 'POST',
+          url: '/api/v1/body-check-ins/',
+          headers,
+          payload: {
+            date: '2026-09-14',
+            status: 'draft',
+            measurements: [
+              { site: 'neck_below_larynx_relaxed', laterality: 'left', unit: 'cm', readings: [39] },
+            ],
+          },
+        });
+        expect(invalid.statusCode).toBe(400);
+      }
     } finally {
       await app.close();
     }

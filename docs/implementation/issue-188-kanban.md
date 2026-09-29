@@ -6,7 +6,7 @@ Expand the existing versioned Body Progress check-in domain without reinterpreti
 
 - Bilateral sites: `upper_arm_midpoint_flexed`, `thigh_midpoint`, new `calf_maximum_relaxed`, and new `forearm_maximum_relaxed`. Preferences offer Left / Right / Both; Both is represented as two independent `(site,laterality)` entries and measurements.
 - Non-lateral sites: new `neck_below_larynx_relaxed` and `shoulder_girth_deltoid`. Existing `hips_maximum` remains the sole hips/glutes series and is labeled “Hips / glutes (maximum buttocks circumference).”
-- Existing defaults and saved preferences remain unchanged. New sites are opt-in. The maximum enabled measurement-pair count is 11 (three existing non-lateral + four bilateral pairs + two new non-lateral).
+- Existing defaults and saved preferences remain unchanged. New sites are opt-in. The maximum enabled measurement-pair count is 13 (three existing non-lateral + eight entries across four bilateral sites + two new non-lateral).
 - Existing site protocol identifiers, frozen measurement rows, version snapshots, labels, instructions, source URLs, and `body-circumference-v1` provenance stay readable and immutable. New-site protocols use `body-circumference-v2`; protocol compatibility remains exact-version based.
 - New-site product bounds, chosen as plausibility/data-entry guards rather than clinical reference ranges: calf 15–80 cm, forearm 10–60 cm, neck 20–80 cm, shoulder girth 50–200 cm. Existing-site 20–300 cm compatibility remains unchanged.
 - New sites receive raw protocol-bound trend series but no directional classification/noise floor or recomp “muscular support” interpretation. Their analytics state is explicitly unsupported until a separately approved interpretation policy exists.
@@ -25,7 +25,7 @@ Every protocol ships with a static landmark diagram, short CSS motion cue, and e
 
 ## Acceptance map
 
-1. Shared/API persistence: strict site/laterality enum, pair uniqueness, all-11 capacity, site-specific bounds, both auth modes, OpenAPI, immutable raw/canonical/quality/version history, populated predecessor migration preserving existing rows.
+1. Shared/API persistence: strict site/laterality enum, pair uniqueness, all-13 capacity, site-specific bounds, both auth modes, OpenAPI, immutable raw/canonical/quality/version history, populated predecessor migration preserving existing rows.
 2. Preferences and entry: old defaults unchanged; Left / Right / Both survives save/reload; Both renders and persists two independently editable measurements; disabling/changing sides does not alter history.
 3. History/comparison: all sites render exact values and correction/delete flows; separate side series; same-check-in exact-protocol pair differences with units; missing/high-variance limitations and non-diagnostic copy.
 4. Analytics: new raw segments cannot crash parsing/charts; new sites are visibly unsupported for direction/recomp until approved; existing analytics outputs regress unchanged.

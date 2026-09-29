@@ -19,10 +19,21 @@ import { useBodyDue, useBodyPreferences, useSaveBodyPreferences } from '../api/b
 const siteLabels: Record<BodyMeasurementSite, string> = {
   waist_iliac_crest_nhanes: 'NHANES iliac-crest waist',
   chest_nipple_line_relaxed: 'Relaxed nipple-line chest',
-  hips_maximum: 'Maximum hip circumference',
+  hips_maximum: 'Hips / glutes (maximum buttocks circumference)',
   upper_arm_midpoint_flexed: 'Flexed midpoint upper arm',
   thigh_midpoint: 'Midpoint thigh',
+  calf_maximum_relaxed: 'Maximum relaxed calf',
+  forearm_maximum_relaxed: 'Maximum relaxed forearm',
+  neck_below_larynx_relaxed: 'Relaxed neck below the larynx',
+  shoulder_girth_deltoid: 'Shoulder girth around the deltoids',
 };
+
+const bilateralSites = new Set<BodyMeasurementSite>([
+  'upper_arm_midpoint_flexed',
+  'thigh_midpoint',
+  'calf_maximum_relaxed',
+  'forearm_maximum_relaxed',
+]);
 
 const preferenceFormSchema = z.object({
   cadence: z.coerce.number().int().min(7, 'Use 7–90 days').max(90, 'Use 7–90 days'),
@@ -80,21 +91,24 @@ export function BodyPreferencesForm({ onSaved }: { onSaved?: () => void }) {
   }, [dueQuery.data?.localDate, form, preferenceQuery.data]);
 
   const toggleSite = (site: BodyMeasurementSite, checked: boolean) => {
-    const defaultSite = defaultBodyEnabledSites.find((item) => item.site === site);
-    const next = checked
-      ? defaultSite
-        ? [...sites, defaultSite]
-        : sites
-      : sites.filter((item) => item.site !== site);
+    const defaultSite = defaultBodyEnabledSites.find((item) => item.site === site) ?? {
+      site,
+      laterality: bilateralSites.has(site) ? ('right' as const) : ('none' as const),
+    };
+    const next = checked ? [...sites, defaultSite] : sites.filter((item) => item.site !== site);
     form.setValue('sites', next, { shouldDirty: true, shouldValidate: true });
   };
 
-  const updateLaterality = (site: BodyMeasurementSite, laterality: 'left' | 'right') => {
-    form.setValue(
-      'sites',
-      sites.map((item) => (item.site === site ? { ...item, laterality } : item)),
-      { shouldDirty: true },
-    );
+  const updateLaterality = (site: BodyMeasurementSite, laterality: 'left' | 'right' | 'both') => {
+    const withoutSite = sites.filter((item) => item.site !== site);
+    const replacements: BodyEnabledSite[] =
+      laterality === 'both'
+        ? [
+            { site, laterality: 'left' },
+            { site, laterality: 'right' },
+          ]
+        : [{ site, laterality }];
+    form.setValue('sites', [...withoutSite, ...replacements], { shouldDirty: true });
   };
 
   const submit = form.handleSubmit(async (values) => {
@@ -249,8 +263,10 @@ export function BodyPreferencesForm({ onSaved }: { onSaved?: () => void }) {
             <div className="grid gap-2 sm:grid-cols-2">
               {(Object.keys(siteLabels) as BodyMeasurementSite[]).map((site) => {
                 const enabled = sites.some((item) => item.site === site);
-                const selected = sites.find((item) => item.site === site);
-                const sided = site === 'upper_arm_midpoint_flexed' || site === 'thigh_midpoint';
+                const selectedSides = sites
+                  .filter((item) => item.site === site)
+                  .map((item) => item.laterality);
+                const sided = bilateralSites.has(site);
                 return (
                   <div className="rounded-xl border border-border/80 p-3" key={site}>
                     <Label
@@ -266,20 +282,26 @@ export function BodyPreferencesForm({ onSaved }: { onSaved?: () => void }) {
                     </Label>
                     {enabled && sided ? (
                       <div className="ml-7 mt-2 flex gap-4">
-                        {(['left', 'right'] as const).map((side) => (
+                        {(['left', 'right', 'both'] as const).map((side) => (
                           <Label
                             className="flex min-h-11 items-center gap-2"
                             htmlFor={`${site}-${side}`}
                             key={side}
                           >
                             <input
-                              checked={selected?.laterality === side}
+                              checked={
+                                side === 'both'
+                                  ? selectedSides.includes('left') &&
+                                    selectedSides.includes('right')
+                                  : selectedSides.length === 1 && selectedSides[0] === side
+                              }
                               id={`${site}-${side}`}
                               name={`${site}-side`}
                               onChange={() => updateLaterality(site, side)}
                               type="radio"
                             />
-                            {side}
+                            {side[0]?.toUpperCase()}
+                            {side.slice(1)}
                           </Label>
                         ))}
                       </div>

@@ -129,12 +129,24 @@ test('setup persists to the real server and survives reload', async ({ page }) =
   await api.dispose();
   await authenticate(page, seed.token);
   await page.goto('/body');
-  await expect(page.getByRole('heading', { name: 'Body Progress' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Body Progress', exact: true })).toBeVisible();
   await expect(page.getByText('Set up Body Progress', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Hips / glutes (maximum buttocks circumference)')).toBeChecked();
+  await page.getByLabel('Maximum relaxed calf').check();
+  await page.locator('#calf_maximum_relaxed-both').check();
+  await page.getByLabel('Flexed midpoint upper arm').check();
+  await page.locator('#upper_arm_midpoint_flexed-both').check();
+  await page.getByLabel('Relaxed neck below the larynx').check();
+  await page.getByLabel('Shoulder girth around the deltoids').check();
   await page.getByRole('button', { name: 'Finish setup' }).click();
   await expect(page.getByTestId('body-due-card')).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Preferences' })).toBeVisible();
+  await page.getByRole('button', { name: 'Preferences' }).click();
+  await expect(page.getByLabel('Maximum relaxed calf')).toBeChecked();
+  await expect(page.locator('#calf_maximum_relaxed-both')).toBeChecked();
+  await expect(page.locator('#upper_arm_midpoint_flexed-both')).toBeChecked();
+  await expect(page.getByLabel('Relaxed neck below the larynx')).toBeChecked();
+  await expect(page.getByLabel('Shoulder girth around the deltoids')).toBeChecked();
 });
 
 test('populated Body Progress acceptance is responsive, accessible, and evidence-bound', async ({
@@ -151,12 +163,16 @@ test('populated Body Progress acceptance is responsive, accessible, and evidence
   for (const width of widths) {
     await page.setViewportSize({ width, height: width < 768 ? 900 : 1000 });
     await page.goto('/body');
-    await expect(page.getByRole('heading', { name: 'Body Progress' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Body Progress', exact: true })).toBeVisible();
     await expect(page.getByText('Paused for a third waist reading.')).toBeHidden();
     await expect(page.getByText('Added by agent')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Circumference trends' })).toBeVisible();
     await expect(
       page.getByRole('img', { name: 'Body Progress circumference chart' }),
+    ).toBeVisible();
+    await expect(page.getByText('Same-check-in side-to-side differences')).toBeVisible();
+    await expect(
+      page.getByText(/Circumference differences do not establish strength asymmetry/),
     ).toBeVisible();
     await expect(page.getByText('Product Trend Weight · current')).toBeVisible();
     await expect(page.getByText(/Workout exposure is not treated as strength/)).toBeVisible();
@@ -173,6 +189,14 @@ test('populated Body Progress acceptance is responsive, accessible, and evidence
     await page.goto('/body?check-in=1');
     await expect(
       page.getByRole('img', { name: /NHANES iliac-crest waist landmark diagram/ }),
+    ).toBeVisible();
+    const calfDiagrams = page.getByRole('img', {
+      name: /Maximum relaxed calf landmark diagram/,
+    });
+    await expect(calfDiagrams).toHaveCount(2);
+    await expect(calfDiagrams.first()).toBeVisible();
+    await expect(
+      page.getByRole('img', { name: /Shoulder girth around the deltoids landmark diagram/ }),
     ).toBeVisible();
     await expect(page.getByLabel('Reading 1 (cm)').first()).toBeVisible();
     await expectNoOverflow(page);

@@ -83,15 +83,29 @@ export function analyzeBodyProgressSegments(input: {
       let slopeMmPerDay: number | null = null;
       let fittedTotalChangeMm: number | null = null;
 
-      if (points.length < BODY_PROGRESS_ANALYTICS_CONSTANTS.minimumCompatibleCheckIns) {
+      const floor = BODY_PROGRESS_ANALYTICS_CONSTANTS.noiseFloorMm[first.site];
+      if (floor === null) {
+        state = 'unsupported';
+      }
+
+      if (
+        state !== 'unsupported' &&
+        points.length < BODY_PROGRESS_ANALYTICS_CONSTANTS.minimumCompatibleCheckIns
+      ) {
         reasonCodes.push('INSUFFICIENT_COMPATIBLE_CHECK_INS');
         state = 'insufficient';
       }
-      if (spacedCount < BODY_PROGRESS_ANALYTICS_CONSTANTS.minimumCompatibleCheckIns) {
+      if (
+        state !== 'unsupported' &&
+        spacedCount < BODY_PROGRESS_ANALYTICS_CONSTANTS.minimumCompatibleCheckIns
+      ) {
         reasonCodes.push('CHECK_INS_TOO_CLOSE');
         state = 'insufficient';
       }
-      if (elapsedDays < BODY_PROGRESS_ANALYTICS_CONSTANTS.minimumElapsedDays) {
+      if (
+        state !== 'unsupported' &&
+        elapsedDays < BODY_PROGRESS_ANALYTICS_CONSTANTS.minimumElapsedDays
+      ) {
         reasonCodes.push('INSUFFICIENT_ELAPSED_DAYS');
         state = 'insufficient';
       }
@@ -112,12 +126,11 @@ export function analyzeBodyProgressSegments(input: {
         state = 'stale';
       }
 
-      if (state === 'supported') {
+      if (state === 'supported' && floor !== null) {
         const result = datedRegression(points);
         if (result) {
           slopeMmPerDay = round(result.slopeMmPerDay);
           fittedTotalChangeMm = round(result.fittedTotalChangeMm);
-          const floor = BODY_PROGRESS_ANALYTICS_CONSTANTS.noiseFloorMm[first.site];
           direction =
             result.fittedTotalChangeMm > floor
               ? 'up'

@@ -339,4 +339,105 @@ describe('Body Progress analytics API', () => {
       await app.close();
     }
   });
+
+  it('keeps side trends separate and compares only compatible sides from the same check-in', async () => {
+    const { buildServer } = await import('../../index.js');
+    const app = buildServer();
+    await app.ready();
+    try {
+      const jwt = app.jwt.sign(
+        { sub: 'user-1', type: 'session', iss: 'pulse-api' },
+        { expiresIn: '1h' },
+      );
+      const headers = { authorization: 'Bearer ' + jwt };
+      await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/body-check-ins/preferences',
+        headers,
+        payload: {
+          cadenceChange: 'restart',
+          restartAnchorDate: '2026-09-01',
+          enabledSites: [
+            { site: 'calf_maximum_relaxed', laterality: 'left' },
+            { site: 'calf_maximum_relaxed', laterality: 'right' },
+          ],
+        },
+      });
+
+      const create = async (
+        date: string,
+        measurements: Array<{
+          site: 'calf_maximum_relaxed';
+          laterality: 'left' | 'right';
+          unit: 'cm';
+          readings: number[];
+        }>,
+      ) => {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/v1/body-check-ins',
+          headers,
+          payload: { date, status: 'completed', measurements },
+        });
+        expect(response.statusCode, response.body).toBe(201);
+        return response.json().data.id as string;
+      };
+
+      const pairedId = await create('2026-09-01', [
+        { site: 'calf_maximum_relaxed', laterality: 'left', unit: 'cm', readings: [36, 36.2] },
+        { site: 'calf_maximum_relaxed', laterality: 'right', unit: 'cm', readings: [37, 37.2] },
+      ]);
+      const missingId = await create('2026-09-08', [
+        { site: 'calf_maximum_relaxed', laterality: 'left', unit: 'cm', readings: [36.5, 36.7] },
+      ]);
+      const highVarianceId = await create('2026-09-15', [
+        { site: 'calf_maximum_relaxed', laterality: 'left', unit: 'cm', readings: [30, 40, 50] },
+        { site: 'calf_maximum_relaxed', laterality: 'right', unit: 'cm', readings: [37.5, 37.7] },
+      ]);
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/body-check-ins/analytics?range=3m',
+        headers,
+      });
+      expect(response.statusCode, response.body).toBe(200);
+      const analytics = response.json().data;
+      expect(
+        analytics.segments
+          .filter((segment: { site: string }) => segment.site === 'calf_maximum_relaxed')
+          .map((segment: { laterality: string; analysis: { state: string } }) => ({
+            laterality: segment.laterality,
+            state: segment.analysis.state,
+          })),
+      ).toEqual([
+        { laterality: 'left', state: 'unsupported' },
+        { laterality: 'right', state: 'unsupported' },
+      ]);
+      expect(analytics.pairedComparisons).toContainEqual(
+        expect.objectContaining({
+          checkInId: pairedId,
+          leftCanonicalMm: 361,
+          rightCanonicalMm: 371,
+          differenceMm: 10,
+          reliability: 'reliable',
+        }),
+      );
+      expect(analytics.pairedComparisons).toContainEqual(
+        expect.objectContaining({
+          checkInId: missingId,
+          rightCanonicalMm: null,
+          differenceMm: null,
+          reliability: 'unavailable',
+        }),
+      );
+      expect(analytics.pairedComparisons).toContainEqual(
+        expect.objectContaining({
+          checkInId: highVarianceId,
+          reliability: 'high_variance',
+        }),
+      );
+    } finally {
+      await app.close();
+    }
+  });
 });

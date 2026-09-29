@@ -1,5 +1,5 @@
 import {
-  BODY_PROTOCOL_VERSION,
+  bodyMeasurementBoundsCm,
   bodyMeasurementProtocols,
   calculateCanonicalBodyReading,
   createBodyCheckInInputSchema,
@@ -309,8 +309,10 @@ export function GuidedCheckInForm({
             />
           </div>
           <div className="rounded-xl bg-secondary/30 p-3 text-sm">
-            <p className="font-medium">Protocol version</p>
-            <p className="text-muted-foreground">{BODY_PROTOCOL_VERSION}</p>
+            <p className="font-medium">Versioned site protocols</p>
+            <p className="text-muted-foreground">
+              Each saved reading retains its exact protocol version and instructions.
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -368,6 +370,7 @@ export function GuidedCheckInForm({
         }
         const needsThird = preview?.quality === 'needs_third_reading' || Boolean(values[2]);
         const protocol = bodyMeasurementProtocols[site.site];
+        const bounds = bodyMeasurementBoundsCm[site.site];
         const isOmitted = omitted.has(key);
         return (
           <Card
@@ -424,8 +427,16 @@ export function GuidedCheckInForm({
                               aria-describedby={`${key}-quality`}
                               id={`${key}-reading-${readingIndex + 1}`}
                               inputMode="decimal"
-                              max={lengthUnit === 'cm' ? 300 : 118.1}
-                              min={lengthUnit === 'cm' ? 20 : 7.9}
+                              max={
+                                lengthUnit === 'cm'
+                                  ? bounds.max
+                                  : Number((bounds.max / 2.54).toFixed(1))
+                              }
+                              min={
+                                lengthUnit === 'cm'
+                                  ? bounds.min
+                                  : Number((bounds.min / 2.54).toFixed(1))
+                              }
                               onChange={(event) => {
                                 const nextValue = event.currentTarget.value;
                                 setMeasurementDirty(true);

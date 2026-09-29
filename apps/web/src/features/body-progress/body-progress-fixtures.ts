@@ -170,6 +170,10 @@ export const populatedBodyAnalyticsFixture = bodyProgressAnalyticsSchema.parse({
       hips_maximum: 10,
       upper_arm_midpoint_flexed: 10,
       thigh_midpoint: 10,
+      calf_maximum_relaxed: null,
+      forearm_maximum_relaxed: null,
+      neck_below_larynx_relaxed: null,
+      shoulder_girth_deltoid: null,
     },
     regression: 'dated_ordinary_least_squares',
     interpolation: 'none',
@@ -271,6 +275,7 @@ export const populatedBodyAnalyticsFixture = bodyProgressAnalyticsSchema.parse({
       qualityStates: ['replicated'],
     },
   ],
+  pairedComparisons: [],
   legacyPoints: [
     {
       entryId: 'legacy-1',
